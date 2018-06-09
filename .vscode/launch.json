@@ -1,0 +1,65 @@
+{
+  // Verwendet IntelliSense zum Ermitteln möglicher Attribute.
+  // Zeigen Sie auf vorhandene Attribute, um die zugehörigen Beschreibungen anzuzeigen.
+  // Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Mocha Tests",
+      "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+      "args": [
+        "-u",
+        "tdd",
+        "--timeout",
+        "999999",
+        "--colors",
+        "--grep",
+        "eth_getBalance",
+        "${workspaceFolder}/js/test/*/*.js"
+      ],
+      "outFiles": [
+        "${workspaceRoot}/js/**/*.js"
+      ],
+      "sourceMaps": true,
+      "internalConsoleOptions": "openOnSessionStart",
+      "env": {
+        "PATH": "/Users/simon/.cargo/bin:/opt/local/bin:/opt/local/sbin:/usr/local/bin:/Users/simon/bin:/Users/simon/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach",
+      "port": 9229
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Server starten",
+      "program": "${workspaceFolder}/js/src/server/server.js",
+      "outFiles": [
+        "${workspaceFolder}/js/**/*.js"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "testClient starten",
+      "program": "${workspaceFolder}/js/src/testClient.js",
+      "outFiles": [
+        "${workspaceFolder}/js/**/*.js"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "cbor starten",
+      "program": "${workspaceFolder}/js/src/types/cbor.js",
+      "outFiles": [
+        "${workspaceFolder}/js/**/*.js"
+      ]
+    }
+  ]
+}
