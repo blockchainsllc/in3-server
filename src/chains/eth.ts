@@ -122,7 +122,7 @@ export default class EthHandler {
       ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toHex(b.blockNumber), false] })),
       { method: 'eth_blockNumber', params: [] },
     ]).then(a => a.map(_ => _.result as BlockData))
-    const blockNumber = blockData.pop() as any as string
+    const blockNumber = blockData.pop() as any as string // the first arg is just the current blockNumber
 
     if (!blockNumber) throw new Error('no current blocknumber detectable ')
     if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
@@ -146,7 +146,7 @@ export default class EthHandler {
         ? { method: 'eth_getBlockBy' + request.method.substr(30), params: [request.params[0], true] }
         : { ...request, params: [request.params[0], true] })
 
-    const blockData = response && response.result as any as BlockData
+    const blockData = response && response.result as BlockData
 
     // if we found the block....
     if (blockData && blockData.number) {
@@ -225,7 +225,7 @@ export default class EthHandler {
   async  handleLogs(request: RPCRequest): Promise<RPCResponse> {
     // ask the server for the tx
     const response = await this.getFromServer(request)
-    const logs = response && response.result as any as LogData[]
+    const logs = response && response.result as LogData[]
     // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
     if (logs && logs.length) {
 
@@ -236,16 +236,16 @@ export default class EthHandler {
       })
 
       // get the blocks from the server
-      const blocks = await this.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [bn, false] }))).then(all => all.map(_ => _.result as any as BlockData))
+      const blocks = await this.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [bn, false] }))).then(all => all.map(_ => _.result as BlockData))
 
       // fetch in parallel
-      const [signatures, receipts] = await Promise.all([
+      await Promise.all([
         // collect signatures for all the blocks
         this.collectSignatures(request.in3.signatures, blocks.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash }))),
         // and get all receipts in all blocks and afterwards reasign them to their block
         this.getAllFromServer(
           blocks.map(_ => _.transactions).reduce((p, c) => [...p, ...c], []).map(t => ({ method: 'eth_getTransactionReceipt', params: [t] }))
-        ).then(a => a.forEach(r => proof[toHex((r.result as any).blockNumber)].allReceipts.push(r.result)))
+        ).then(a => a.forEach(r => proof[toHex(r.result.blockNumber)].allReceipts.push(r.result)))
       ])
 
       // create the proof per block
