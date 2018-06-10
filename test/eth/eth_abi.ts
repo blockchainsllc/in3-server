@@ -5,7 +5,7 @@ import Client, { chainData, serialize, BlockData, RPCResponse, util, Proof, LogD
 import { TestTransport } from '../utils/transport'
 import { deployChainRegistry, registerServers, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
-import * as logger from '../utils/memoryLogger'
+import * as logger from 'in3/js/test/util/memoryLogger'
 import { simpleEncode } from 'ethereumjs-abi'
 const toHex = util.toHex
 const getAddress = util.getAddress

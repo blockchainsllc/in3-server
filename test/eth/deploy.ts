@@ -4,7 +4,7 @@ import 'mocha'
 import Client, { chainData, util } from 'in3'
 import { deployChainRegistry, registerServers } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
-import * as logger from '../utils/memoryLogger'
+import * as logger from 'in3/js/test/util/memoryLogger'
 import { LoggingAxiosTransport } from '../utils/transport'
 
 describe('Deploying Contracts', () => {

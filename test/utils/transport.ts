@@ -2,7 +2,7 @@ import Client, { Transport, AxiosTransport, RPCRequest, RPCResponse, IN3NodeConf
 import { RPCHandler } from '../../src/server/rpc';
 import EthHandler from '../../src/chains/eth';
 import { toBuffer, privateToAddress, toChecksumAddress } from 'ethereumjs-util'
-import * as logger from './memoryLogger'
+import * as logger from 'in3/js/test/util/memoryLogger'
 import * as crypto from 'crypto'
 import { sendTransaction } from '../../src/util/tx';
 const getAddress = util.getAddress
