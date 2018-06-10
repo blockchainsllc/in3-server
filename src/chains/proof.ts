@@ -49,7 +49,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
   await Promise.all(receipts.map(tx => new Promise((resolve, reject) =>
     trie.put(
       util.rlp.encode(parseInt(tx.transactionIndex)), // path as txIndex
-      serialize.serializeReceipt(tx),  // raw transactions
+      serialize.serialize(serialize.toReceipt(tx)),  // raw transactions
       error => error ? reject(error) : resolve(true)
     )
   )))
