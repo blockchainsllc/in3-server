@@ -59,7 +59,7 @@
     "typescript": "^2.9.1"
   },
   "dependencies": {
-    "in3": "git+ssh://git@github.com/slockit/in3.git#refactor",
+    "in3": "git+ssh://git@github.com/slockit/in3.git#Buffer",
     "axios": "^0.18.0",
     "cbor": "^4.0.0",
     "ethereumjs-abi": "0.6.5",

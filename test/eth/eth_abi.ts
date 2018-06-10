@@ -69,7 +69,7 @@ describe('ETH Standard JSON-RPC', () => {
     })
 
     const res = await client.sendRPC('eth_getTransactionByHash', [receipt.transactionHash], null, { keepIn3: true })
-    const result = res.result as any
+    const result = res.result
     assert.exists(res.in3)
     assert.exists(res.in3.proof)
     const proof = res.in3.proof as any
