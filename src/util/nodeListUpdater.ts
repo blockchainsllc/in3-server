@@ -6,6 +6,7 @@ import Client, { Proof, ServerList, BlockData, AccountProof, RPCRequest, IN3Conf
 import { toChecksumAddress, BN, keccak256, toBuffer } from 'ethereumjs-util'
 const toHex = util.toHex
 const toBuffer = util.toBuffer
+const bytes32 = serialize.bytes32
 
 export async function checkNodeList(handler: RPCHandler, nodeList: ServerList, includeProof = false, limit = 0, seed?: string, addresses: string[] = []): Promise<ServerList> {
 
@@ -38,7 +39,7 @@ export async function checkNodeList(handler: RPCHandler, nodeList: ServerList, i
         accounts: {
           [nodeList.contract]: {
             ...nodeList.proof.accounts[nodeList.contract],
-            storageProof: getStorageKeys(nl.nodes).map(k => storageProof.find(_ => _.key === k))
+            storageProof: getStorageKeys(nl.nodes).map(k => storageProof.find(_ => bytes32(_.key).equals(k)))
           }
         }
       }
@@ -56,14 +57,14 @@ export async function checkNodeList(handler: RPCHandler, nodeList: ServerList, i
 
 export function getStorageKeys(list: IN3NodeConfig[]) {
   // create the keys with the serverCount
-  const keys: string[] = [storage.getStorageArrayKey(0)]
+  const keys: Buffer[] = [storage.getStorageArrayKey(0)]
 
   for (const n of list) {
     for (let i = 0; i < 5; i++)
       keys.push(storage.getStorageArrayKey(0, n.index, 5, i))
     const urlKey = util.toBN(keccak256(keys[keys.length - 5]))
     for (let i = 0; i < Math.floor(n.url.length / 32); i++)
-      keys.push(util.leftPad('0x' + urlKey.add(util.toBN(i)).toString(16), 64))
+      keys.push(bytes32(urlKey.add(util.toBN(i))))
   }
 
   return keys
@@ -73,7 +74,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
 
 
   // create the keys with the serverCount
-  const keys: string[] = getStorageKeys(nodeList.nodes)
+  const keys: Buffer[] = getStorageKeys(nodeList.nodes)
 
   const address = nodeList.contract
   const blockNr = '0x' + nodeList.lastBlockNumber.toString(16)
@@ -86,7 +87,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
 
   // error checking
   if (blockResponse.error) throw new Error('Could not get the block for ' + blockNr + ':' + blockResponse.error)
-  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), keys, blockNr] }, null, 2))
+  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), keys.map(toHex), blockNr] }, null, 2))
 
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as BlockData

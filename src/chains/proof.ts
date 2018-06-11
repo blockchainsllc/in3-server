@@ -1,7 +1,7 @@
 import * as util from 'ethereumjs-util'
-import { BlockData, Signature, Proof, serialize } from 'in3'
+import { BlockData, Signature, Proof, serialize, util as in3Util } from 'in3'
 import * as Trie from 'merkle-patricia-tree'
-
+const toHex = in3Util.toHex
 /** creates the merkle-proof for a transation */
 export async function createTransactionProof(block: BlockData, txHash: string, signatures: Signature[]): Promise<Proof> {
   // we always need the txIndex, since this is used as path inside the merkle-tree
@@ -30,7 +30,7 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
       resolve({
         type: 'transactionProof',
         block: serialize.blockToHex(block),
-        merkleProof: prove.map(_ => _.toString('hex')),
+        merkleProof: prove.map(toHex),
         txIndex, signatures
       })
     }))
@@ -65,7 +65,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
       resolve({
         type: 'receiptProof',
         block: serialize.blockToHex(block),
-        merkleProof: prove.map(_ => _.toString('hex')),
+        merkleProof: prove.map(toHex),
         txIndex, signatures
       })
     }))
