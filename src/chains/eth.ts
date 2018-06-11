@@ -1,4 +1,4 @@
-import { LogData, LogProof, BlockData, RPCRequest, RPCResponse, Signature, ServerList, Transport, AxiosTransport, serialize, util as in3Util } from 'in3'
+import { LogData, LogProof, BlockData, RPCRequest, RPCResponse, ReceiptData, Signature, ServerList, Transport, AxiosTransport, serialize, util as in3Util } from 'in3'
 import { createTransactionProof, createTransactionReceiptProof } from './proof'
 import axios from 'axios'
 //import config from '../config'
@@ -6,8 +6,9 @@ import * as util from 'ethereumjs-util'
 import * as evm from './evm'
 import { checkNodeList } from '../util/nodeListUpdater'
 import * as utils from 'ethereumjs-util';
-import { toChecksumAddress } from 'ethereumjs-util';
+
 const toHex = in3Util.toHex
+const toNumber = in3Util.toNumber
 
 
 const NOT_SUPPORTED = {
@@ -197,16 +198,17 @@ export default class EthHandler {
   async  handeGetTransactionReceipt(request: RPCRequest): Promise<RPCResponse> {
     // ask the server for the tx
     const response = await this.getFromServer(request)
-    const tx = response && response.result as any
+    const tx = response && response.result as ReceiptData
     // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
     if (tx && tx.blockNumber) {
       // get the block including all transactions from the server
-      const block = await this.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(tx.blockNumber), false] }).then(_ => _ && _.result as any)
+      const block = await this.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(tx.blockNumber), true] }).then(_ => _ && _.result as BlockData)
       if (block) {
 
         const [signatures, receipts] = await Promise.all([
-          this.collectSignatures(request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }]),
-          this.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_] }))).then(a => a.map(_ => _.result as any))
+          this.collectSignatures(request.in3.signatures, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }]),
+          this.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })))
+            .then(a => a.map(_ => _.result as ReceiptData))
         ])
 
         // create the proof
@@ -236,7 +238,7 @@ export default class EthHandler {
       })
 
       // get the blocks from the server
-      const blocks = await this.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [bn, false] }))).then(all => all.map(_ => _.result as BlockData))
+      const blocks = await this.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [bn, true] }))).then(all => all.map(_ => _.result as BlockData))
 
       // fetch in parallel
       await Promise.all([
@@ -244,7 +246,7 @@ export default class EthHandler {
         this.collectSignatures(request.in3.signatures, blocks.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash }))),
         // and get all receipts in all blocks and afterwards reasign them to their block
         this.getAllFromServer(
-          blocks.map(_ => _.transactions).reduce((p, c) => [...p, ...c], []).map(t => ({ method: 'eth_getTransactionReceipt', params: [t] }))
+          blocks.map(_ => _.transactions).reduce((p, c) => [...p, ...c], []).map(t => ({ method: 'eth_getTransactionReceipt', params: [t.hash] }))
         ).then(a => a.forEach(r => proof[toHex(r.result.blockNumber)].allReceipts.push(r.result)))
       ])
 
