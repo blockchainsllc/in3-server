@@ -48,18 +48,30 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
   if (txIndex < 0)
     throw new Error('tx not found')
 
-
-  return {
-    type: 'receiptProof',
-    block: serialize.blockToHex(block),
-    merkleProof: await createMerkleProof(
+  const [txProof, merkleProof] = await Promise.all([
+    createMerkleProof(
+      block.transactions.map((t, i) => ({
+        key: util.rlp.encode(i),
+        value: serialize.serialize(serialize.toTransaction(t))
+      })),
+      util.rlp.encode(txIndex),
+      bytes32(block.transactionsRoot)
+    ),
+    createMerkleProof(
       receipts.map(r => ({
         key: util.rlp.encode(toNumber(r.transactionIndex)),
         value: serialize.serialize(serialize.toReceipt(r))
       })),
       util.rlp.encode(txIndex),
       bytes32(block.receiptsRoot)
-    ).then(_ => _.map(toHex)),
+    )
+  ]).then(a => a.map(_ => _.map(toHex)))
+
+
+  return {
+    type: 'receiptProof',
+    block: serialize.blockToHex(block),
+    txProof, merkleProof,
     txIndex, signatures
   }
 }

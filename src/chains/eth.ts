@@ -271,7 +271,8 @@ export default class EthHandler {
           createTransactionReceiptProof(b, allReceipts, th, [])
             .then(p => blockProof.receipts[th] = {
               txIndex: parseInt(allReceipts.find(_ => _.transactionHash).transactionIndex),
-              proof: p.merkleProof
+              proof: p.merkleProof,
+              txProof: p.txProof
             })
         ))
       }))
