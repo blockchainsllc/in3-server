@@ -6,6 +6,7 @@
   "scripts": {
     "updateIn3": "rm -rf node_modules/in3 package-lock.json; npm install",
     "build": "tsc -p .",
+    "testAll": "cd node_modules/in3; npm run build && npm test; cd ../..; npm test",
     "test": "nyc mocha --timeout 5000 -R in3/js/test/util/mochaReporter --require ts-node/register --require source-map-support/register  --full-trace --bail  test/*/*.ts && cp -r coverage test/report/",
     "updateContracts": "solc --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata test/contracts/*.sol > contracts/contracts.json; solc --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata contracts/*.sol > test/contracts/contracts.json",
     "start": "node --inspect js/server/server",

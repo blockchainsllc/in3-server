@@ -61,7 +61,7 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
 
   for (const n of list) {
     for (let i = 0; i < 5; i++)
-      keys.push(storage.getStorageArrayKey(0, n.index, 5, i))
+      keys.push(storage.getStorageArrayKey(0, n.index, 6, i))
     const urlKey = util.toBN(keccak256(keys[keys.length - 5]))
     for (let i = 0; i < Math.floor(n.url.length / 32); i++)
       keys.push(bytes32(urlKey.add(util.toBN(i))))
@@ -144,7 +144,7 @@ async function updateNodeList(handler: RPCHandler, list: ServerList) {
   list.nodes = await handler.getAllFromServer(nodeRequests).then(all => all.map((n, i) => {
     // invalid requests must be filtered out
     if (n.error) return null
-    const [url, owner, deposit, props, unregisterRequestTime] = abi.simpleDecode('servers(uint):(string,address,uint,uint,uint)', toBuffer(n.result))
+    const [url, owner, deposit, props, unregisterTime] = abi.simpleDecode('servers(uint):(string,address,uint,uint,uint,address)', toBuffer(n.result))
 
     return {
       address: toChecksumAddress(owner),
@@ -153,7 +153,7 @@ async function updateNodeList(handler: RPCHandler, list: ServerList) {
       deposit: deposit.toNumber(),
       props: props.toNumber(),
       chainIds: [handler.chainId],
-      unregisterRequestTime: unregisterRequestTime.toNumber()
+      unregisterRequestTime: unregisterTime.toNumber()
     } as IN3NodeConfig
 
   })).then(_ => _)
