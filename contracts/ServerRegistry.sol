@@ -92,8 +92,8 @@ contract ServerRegistry {
     function cancelUnregisteringServer(uint _serverIndex) public {
         var server = servers[_serverIndex];
 
-        // this can only be called if somebody requested it before
-        require(server.owner == msg.sender);
+        // this can only be called by the owner and if somebody requested it before
+        require(server.unregisterCaller!=address(0) &&  server.owner == msg.sender);
 
         // if this was requested by somebody who does not own this server,
         // the owner will get his deposit
