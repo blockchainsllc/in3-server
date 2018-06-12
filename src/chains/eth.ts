@@ -6,9 +6,13 @@ import * as util from 'ethereumjs-util'
 import * as evm from './evm'
 import { checkNodeList } from '../util/nodeListUpdater'
 import * as utils from 'ethereumjs-util';
+import * as tx from '../util/tx'
 
 const toHex = in3Util.toHex
 const toNumber = in3Util.toNumber
+const bytes32 = serialize.bytes32
+const bytes = serialize.bytes32
+const address = serialize.address
 
 
 const NOT_SUPPORTED = {
@@ -80,16 +84,73 @@ export default class EthHandler {
   }
 
   async collectSignatures(addresses: string[], blocks: { blockNumber: number, hash?: string }[]): Promise<Signature[]> {
-    if (!addresses || addresses.length === 0)
-      return []
-    //      return this.handleSign({ params: [blockNumber, hash] } as any).then(_ => [_.result] as Signature[]).catch(_ => [])
-    const nodes = await this.getNodeList(false)
-    return Promise.all(addresses.map(address => {
-      const config = nodes.nodes.find(_ => _.address === address)
-      if (config)
-        return this.transport.handle(config.url, { id: this.counter++, jsonrpc: '2.0', method: 'in3_sign', params: [...blocks] })
-          .then((_: RPCResponse) => _.error ? Promise.reject(_.error) as any : _.result as Signature[]).catch(_ => '')
+    // nothing to do?
+    if (!addresses || !addresses.length || !blocks || !blocks.length) return []
 
+    // get our own nodeList
+    const nodes = await this.getNodeList(false)
+    return Promise.all(addresses.map(async adr => {
+
+      // find the requested address in our list
+      const config = nodes.nodes.find(_ => _.address === adr)
+      if (!config) // TODO do we need to throw here or is it ok to simply not deliver the signature?
+        throw new Error('The requested signature ' + adr + ' does not exist within the current nodeList!')
+
+      // send the sign-request
+      const response = await this.transport.handle(config.url, { id: this.counter++, jsonrpc: '2.0', method: 'in3_sign', params: [...blocks] }) as RPCResponse
+      if (response.error)
+        throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+
+      const signatures = response.result as Signature[]
+
+      // if there are signature, we only return the valid ones
+      if (signatures && signatures.length)
+        return Promise.all(signatures.map(async s => {
+
+          // first check the signature
+          const signatureMessageHash: Buffer = util.sha3(Buffer.concat([bytes32(s.blockHash), bytes32(s.block)]))
+          if (!bytes32(s.msgHash).equals(signatureMessageHash)) // the message hash is wrong and we don't know what he signed
+            return null // can not use it to convict
+
+          // recover the signer from the signature
+          const signer: Buffer = util.pubToAddress(util.ecrecover(signatureMessageHash, toNumber(s.v), bytes(s.r), bytes(s.s)))
+          const singingNode = signer.equals(address(adr))
+            ? config
+            : nodes.nodes.find(_ => address(_.address).equals(signer))
+
+          if (!singingNode) return null // if we don't know the node, we can not convict anybody.
+
+          const expectedBlock = blocks.find(_ => toNumber(_.blockNumber) === toNumber(s.block))
+          if (!expectedBlock) {
+            // hm... this node signed a different block, then we expected, but the signature is valid.
+            // TODO so at least we should check if the blockhash is incorrect, so we can convict him anyway
+            return null
+          }
+
+          // in case we don't have the right blockhash yet, we should get it now
+          if (!expectedBlock.hash)
+            expectedBlock.hash = await this.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(expectedBlock.blockNumber), false] }).then(_ => _.result && _.result.hash)
+
+          if (!expectedBlock.hash) // still no blockhash? then we can't verify it.
+            return null
+
+          // is the blockhash correct all is fine
+          if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash)))
+            return s
+
+          // so he signed the wrong blockhash and we have all data to convict him!
+          await tx.callContract(this.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
+            privateKey: this.config.privateKey,
+            gas: 300000,
+            value: 0,
+            confirm: false  //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+          })
+          return null
+        }))
+
+      return signatures
+
+      // merge all signatures
     })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c], []))
   }
 

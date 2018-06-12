@@ -138,6 +138,8 @@ export async function waitForReceipt(url: string, txHash: string, timeout = 4, s
       const receipt = r.result as any
       if (sentGas && parseInt(sentGas as any) === parseInt(receipt.gasUsed))
         throw new Error('Transaction failed and all gas was used up')
+      if (receipt.status && receipt.status == '0x0')
+        throw new Error('The Transaction failed because it returned status=0')
       return receipt
     }
 

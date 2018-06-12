@@ -5,6 +5,7 @@ import { toBuffer, privateToAddress, toChecksumAddress } from 'ethereumjs-util'
 import * as logger from 'in3/js/test/util/memoryLogger'
 import * as crypto from 'crypto'
 import { sendTransaction } from '../../src/util/tx';
+import axios from 'axios';
 const getAddress = util.getAddress
 
 export type ResponseModifier = (RPCRequest, RPCResponse) => RPCResponse
@@ -64,6 +65,14 @@ export class TestTransport implements Transport {
 
   clearInjectedResponsed() {
     this.injectedResponses.length = 0
+  }
+
+  async getFromServer(method: string, ...params: any[]) {
+    const res = await axios.post(this.url, { id: 1, jsonrpc: '2.0', method, params })
+    if (res.status !== 200) throw new Error('Wrong status! Error getting ' + method + ' ' + JSON.stringify(params))
+    if (!res.data) throw new Error('No response! Error getting ' + method + ' ' + JSON.stringify(params))
+    if (res.data.error) throw new Error('Error getting ' + method + ' ' + JSON.stringify(params) + ' : ' + JSON.stringify(res.data.error))
+    return res.data.result
   }
 
   async handle(url: string, data: RPCRequest | RPCRequest[], timeout?: number): Promise<RPCResponse | RPCResponse[]> {
@@ -150,7 +159,7 @@ export class TestTransport implements Transport {
     const adr = getAddress(pk)
 
     if (eth)
-      await sendTransaction('http://localhost:8545', {
+      await sendTransaction(this.url, {
         privateKey: devPk,
         gas: 222000,
         to: adr,
