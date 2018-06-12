@@ -7,7 +7,6 @@ contract ServerRegistry {
 
     event LogServerRegistered(string url, uint props, address owner, uint deposit);
     event LogServerUnregisterRequested(string url, address owner, address caller);
-    event LogServerUnregisterConfirmed(string url, address owner);
     event LogServerUnregisterCanceled(string url, address owner);
     event LogServerConvicted(string url, address owner);
     event LogServerRemoved(string url, address owner);
@@ -85,7 +84,6 @@ contract ServerRegistry {
         if (payBackOwner>0)
             server.owner.transfer( payBackOwner );
 
-        LogServerUnregisterConfirmed(server.url, server.owner);
         removeServer(_serverIndex);
     }
 
