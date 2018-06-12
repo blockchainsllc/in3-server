@@ -95,6 +95,11 @@ contract ServerRegistry {
         // this can only be called if somebody requested it before
         require(server.owner == msg.sender);
 
+        // if this was requested by somebody who does not own this server,
+        // the owner will get his deposit
+        if (server.unregisterCaller != server.owner) 
+            server.owner.transfer( unregisterDeposit );
+
         server.unregisterCaller = address(0);
         server.unregisterTime = 0;
         
