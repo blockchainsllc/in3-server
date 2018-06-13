@@ -7,6 +7,7 @@ import * as evm from './evm'
 import { checkNodeList, updateNodeList } from '../util/nodeListUpdater'
 import * as utils from 'ethereumjs-util';
 import * as tx from '../util/tx'
+import Watcher from './watch';
 
 const toHex = in3Util.toHex
 const toNumber = in3Util.toNumber
@@ -32,12 +33,24 @@ export default class EthHandler {
   nodeList: ServerList
   transport: Transport
   chainId: string
+  watcher: Watcher
 
   constructor(config: any, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {}
     this.chainId = (this.config.chainIds && this.config.chainIds[0]) || toHex('0x2a', 32)
     this.transport = transport || new AxiosTransport()
     this.nodeList = nodeList || { nodes: [] }
+    const interval = config.watchInterval || 5
+    this.watcher = new Watcher(this, interval, config.persistentFile || 'lastBlock.json')
+    this.watcher.on('LogServerUnregisterRequested', ev => {
+      // TODO if this was not by ourself, we should react !!!
+
+    })
+
+    // start the watcher in the background
+    if (interval > 0)
+      this.watcher.check()
+
   }
 
   async handle(request: RPCRequest): Promise<RPCResponse> {

@@ -49,6 +49,7 @@ export class TestTransport implements Transport {
         index: i
       });
       (this.handlers['#' + (i + 1)] = new EthHandler({
+        watchInterval: -1,
         rpcUrl: 'http://localhost:8545',
         privateKey,
         minBlockHeight: 0

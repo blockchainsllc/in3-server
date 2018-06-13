@@ -18,9 +18,14 @@ export default class Watcher extends EventEmitter {
     number: number,
     hash: string
   }
+
+  _interval: any
   handler: RPCHandler
   interval: number
   persistFile: string
+  running: boolean
+
+
 
   constructor(handler: RPCHandler, interval = 5, persistFile: string = 'lastBlock.json', startBlock?: number) {
     super()
@@ -57,11 +62,25 @@ export default class Watcher extends EventEmitter {
     this._lastBlock = b
   }
 
+  stop() {
+    if (this.running) {
+      this.running = false
+      if (this._interval) {
+        clearTimeout(this._interval)
+        this._interval = undefined
+      }
+    }
+
+  }
+
   check() {
+    this.running = true
     const next = err => {
       if (err && err instanceof Error) console.error(err)
-      if (this.interval)
-        setTimeout(() => this.check(), this.interval)
+      if (this.interval && this.running)
+        this._interval = setTimeout(() => this.check(), this.interval)
+      else
+        this.running = false
     }
     this.update().then(next, next)
   }
