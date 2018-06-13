@@ -1,15 +1,16 @@
 
 import { assert, expect, should } from 'chai'
 import 'mocha'
-import Client, { chainData, util, BlockData, serialize, Signature } from 'in3'
+import Client, { chainData, util, BlockData, serialize, Signature, RPCRequest, RPCResponse } from 'in3'
 import { deployChainRegistry, registerServers } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
 import * as logger from 'in3/js/test/util/memoryLogger'
 import * as ethUtil from 'ethereumjs-util'
-import { LoggingAxiosTransport, TestTransport } from '../utils/transport'
+import { LoggingAxiosTransport, TestTransport } from '../utils/transport';
 
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
+const toHex = util.toHex
 
 const sign = (b: BlockData, pk: string, blockHash?: string) => {
   const msgHash = ethUtil.sha3(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number)]))
@@ -17,8 +18,10 @@ const sign = (b: BlockData, pk: string, blockHash?: string) => {
   sig.block = toNumber(b.number)
   sig.blockHash = blockHash || b.hash
   sig.address = util.getAddress(pk)
+  sig.msgHash = toHex(msgHash, 32)
   return sig
 }
+
 
 describe('Convict', () => {
   it('call convict', async () => {
@@ -83,5 +86,75 @@ describe('Convict', () => {
     assert.equal(balanceRegistryBefore - balanceRegistryAfter, 100000)
 
   })
+
+
+
+  it('watch signatures', async () => {
+
+
+    const transport = new LoggingAxiosTransport()
+    const pk1 = '0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
+    const pk2 = '0xaaaa239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
+    const pks = [pk1, pk2]
+    let test = await new TestTransport(1)
+
+    for (const a of pks) await test.createAccount(a)
+
+    //  register 2 servers
+    const registers = await registerServers(pk1, null, [{
+      url: '#1',
+      pk: pk1,
+      props: '0xFF',
+      deposit: 100000
+    },
+    {
+      url: '#2',
+      pk: pk2,
+      props: '0xFF',
+      deposit: 50000
+    }], '0x99', null, test.url, transport)
+
+    const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+
+    test = new TestTransport(2, registers.registry, pks)
+
+    const client = await test.createClient()
+
+    // this is a correct signature and should not fail.
+    const res = await client.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
+      keepIn3: true, proof: true, signatureCount: 1, requestCount: 1
+    })
+
+    assert.isDefined(res.in3.proof.signatures[0])
+    test.injectRandom([0.01, 0.9])
+    test.injectRandom([0.02, 0.8])
+
+    let manipulated = false
+    test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
+      const index = parseInt(url.substr(1)) - 1
+      // we change it to a wrong signature
+      if (!manipulated) {
+        re.result = [sign(block, pks[index], pk1)]
+        manipulated = true
+
+      }
+      return re
+    })
+
+    assert.equal(await test.getServerCountFromContract(), 2)
+
+    // we create a new client because the old one may have different weights now
+    const client2 = await test.createClient()
+
+
+    // this is a correct signature and should not fail.
+    const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
+      keepIn3: true, proof: true, signatureCount: 1, requestCount: 1
+    })
+
+    // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
+    assert.equal(await test.getServerCountFromContract(), 1)
+  })
+
 })
 

@@ -4,11 +4,11 @@ import EthHandler from '../../src/chains/eth';
 import { toBuffer, privateToAddress, toChecksumAddress } from 'ethereumjs-util'
 import * as logger from 'in3/js/test/util/memoryLogger'
 import * as crypto from 'crypto'
-import { sendTransaction } from '../../src/util/tx';
+import { sendTransaction, callContract } from '../../src/util/tx';
 import axios from 'axios';
 const getAddress = util.getAddress
 
-export type ResponseModifier = (RPCRequest, RPCResponse) => RPCResponse
+export type ResponseModifier = (RPCRequest, RPCResponse, url?: string) => RPCResponse
 
 export const devPk = '0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7'
 export class TestTransport implements Transport {
@@ -26,32 +26,36 @@ export class TestTransport implements Transport {
     url: string
   }[]
 
-  constructor(count = 5) {
+  constructor(count = 5, registry?: string, pks?: string[]) {
     this.lastRandom = 0
     this.randomList = []
     this.handlers = {}
     this.injectedResponses = []
     const nodes: IN3NodeConfig[] = []
+    this.nodeList = {
+      nodes,
+      contract: registry,
+      lastBlockNumber: 0
+    }
     for (let i = 0; i < count; i++) {
-      const privateKey = '0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i
+      const privateKey = pks ? pks[i] : '0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i
       const url = '#' + (i + 1)
       nodes.push({
         address: toChecksumAddress('0x' + privateToAddress(toBuffer(privateKey)).toString('hex')),
         url: url,
         chainIds: ['0x0000000000000000000000000000000000000000000000000000000000000001'],
         deposit: i,
-        props: 255
+        props: 255,
+        index: i
       });
       (this.handlers['#' + (i + 1)] = new EthHandler({
         rpcUrl: 'http://localhost:8545',
         privateKey,
-      }, this)).chainId = '0x0000000000000000000000000000000000000000000000000000000000000001'
+        minBlockHeight: 0
+      }, this, this.nodeList
+      )).chainId = '0x0000000000000000000000000000000000000000000000000000000000000001'
     }
     this.url = 'http://localhost:8545'
-    this.nodeList = {
-      nodes,
-      lastBlockNumber: 0
-    }
   }
 
   injectRandom(randomVals: number[]) {
@@ -105,7 +109,7 @@ export class TestTransport implements Transport {
         result: {
           lastBlockNumber: 0,
           nodes: this.nodeList.nodes,
-          contract: '0x00000000',
+          contract: this.nodeList.contract || '0x00000000',
           totalServers: this.nodeList.nodes.length
         } as any,
         jsonrpc: r.jsonrpc
@@ -114,7 +118,7 @@ export class TestTransport implements Transport {
       res = await handler.handle(r)
 
     logger.debug('Response  : ', res)
-    return responseModifiers.reduce((p, m) => m(r, p), res)
+    return responseModifiers.reduce((p, m) => m(r, p, url), res)
   }
 
   nextRandom() {
@@ -137,7 +141,7 @@ export class TestTransport implements Transport {
       timeout: 9999999,
       servers: {
         '0x0000000000000000000000000000000000000000000000000000000000000001': {
-          contract: 'dummy',
+          contract: this.nodeList.contract || 'dummy',
           nodeList: this.nodeList.nodes
         }
       },
@@ -170,6 +174,17 @@ export class TestTransport implements Transport {
 
     return pk
   }
+
+  async getServerFromContract(index: number) {
+    const [url, owner, deposit, props, time, caller] = await callContract(this.url, this.nodeList.contract, 'servers(uint):(string,address,uint,uint,uint,address)', [index])
+    return { url, owner, deposit, props, time, caller }
+  }
+
+  async getServerCountFromContract() {
+    const [count] = await callContract(this.url, this.nodeList.contract, 'totalServers():(uint)', [])
+    return util.toNumber(count)
+  }
+
 
 
 }

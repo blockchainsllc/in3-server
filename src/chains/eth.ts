@@ -33,11 +33,11 @@ export default class EthHandler {
   transport: Transport
   chainId: string
 
-  constructor(config: any, transport?: Transport) {
+  constructor(config: any, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {}
     this.chainId = (this.config.chainIds && this.config.chainIds[0]) || toHex('0x2a', 32)
     this.transport = transport || new AxiosTransport()
-    this.nodeList = { nodes: [] }
+    this.nodeList = nodeList || { nodes: [] }
   }
 
   async handle(request: RPCRequest): Promise<RPCResponse> {
@@ -83,9 +83,16 @@ export default class EthHandler {
       : Promise.resolve([])
   }
 
-  async collectSignatures(addresses: string[], blocks: { blockNumber: number, hash?: string }[]): Promise<Signature[]> {
+  async collectSignatures(addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[]): Promise<Signature[]> {
     // nothing to do?
-    if (!addresses || !addresses.length || !blocks || !blocks.length) return []
+    if (!addresses || !addresses.length || !requestedBlocks || !requestedBlocks.length) return []
+
+    // make sure the 
+    const blocks = await Promise.all(requestedBlocks.map(async b => ({
+      blockNumber: toNumber(b.blockNumber),
+      hash: toHex(b.hash || await this.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(b.blockNumber), false] })
+        .then(_ => _.result && _.result.hash), 32)
+    })))
 
     // get our own nodeList
     const nodes = await this.getNodeList(false)
@@ -127,19 +134,13 @@ export default class EthHandler {
             return null
           }
 
-          // in case we don't have the right blockhash yet, we should get it now
-          if (!expectedBlock.hash)
-            expectedBlock.hash = await this.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(expectedBlock.blockNumber), false] }).then(_ => _.result && _.result.hash)
-
-          if (!expectedBlock.hash) // still no blockhash? then we can't verify it.
-            return null
 
           // is the blockhash correct all is fine
           if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash)))
             return s
 
           // so he signed the wrong blockhash and we have all data to convict him!
-          await tx.callContract(this.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
+          const txHash = await tx.callContract(this.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
             privateKey: this.config.privateKey,
             gas: 300000,
             value: 0,
@@ -160,7 +161,7 @@ export default class EthHandler {
       const sig = util.ecsign(msgHash, util.toBuffer(this.config.privateKey))
       return {
         blockHash: b.hash,
-        block: b.blockNumber,
+        block: toNumber(b.blockNumber),
         r: '0x' + sig.r.toString('hex'),
         s: '0x' + sig.s.toString('hex'),
         v: sig.v,
@@ -189,9 +190,11 @@ export default class EthHandler {
     if (!blockNumber) throw new Error('no current blocknumber detectable ')
     if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
 
-    const tooYoungBlock = blockData.find(block => parseInt(blockNumber) - parseInt(block.number as string) <= (this.config.minBlockHeight || 6))
+    const blockHeight = this.config.minBlockHeight === undefined ? 6 : this.config.minBlockHeight
+
+    const tooYoungBlock = blockData.find(block => parseInt(blockNumber) - parseInt(block.number as string) < blockHeight)
     if (tooYoungBlock)
-      throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + (this.config.minBlockHeight || 6))
+      throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
 
     return {
       id: request.id,
