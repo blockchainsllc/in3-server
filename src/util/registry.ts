@@ -8,6 +8,10 @@ const bin = JSON.parse(readFileSync('./contracts/contracts.json', 'utf8'))
 const binTest = JSON.parse(readFileSync('./test/contracts/contracts.json', 'utf8'))
 Object.assign(bin.contracts, binTest.contracts)
 
+export function getABI(name: string) {
+  return JSON.parse(bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf(name) >= 0)].abi)
+}
+
 export function deployContract(name: string, pk: string, url = 'http://localhost:8545', transport?: Transport) {
   return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf(name) >= 0)].bin, {
     privateKey: pk,

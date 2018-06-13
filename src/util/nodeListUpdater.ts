@@ -82,7 +82,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
   // read the response,blockheader and trace from server
   const [blockResponse, proof] = await handler.getAllFromServer([
     { method: 'eth_getBlockByNumber', params: [blockNr, false] },
-    { method: 'eth_getProof', params: [toHex(address, 20), keys, blockNr] }
+    { method: 'eth_getProof', params: [toHex(address, 20), keys.map(_ => toHex(_, 32)), blockNr] }
   ])
 
   // error checking
@@ -117,15 +117,17 @@ export function createRandomIndexes(len: number, limit: number, seed: string, re
 }
 
 
-async function updateNodeList(handler: RPCHandler, list: ServerList) {
+export async function updateNodeList(handler: RPCHandler, list: ServerList, lastBlockNumber?: number) {
 
   // first get the registry
-  const [owner, bootNodes, meta, registryContract, contractChain] = await tx.callContract(config.registryRPC || config.rpcUrl, config.registry, 'chains(bytes32):(address,string,string,address,bytes32)', [handler.chainId])
+  if (!list.contract) {
+    const [owner, bootNodes, meta, registryContract, contractChain] = await tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'chains(bytes32):(address,string,string,address,bytes32)', [handler.chainId])
+    list.contract = toChecksumAddress('0x' + registryContract)
+  }
 
   // number of registered servers
-  const [serverCount] = await tx.callContract(config.rpcUrl, '0x' + registryContract, 'totalServers():(uint)', [])
-  list.lastBlockNumber = parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
-  list.contract = toChecksumAddress('0x' + registryContract)
+  const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalServers():(uint)', [])
+  list.lastBlockNumber = lastBlockNumber || parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
   list.totalServers = serverCount.toNumber()
 
   // build the requests per server-entry
@@ -135,7 +137,7 @@ async function updateNodeList(handler: RPCHandler, list: ServerList) {
       jsonrpc: '2.0',
       id: i + 1,
       method: 'eth_call', params: [{
-        to: '0x' + registryContract,
+        to: list.contract,
         data: '0x' + abi.simpleEncode('servers(uint)', toHex(i, 32)).toString('hex')
       },
         'latest']

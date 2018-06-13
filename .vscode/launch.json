@@ -16,7 +16,7 @@
         "999999",
         "--colors",
         "--grep",
-        "watch signatures",
+        "eth_getBlockByNumber",
         "${workspaceFolder}/js/test/*/*.js"
       ],
       "outFiles": [

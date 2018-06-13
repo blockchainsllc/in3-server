@@ -4,7 +4,7 @@ import axios from 'axios'
 //import config from '../config'
 import * as util from 'ethereumjs-util'
 import * as evm from './evm'
-import { checkNodeList } from '../util/nodeListUpdater'
+import { checkNodeList, updateNodeList } from '../util/nodeListUpdater'
 import * as utils from 'ethereumjs-util';
 import * as tx from '../util/tx'
 
@@ -168,6 +168,10 @@ export default class EthHandler {
         msgHash: '0x' + msgHash.toString('hex')
       }
     })
+  }
+
+  async updateNodeList(blockNumber: number): Promise<void> {
+    await updateNodeList(this, this.nodeList, blockNumber)
   }
 
   async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[]): Promise<ServerList> {

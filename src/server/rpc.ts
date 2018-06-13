@@ -51,6 +51,7 @@ export interface RPCHandler {
   getFromServer(request: Partial<RPCRequest>): Promise<RPCResponse>
   getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[]): Promise<ServerList>
+  updateNodeList(blockNumber: number): Promise<void>
   config: any
 }
 

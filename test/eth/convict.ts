@@ -7,6 +7,7 @@ import * as tx from '../../src/util/tx'
 import * as logger from 'in3/js/test/util/memoryLogger'
 import * as ethUtil from 'ethereumjs-util'
 import { LoggingAxiosTransport, TestTransport } from '../utils/transport';
+import Watcher from '../../src/chains/watch';
 
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
@@ -28,10 +29,12 @@ describe('Convict', () => {
 
 
     const transport = new LoggingAxiosTransport()
-    const test = new TestTransport(2)
+    let test = new TestTransport(2)
     const pk = await test.createAccount('0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238')
     const pk2 = await test.createAccount('0xaaaa239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238')
     const sender = util.getAddress(pk2)
+    // read current Block
+    const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
     //  register 2 servers
     const registers = await registerServers(pk, null, [{
@@ -47,9 +50,12 @@ describe('Convict', () => {
       deposit: 50000
     }], '0x99', null, test.url, transport)
 
+    test = new TestTransport(2, registers.registry, [pk, pk2])
 
-    // read current Block
-    const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+
+
+
+    const watcher = new Watcher(test.handlers['#1'], 0, null, toNumber(block.number))
 
     // correct blockhash 
     let s = sign(block, pk)
@@ -84,6 +90,8 @@ describe('Convict', () => {
 
     assert.equal(balanceSenderAfter - balanceSenderBefore, 100000 / 2)
     assert.equal(balanceRegistryBefore - balanceRegistryAfter, 100000)
+    const events = await watcher.update()
+    assert.equal(events.length, 4)
 
   })
 
@@ -100,6 +108,7 @@ describe('Convict', () => {
 
     for (const a of pks) await test.createAccount(a)
 
+
     //  register 2 servers
     const registers = await registerServers(pk1, null, [{
       url: '#1',
@@ -113,7 +122,6 @@ describe('Convict', () => {
       props: '0xFF',
       deposit: 50000
     }], '0x99', null, test.url, transport)
-
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
     test = new TestTransport(2, registers.registry, pks)
