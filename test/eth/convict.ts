@@ -25,7 +25,7 @@ const sign = (b: BlockData, pk: string, blockHash?: string) => {
 
 
 describe('Convict', () => {
-  it('call convict', async () => {
+  it('convict on contracts', async () => {
 
 
     const transport = new LoggingAxiosTransport()
@@ -97,7 +97,7 @@ describe('Convict', () => {
 
 
 
-  it('watch signatures', async () => {
+  it('verify and convict', async () => {
 
 
     const transport = new LoggingAxiosTransport()

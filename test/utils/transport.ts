@@ -6,6 +6,8 @@ import * as logger from 'in3/js/test/util/memoryLogger'
 import * as crypto from 'crypto'
 import { sendTransaction, callContract } from '../../src/util/tx';
 import axios from 'axios';
+import { registerServers } from '../../src/util/registry';
+
 const getAddress = util.getAddress
 
 export type ResponseModifier = (RPCRequest, RPCResponse, url?: string) => RPCResponse
@@ -17,6 +19,10 @@ export class TestTransport implements Transport {
   }
   url: string
 
+  chainRegistry: string
+  chainId: string
+
+
   nodeList: ServerList
   randomList: number[][]
   lastRandom: number
@@ -27,6 +33,7 @@ export class TestTransport implements Transport {
   }[]
 
   constructor(count = 5, registry?: string, pks?: string[]) {
+    this.chainId = '0x0000000000000000000000000000000000000000000000000000000000000001'
     this.lastRandom = 0
     this.randomList = []
     this.handlers = {}
@@ -88,6 +95,7 @@ export class TestTransport implements Transport {
 
   async handleRequest(r: RPCRequest, handler: RPCHandler, url: string): Promise<RPCResponse> {
     logger.debug('Request for ' + url + ' : ', r)
+    const in3Request = r.in3 || {}
 
     const responseModifiers: ResponseModifier[] = []
 
@@ -104,19 +112,49 @@ export class TestTransport implements Transport {
     }
 
     let res: RPCResponse
-    if (r.method === 'in3_nodeList')
-      res = {
-        id: r.id,
-        result: {
-          lastBlockNumber: 0,
-          nodes: this.nodeList.nodes,
-          contract: this.nodeList.contract || '0x00000000',
-          totalServers: this.nodeList.nodes.length
-        } as any,
-        jsonrpc: r.jsonrpc
-      } as RPCResponse
+    if (r.method === 'in3_nodeList') {
+      if (this.nodeList.contract) {
+        res = await handler.getNodeList(
+          in3Request.verification && in3Request.verification.startsWith('proof'),
+          r.params[0] || 0,
+          r.params[1],
+          r.params[2] || [],
+          in3Request.signatures
+        ).then(async result => {
+          const res = {
+            id: r.id,
+            result: result as any,
+            jsonrpc: r.jsonrpc,
+            in3: {} as any
+          }
+          const proof = res.result.proof
+          if (proof) {
+            delete res.result.proof
+            res.in3.proof = proof
+          }
+          return res as RPCResponse
+        })
+      }
+      else
+
+
+        res = {
+          id: r.id,
+          result: {
+            lastBlockNumber: 0,
+            nodes: this.nodeList.nodes,
+            contract: this.nodeList.contract || '0x00000000',
+            totalServers: this.nodeList.nodes.length
+          } as any,
+          jsonrpc: r.jsonrpc
+        } as RPCResponse
+    }
     else
       res = await handler.handle(r)
+
+    const in3 = res.in3 || (res.in3 = {})
+
+    in3.lastNodeList = (await handler.getNodeList(false)).lastBlockNumber
 
     logger.debug('Response  : ', res)
     return responseModifiers.reduce((p, m) => m(r, p, url), res)
@@ -138,10 +176,11 @@ export class TestTransport implements Transport {
 
   async createClient(conf?: Partial<IN3Config>): Promise<Client> {
     const client = new Client({
-      chainId: '0x0000000000000000000000000000000000000000000000000000000000000001',
+      keepIn3: true,
+      chainId: this.chainId,
       timeout: 9999999,
       servers: {
-        '0x0000000000000000000000000000000000000000000000000000000000000001': {
+        [this.chainId]: {
           contract: this.nodeList.contract || 'dummy',
           nodeList: this.nodeList.nodes
         }
@@ -184,6 +223,31 @@ export class TestTransport implements Transport {
   async getServerCountFromContract() {
     const [count] = await callContract(this.url, this.nodeList.contract, 'totalServers():(uint)', [])
     return util.toNumber(count)
+  }
+
+  static async createWithRegisteredServers(count: number) {
+    const test = new TestTransport(1)
+
+    const pks: string[] = []
+    const servers: any[] = []
+
+    // create accounts
+    for (let i = 0; i < count; i++) {
+      pks.push(await test.createAccount())
+      servers.push({
+        url: '#' + (i + 1),
+        pk: pks[i],
+        props: '0xffff',
+        deposit: 10000
+      })
+    }
+
+    //  register 1 server
+    const registers = await registerServers(pks[0], null, servers, test.chainId, null, test.url, new LoggingAxiosTransport())
+
+    const res = new TestTransport(count, registers.registry, pks)
+    res.chainRegistry = registers.chainRegistry
+    return res
   }
 
 
