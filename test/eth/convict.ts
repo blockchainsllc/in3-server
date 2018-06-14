@@ -163,5 +163,47 @@ describe('Convict', () => {
     assert.equal(await test.getServerCountFromContract(), 1)
   })
 
+
+  it('requestUnregisteringServer', async () => {
+
+    const test = await TestTransport.createWithRegisteredServers(2)
+    const watcher = test.handlers['#1'].getHandler().watcher
+    // read all events (should be only the 2 register-events
+    assert.equal((await watcher.update()).length, 2)
+    const unregisterDeposit = 100000
+
+    const user = await test.createAccount()
+    // the user regquests to unregister this server
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: unregisterDeposit, confirm: true, gas: 300000 })
+
+    const balanceOwnerBefore = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
+
+    // this should have picked up the first event, but als executing a transaction and reacting to it.
+    let events = await watcher.update()
+    assert.equal(events.length, 1)
+    assert.equal(events[0].event, 'LogServerUnregisterRequested')
+    assert.equal(events[0].caller, util.getAddress(user))
+    assert.equal(events[0].url, '#1')
+    assert.equal(events[0].owner, test.nodeList.nodes[0].address)
+
+    // now we should see the reaction of the server
+    events = await watcher.update()
+    if (!events) {
+      await new Promise(_ => setTimeout(_, 100))
+      events = await watcher.update()
+    }
+    assert.equal(events.length, 1)
+    assert.equal(events[0].event, 'LogServerUnregisterCanceled')
+    assert.equal(events[0].url, '#1')
+    assert.equal(events[0].owner, test.nodeList.nodes[0].address)
+
+    const balanceOwnerAfter = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
+
+    // the owner now got the deposit from the
+    assert.equal(balanceOwnerAfter - balanceOwnerBefore, unregisterDeposit)
+  })
+
+
+
 })
 

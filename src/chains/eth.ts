@@ -54,7 +54,8 @@ export default class EthHandler {
           value: 0,
           confirm: true
         })
-          .then(_ => console.log('handled UnregisterEv ' + JSON.stringify(ev) + ' successfully!'))
+        // TODO use logger
+        // .then(_ => console.log('handled UnregisterEv ' + JSON.stringify(ev) + ' successfully!'))
 
       }).catch(console.error)
       // TODO if this was not by ourself, we should react !!!
