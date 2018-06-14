@@ -4,12 +4,13 @@ import * as Koa from 'koa'
 import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
 import * as logger from 'winston'
-import * as rpc from './rpc'
+import { RPC } from './rpc'
 import { cbor } from 'in3'
 import config from './config'
 
 export const app = new Koa()
 const router = new Router()
+const rpc = new RPC(config)
 
 // handle cbor-encoding
 app.use(async (ctx, next) => {

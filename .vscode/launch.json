@@ -26,7 +26,8 @@
       "internalConsoleOptions": "openOnSessionStart",
       "env": {
         "PATH": "/Users/simon/.cargo/bin:/opt/local/bin:/opt/local/sbin:/usr/local/bin:/Users/simon/bin:/Users/simon/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-      }
+      },
+      "preLaunchTask": "tsc"
     },
     {
       "type": "node",
