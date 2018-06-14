@@ -1,6 +1,7 @@
 import { LogData, LogProof, BlockData, RPCRequest, RPCResponse, ReceiptData, Signature, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util } from 'in3'
 import { createTransactionProof, createTransactionReceiptProof } from './proof'
 import axios from 'axios'
+import * as logger from '../util/logger'
 //import config from '../config'
 import * as util from 'ethereumjs-util'
 import * as evm from './evm'
@@ -44,6 +45,7 @@ export default class EthHandler {
     this.watcher.on('LogServerUnregisterRequested', ev => {
       const me = in3Util.getAddress(config.privateKey)
       if (ev.owner !== me || ev.caller === me) return
+      logger.info('LogServerUnregisterRequested event found. Reacting with cancelUnregisteringServer! ')
       this.getNodeList(false).then(nl => {
         const node = nl.nodes.find(_ => _.url === ev.url)
         if (!node)
@@ -54,11 +56,10 @@ export default class EthHandler {
           value: 0,
           confirm: true
         })
-        // TODO use logger
-        // .then(_ => console.log('handled UnregisterEv ' + JSON.stringify(ev) + ' successfully!'))
+          .then(_ => logger.info('called successfully cancelUnregisteringServer! '))
 
-      }).catch(console.error)
-      // TODO if this was not by ourself, we should react !!!
+
+      }).catch(err => logger.error('Error handling LogServerUnregisterRequested : ', err))
 
     })
 

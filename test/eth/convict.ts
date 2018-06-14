@@ -31,7 +31,7 @@ describe('Convict', () => {
     // read current Block
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
     // create a event-watcher starting with the current block
-    const watcher = new Watcher(test.handlers['#1'].getHandler(), 0, null, toNumber(block.number))
+    const watcher = new Watcher(test.getHandler(0), 0, null, toNumber(block.number))
 
     // sign the correct blockhash 
     let s = sign(block, test.getHandlerConfig(0).privateKey)
@@ -79,33 +79,13 @@ describe('Convict', () => {
 
   it('verify and convict', async () => {
 
+    const test = await TestTransport.createWithRegisteredServers(2)
+    const watcher = test.getHandler(0).watcher
 
-    const transport = new LoggingAxiosTransport()
-    const pk1 = '0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
-    const pk2 = '0xaaaa239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
-    const pks = [pk1, pk2]
-    let test = await new TestTransport(1)
+    const pk1 = test.getHandlerConfig(0).privateKey
+    const pk2 = test.getHandlerConfig(1).privateKey
 
-    for (const a of pks) await test.createAccount(a)
-
-
-    //  register 2 servers
-    const registers = await registerServers(pk1, null, [{
-      url: '#1',
-      pk: pk1,
-      props: '0xFF',
-      deposit: 100000
-    },
-    {
-      url: '#2',
-      pk: pk2,
-      props: '0xFF',
-      deposit: 50000
-    }], '0x99', null, test.url, transport)
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
-
-    test = new TestTransport(2, registers.registry, pks)
-
     const client = await test.createClient()
 
     // this is a correct signature and should not fail.
@@ -122,9 +102,8 @@ describe('Convict', () => {
       const index = parseInt(url.substr(1)) - 1
       // we change it to a wrong signature
       if (!manipulated) {
-        re.result = [sign(block, pks[index], pk1)]
+        re.result = [sign(block, test.getHandlerConfig(index).privateKey, pk1)]
         manipulated = true
-
       }
       return re
     })
@@ -134,6 +113,9 @@ describe('Convict', () => {
     // we create a new client because the old one may have different weights now
     const client2 = await test.createClient()
 
+    // just read all events
+    await watcher.update()
+
 
     // this is a correct signature and should not fail.
     const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
@@ -142,6 +124,12 @@ describe('Convict', () => {
 
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
     assert.equal(await test.getServerCountFromContract(), 1)
+
+    // just read all events
+    const events = await watcher.update()
+    assert.equal(events.length, 2)
+    assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
+
   })
 
 
@@ -154,8 +142,13 @@ describe('Convict', () => {
     const unregisterDeposit = 100000
 
     const user = await test.createAccount()
+
+    // the user regquests to unregister this server
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: unregisterDeposit - 1, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because the wrong value was sent')
+
     // the user regquests to unregister this server
     await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: unregisterDeposit, confirm: true, gas: 300000 })
+
 
     const balanceOwnerBefore = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
 

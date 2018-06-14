@@ -1,12 +1,12 @@
-import Client, { Transport, AxiosTransport, RPCRequest, RPCResponse, IN3NodeConfig, IN3Config, util, ServerList } from 'in3'
+import Client, { Transport, AxiosTransport, RPCRequest, RPCResponse, IN3NodeConfig, IN3Config, util, ServerList, IN3RPCHandlerConfig } from 'in3'
 
-import * as logger from 'in3/js/test/util/memoryLogger'
+import * as logger from '../../src/util/logger'
 import * as crypto from 'crypto'
-import { sendTransaction, callContract } from '../../src/util/tx';
-import axios from 'axios';
-import { registerServers } from '../../src/util/registry';
-import { RPC } from '../../src/server/rpc'
-import { IN3RPCHandlerConfig } from '../../../n3-ts/js/src/types/types';
+import { sendTransaction, callContract } from '../../src/util/tx'
+import axios from 'axios'
+import { registerServers } from '../../src/util/registry'
+import { RPC, RPCHandler } from '../../src/server/rpc'
+logger.setLogger('memory')
 
 const getAddress = util.getAddress
 
@@ -78,6 +78,10 @@ export class TestTransport implements Transport {
     this.injectedResponses.push({
       request, response, url
     })
+  }
+
+  async mustFail(p: Promise<any>): Promise<any> {
+    return p.then(_ => Promise.reject(new Error('Must have failed')), err => true)
   }
 
   clearInjectedResponsed() {
@@ -189,6 +193,10 @@ export class TestTransport implements Transport {
 
   getHandlerConfig(index: number): IN3RPCHandlerConfig {
     return this.handlers['#' + (index + 1)].getHandler().config
+  }
+
+  getHandler(index: number): RPCHandler {
+    return this.handlers['#' + (index + 1)].getHandler()
   }
 
   static async createWithRegisteredServers(count: number) {

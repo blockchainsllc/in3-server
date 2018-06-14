@@ -1,6 +1,6 @@
 import { simpleEncode, simpleDecode, methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress, BN, keccak256 } from 'ethereumjs-util'
-import { Transport, AxiosTransport, RPCResponse, util, transport } from 'in3'
+import Client, { Transport, AxiosTransport, RPCResponse, util, transport } from 'in3'
 import * as ETx from 'ethereumjs-tx'
 
 
@@ -20,6 +20,13 @@ export async function deployContract(url: string, bin: string, txargs?: {
   return sendTransaction(url, { value: 0, ...txargs, data: bin }, transport)
 }
 
+export async function callContractWithClient(client: Client, contract: string, signature: string, ...args: any[]) {
+  const data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
+
+  return client.sendRPC('eth_call', [{ to: contract, data }, 'latest'], client.defConfig.chainId, {
+    includeCode: true
+  })
+}
 
 export async function callContract(url: string, contract: string, signature: string, args: any[], txargs?: {
   privateKey: string

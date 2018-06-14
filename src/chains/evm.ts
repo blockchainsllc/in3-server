@@ -147,6 +147,7 @@ export function analyse(trace, storageAccount: string, result?: any): {
     }
   }
 } {
+  //  console.error('anaylse ' + storageAccount)
   const code = trace.code.substr(2)
   const stack = []
   if (!result) result = { blocks: [], accounts: { [storageAccount]: { storage: {}, code: trace.code } } }

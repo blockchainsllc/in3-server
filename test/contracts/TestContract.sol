@@ -19,6 +19,15 @@ contract TestContract {
         return block.blockhash(number);
     }
 
+    function getBalance(address adr)  public view returns(uint){
+        return adr.balance;
+    }
+
+    function testInternCall(TestContract adr)  public view returns(uint){
+        return adr.counter();
+    }
+
+
     
 
 }
