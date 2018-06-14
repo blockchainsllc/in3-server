@@ -1,10 +1,9 @@
 
-import { assert, expect, should } from 'chai'
+import { assert } from 'chai'
 import 'mocha'
-import Client, { chainData, util, BlockData, serialize, Signature, RPCRequest, RPCResponse } from 'in3'
-import { deployChainRegistry, registerServers } from '../../src/util/registry';
+import { util, BlockData, serialize, Signature, RPCRequest, RPCResponse } from 'in3'
+import { registerServers } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
-import * as logger from 'in3/js/test/util/memoryLogger'
 import * as ethUtil from 'ethereumjs-util'
 import { LoggingAxiosTransport, TestTransport } from '../utils/transport';
 import Watcher from '../../src/chains/watch';

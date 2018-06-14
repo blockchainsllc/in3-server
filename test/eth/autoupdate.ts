@@ -1,12 +1,10 @@
 
-import { assert, expect, should } from 'chai'
+import { assert } from 'chai'
 import 'mocha'
-import Client, { chainData, util, BlockData, serialize, Signature, RPCRequest, RPCResponse } from 'in3'
-import { deployChainRegistry, registerServers } from '../../src/util/registry';
-import * as tx from '../../src/util/tx'
-import * as logger from 'in3/js/test/util/memoryLogger'
+import { util, BlockData, serialize, Signature } from 'in3'
+import { registerServers } from '../../src/util/registry';
 import * as ethUtil from 'ethereumjs-util'
-import { LoggingAxiosTransport, TestTransport } from '../utils/transport';
+import { TestTransport } from '../utils/transport';
 import Watcher from '../../src/chains/watch'
 import EventWatcher from '../utils/EventWatcher'
 
@@ -14,20 +12,7 @@ const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 const toHex = util.toHex
 
-const sign = (b: BlockData, pk: string, blockHash?: string) => {
-  const msgHash = ethUtil.sha3(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number)]))
-  const sig = ethUtil.ecsign(msgHash, bytes32(pk)) as Signature
-  sig.block = toNumber(b.number)
-  sig.blockHash = blockHash || b.hash
-  sig.address = util.getAddress(pk)
-  sig.msgHash = toHex(msgHash, 32)
-  return sig
-}
-
-
 describe('Autoupdate', () => {
-
-
 
   it('check update', async () => {
 
