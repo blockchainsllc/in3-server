@@ -1,12 +1,11 @@
 import Client, { Transport, AxiosTransport, RPCRequest, RPCResponse, IN3NodeConfig, IN3Config, util, ServerList } from 'in3'
-import { RPCHandler } from '../../src/server/rpc';
-import EthHandler from '../../src/chains/eth';
-import { toBuffer, privateToAddress, toChecksumAddress } from 'ethereumjs-util'
+
 import * as logger from 'in3/js/test/util/memoryLogger'
 import * as crypto from 'crypto'
 import { sendTransaction, callContract } from '../../src/util/tx';
 import axios from 'axios';
 import { registerServers } from '../../src/util/registry';
+import { RPC } from '../../src/server/rpc'
 
 const getAddress = util.getAddress
 
@@ -15,7 +14,7 @@ export type ResponseModifier = (RPCRequest, RPCResponse, url?: string) => RPCRes
 export const devPk = '0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7'
 export class TestTransport implements Transport {
   handlers: {
-    [url: string]: RPCHandler
+    [url: string]: RPC
   }
   url: string
 
@@ -33,7 +32,7 @@ export class TestTransport implements Transport {
   }[]
 
   constructor(count = 5, registry?: string, pks?: string[]) {
-    this.chainId = '0x0000000000000000000000000000000000000000000000000000000000000001'
+    this.chainId = '0x1'
     this.lastRandom = 0
     this.randomList = []
     this.handlers = {}
@@ -48,20 +47,25 @@ export class TestTransport implements Transport {
       const privateKey = pks ? pks[i] : '0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i
       const url = '#' + (i + 1)
       nodes.push({
-        address: toChecksumAddress('0x' + privateToAddress(toBuffer(privateKey)).toString('hex')),
+        address: util.getAddress(privateKey),
         url: url,
-        chainIds: ['0x0000000000000000000000000000000000000000000000000000000000000001'],
+        chainIds: [this.chainId],
         deposit: i,
         props: 255,
         index: i
-      });
-      (this.handlers['#' + (i + 1)] = new EthHandler({
-        watchInterval: -1,
-        rpcUrl: 'http://localhost:8545',
-        privateKey,
-        minBlockHeight: 0
-      }, this, this.nodeList
-      )).chainId = '0x0000000000000000000000000000000000000000000000000000000000000001'
+      })
+      this.handlers['#' + (i + 1)] = new RPC({
+        port: 0,
+        chains: {
+          [this.chainId]: {
+            watchInterval: -1,
+            rpcUrl: 'http://localhost:8545',
+            privateKey,
+            registry,
+            minBlockHeight: 0
+          }
+        }
+      }, this, this.nodeList)
     }
     this.url = 'http://localhost:8545'
   }
@@ -93,9 +97,8 @@ export class TestTransport implements Transport {
     return Array.isArray(data) ? results : results[0]
   }
 
-  async handleRequest(r: RPCRequest, handler: RPCHandler, url: string): Promise<RPCResponse> {
+  async handleRequest(r: RPCRequest, handler: RPC, url: string): Promise<RPCResponse> {
     logger.debug('Request for ' + url + ' : ', r)
-    const in3Request = r.in3 || {}
 
     const responseModifiers: ResponseModifier[] = []
 
@@ -111,50 +114,8 @@ export class TestTransport implements Transport {
       }
     }
 
-    let res: RPCResponse
-    if (r.method === 'in3_nodeList') {
-      if (this.nodeList.contract) {
-        res = await handler.getNodeList(
-          in3Request.verification && in3Request.verification.startsWith('proof'),
-          r.params[0] || 0,
-          r.params[1],
-          r.params[2] || [],
-          in3Request.signatures
-        ).then(async result => {
-          const res = {
-            id: r.id,
-            result: result as any,
-            jsonrpc: r.jsonrpc,
-            in3: {} as any
-          }
-          const proof = res.result.proof
-          if (proof) {
-            delete res.result.proof
-            res.in3.proof = proof
-          }
-          return res as RPCResponse
-        })
-      }
-      else
-
-
-        res = {
-          id: r.id,
-          result: {
-            lastBlockNumber: 0,
-            nodes: this.nodeList.nodes,
-            contract: this.nodeList.contract || '0x00000000',
-            totalServers: this.nodeList.nodes.length
-          } as any,
-          jsonrpc: r.jsonrpc
-        } as RPCResponse
-    }
-    else
-      res = await handler.handle(r)
-
-    const in3 = res.in3 || (res.in3 = {})
-
-    in3.lastNodeList = (await handler.getNodeList(false)).lastBlockNumber
+    // execute the request
+    const [res] = await handler.handle([r])
 
     logger.debug('Response  : ', res)
     return responseModifiers.reduce((p, m) => m(r, p, url), res)

@@ -1,15 +1,17 @@
 import * as fs from 'fs'
+import { IN3RPCConfig, util } from 'in3'
 // defaults for the config
-const config = {
-  //  rpcUrl: 'https://mainnet.infura.io/HVtVmCIHVgqHGUgihfhX',
-  rpcUrl: 'https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX', //'http://localhost:8545',
-  privateKey: '',
+const config: IN3RPCConfig = {
   port: 8500,
-  minBlockHeight: 6,
-  registry: '0x013b82355a066A31427df3140C5326cdE9c64e3A', // registry-contract
-  registryRPC: 'https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX',
-  client: 'parity', // parity_proofed,
-  chainIds: ['0x2a']
+  chains: {
+    '0x2a': {
+      rpcUrl: 'https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX', //'http://localhost:8545',
+      privateKey: '',
+      minBlockHeight: 6,
+      registry: '0x013b82355a066A31427df3140C5326cdE9c64e3A', // registry-contract
+      registryRPC: 'https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX',
+    }
+  }
 }
 
 // take the config from config.json and overwrite it
@@ -19,5 +21,15 @@ try {
 catch (err) {
   console.error('no config found (' + err + ')! using defaults')
 }
+
+// fix chainIds to minHex
+for (const c of Object.keys(config.chains)) {
+  const min = util.toMinHex(c)
+  if (min != c) {
+    config.chains[min] = config.chains[c]
+    delete config.chains[c]
+  }
+}
+
 
 export default config

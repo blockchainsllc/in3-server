@@ -1,10 +1,10 @@
-import { LogData, LogProof, BlockData, RPCRequest, RPCResponse, ReceiptData, Signature, ServerList, Transport, AxiosTransport, serialize, util as in3Util } from 'in3'
+import { LogData, LogProof, BlockData, RPCRequest, RPCResponse, ReceiptData, Signature, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util } from 'in3'
 import { createTransactionProof, createTransactionReceiptProof } from './proof'
 import axios from 'axios'
 //import config from '../config'
 import * as util from 'ethereumjs-util'
 import * as evm from './evm'
-import { checkNodeList, updateNodeList } from '../util/nodeListUpdater'
+import { getNodeList, updateNodeList } from '../util/nodeListUpdater'
 import * as utils from 'ethereumjs-util';
 import * as tx from '../util/tx'
 import Watcher from './watch';
@@ -29,20 +29,34 @@ const NOT_SUPPORTED = {
  */
 export default class EthHandler {
   counter: number
-  config: any
+  config: IN3RPCHandlerConfig
   nodeList: ServerList
   transport: Transport
   chainId: string
   watcher: Watcher
 
-  constructor(config: any, transport?: Transport, nodeList?: ServerList) {
-    this.config = config || {}
-    this.chainId = (this.config.chainIds && this.config.chainIds[0]) || toHex('0x2a', 32)
+  constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
+    this.config = config || {} as IN3RPCHandlerConfig
     this.transport = transport || new AxiosTransport()
     this.nodeList = nodeList || { nodes: [] }
     const interval = config.watchInterval || 5
     this.watcher = new Watcher(this, interval, config.persistentFile || 'lastBlock.json')
     this.watcher.on('LogServerUnregisterRequested', ev => {
+      const me = in3Util.getAddress(config.privateKey)
+      if (ev.owner !== me || ev.caller === me) return
+      this.getNodeList(false).then(nl => {
+        const node = nl.nodes.find(_ => _.url === ev.url)
+        if (!node)
+          throw new Error('could not find the server in the list')
+        return tx.callContract(config.registryRPC || config.rpcUrl, config.registry, 'cancelUnregisteringServer(uint)', [node.index], {
+          privateKey: config.privateKey,
+          gas: 400000,
+          value: 0,
+          confirm: true
+        })
+          .then(_ => console.log('handled UnregisterEv ' + JSON.stringify(ev) + ' successfully!'))
+
+      }).catch(console.error)
       // TODO if this was not by ourself, we should react !!!
 
     })
@@ -188,7 +202,7 @@ export default class EthHandler {
   }
 
   async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[]): Promise<ServerList> {
-    const nl = await checkNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
+    const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
     if (nl.proof && signers && signers.length)
       nl.proof.signatures = await this.collectSignatures(signers, [{ blockNumber: nl.lastBlockNumber }])
     return nl

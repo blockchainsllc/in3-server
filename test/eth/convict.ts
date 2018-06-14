@@ -55,7 +55,7 @@ describe('Convict', () => {
 
 
 
-    const watcher = new Watcher(test.handlers['#1'], 0, null, toNumber(block.number))
+    const watcher = new Watcher(test.handlers['#1'].getHandler(), 0, null, toNumber(block.number))
 
     // correct blockhash 
     let s = sign(block, pk)

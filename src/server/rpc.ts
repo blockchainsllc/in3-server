@@ -1,31 +1,41 @@
 
-import { RPCRequest, RPCResponse, Signature, IN3ResponseConfig, util, ServerList } from 'in3'
+import { RPCRequest, RPCResponse, Signature, Transport, IN3ResponseConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
 
 import config from './config'
 import EthHandler from '../chains/eth'
+import Watcher from '../chains/watch';
 
 
 export class RPC {
-  conf: any
+  conf: IN3RPCConfig
   handlers: { [chain: string]: RPCHandler }
 
-  constructor(conf: any) {
+  constructor(conf: IN3RPCConfig, transport?: Transport, nodeList?: ServerList) {
     this.handlers = {}
-    // register Handlers 
-    this.handlers[''] = this.handlers['0x00'] = new EthHandler({ ...conf })
-    conf.chainIds.forEach(id => {
-      const chain = util.toHex(id, 32)
-      this.handlers[chain] = new EthHandler({ ...config })
-      this.handlers[chain].chainId = chain
-    })
+    // register Handlers
+    for (const c of Object.keys(conf.chains)) {
+      let h: RPCHandler
+      const rpcConf = conf.chains[c]
+      switch (rpcConf.handler || 'eth') {
+        case 'eth':
+          h = new EthHandler({ ...rpcConf }, transport, nodeList)
+          break
+        // TODO implement other handlers later
+        default:
+          h = new EthHandler({ ...rpcConf }, transport, nodeList)
+          break
+      }
+      this.handlers[h.chainId = util.toMinHex(c)] = h
+      if (!conf.defaultChain) conf.defaultChain = h.chainId
+    }
 
     this.conf = conf
   }
 
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
-      const in3Request = r.in3 || { chainId: util.toHex((this.conf.chainIds && this.conf.chainIds[0]) || '0x2a', 32) }
-      const handler = this.handlers[in3Request.chainId] || this.handlers['']
+      const in3Request = r.in3 || {}
+      const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
       const in3: IN3ResponseConfig = {}
 
       if (r.method === 'in3_nodeList')
@@ -61,7 +71,11 @@ export class RPC {
 
 
   updateNodelists() {
-    return Promise.all(this.conf.chainIds.map(id => this.handlers[util.toHex(id, 32)].getNodeList(true)))
+    return Promise.all(Object.values(this.handlers).map(h => h.getNodeList(true)))
+  }
+
+  getHandler(chainId?: string) {
+    return this.handlers[util.toMinHex(chainId || this.conf.defaultChain)]
   }
 
 }
@@ -76,5 +90,6 @@ export interface RPCHandler {
   getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[]): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
-  config: any
+  config: IN3RPCHandlerConfig
+  watcher?: Watcher
 }

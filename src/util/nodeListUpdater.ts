@@ -8,7 +8,7 @@ const toHex = util.toHex
 const toBuffer = util.toBuffer
 const bytes32 = serialize.bytes32
 
-export async function checkNodeList(handler: RPCHandler, nodeList: ServerList, includeProof = false, limit = 0, seed?: string, addresses: string[] = []): Promise<ServerList> {
+export async function getNodeList(handler: RPCHandler, nodeList: ServerList, includeProof = false, limit = 0, seed?: string, addresses: string[] = []): Promise<ServerList> {
 
   // TODO check blocknumber of last event.
   if (!nodeList.nodes)
@@ -17,7 +17,6 @@ export async function checkNodeList(handler: RPCHandler, nodeList: ServerList, i
   // if the client requires a portion of the list
   if (limit && limit < nodeList.nodes.length) {
     const nodes = nodeList.nodes
-
 
     // try to find the addresses in the node list
     const result = addresses.map(adr => nodes.findIndex(_ => _.address === adr))

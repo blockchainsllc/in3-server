@@ -37,7 +37,7 @@ describe('Autoupdate', () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
     const client = await test.createClient({ requestCount: 1 })
-    const watcher: Watcher = (test.handlers['#1'] as any).watcher
+    const watcher: Watcher = test.handlers['#1'].getHandler().watcher
     const events = new EventWatcher(client, 'nodeUpdateStarted', 'nodeUpdateFinished')
 
     // this will find the 2 events from registering in the beginnging and start an update of the server nodelist
