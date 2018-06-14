@@ -22,7 +22,7 @@ export function deployContract(name: string, pk: string, url = 'http://localhost
 }
 
 export function deployChainRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
-  return tx.deployContract(url, '0x' + bin.contracts['contracts/ChainRegistry.sol:ChainRegistry'].bin, {
+  return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('ChainRegistry') >= 0)].bin, {
     privateKey: pk,
     gas: 3000000,
     confirm: true
@@ -31,7 +31,7 @@ export function deployChainRegistry(pk: string, url = 'http://localhost:8545', t
 }
 
 export function deployServerRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
-  return tx.deployContract(url, '0x' + bin.contracts['contracts/ServerRegistry.sol:ServerRegistry'].bin, {
+  return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('ServerRegistry') >= 0)].bin, {
     privateKey: pk,
     gas: 3000000,
     confirm: true
