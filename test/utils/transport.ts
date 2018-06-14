@@ -6,6 +6,7 @@ import { sendTransaction, callContract } from '../../src/util/tx';
 import axios from 'axios';
 import { registerServers } from '../../src/util/registry';
 import { RPC } from '../../src/server/rpc'
+import { IN3RPCHandlerConfig } from '../../../n3-ts/js/src/types/types';
 
 const getAddress = util.getAddress
 
@@ -184,6 +185,10 @@ export class TestTransport implements Transport {
   async getServerCountFromContract() {
     const [count] = await callContract(this.url, this.nodeList.contract, 'totalServers():(uint)', [])
     return util.toNumber(count)
+  }
+
+  getHandlerConfig(index: number): IN3RPCHandlerConfig {
+    return this.handlers['#' + (index + 1)].getHandler().config
   }
 
   static async createWithRegisteredServers(count: number) {

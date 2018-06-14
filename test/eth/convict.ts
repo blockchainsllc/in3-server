@@ -26,42 +26,19 @@ const sign = (b: BlockData, pk: string, blockHash?: string) => {
 describe('Convict', () => {
   it('convict on contracts', async () => {
 
+    const test = await TestTransport.createWithRegisteredServers(2)
 
-    const transport = new LoggingAxiosTransport()
-    let test = new TestTransport(2)
-    const pk = await test.createAccount('0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238')
-    const pk2 = await test.createAccount('0xaaaa239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238')
-    const sender = util.getAddress(pk2)
     // read current Block
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
-
-    //  register 2 servers
-    const registers = await registerServers(pk, null, [{
-      url: '#1',
-      pk,
-      props: '0xFF',
-      deposit: 100000
-    },
-    {
-      url: '#2',
-      pk: pk2,
-      props: '0xFF',
-      deposit: 50000
-    }], '0x99', null, test.url, transport)
-
-    test = new TestTransport(2, registers.registry, [pk, pk2])
-
-
-
-
+    // create a event-watcher starting with the current block
     const watcher = new Watcher(test.handlers['#1'].getHandler(), 0, null, toNumber(block.number))
 
-    // correct blockhash 
-    let s = sign(block, pk)
+    // sign the correct blockhash 
+    let s = sign(block, test.getHandlerConfig(0).privateKey)
 
     // must fail, since we cannot convict with a correct blockhash
-    let rc = await tx.callContract(test.url, registers.registry, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
-      privateKey: pk2,
+    let rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
+      privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
       confirm: true
@@ -70,27 +47,31 @@ describe('Convict', () => {
     assert.isFalse(rc, 'Transaction must fail, because we sent the correct hash')
 
     // wrong blockhash signed by first node
-    s = sign(block, pk, pk)
+    s = sign(block, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
+
+    // the sender to convit will be second node
+    const sender = util.getAddress(test.getHandlerConfig(1).privateKey)
 
     // get the balance
     const balanceSenderBefore = toNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
-    const balanceRegistryBefore = toNumber(await test.getFromServer('eth_getBalance', registers.registry, 'latest'))
+    const balanceRegistryBefore = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
 
-
-    rc = await tx.callContract(test.url, registers.registry, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
-      privateKey: pk2,
+    // send the transaction to convict with the wrong hash
+    rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
+      privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
       confirm: true
     })
 
     const balanceSenderAfter = toNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
-    const balanceRegistryAfter = toNumber(await test.getFromServer('eth_getBalance', registers.registry, 'latest'))
+    const balanceRegistryAfter = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
 
-    assert.equal(balanceSenderAfter - balanceSenderBefore, 100000 / 2)
-    assert.equal(balanceRegistryBefore - balanceRegistryAfter, 100000)
+    assert.equal(balanceSenderAfter - balanceSenderBefore, 10000 / 2)
+    assert.equal(balanceRegistryBefore - balanceRegistryAfter, 10000)
     const events = await watcher.update()
-    assert.equal(events.length, 4)
+    assert.equal(events.length, 2)
+    assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
 
   })
 
