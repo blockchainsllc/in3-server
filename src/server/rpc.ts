@@ -70,10 +70,10 @@ export class RPC {
 
 
   init() {
-    return Promise.all(Object.values(this.handlers).map(h =>
-      h.getNodeList(true)
-        .then(() => h.checkPrivateKey())
-        .then(() => h.checkRegistry())
+    return Promise.all(Object.keys(this.handlers).map(c =>
+      this.handlers[c].getNodeList(true)
+        .then(() => this.handlers[c].checkPrivateKey())
+        .then(() => this.handlers[c].checkRegistry())
     ))
   }
 

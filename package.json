@@ -4,6 +4,7 @@
   "description": "Typescript-version of the in3 server",
   "main": "js/src/server/server.js",
   "scripts": {
+    "docu": "typedoc  --exclude test --excludePrivate  --readme none --ignoreCompilerErrors --target ES6  --mode 'modules' --json doc.json src/index.ts ; cat  doc.json | slockit-docu index \"#INCUBED API\" >  src/README.md ; rm doc.json",
     "updateIn3": "rm -rf node_modules/in3 package-lock.json; npm install",
     "build": "tsc -p .",
     "testAll": "cd node_modules/in3; npm run build && npm test; cd ../..; npm test",
@@ -21,7 +22,8 @@
       "test/**/*.ts"
     ],
     "exclude": [
-      "!node_modules/in3/js/src/**/*.js"
+      "!node_modules/in3/js/src/**/*.js",
+      "test/**/*.ts"
     ],
     "extension": [
       ".ts"
@@ -61,8 +63,10 @@
     "dtsgenerator": "^0.9.9",
     "mocha": "^5.1.1",
     "nyc": "^11.8.0",
+    "slockit-generator": "git+ssh://git@github.com/slockit/generator.git#master",
     "source-map-support": "^0.5.6",
     "ts-node": "^6.0.3",
+    "typedoc": "^0.11.1",
     "typescript": "^2.9.1"
   },
   "dependencies": {
