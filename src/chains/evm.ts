@@ -128,14 +128,14 @@ const codes = {
   'f2': 'CALLCODE 7 1 Message-call into this account with alternative accounts code',
   'f3': 'RETURN 2 0  Halt execution returning output data',
   'f4': 'DELEGATECALL 6 1 Message-call into this account with an alternative accounts code, but persisting the current values for `sender` and `value`',
-  'fa': 'STATIONCALL 6 1  Static message-call into an account',
+  'fa': 'STATICCALL 6 1  Static message-call into an account',
   'fd': 'REVERT 2 0 Halt execution reverting state changes but returning data and remaining gas',
 
   'ff': 'SELFDESTRUCT 1 0 Halt execution and register account for later deletion'
 }
 
 
-export function analyse(trace, storageAccount: string, result?: any): {
+export function analyse(trace, storageAccount: string, result?: any, level = ''): {
   blocks: string[],
   accounts: {
     [name: string]: {
@@ -153,11 +153,11 @@ export function analyse(trace, storageAccount: string, result?: any): {
   if (!result) result = { blocks: [], accounts: { [storageAccount]: { storage: {}, code: trace.code } } }
   const getAccount = (a?: string) => result.accounts[a || storageAccount] || (result.accounts[a || storageAccount] = { storage: {} })
 
-  trace.ops.forEach(s => {
-    const c = codes[code.substr(s.pc * 2, 2)]
+  trace.ops.forEach((s, count) => {
+    const c = codes[code.substr(s.pc * 2, 2)] as string
     if (!c) throw new Error('ERROR Could not find ' + code.substr(s.pc * 2, 2))
-    let [op, sdel, sadd, desc] = c.split(' ')
-    //    console.error('trace step ' + op + ' pc:' + s.pc + ' stack :' + JSON.stringify(stack))
+    let [op, sdelete, sadd, desc] = c.split(' ')
+    let sdel = parseInt(sdelete)
 
     if (s.sub) {
       let ac = storageAccount
@@ -170,9 +170,14 @@ export function analyse(trace, storageAccount: string, result?: any): {
         getAccount(stack[stack.length - 2]).code = s.sub.code
       else if (op === 'DELEGATECALL')
         getAccount(stack[stack.length - 2]).code = true
+      else if (op === 'STATICCALL')
+        getAccount(stack[stack.length - 2]).code = true
       else
         throw new Error('invalid opcode for sub call ' + op)
-      analyse(s.sub, ac, result)
+
+      //      console.error(level + count.toString().padStart(4) + ' : ' + op.padEnd(16, ' ') + ' > INTERN CALL TO ' + stack[stack.length - 2])
+
+      analyse(s.sub, ac, result, level + ' .. ')
     }
     else if (op === 'BLOCKHASH')
       result.blocks.push(stack[stack.length - 1])
@@ -183,13 +188,15 @@ export function analyse(trace, storageAccount: string, result?: any): {
     else if (op === 'EXTCODECOPY' || op === 'EXTCODESIZE')
       getAccount(stack[stack.length - 1]).code = true
 
-    while (parseInt(sdel)) {
+    while (sdel) {
       stack.pop()
-      sdel = parseInt(sdel) - 1
+      sdel--
     }
     if (sadd && parseInt(sadd) !== s.ex.push.length)
       throw new Error('ERROR : expected to push ' + sadd + ' elements!')
     s.ex.push.forEach(_ => stack.push(_))
+
+    //    console.error(level + count.toString().padStart(4) + ' : ' + op.padEnd(16, ' ') + '  ' + s.pc.toString().padStart(5, ' ') + ' stack :' + stack.map(_ => _.toString(16)).join('  '))
     //console.log(l + op, JSON.stringify(s.ex) + '\n' + l + '     stack: ' + stack.join())
 
   })

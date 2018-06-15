@@ -8,7 +8,12 @@ import * as evm from './evm'
 import { getNodeList, updateNodeList } from '../util/nodeListUpdater'
 import * as utils from 'ethereumjs-util';
 import * as tx from '../util/tx'
-import Watcher from './watch';
+import Watcher from './watch'
+import { registerServers } from '../util/registry'
+import * as fs from 'fs'
+import * as scryptsy from 'scrypt.js'
+import * as wallet from 'ethereumjs-wallet'
+import * as cryp from 'crypto'
 
 const toHex = in3Util.toHex
 const toNumber = in3Util.toNumber
@@ -66,8 +71,94 @@ export default class EthHandler {
     // start the watcher in the background
     if (interval > 0)
       this.watcher.check()
+  }
+
+  async checkPrivateKey() {
+    if (!this.config.privateKey)
+      throw new Error('No private key set, which is needed in order to sign blockhashes')
+
+    const key = this.config.privateKey
+    if (key.startsWith('0x')) {
+      if (key.length != 66) throw new Error('The private key needs to have a length of 32 bytes!')
+      return
+    }
+    const password = this.config.privateKeyPassphrase
+
+    try {
+      const json = JSON.parse(fs.readFileSync(key, 'utf8'))
+      if (json.version !== 3)
+        throw new Error('Not a valid V3 wallet')
+
+      let derivedKey: any
+      //      var kdfparams;
+      if (json.crypto.kdf === 'scrypt') {
+        const kdfparams = json.crypto.kdfparams;
+        derivedKey = scryptsy(new Buffer(password), new Buffer(kdfparams.salt, 'hex'), kdfparams.n, kdfparams.r, kdfparams.p, kdfparams.dklen)
+      } else if (json.crypto.kdf === 'pbkdf2') {
+        const params = json.crypto.kdfparams;
+
+        if (params.prf !== 'hmac-sha256')
+          throw new Error('Unsupported parameters to PBKDF2')
+
+        derivedKey = cryp.pbkdf2Sync(new Buffer(password), new Buffer(params.salt, 'hex'), params.c, params.dklen, 'sha256')
+      } else
+        throw new Error('Unsupported key derivation scheme')
+
+      const ciphertext = new Buffer(json.crypto.ciphertext, 'hex');
+      const mac = utils.sha3(Buffer.concat([derivedKey.slice(16, 32), ciphertext])).replace('0x', '')
+      if (mac !== json.crypto.mac)
+        throw new Error('Key derivation failed - possibly wrong password');
+
+      const decipher = cryp.createDecipheriv(json.crypto.cipher, derivedKey.slice(0, 16), new Buffer(json.crypto.cipherparams.iv, 'hex'))
+      this.config.privateKey = '0x' + Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('hex')
+
+    } catch (ex) {
+      throw new Error('Could not decode the private : ' + ex.message)
+    }
 
   }
+
+  async checkRegistry(): Promise<any> {
+    if (!this.config.registry || !this.config.autoRegistry) {
+      // TODO get it from the chainRegistry?
+      // we will get the registry from the 
+      return
+    }
+
+    await this.checkPrivateKey()
+
+    const autoReg = this.config.autoRegistry
+    const nl = await this.getNodeList(false)
+    if (nl.nodes.find(_ => _.url === autoReg.url))
+      // all is well we are already registered
+      return
+
+    const units = {
+      ether: 1000000000000000000,
+      finney: 1000000000000000,
+      szabo: 1000000000000,
+      gwei: 1000000000,
+      nano: 1000000000,
+      mwei: 1000000,
+      pico: 1000000,
+      kwei: 1000,
+      wei: 1
+    }
+    const unit = autoReg.depositUnit || 'ether'
+    if (!units[unit]) throw new Error('The unit ' + unit + ' is not supported, only ' + Object.keys(units).join())
+    const caps = autoReg.capabilities || {}
+    const deposit = '0x' + in3Util.toBN(autoReg.deposit || 0).mul(in3Util.toBN(units[unit])).toString(16)
+    const props = toHex((caps.proof ? 1 : 0) + (caps.multiChain ? 2 : 0))
+
+    await registerServers(this.config.privateKey, this.config.registry, [{
+      url: autoReg.url,
+      pk: this.config.privateKey,
+      props,
+      deposit: deposit as any
+    }], this.chainId, undefined, this.config.registryRPC || this.config.rpcUrl, undefined, false)
+  }
+
+
 
   async handle(request: RPCRequest): Promise<RPCResponse> {
     // check if supported
@@ -76,6 +167,17 @@ export default class EthHandler {
 
     const in3 = request.in3 || {}
     const proof = in3.verification || 'never'
+
+    // replace the latest BlockNumber
+    if (in3.latestBlock && Array.isArray(request.params)) {
+      const i = request.params.indexOf('latest')
+      if (i >= 0) {
+        const current = this.watcher.block.number || await this.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => toNumber(_.result))
+        request.params[i] = toHex(current - in3.latestBlock)
+      }
+    }
+
+
 
     // handle special jspn-rpc
     if (proof === 'proof' || proof === 'proofWithSignature') {

@@ -56,7 +56,7 @@ app
   .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
 
 // after starting the server, we should make sure our nodelist is up-to-date.
-setTimeout(() => rpc.updateNodelists().catch(logger.error)
-
-
-)
+setTimeout(() => rpc.init().catch(err => {
+  logger.error('Error initializing the server : ', err)
+  process.exit(1)
+}))

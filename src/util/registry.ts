@@ -45,7 +45,7 @@ export async function registerServers(pk: string, registry: string, data: {
   pk: string
   props: string
   deposit: number
-}[], chainId: string, chainRegistry?: string, url = 'http://localhost:8545', transport?: Transport) {
+}[], chainId: string, chainRegistry?: string, url = 'http://localhost:8545', transport?: Transport, registerChain = true) {
   if (!registry)
     registry = await deployServerRegistry(pk, url, transport)
 
@@ -60,13 +60,14 @@ export async function registerServers(pk: string, registry: string, data: {
         value: c.deposit
       }, transport)
 
-  chainRegistry = await registerChains(pk, chainRegistry, [{
-    chainId,
-    bootNodes: data.map(c => util.getAddress(c.pk) + ':' + c.url),
-    meta: 'dummy',
-    registryContract: registry,
-    contractChain: chainId
-  }], url, transport)
+  if (registerChain)
+    chainRegistry = await registerChains(pk, chainRegistry, [{
+      chainId,
+      bootNodes: data.map(c => util.getAddress(c.pk) + ':' + c.url),
+      meta: 'dummy',
+      registryContract: registry,
+      contractChain: chainId
+    }], url, transport)
 
   return {
     chainRegistry,

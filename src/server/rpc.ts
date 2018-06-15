@@ -69,9 +69,12 @@ export class RPC {
   }
 
 
-
-  updateNodelists() {
-    return Promise.all(Object.values(this.handlers).map(h => h.getNodeList(true)))
+  init() {
+    return Promise.all(Object.values(this.handlers).map(h =>
+      h.getNodeList(true)
+        .then(() => h.checkPrivateKey())
+        .then(() => h.checkRegistry())
+    ))
   }
 
   getHandler(chainId?: string) {
@@ -90,6 +93,8 @@ export interface RPCHandler {
   getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[]): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
+  checkRegistry(): Promise<any>
+  checkPrivateKey(): Promise<any>
   config: IN3RPCHandlerConfig
   watcher?: Watcher
 }
