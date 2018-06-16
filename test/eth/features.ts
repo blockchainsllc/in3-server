@@ -9,11 +9,11 @@ import Watcher from '../../src/chains/watch'
 import EventWatcher from '../utils/EventWatcher'
 import * as tx from '../../src/util/tx'
 import { RPC } from '../../src/server/rpc';
-import { getAddress } from '../../../n3-ts/src/util/util';
 
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 const toHex = util.toHex
+const getAddress = util.getAddress
 
 describe('Features', () => {
 
