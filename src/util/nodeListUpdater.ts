@@ -1,13 +1,14 @@
 import { RPCHandler } from '../server/rpc'
-import config from '../server/config'
 import * as tx from './tx'
 import * as abi from 'ethereumjs-abi'
-import Client, { createRandomIndexes, Proof, ServerList, BlockData, AccountProof, RPCRequest, IN3Config, RPCResponse, IN3NodeConfig, util, storage, serialize, AxiosTransport } from 'in3'
-import { toChecksumAddress, BN, keccak256, toBuffer } from 'ethereumjs-util'
+import { createRandomIndexes, Proof, ServerList, BlockData, AccountProof, RPCRequest, IN3NodeConfig, util, storage, serialize } from 'in3'
+import { toChecksumAddress, keccak256, toBuffer } from 'ethereumjs-util'
+
 const toHex = util.toHex
 const toBuffer = util.toBuffer
 const bytes32 = serialize.bytes32
 
+/** returns a nodelist filtered by the given params and proof. */
 export async function getNodeList(handler: RPCHandler, nodeList: ServerList, includeProof = false, limit = 0, seed?: string, addresses: string[] = []): Promise<ServerList> {
 
   // TODO check blocknumber of last event.
@@ -54,6 +55,10 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
 
 }
 
+/**
+ * returns all storagekeys used to prove the storag of the registry
+ * @param list 
+ */
 export function getStorageKeys(list: IN3NodeConfig[]) {
   // create the keys with the serverCount
   const keys: Buffer[] = [storage.getStorageArrayKey(0)]
@@ -69,6 +74,11 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
   return keys
 }
 
+/**
+ * 
+ * @param handler creates the proof for the storage of the registry
+ * @param nodeList 
+ */
 export async function createNodeListProof(handler: RPCHandler, nodeList: ServerList) {
 
 
@@ -99,23 +109,11 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
     accounts: { [address]: account }
   } as Proof
 }
-/*
-export function createRandomIndexes(len: number, limit: number, seed: string, result: number[] = []) {
-  let step = parseInt(seed.substr(0, 14))  // first 6 bytes
-  let pos = parseInt('0x' + seed.substr(14, 12)) % len // next 6 bytes
-  while (result.length < limit) {
-    if (result.indexOf(pos) >= 0) {
-      seed = keccak256(seed)
-      step = parseInt(seed.substr(0, 14))
-      continue
-    }
-    result.push(pos)
-    pos = (pos + step) % len
-  }
-  return result
-}
-*/
 
+
+/**
+ * updates the given nodelist from the registry contract.
+ */
 export async function updateNodeList(handler: RPCHandler, list: ServerList, lastBlockNumber?: number) {
 
   // first get the registry
