@@ -1,4 +1,4 @@
-import { LogData, LogProof, BlockData, RPCRequest, RPCResponse, ReceiptData, Signature, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util } from 'in3'
+import { LogData, LogProof, BlockData, IN3RPCRequestConfig, RPCRequest, RPCResponse, ReceiptData, Signature, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util } from 'in3'
 import { createTransactionProof, createTransactionReceiptProof } from './proof'
 import axios from 'axios'
 import * as logger from '../util/logger'
@@ -165,7 +165,7 @@ export default class EthHandler {
     const error = NOT_SUPPORTED[request.method]
     if (error) return { id: request.id, error, jsonrpc: request.jsonrpc }
 
-    const in3 = request.in3 || {}
+    const in3: IN3RPCRequestConfig = request.in3 || {} as any
     const proof = in3.verification || 'never'
 
     // replace the latest BlockNumber

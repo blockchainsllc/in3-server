@@ -1,5 +1,5 @@
 
-import { RPCRequest, RPCResponse, Signature, Transport, IN3ResponseConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
+import { RPCRequest, RPCResponse, Signature, Transport, IN3ResponseConfig, IN3RPCRequestConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
 
 import config from './config'
 import EthHandler from '../chains/eth'
@@ -34,9 +34,9 @@ export class RPC {
 
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
-      const in3Request = r.in3 || {}
+      const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
       const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
-      const in3: IN3ResponseConfig = {}
+      const in3: IN3ResponseConfig = {} as any
 
       if (r.method === 'in3_nodeList')
         return handler.getNodeList(
