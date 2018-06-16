@@ -107,14 +107,14 @@ contract ServerRegistry {
 
     function convict(uint _serverIndex, bytes32 _blockhash, uint _blocknumber, uint8 _v, bytes32 _r, bytes32 _s) public {
         // if the blockhash is correct you cannot convict the server
-        require(block.blockhash(_blocknumber) != _blockhash);
+        require(blockhash(_blocknumber) != _blockhash);
 
         // make sure the hash was signed by the owner of the server
         require(ecrecover(keccak256(_blockhash, _blocknumber), _v, _r, _s) == servers[_serverIndex].owner);
 
         // remove the deposit
         if (servers[_serverIndex].deposit>0) {
-            var payout = servers[_serverIndex].deposit/2;
+            uint payout = servers[_serverIndex].deposit/2;
             // send 50% to the caller of this function
             msg.sender.transfer(payout);
 

@@ -15,14 +15,14 @@ contract ChainRegistry {
     event LogChainRegistered(bytes32 indexed chain);
 
     function registerChain(bytes32 chain, string bootNodes, string meta, address registryContract, bytes32 contractChain) public {
-        var data = chains[chain];
+        Chain storage data = chains[chain];
         require(data.owner==0x0 || data.owner==msg.sender);
         data.bootNodes = bootNodes;
         data.owner = msg.sender;
         data.registryContract = registryContract;
         data.contractChain = contractChain;
         data.meta=meta;
-        LogChainRegistered(chain);
+        emit LogChainRegistered(chain);
     }
     
 
