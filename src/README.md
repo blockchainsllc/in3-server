@@ -2,9 +2,9 @@
 
 * [**RPC**](#type-rpc) : `class`  - the default rpc-handler
 
-* **[config](https://github.com/slockit/in3-server/blob/master/src/index.ts#L11)** :`any` - the configuration
+* **[config](https://github.com/slockit/in3-server/blob/master/src/index.ts#L12)** :[`IN3RPCConfig`](#type-in3rpcconfig) - the configuration
 
-* **[s](https://github.com/slockit/in3-server/blob/master/src/index.ts#L8)** :[`Application`](#type-application) 
+* **[s](https://github.com/slockit/in3-server/blob/master/src/index.ts#L9)** :[`Application`](#type-application) 
 
 
 ## Type RPC
