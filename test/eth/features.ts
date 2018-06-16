@@ -1,12 +1,12 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util, BlockData, serialize, Signature } from 'in3'
+import { util, BlockData, serialize, Signature, ServerList, RPCResponse } from 'in3'
 import { registerServers, deployContract } from '../../src/util/registry';
 import * as ethUtil from 'ethereumjs-util'
 import { TestTransport } from '../utils/transport';
 import Watcher from '../../src/chains/watch'
-import EventWatcher from '../utils/EventWatcher'
+import EventWatcher from '../utils/EventWatcher';
 import * as tx from '../../src/util/tx'
 import { RPC } from '../../src/server/rpc';
 
@@ -164,6 +164,31 @@ describe('Features', () => {
 
   })
 
+  it('partial Server List', async () => {
+
+    // create  10 nodes
+    const test = await TestTransport.createWithRegisteredServers(10)
+
+    const client = await test.createClient({ nodeLimit: 6, requestCount: 1, proof: true })
+
+    const evWatcher = new EventWatcher(client, 'nodeUpdateFinished')
+
+    // update the nodelist in the server
+    await test.getHandler(0).updateNodeList(undefined)
+    await client.updateNodeList()
+
+    const ev: { name: string, arg: { nlResponse: RPCResponse, nodeList: ServerList } } = await evWatcher.getEvent('nodeUpdateFinished')
+    assert.isDefined(ev)
+
+    const proof = ev.arg.nlResponse.in3.proof
+
+    assert.isDefined(proof)
+    assert.equal(proof.type, 'accountProof')
+    assert.equal(ev.arg.nodeList.totalServers, 10)
+    assert.equal(ev.arg.nodeList.nodes.length, 6)
+    assert.isDefined(proof.accounts[test.nodeList.contract])
+
+  })
 
 })
 

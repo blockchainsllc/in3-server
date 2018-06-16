@@ -2,7 +2,7 @@ import { RPCHandler } from '../server/rpc'
 import config from '../server/config'
 import * as tx from './tx'
 import * as abi from 'ethereumjs-abi'
-import Client, { Proof, ServerList, BlockData, AccountProof, RPCRequest, IN3Config, RPCResponse, IN3NodeConfig, util, storage, serialize, AxiosTransport } from 'in3'
+import Client, { createRandomIndexes, Proof, ServerList, BlockData, AccountProof, RPCRequest, IN3Config, RPCResponse, IN3NodeConfig, util, storage, serialize, AxiosTransport } from 'in3'
 import { toChecksumAddress, BN, keccak256, toBuffer } from 'ethereumjs-util'
 const toHex = util.toHex
 const toBuffer = util.toBuffer
@@ -22,7 +22,7 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
     const result = addresses.map(adr => nodes.findIndex(_ => _.address === adr))
     if (result.indexOf(-1) >= 0) throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist')
 
-    createRandomIndexes(nodes.length, limit, seed, result)
+    createRandomIndexes(nodes.length, limit, bytes32(seed), result)
 
     const nl: ServerList = {
       totalServers: nodeList.totalServers,
@@ -99,10 +99,10 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
     accounts: { [address]: account }
   } as Proof
 }
-
+/*
 export function createRandomIndexes(len: number, limit: number, seed: string, result: number[] = []) {
   let step = parseInt(seed.substr(0, 14))  // first 6 bytes
-  let pos = parseInt('0x' + seed.substr(14, 12)) // next 6 bytes
+  let pos = parseInt('0x' + seed.substr(14, 12)) % len // next 6 bytes
   while (result.length < limit) {
     if (result.indexOf(pos) >= 0) {
       seed = keccak256(seed)
@@ -114,7 +114,7 @@ export function createRandomIndexes(len: number, limit: number, seed: string, re
   }
   return result
 }
-
+*/
 
 export async function updateNodeList(handler: RPCHandler, list: ServerList, lastBlockNumber?: number) {
 
