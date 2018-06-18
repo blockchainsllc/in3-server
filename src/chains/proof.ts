@@ -1,7 +1,7 @@
 import { rlp, toChecksumAddress } from 'ethereumjs-util'
 import { LogProof, LogData, RPCRequest, RPCResponse, BlockData, Signature, Proof, ReceiptData, serialize, util, TransactionData } from 'in3'
 import * as Trie from 'merkle-patricia-tree'
-import EthHandler from './eth';
+import EthHandler from './EthHandler';
 import { collectSignatures } from './signatures'
 import * as evm from './evm'
 

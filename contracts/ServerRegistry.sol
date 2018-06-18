@@ -1,6 +1,6 @@
 pragma solidity ^0.4.19;
 
-/// @title Registry for IN§-Nodes
+/// @title Registry for IN3-Nodes
 contract ServerRegistry {
 
     uint internal constant unregisterDeposit = 100000;

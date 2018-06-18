@@ -1,8 +1,6 @@
 
-import { RPCRequest, RPCResponse, Signature, Transport, IN3ResponseConfig, IN3RPCRequestConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
-
-import config from './config'
-import EthHandler from '../chains/eth'
+import { RPCRequest, RPCResponse, Transport, IN3ResponseConfig, IN3RPCRequestConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
+import EthHandler from '../chains/EthHandler'
 import Watcher from '../chains/watch';
 
 
@@ -12,7 +10,14 @@ export class RPC {
 
   constructor(conf: IN3RPCConfig, transport?: Transport, nodeList?: ServerList) {
     this.handlers = {}
+
     // register Handlers
+    this.initHandlers(conf, transport, nodeList)
+
+    this.conf = conf
+  }
+
+  private initHandlers(conf, transport, nodeList) {
     for (const c of Object.keys(conf.chains)) {
       let h: RPCHandler
       const rpcConf = conf.chains[c]
@@ -26,10 +31,9 @@ export class RPC {
           break
       }
       this.handlers[h.chainId = util.toMinHex(c)] = h
-      if (!conf.defaultChain) conf.defaultChain = h.chainId
+      if (!conf.defaultChain)
+        conf.defaultChain = h.chainId
     }
-
-    this.conf = conf
   }
 
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {

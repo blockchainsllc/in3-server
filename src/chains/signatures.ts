@@ -1,4 +1,4 @@
-import EthHandler from './eth'
+import EthHandler from './EthHandler'
 import { BlockData, RPCRequest, RPCResponse, Signature, util, serialize } from 'in3'
 import { sha3, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'

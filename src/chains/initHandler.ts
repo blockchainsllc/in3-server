@@ -1,4 +1,4 @@
-import EthHandler from './eth'
+import EthHandler from './EthHandler'
 import { IN3RPCHandlerConfig, util } from 'in3'
 import * as fs from 'fs'
 import * as scryptsy from 'scrypt.js'
