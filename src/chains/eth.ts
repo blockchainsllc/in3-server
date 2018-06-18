@@ -1,34 +1,13 @@
-import { LogData, LogProof, BlockData, IN3RPCRequestConfig, RPCRequest, RPCResponse, ReceiptData, Signature, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util } from 'in3'
-import { createTransactionProof, createTransactionReceiptProof } from './proof'
+import { RPCRequest, RPCResponse, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util } from 'in3'
+import { handeGetTransaction, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
 import axios from 'axios'
-import * as logger from '../util/logger'
-//import config from '../config'
-import * as util from 'ethereumjs-util'
-import * as evm from './evm'
 import { getNodeList, updateNodeList } from '../util/nodeListUpdater'
-import * as utils from 'ethereumjs-util';
-import * as tx from '../util/tx'
 import Watcher from './watch'
-import { registerServers } from '../util/registry'
-import * as fs from 'fs'
-import * as scryptsy from 'scrypt.js'
-import * as wallet from 'ethereumjs-wallet'
-import * as cryp from 'crypto'
+import { checkPrivateKey, checkRegistry } from './initHandler'
+import { collectSignatures, handleSign } from './signatures'
 
 const toHex = in3Util.toHex
 const toNumber = in3Util.toNumber
-const bytes32 = serialize.bytes32
-const bytes = serialize.bytes32
-const address = serialize.address
-
-
-const NOT_SUPPORTED = {
-  eth_sign: 'a in3-node can not sign Messages, because the no unlocked key is allowed!',
-  eth_sendTransaction: 'a in3-node can not sign Transactions, because the no unlocked key is allowed!',
-  eth_submitWork: 'Incubed cannot be used for mining since there is no coinbase',
-  eth_submitHashrate: 'Incubed cannot be used for mining since there is no coinbase',
-
-}
 
 /**
  * handles EVM-Calls
@@ -46,551 +25,120 @@ export default class EthHandler {
     this.transport = transport || new AxiosTransport()
     this.nodeList = nodeList || { nodes: [] }
     const interval = config.watchInterval || 5
+
+    // check that we have a valid private key and if needed decode it
+    checkPrivateKey(this.config)
+
+    // create watcher checking the registry-contract for events
     this.watcher = new Watcher(this, interval, config.persistentFile || 'lastBlock.json')
-    this.watcher.on('LogServerUnregisterRequested', ev => {
-      const me = in3Util.getAddress(config.privateKey)
-      if (ev.owner !== me || ev.caller === me) return
-      logger.info('LogServerUnregisterRequested event found. Reacting with cancelUnregisteringServer! ')
-      this.getNodeList(false).then(nl => {
-        const node = nl.nodes.find(_ => _.url === ev.url)
-        if (!node)
-          throw new Error('could not find the server in the list')
-        return tx.callContract(config.registryRPC || config.rpcUrl, config.registry, 'cancelUnregisteringServer(uint)', [node.index], {
-          privateKey: config.privateKey,
-          gas: 400000,
-          value: 0,
-          confirm: true
-        })
-          .then(_ => logger.info('called successfully cancelUnregisteringServer! '))
-
-
-      }).catch(err => logger.error('Error handling LogServerUnregisterRequested : ', err))
-
-    })
 
     // start the watcher in the background
     if (interval > 0)
       this.watcher.check()
   }
 
-  async checkPrivateKey() {
-    if (!this.config.privateKey)
-      throw new Error('No private key set, which is needed in order to sign blockhashes')
 
-    const key = this.config.privateKey
-    if (key.startsWith('0x')) {
-      if (key.length != 66) throw new Error('The private key needs to have a length of 32 bytes!')
-      return
-    }
-    const password = this.config.privateKeyPassphrase
-
-    try {
-      const json = JSON.parse(fs.readFileSync(key, 'utf8'))
-      if (json.version !== 3)
-        throw new Error('Not a valid V3 wallet')
-
-      let derivedKey: any
-      //      var kdfparams;
-      if (json.crypto.kdf === 'scrypt') {
-        const kdfparams = json.crypto.kdfparams;
-        derivedKey = scryptsy(new Buffer(password), new Buffer(kdfparams.salt, 'hex'), kdfparams.n, kdfparams.r, kdfparams.p, kdfparams.dklen)
-      } else if (json.crypto.kdf === 'pbkdf2') {
-        const params = json.crypto.kdfparams;
-
-        if (params.prf !== 'hmac-sha256')
-          throw new Error('Unsupported parameters to PBKDF2')
-
-        derivedKey = cryp.pbkdf2Sync(new Buffer(password), new Buffer(params.salt, 'hex'), params.c, params.dklen, 'sha256')
-      } else
-        throw new Error('Unsupported key derivation scheme')
-
-      const ciphertext = new Buffer(json.crypto.ciphertext, 'hex');
-      const mac = utils.sha3(Buffer.concat([derivedKey.slice(16, 32), ciphertext])).replace('0x', '')
-      if (mac !== json.crypto.mac)
-        throw new Error('Key derivation failed - possibly wrong password');
-
-      const decipher = cryp.createDecipheriv(json.crypto.cipher, derivedKey.slice(0, 16), new Buffer(json.crypto.cipherparams.iv, 'hex'))
-      this.config.privateKey = '0x' + Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('hex')
-
-    } catch (ex) {
-      throw new Error('Could not decode the private : ' + ex.message)
-    }
-
-  }
-
-  async checkRegistry(): Promise<any> {
-    if (!this.config.registry || !this.config.autoRegistry) {
-      // TODO get it from the chainRegistry?
-      // we will get the registry from the 
-      return
-    }
-
-    await this.checkPrivateKey()
-
-    const autoReg = this.config.autoRegistry
-    const nl = await this.getNodeList(false)
-    if (nl.nodes.find(_ => _.url === autoReg.url))
-      // all is well we are already registered
-      return
-
-    const units = {
-      ether: 1000000000000000000,
-      finney: 1000000000000000,
-      szabo: 1000000000000,
-      gwei: 1000000000,
-      nano: 1000000000,
-      mwei: 1000000,
-      pico: 1000000,
-      kwei: 1000,
-      wei: 1
-    }
-    const unit = autoReg.depositUnit || 'ether'
-    if (!units[unit]) throw new Error('The unit ' + unit + ' is not supported, only ' + Object.keys(units).join())
-    const caps = autoReg.capabilities || {}
-    const deposit = '0x' + in3Util.toBN(autoReg.deposit || 0).mul(in3Util.toBN(units[unit])).toString(16)
-    const props = toHex((caps.proof ? 1 : 0) + (caps.multiChain ? 2 : 0))
-
-    await registerServers(this.config.privateKey, this.config.registry, [{
-      url: autoReg.url,
-      pk: this.config.privateKey,
-      props,
-      deposit: deposit as any
-    }], this.chainId, undefined, this.config.registryRPC || this.config.rpcUrl, undefined, false)
+  checkRegistry(): Promise<any> {
+    return checkRegistry(this)
   }
 
 
 
+  /** main method to handle a request */
   async handle(request: RPCRequest): Promise<RPCResponse> {
-    // check if supported
-    const error = NOT_SUPPORTED[request.method]
-    if (error) return { id: request.id, error, jsonrpc: request.jsonrpc }
-
-    const in3: IN3RPCRequestConfig = request.in3 || {} as any
-    const proof = in3.verification || 'never'
-
     // replace the latest BlockNumber
-    if (in3.latestBlock && Array.isArray(request.params)) {
+    if (request.in3 && request.in3.latestBlock && Array.isArray(request.params)) {
       const i = request.params.indexOf('latest')
-      if (i >= 0) {
-        const current = this.watcher.block.number || await this.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => toNumber(_.result))
-        request.params[i] = toHex(current - in3.latestBlock)
-      }
+      if (i >= 0)
+        request.params[i] = toHex((this.watcher.block.number || await this.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => toNumber(_.result))) - request.in3.latestBlock)
     }
 
+    // make sure the in3 params are set
+    if (!request.in3)
+      request.in3 = { verification: 'never', chainId: this.chainId }
 
+    if (!request.in3.verification)
+      request.in3.verification = 'never'
+
+    // execute it
+    return this.handleRPCMethod(request)
+  }
+
+  private async handleRPCMethod(request: RPCRequest) {
 
     // handle special jspn-rpc
-    if (proof === 'proof' || proof === 'proofWithSignature') {
-      if (request.method === 'eth_getBlockByNumber' || request.method === 'eth_getBlockByHash' || request.method === 'eth_getBlockTransactionCountByHash' || request.method === 'eth_getBlockTransactionCountByNumber')
-        return this.handleBlock(request)
-      if (request.method === 'eth_getTransactionByHash')
-        return this.handeGetTransaction(request)
-      if (request.method === 'eth_getLogs')
-        return this.handleLogs(request)
-      if (request.method === 'eth_getTransactionReceipt')
-        return this.handeGetTransactionReceipt(request)
-      if (request.method === 'eth_call' /*&& this.config.client === 'parity_proofed'*/)
-        return this.handleCall(request)
-      if (request.method === 'eth_getCode' || request.method === 'eth_getBalance' || request.method === 'eth_getTransactionCount' || request.method === 'eth_getStorageAt')
-        return this.handleAccount(request)
+    if (request.in3.verification.startsWith('proof'))
+      switch (request.method) {
+        case 'eth_getBlockByNumber':
+        case 'eth_getBlockByHash':
+        case 'eth_getBlockTransactionCountByHash':
+        case 'eth_getBlockTransactionCountByNumber':
+          return handleBlock(this, request)
+        case 'eth_getTransactionByHash':
+          return handeGetTransaction(this, request)
+        case 'eth_getTransactionReceipt':
+          return handeGetTransactionReceipt(this, request)
+        case 'eth_getLogs':
+          return handleLogs(this, request)
+        case 'eth_call':
+          return handleCall(this, request)
+
+        case 'eth_getCode':
+        case 'eth_getBalance':
+        case 'eth_getTransactionCount':
+        case 'eth_getStorageAt':
+          return handleAccount(this, request)
+        default:
+
+      }
+
+    // handle in3-methods  
+    switch (request.method) {
+
+      case 'eth_sign':
+      case 'eth_sendTransaction':
+        return toError(request.id, 'a in3 - node can not sign Messages, because the no unlocked key is allowed!')
+
+      case 'eth_submitWork':
+      case 'eth_submitHashrate':
+        return toError(request.id, 'Incubed cannot be used for mining since there is no coinbase')
+
+      case 'in3_sign':
+        return handleSign(this, request)
+
+      default:
+        // default handling by simply getting the response from the server
+        return this.getFromServer(request)
     }
-
-    if (request.method === 'in3_sign')
-      return this.handleSign(request)
-
-    return this.getFromServer(request)
   }
 
 
+  /** returns the result directly from the server */
   getFromServer(request: Partial<RPCRequest>): Promise<RPCResponse> {
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
     return axios.post(this.config.rpcUrl, toCleanRequest(request)).then(_ => _.data)
   }
 
+  /** returns a array of requests from the server */
   getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]> {
     return request.length
       ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ }))).then(_ => _.data)
       : Promise.resolve([])
   }
 
-  async collectSignatures(addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[]): Promise<Signature[]> {
-    // nothing to do?
-    if (!addresses || !addresses.length || !requestedBlocks || !requestedBlocks.length) return []
-
-    // make sure the 
-    const blocks = await Promise.all(requestedBlocks.map(async b => ({
-      blockNumber: toNumber(b.blockNumber),
-      hash: toHex(b.hash || await this.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(b.blockNumber), false] })
-        .then(_ => _.result && _.result.hash), 32)
-    })))
-
-    // get our own nodeList
-    const nodes = await this.getNodeList(false)
-    return Promise.all(addresses.map(async adr => {
-
-      // find the requested address in our list
-      const config = nodes.nodes.find(_ => _.address === adr)
-      if (!config) // TODO do we need to throw here or is it ok to simply not deliver the signature?
-        throw new Error('The requested signature ' + adr + ' does not exist within the current nodeList!')
-
-      // send the sign-request
-      const response = await this.transport.handle(config.url, { id: this.counter++, jsonrpc: '2.0', method: 'in3_sign', params: [...blocks] }) as RPCResponse
-      if (response.error)
-        throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
-
-      const signatures = response.result as Signature[]
-
-      // if there are signature, we only return the valid ones
-      if (signatures && signatures.length)
-        return Promise.all(signatures.map(async s => {
-
-          // first check the signature
-          const signatureMessageHash: Buffer = util.sha3(Buffer.concat([bytes32(s.blockHash), bytes32(s.block)]))
-          if (!bytes32(s.msgHash).equals(signatureMessageHash)) // the message hash is wrong and we don't know what he signed
-            return null // can not use it to convict
-
-          // recover the signer from the signature
-          const signer: Buffer = util.pubToAddress(util.ecrecover(signatureMessageHash, toNumber(s.v), bytes(s.r), bytes(s.s)))
-          const singingNode = signer.equals(address(adr))
-            ? config
-            : nodes.nodes.find(_ => address(_.address).equals(signer))
-
-          if (!singingNode) return null // if we don't know the node, we can not convict anybody.
-
-          const expectedBlock = blocks.find(_ => toNumber(_.blockNumber) === toNumber(s.block))
-          if (!expectedBlock) {
-            // hm... this node signed a different block, then we expected, but the signature is valid.
-            // TODO so at least we should check if the blockhash is incorrect, so we can convict him anyway
-            return null
-          }
-
-
-          // is the blockhash correct all is fine
-          if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash)))
-            return s
-
-          // so he signed the wrong blockhash and we have all data to convict him!
-          const txHash = await tx.callContract(this.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
-            privateKey: this.config.privateKey,
-            gas: 300000,
-            value: 0,
-            confirm: false  //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-          })
-          return null
-        }))
-
-      return signatures
-
-      // merge all signatures
-    })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c], []))
-  }
-
-  sign(blocks: { blockNumber: number, hash: string }[]): Signature[] {
-    return blocks.map(b => {
-      const msgHash = util.sha3('0x' + toHex(b.hash).substr(2).padStart(64, '0') + toHex(b.blockNumber).substr(2).padStart(64, '0'))
-      const sig = util.ecsign(msgHash, util.toBuffer(this.config.privateKey))
-      return {
-        blockHash: b.hash,
-        block: toNumber(b.blockNumber),
-        r: '0x' + sig.r.toString('hex'),
-        s: '0x' + sig.s.toString('hex'),
-        v: sig.v,
-        msgHash: '0x' + msgHash.toString('hex')
-      }
-    })
-  }
-
+  /** uses the updater to read the nodes from the contract */
   async updateNodeList(blockNumber: number): Promise<void> {
     await updateNodeList(this, this.nodeList, blockNumber)
   }
 
+  /** get the current nodeList */
   async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[]): Promise<ServerList> {
     const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
     if (nl.proof && signers && signers.length)
-      nl.proof.signatures = await this.collectSignatures(signers, [{ blockNumber: nl.lastBlockNumber }])
+      nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber: nl.lastBlockNumber }])
     return nl
-
   }
-
-
-  async  handleSign(request: RPCRequest): Promise<RPCResponse> {
-    const blocks = request.params as { blockNumber: number, hash: string }[]
-    const blockData = await this.getAllFromServer([
-      ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toHex(b.blockNumber), false] })),
-      { method: 'eth_blockNumber', params: [] },
-    ]).then(a => a.map(_ => _.result as BlockData))
-    const blockNumber = blockData.pop() as any as string // the first arg is just the current blockNumber
-
-    if (!blockNumber) throw new Error('no current blocknumber detectable ')
-    if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
-
-    const blockHeight = this.config.minBlockHeight === undefined ? 6 : this.config.minBlockHeight
-
-    const tooYoungBlock = blockData.find(block => parseInt(blockNumber) - parseInt(block.number as string) < blockHeight)
-    if (tooYoungBlock)
-      throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
-
-    return {
-      id: request.id,
-      jsonrpc: request.jsonrpc,
-      result: this.sign(blockData.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash })))
-    }
-  }
-
-
-  async  handleBlock(request: RPCRequest): Promise<RPCResponse> {
-    // ask the server for the block
-    const response = await this.getFromServer(
-      request.method.indexOf('Count') > 0
-        ? { method: 'eth_getBlockBy' + request.method.substr(30), params: [request.params[0], true] }
-        : { ...request, params: [request.params[0], true] })
-
-    const blockData = response && response.result as BlockData
-
-    // if we found the block....
-    if (blockData && blockData.number) {
-
-      // create the proof
-      response.in3 = {
-        proof: {
-          type: 'blockProof',
-          signatures: await this.collectSignatures(request.in3.signatures, [{ blockNumber: parseInt(blockData.number as any, 10), hash: blockData.hash }]) as any
-        }
-      }
-
-      const transactions = blockData.transactions
-      if (!request.params[1]) {
-        // since we fetched the block with all transactions, but the request said, we only want hashes, we put the full ransactions in the proof and only the hashes in the result.
-        (response.in3.proof as any).transactions = transactions
-        blockData.transactions = transactions.map(_ => _.hash)
-
-        if (request.method.indexOf('Count') > 0) {
-          (response.in3.proof as any).block = serialize.blockToHex(blockData)
-          response.result = '0x' + blockData.transactions.length.toString(16)
-        }
-      }
-    }
-
-    return response
-  }
-
-  async  handeGetTransaction(request: RPCRequest): Promise<RPCResponse> {
-    // ask the server for the tx
-    const response = await this.getFromServer(request)
-    const tx = response && response.result as any
-    // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
-    if (tx && tx.blockNumber) {
-      // get the block including all transactions from the server
-      const block = await this.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(tx.blockNumber), true] }).then(_ => _ && _.result as any)
-      if (block)
-        // create the proof
-        response.in3 = {
-          proof: await createTransactionProof(block, request.params[0] as string,
-            await this.collectSignatures(request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }])) as any
-        }
-    }
-    return response
-  }
-
-
-  async  handeGetTransactionReceipt(request: RPCRequest): Promise<RPCResponse> {
-    // ask the server for the tx
-    const response = await this.getFromServer(request)
-    const tx = response && response.result as ReceiptData
-    // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
-    if (tx && tx.blockNumber) {
-      // get the block including all transactions from the server
-      const block = await this.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(tx.blockNumber), true] }).then(_ => _ && _.result as BlockData)
-      if (block) {
-
-        const [signatures, receipts] = await Promise.all([
-          this.collectSignatures(request.in3.signatures, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }]),
-          this.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })))
-            .then(a => a.map(_ => _.result as ReceiptData))
-        ])
-
-        // create the proof
-        response.in3 = {
-          proof: await createTransactionReceiptProof(
-            block,
-            receipts,
-            request.params[0] as string,
-            signatures)
-        }
-      }
-    }
-    return response
-  }
-
-  async  handleLogs(request: RPCRequest): Promise<RPCResponse> {
-    // ask the server for the tx
-    const response = await this.getFromServer(request)
-    const logs = response && response.result as LogData[]
-    // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
-    if (logs && logs.length) {
-
-      // find all needed blocks
-      const proof: LogProof = {}
-      logs.forEach(l => {
-        const b = proof[toHex(l.blockNumber)] || (proof[toHex(l.blockNumber)] = { receipts: {}, allReceipts: [] } as any)
-      })
-
-      // get the blocks from the server
-      const blocks = await this.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [bn, true] }))).then(all => all.map(_ => _.result as BlockData))
-
-      // fetch in parallel
-      await Promise.all([
-        // collect signatures for all the blocks
-        this.collectSignatures(request.in3.signatures, blocks.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash }))),
-        // and get all receipts in all blocks and afterwards reasign them to their block
-        this.getAllFromServer(
-          blocks.map(_ => _.transactions).reduce((p, c) => [...p, ...c], []).map(t => ({ method: 'eth_getTransactionReceipt', params: [t.hash] }))
-        ).then(a => a.forEach(r => proof[toHex(r.result.blockNumber)].allReceipts.push(r.result)))
-      ])
-
-      // create the proof per block
-      await Promise.all(blocks.map(b => {
-        const blockProof = proof[toHex(b.number)]
-
-        // add the blockheader
-        blockProof.block = serialize.blockToHex(b)
-
-        // we only need all receipts in order to create the full merkletree, but we do not return them all.
-        const allReceipts = blockProof.allReceipts
-        delete blockProof.allReceipts
-
-        // find all the involved transactionshashes, we need to proof
-        const toProof = logs.filter(_ => toHex(_.blockNumber) === toHex(b.number))
-          .map(_ => _.transactionHash) // we only need the transaction hash
-          .filter((th, i, a) => a.indexOf(th) === i) // there could be more than one event in one transaction, so make it unique
-
-        // create receipt-proofs for all these transactions
-        return Promise.all(toProof.map(th =>
-          createTransactionReceiptProof(b, allReceipts, th, [])
-            .then(p => blockProof.receipts[th] = {
-              txIndex: parseInt(allReceipts.find(_ => _.transactionHash).transactionIndex),
-              proof: p.merkleProof,
-              txProof: p.txProof
-            })
-        ))
-      }))
-
-      // attach prood to answer
-      response.in3 = {
-        proof: {
-          type: 'logProof',
-          logProof: proof
-        }
-      }
-    }
-    return response
-  }
-
-
-
-  async  handleCall(request: RPCRequest): Promise<RPCResponse> {
-    //    console.log('handle call', this.config)
-    // read the response,blockheader and trace from server
-    const [response, blockResponse, trace] = await this.getAllFromServer([
-      request,
-      { method: 'eth_getBlockByNumber', params: [request.params[1] || 'latest', false] },
-      { method: 'trace_call', params: [request.params[0], ['vmTrace'], request.params[1] || 'latest'] }
-    ])
-
-    // error checking
-    if (response.error) return response
-    if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
-    if (trace.error) throw new Error('Could not get the trace :' + trace.error)
-
-    // anaylse the transaction in order to find all needed storage
-    const block = blockResponse.result as any
-    const neededProof = evm.analyse((trace.result as any).vmTrace, request.params[0].to)
-
-    // ask for proof for the storage
-    const [accountProofs, signatures] = await Promise.all([
-      this.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
-        { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
-      ))),
-      this.collectSignatures(request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }])
-    ])
-
-    // add the codes to the accounts
-    if (request.in3.includeCode) {
-      const accounts = accountProofs
-        .filter(a => (a.result as any).codeHash !== '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470')
-      const codes = await this.getAllFromServer(accounts.map(a => ({ method: 'eth_getCode', params: [toHex((a.result as any).address, 20), request.params[1] || 'latest'] })))
-      accounts.forEach((r, i) => (accounts[i].result as any).code = codes[i].result)
-    }
-
-    // bundle the answer
-    return {
-      ...response,
-      in3: {
-        proof: {
-          type: 'callProof',
-          block: serialize.blockToHex(block),
-          signatures,
-          accounts: Object.keys(neededProof.accounts).reduce((p, v, i) => { p[v] = accountProofs[i].result; return p }, {})
-        }
-      }
-    }
-  }
-
-
-  /**
-   * handle account-base requests.
-   */
-  async  handleAccount(request: RPCRequest): Promise<RPCResponse> {
-
-    const address = request.params[0] as string
-    const blockNr = request.params[request.method === 'eth_getStorageAt' ? 2 : 1] || 'latest'
-    const storage = request.method === 'eth_getStorageAt' ? [request.params[1]] : []
-
-    // read the response,blockheader and trace from server
-    const [blockResponse, proof, code] = await this.getAllFromServer([
-      { method: 'eth_getBlockByNumber', params: [blockNr, false] },
-      { method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] },
-      request.method === 'eth_getCode' ? request : null
-    ])
-
-    // error checking
-    if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
-    if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] }, null, 2))
-
-    // anaylse the transaction in order to find all needed storage
-    const block = blockResponse.result as any
-    const account = proof.result as any
-    let result;
-    if (request.method === 'eth_getBalance')
-      result = account.balance
-    else if (request.method === 'eth_getCode')
-      result = code.result
-    else if (request.method === 'eth_getTransactionCount')
-      result = account.nonce
-    else if (request.method === 'eth_getStorageAt')
-      result = account.storageProof[0].value
-
-    // bundle the answer
-    return {
-      id: request.id,
-      jsonrpc: '2.0',
-      result,
-      in3: {
-        proof: {
-          type: 'accountProof',
-          block: serialize.blockToHex(block),
-          signatures: await this.collectSignatures(request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }]),
-          accounts: { [utils.toChecksumAddress(address)]: proof.result }
-        }
-      }
-    }
-  }
-
-
-
-
-
 
 
 }
@@ -604,5 +152,13 @@ function toCleanRequest(request: Partial<RPCRequest>): RPCRequest {
     method: request.method,
     params: request.params,
     jsonrpc: request.jsonrpc
+  }
+}
+
+function toError(id: number | string, error: string): RPCResponse {
+  return {
+    id,
+    error,
+    jsonrpc: '2.0'
   }
 }

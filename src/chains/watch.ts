@@ -1,16 +1,17 @@
 import { util, LogData } from 'in3'
 import { sha3, toChecksumAddress } from 'ethereumjs-util'
 import { rawDecode } from 'ethereumjs-abi'
-import { RPCHandler } from '../server/rpc'
+import { RPCHandler } from '../server/rpc';
 import * as fs from 'fs'
 import { EventEmitter } from 'events'
-import { getABI } from '../util/registry';
+import { getABI } from '../util/registry'
+import * as logger from '../util/logger'
+import * as tx from '../util/tx'
+
 import { isFunction } from 'util';
 const toNumber = util.toNumber
 const toHex = util.toHex
 const toBuffer = util.toBuffer
-
-
 
 export default class Watcher extends EventEmitter {
 
@@ -34,7 +35,13 @@ export default class Watcher extends EventEmitter {
     this.persistFile = persistFile
     if (startBlock)
       this._lastBlock = { number: startBlock, hash: toHex(0, 32) }
+
+    // regsiter Cancel-Handler for 
+    this.on('LogServerUnregisterRequested', handleUnregister)
+
   }
+
+
 
   get block(): {
     number: number,
@@ -114,7 +121,7 @@ export default class Watcher extends EventEmitter {
         res = logs.map(decodeEvent)
 
         // trigger events
-        res.forEach(ev => this.emit(ev.event, ev))
+        res.forEach(ev => this.emit(ev.event, ev, this.handler))
       }
 
     }
@@ -162,3 +169,26 @@ const abi = getABI('ServerRegistry').filter(_ => _.type === 'event') as {
   hash: string
 }[]
 abi.forEach(_ => _.hash = toHex(sha3(_.name + '(' + _.inputs.map(i => i.type).join(',') + ')'), 32))
+
+
+function handleUnregister(ev, handler: RPCHandler) {
+  const me = util.getAddress(handler.config.privateKey)
+  if (ev.owner !== me || ev.caller === me) return
+  logger.info('LogServerUnregisterRequested event found. Reacting with cancelUnregisteringServer! ')
+  handler.getNodeList(false).then(nl => {
+    const node = nl.nodes.find(_ => _.url === ev.url)
+    if (!node)
+      throw new Error('could not find the server in the list')
+
+    return tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'cancelUnregisteringServer(uint)', [node.index], {
+      privateKey: handler.config.privateKey,
+      gas: 400000,
+      value: 0,
+      confirm: true
+    })
+      .then(_ => logger.info('called successfully cancelUnregisteringServer! '))
+
+
+  }).catch(err => logger.error('Error handling LogServerUnregisterRequested : ', err))
+
+}

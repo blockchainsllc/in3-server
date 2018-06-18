@@ -72,7 +72,6 @@ export class RPC {
   init() {
     return Promise.all(Object.keys(this.handlers).map(c =>
       this.handlers[c].getNodeList(true)
-        .then(() => this.handlers[c].checkPrivateKey())
         .then(() => this.handlers[c].checkRegistry())
     ))
   }
@@ -88,13 +87,11 @@ export class RPC {
 export interface RPCHandler {
   chainId: string
   handle(request: RPCRequest): Promise<RPCResponse>
-  sign(blocks: { blockNumber: number, hash: string }[]): Signature[]
   getFromServer(request: Partial<RPCRequest>): Promise<RPCResponse>
   getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[]): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
   checkRegistry(): Promise<any>
-  checkPrivateKey(): Promise<any>
   config: IN3RPCHandlerConfig
   watcher?: Watcher
 }

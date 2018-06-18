@@ -12,7 +12,7 @@
     "testCoverage": "nyc mocha --timeout 5000 -R in3/js/test/util/mochaReporter --require ts-node/register --require source-map-support/register  --full-trace --bail  test/*/*.ts && cp -r coverage test/report/",
     "updateContracts": "docker run -v $(pwd)/contracts:/contracts ethereum/solc:stable --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/ServerRegistry.sol /contracts/ChainRegistry.sol > contracts/contracts.json; solc --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata test/contracts/*.sol > test/contracts/contracts.json",
     "start": "node --inspect js/server/server",
-    "parity": "docker run -p 8180:8180 -p 8545:8545 -p 8546:8546 slockit/parity-in3:latest --jsonrpc-apis all --logging=3 --jsonrpc-interface=all --ws-interface=all ---chain dev --gas-cap=8000000 --gasprice 0  --reseal-min-period 0   --gas-floor-target 8700000"
+    "parity": "docker run -p 8180:8180 -p 8545:8545 -p 8546:8546 slockit/parity-in3:latest --jsonrpc-apis all --logging=3 --jsonrpc-interface=all --tracing on  --ws-interface=all ---chain dev --gas-cap=8000000 --gasprice 0  --reseal-min-period 0   --gas-floor-target 8700000"
   },
   "nyc": {
     "include": [
