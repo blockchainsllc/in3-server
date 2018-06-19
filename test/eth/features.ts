@@ -190,5 +190,46 @@ describe('Features', () => {
 
   })
 
+
+
+  it('code cache', async () => {
+
+    // create  10 nodes
+    const test = new TestTransport(2)
+    const client = await test.createClient({ maxCodeCache: 100000, requestCount: 1, proof: true, includeCode: false })
+
+
+    // deploy testcontract
+    const pk = await test.createAccount()
+    const adr = await deployContract('TestContract', pk)
+
+    assert.equal(client.cache.codeCache.data.size, 0)
+    const response = await tx.callContractWithClient(client, adr, 'counter()')
+
+    assert.equal(client.cache.codeCache.data.size, 1)
+
+  })
+
+  it('block cache', async () => {
+
+    // create  10 nodes
+    const test = new TestTransport(2)
+    const client = await test.createClient({ maxBlockCache: 3, requestCount: 1, proof: true, signatureCount: 1 })
+
+    // deploy testcontract
+    const pk = await test.createAccount()
+
+    assert.equal(client.cache.blockCache.length, 0)
+    const resp1 = await client.sendRPC('eth_getBalance', [getAddress(pk), 'latest'])
+    assert.equal(client.cache.blockCache.length, 1)
+    assert.equal(resp1.in3.proof.signatures.length, 1)
+
+    const resp2 = await client.sendRPC('eth_getBalance', [getAddress(pk), 'latest'])
+    assert.equal(client.cache.blockCache.length, 1)
+    assert.equal(resp2.in3.proof.signatures.length, 0)
+
+
+  })
+
 })
 

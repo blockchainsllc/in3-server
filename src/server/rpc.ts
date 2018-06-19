@@ -48,7 +48,8 @@ export class RPC {
           r.params[0] || 0,
           r.params[1],
           r.params[2] || [],
-          in3Request.signatures
+          in3Request.signatures,
+          in3Request.verifiedHashes
         ).then(async result => {
           const res = {
             id: r.id,
@@ -93,7 +94,7 @@ export interface RPCHandler {
   handle(request: RPCRequest): Promise<RPCResponse>
   getFromServer(request: Partial<RPCRequest>): Promise<RPCResponse>
   getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]>
-  getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[]): Promise<ServerList>
+  getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[]): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
   checkRegistry(): Promise<any>
   config: IN3RPCHandlerConfig

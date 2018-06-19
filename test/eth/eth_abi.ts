@@ -624,7 +624,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_call', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: true, requestCount: 1, includeCode: true })
 
     // create 2 accounts
     const pk1 = await test.createAccount()

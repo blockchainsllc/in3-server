@@ -20,7 +20,7 @@ describe('eth_call', () => {
 
   it('getBalance', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: true, requestCount: 1, includeCode: true })
 
     // create a account with 500 wei
     const user = getAddress(await test.createAccount(undefined, 500))
@@ -77,7 +77,7 @@ describe('eth_call', () => {
 
   it('testInternCall', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: true, requestCount: 1, includeCode: true })
 
     const pk1 = await test.createAccount(undefined, 500)
     const pk2 = await test.createAccount(undefined, 1500)
@@ -128,7 +128,7 @@ describe('eth_call', () => {
 
   it('testBlockHash', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: true, requestCount: 1, includeCode: true })
 
     // deploy testcontract
     const adr = await deployContract('TestContract', await test.createAccount())
@@ -145,7 +145,7 @@ describe('eth_call', () => {
 
   it('testExtCodeCopy', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: true, requestCount: 1, includeCode: true })
 
     // deploy testcontract
     const pk = await test.createAccount()
@@ -195,7 +195,7 @@ describe('eth_call', () => {
 
   it('testDelegateCall', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: true, requestCount: 1, includeCode: true })
 
     // deploy testcontract
     const pk = await test.createAccount()
@@ -231,7 +231,7 @@ describe('eth_call', () => {
 
   it('testCall', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: true, requestCount: 1, includeCode: true })
 
     // deploy testcontract
     const pk = await test.createAccount()
@@ -266,7 +266,7 @@ describe('eth_call', () => {
 
   it('testCallCode', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: true, requestCount: 1, includeCode: true })
 
     // deploy testcontract
     const pk = await test.createAccount()

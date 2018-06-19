@@ -233,7 +233,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
       const blockProof = proof[toHex(b.number)]
 
       // add the blockheader
-      blockProof.block = serialize.blockToHex(b)
+      blockProof.block = createBlock(b, request.in3.verifiedHashes)
 
       // we only need all receipts in order to create the full merkletree, but we do not return them all.
       const allReceipts = blockProof.allReceipts
@@ -308,7 +308,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     in3: {
       proof: {
         type: 'callProof',
-        block: serialize.blockToHex(block),
+        block: createBlock(block, request.in3.verifiedHashes),
         signatures,
         accounts: Object.keys(neededProof.accounts).reduce((p, v, i) => { p[v] = accountProofs[i].result; return p }, {})
       }
@@ -358,7 +358,7 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
     in3: {
       proof: {
         type: 'accountProof',
-        block: serialize.blockToHex(block),
+        block: createBlock(block, request.in3.verifiedHashes),
         signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
         accounts: { [toChecksumAddress(address)]: proof.result }
       }

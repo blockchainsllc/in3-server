@@ -23,9 +23,7 @@ export async function deployContract(url: string, bin: string, txargs?: {
 export async function callContractWithClient(client: Client, contract: string, signature: string, ...args: any[]) {
   const data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
 
-  return client.sendRPC('eth_call', [{ to: contract, data }, 'latest'], client.defConfig.chainId, {
-    includeCode: true
-  })
+  return client.sendRPC('eth_call', [{ to: contract, data }, 'latest'], client.defConfig.chainId)
 }
 
 export async function callContract(url: string, contract: string, signature: string, args: any[], txargs?: {
