@@ -227,8 +227,6 @@ describe('Features', () => {
     const resp2 = await client.sendRPC('eth_getBalance', [getAddress(pk), 'latest'])
     assert.equal(client.cache.blockCache.length, 1)
     assert.equal(resp2.in3.proof.signatures.length, 0)
-
-
   })
 
 })
