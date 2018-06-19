@@ -133,10 +133,10 @@ export default class EthHandler {
   }
 
   /** get the current nodeList */
-  async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[]): Promise<ServerList> {
+  async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[]): Promise<ServerList> {
     const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
     if (nl.proof && signers && signers.length)
-      nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber: nl.lastBlockNumber }])
+      nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber: nl.lastBlockNumber }], verifiedHashes)
     return nl
   }
 

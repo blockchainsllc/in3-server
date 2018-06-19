@@ -9,7 +9,7 @@ const bytes32 = serialize.bytes32
 const address = serialize.address
 const bytes = serialize.bytes
 
-export async function collectSignatures(handler: EthHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[]): Promise<Signature[]> {
+export async function collectSignatures(handler: EthHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
   // nothing to do?
   if (!addresses || !addresses.length || !requestedBlocks || !requestedBlocks.length) return []
 
@@ -18,7 +18,9 @@ export async function collectSignatures(handler: EthHandler, addresses: string[]
     blockNumber: toNumber(b.blockNumber),
     hash: toHex(b.hash || await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(b.blockNumber), false] })
       .then(_ => _.result && _.result.hash), 32)
-  })))
+  }))).then(allBlocks => !verifiedHashes ? allBlocks : allBlocks.filter(_ => verifiedHashes.indexOf(_.hash) < 0))
+
+  if (!blocks.length) return []
 
   // get our own nodeList
   const nodes = await handler.getNodeList(false)
