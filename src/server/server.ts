@@ -44,7 +44,7 @@ router.post('/', async ctx => {
   } catch (err) {
     ctx.status = err.status || 500
     ctx.body = err.message
-    logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack)
+    logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     ctx.app.emit('error', err, ctx)
   }
 
