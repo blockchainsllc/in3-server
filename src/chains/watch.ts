@@ -32,7 +32,7 @@ export default class Watcher extends EventEmitter {
     super()
     this.handler = handler
     this.interval = interval
-    this.persistFile = persistFile
+    this.persistFile = persistFile === 'false' ? '' : persistFile
     if (startBlock)
       this._lastBlock = { number: startBlock, hash: toHex(0, 32) }
 

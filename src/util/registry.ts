@@ -5,8 +5,12 @@ import { readFileSync } from 'fs'
 const toHex = util.toHex
 
 const bin = JSON.parse(readFileSync('./contracts/contracts.json', 'utf8'))
-const binTest = JSON.parse(readFileSync('./test/contracts/contracts.json', 'utf8'))
-Object.assign(bin.contracts, binTest.contracts)
+try {
+  const binTest = JSON.parse(readFileSync('./test/contracts/contracts.json', 'utf8'))
+  Object.assign(bin.contracts, binTest.contracts)
+} catch (x) {
+  // it's ok, if the test contracts are missing
+}
 
 export function getABI(name: string) {
   return JSON.parse(bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf(name) >= 0)].abi)

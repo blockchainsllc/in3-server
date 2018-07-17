@@ -7,6 +7,16 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "Launch Program",
+      "program": "${workspaceFolder}/js/src/chains/nameResolver.js",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceRoot}/js/**/*.js"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "Mocha Tests",
       "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
       "args": [
@@ -40,6 +50,18 @@
       "request": "launch",
       "name": "Server starten",
       "program": "${workspaceFolder}/js/src/server/server.js",
+      "args": [
+        "--privateKey=0x1858a0f49ce12df65031ba0eb0b353abc74f93f8ccd43df9682fd2e2293a4db3",
+        "--chain=0x2a",
+        "--rpcUrl=https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX",
+        "--minBlockHeight=6",
+        "--registry=0x013b82355a066A31427df3140C5326cdE9c64e3A",
+        "--persistentFile=false",
+        "--logging-host=logs7.papertrailapp.com",
+        "--logging-name=PaperTrail",
+        "--logging-port=30571",
+        "--logging-type=winston-papertrail"
+      ],
       "outFiles": [
         "${workspaceFolder}/js/**/*.js"
       ]

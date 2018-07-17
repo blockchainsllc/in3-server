@@ -6,11 +6,11 @@ import * as Router from 'koa-router'
 import * as logger from 'winston'
 import { RPC } from './rpc'
 import { cbor } from 'in3'
-import config from './config'
+import config, { initConfig } from './config'
 
 export const app = new Koa()
 const router = new Router()
-const rpc = new RPC(config)
+let rpc: RPC = null
 
 // handle cbor-encoding
 app.use(async (ctx, next) => {
@@ -50,13 +50,21 @@ router.post('/', async ctx => {
 
 })
 
-app
-  .use(router.routes())
-  .use(router.allowedMethods())
-  .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
 
-// after starting the server, we should make sure our nodelist is up-to-date.
-setTimeout(() => rpc.init().catch(err => {
-  logger.error('Error initializing the server : ', err)
-  process.exit(1)
-}))
+initConfig().then(() => {
+  rpc = new RPC(config)
+  logger.info('staring in3-server...')
+  app
+    .use(router.routes())
+    .use(router.allowedMethods())
+    .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
+
+  // after starting the server, we should make sure our nodelist is up-to-date.
+  setTimeout(() => rpc.init().catch(err => {
+    logger.error('Error initializing the server : ', err)
+    process.exit(1)
+  }))
+}).catch(err => {
+  logger.error('Error starting the server ' + err, config)
+})
+

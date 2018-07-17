@@ -8,6 +8,8 @@ import { collectSignatures, handleSign } from './signatures'
 
 const toHex = in3Util.toHex
 const toNumber = in3Util.toNumber
+const bytes32 = serialize.bytes32
+const address = serialize.address
 
 /**
  * handles EVM-Calls

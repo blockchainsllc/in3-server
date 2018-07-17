@@ -69,9 +69,9 @@ export async function checkRegistry(handler: EthHandler): Promise<any> {
     return
 
   const units = {
-    ether: 1000000000000000000,
-    finney: 1000000000000000,
-    szabo: 1000000000000,
+    ether: '1000000000000000000',
+    finney: '1000000000000000',
+    szabo: '1000000000000',
     gwei: 1000000000,
     nano: 1000000000,
     mwei: 1000000,
