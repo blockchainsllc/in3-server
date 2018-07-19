@@ -118,8 +118,9 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
   // first get the registry
   if (!list.contract) {
-    const [owner, bootNodes, meta, registryContract, contractChain] = await tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'chains(bytes32):(address,string,string,address,bytes32)', [handler.chainId])
-    list.contract = toChecksumAddress('0x' + registryContract)
+    list.contract = handler.config.registry
+    //    const [owner, bootNodes, meta, registryContract, contractChain] = await tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'chains(bytes32):(address,string,string,address,bytes32)', [handler.chainId])
+    //    list.contract = toChecksumAddress('0x' + registryContract)
   }
 
   // number of registered servers

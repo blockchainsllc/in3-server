@@ -47,7 +47,7 @@ const config: IN3RPCConfig = {
       privateKey: '',
       minBlockHeight: 6,
       registry: '0x013b82355a066A31427df3140C5326cdE9c64e3A', // registry-contract
-      registryRPC: 'https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX',
+      registryRPC: '',
     }
   }
 }
@@ -85,10 +85,6 @@ for (const c of Object.keys(config.chains)) {
     config.chains[min] = config.chains[c]
     delete config.chains[c]
   }
-}
-
-export async function initConfig() {
-  return true
 }
 
 export default config

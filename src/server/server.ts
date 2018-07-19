@@ -6,7 +6,8 @@ import * as Router from 'koa-router'
 import * as logger from 'winston'
 import { RPC } from './rpc'
 import { cbor } from 'in3'
-import config, { initConfig } from './config'
+import config from './config'
+import { initConfig } from '../util/db'
 
 export const app = new Koa()
 const router = new Router()
@@ -37,7 +38,7 @@ app.use(async (ctx, next) => {
 // handle json
 app.use(bodyParser())
 
-router.post('/', async ctx => {
+router.post(/.*/, async ctx => {
   try {
     const res = cbor.createRefs(await rpc.handle(Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]))
     ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
@@ -61,10 +62,13 @@ initConfig().then(() => {
 
   // after starting the server, we should make sure our nodelist is up-to-date.
   setTimeout(() => rpc.init().catch(err => {
+    console.error('Error initializing the server : ' + err.message)
     logger.error('Error initializing the server : ', err)
     process.exit(1)
   }))
 }).catch(err => {
+  console.error('Error starting the server : ' + err.message, config)
   logger.error('Error starting the server ' + err, config)
+  process.exit(1)
 })
 

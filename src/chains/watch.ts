@@ -7,8 +7,10 @@ import { EventEmitter } from 'events'
 import { getABI } from '../util/registry'
 import * as logger from '../util/logger'
 import * as tx from '../util/tx'
+import config from '../server/config'
 
 import { isFunction } from 'util';
+import { useDB, exec } from '../util/db'
 const toNumber = util.toNumber
 const toHex = util.toHex
 const toBuffer = util.toBuffer
@@ -64,7 +66,10 @@ export default class Watcher extends EventEmitter {
     hash: string
   }) {
     if (this._lastBlock && this._lastBlock.number === b.number) return
-    if (this.persistFile)
+    if (useDB)
+      exec('update node set last_block=$1, last_hash=$2, last_update=now() where id=$3', [b.number, b.hash, config.id])
+        .catch(_ => logger.error('Error writing last block into db ', _))
+    else if (this.persistFile)
       fs.writeFileSync(this.persistFile, JSON.stringify(b), 'utf8')
     this._lastBlock = b
   }
@@ -93,6 +98,11 @@ export default class Watcher extends EventEmitter {
   }
 
   async update(): Promise<any[]> {
+    if (useDB && !this._lastBlock) {
+      const last = await exec('select last_block, last_hash from nodes where id=$1', [config.id])
+      if (last.length && last[0].last_block)
+        this._lastBlock = { number: last[0].last_block, hash: last[0].last_hash }
+    }
     let res = null
     const [nodeList, currentBlock] = await Promise.all([
       this.handler.getNodeList(false),

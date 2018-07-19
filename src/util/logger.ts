@@ -56,7 +56,7 @@ if (config.logging.file)
 
 if (config.logging.type) {
   const firstChain = config.chains[Object.keys(config.chains)[0]]
-  const id = (firstChain && sha3(firstChain.privateKey).toString('hex').replace('0x', '').substr(0, 4)) || 'in3-server'
+  const id = config.id || (firstChain && sha3(firstChain.privateKey).toString('hex').replace('0x', '').substr(0, 4)) || 'in3-server'
   // tslint:disable-next-line:non-literal-require
   const lt = require(config.logging.type)
   winston.add(config.logging.name ? lt[config.logging.name] : lt, { programm: id, ...config.logging })

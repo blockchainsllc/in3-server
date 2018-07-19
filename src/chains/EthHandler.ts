@@ -25,7 +25,7 @@ export default class EthHandler {
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
     this.transport = transport || new AxiosTransport()
-    this.nodeList = nodeList || { nodes: [] }
+    this.nodeList = nodeList || { nodes: undefined }
     const interval = config.watchInterval || 5
 
     // check that we have a valid private key and if needed decode it
