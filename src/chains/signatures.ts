@@ -32,7 +32,7 @@ export async function collectSignatures(handler: EthHandler, addresses: string[]
       throw new Error('The requested signature ' + adr + ' does not exist within the current nodeList!')
 
     // send the sign-request
-    const response = await handler.transport.handle(config.url, { id: handler.counter++, jsonrpc: '2.0', method: 'in3_sign', params: [...blocks] }) as RPCResponse
+    const response = await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: [...blocks] }) as RPCResponse
     if (response.error)
       throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
 
