@@ -27,7 +27,7 @@ export async function collectSignatures(handler: EthHandler, addresses: string[]
   return Promise.all(addresses.map(async adr => {
 
     // find the requested address in our list
-    const config = nodes.nodes.find(_ => _.address === adr)
+    const config = nodes.nodes.find(_ => _.address.toLowerCase() === adr.toLowerCase())
     if (!config) // TODO do we need to throw here or is it ok to simply not deliver the signature?
       throw new Error('The requested signature ' + adr + ' does not exist within the current nodeList!')
 
