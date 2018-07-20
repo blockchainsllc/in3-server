@@ -13,7 +13,6 @@ RUN ssh-keyscan -t rsa github.com > ~/.ssh/known_hosts
 # install deps
 COPY package.json ./
 RUN npm install
-RUN ls -ltr node_modules
 
 # compile src
 COPY tsconfig.json  ./

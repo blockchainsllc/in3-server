@@ -2,6 +2,7 @@
 import { RPCRequest, RPCResponse, Transport, IN3ResponseConfig, IN3RPCRequestConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
 import EthHandler from '../chains/EthHandler'
 import Watcher from '../chains/watch';
+import { getStats, currentHour } from './stats';
 
 
 export class RPC {
@@ -42,6 +43,9 @@ export class RPC {
       const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
       const in3: IN3ResponseConfig = {} as any
 
+      // update stats
+      currentHour.update(r)
+
       if (r.method === 'in3_nodeList')
         return handler.getNodeList(
           in3Request.verification && in3Request.verification.startsWith('proof'),
@@ -64,6 +68,20 @@ export class RPC {
           }
           return res as RPCResponse
         })
+
+      if (r.method === 'in3_stats') {
+        const p = this.conf.profile || {}
+        return {
+          id: r.id,
+          jsonrpc: r.jsonrpc,
+          result: {
+            profile: p,
+            ...(p.noStats ? {} : { stats: getStats() })
+          }
+        } as RPCResponse
+
+
+      }
 
       return Promise.all([
         handler.getNodeList(false).then(_ => in3.lastNodeList = _.lastBlockNumber),
