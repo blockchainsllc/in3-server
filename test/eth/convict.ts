@@ -90,7 +90,7 @@ describe('Convict', () => {
 
     // this is a correct signature and should not fail.
     const res = await client.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
-      keepIn3: true, proof: true, signatureCount: 1, requestCount: 1
+      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
     assert.isDefined(res.in3.proof.signatures[0])
@@ -119,7 +119,7 @@ describe('Convict', () => {
 
     // this is a correct signature and should not fail.
     const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
-      keepIn3: true, proof: true, signatureCount: 1, requestCount: 1
+      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.

@@ -52,7 +52,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getTransactionByHash', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
-    const client = await test.createClient({ proof: true, requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -108,7 +108,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getTransactionReceipt', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
-    const client = await test.createClient({ proof: true, requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -168,7 +168,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getBlockByNumber', async () => {
     const test = new TestTransport(1) // create a network of 3 nodes
-    const client = await test.createClient({ proof: true, requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -227,7 +227,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getBlockByHash', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
-    const client = await test.createClient({ proof: true, requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -276,7 +276,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getBalance', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -311,7 +311,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // we need to create a new client since the old node is blacklisted
     test = new TestTransport(1) // create a network of 3 nodes
-    client = await test.createClient({ proof: true, requestCount: 1 })
+    client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     failed = false
     try {
@@ -335,7 +335,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getTransactionCount', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -370,7 +370,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // we need to create a new client since the old node is blacklisted
     test = new TestTransport(1) // create a network of 3 nodes
-    client = await test.createClient({ proof: true, requestCount: 1 })
+    client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     failed = false
     try {
@@ -396,7 +396,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getCode', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -434,7 +434,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // we need to create a new client since the old node is blacklisted
     test = new TestTransport(1) // create a network of 3 nodes
-    client = await test.createClient({ proof: true, requestCount: 1 })
+    client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     failed = false
     try {
@@ -458,7 +458,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getStorageAt', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1 })
+    let client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount()
@@ -501,7 +501,7 @@ describe('ETH Standard JSON-RPC', () => {
     assert.isTrue(failed, 'The manipulated nonce must fail!')
 
     test = new TestTransport(1) // create a network of 3 nodes
-    client = await test.createClient({ proof: true, requestCount: 1 })
+    client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     failed = false
     try {
@@ -525,7 +525,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getBlockTransactionCountByNumber', async () => {
     const test = new TestTransport(1) // create a network of 3 nodes
-    const client = await test.createClient({ proof: true, requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -571,7 +571,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getBlockTransactionCountByHash', async () => {
     const test = new TestTransport(1) // create a network of 3 nodes
-    const client = await test.createClient({ proof: true, requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -624,7 +624,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_call', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
-    let client = await test.createClient({ proof: true, requestCount: 1, includeCode: true })
+    let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
 
     // create 2 accounts
     const pk1 = await test.createAccount()
@@ -696,7 +696,7 @@ describe('ETH Standard JSON-RPC', () => {
     assert.isTrue(failed, 'The manipulated nonce must fail!')
 
     test = new TestTransport(1) // create a network of 3 nodes
-    client = await test.createClient({ proof: true, requestCount: 1 })
+    client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     failed = false
     try {
@@ -722,7 +722,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getLogs', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
-    const client = await test.createClient({ proof: true, requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -767,7 +767,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_newBlockFilter', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
-    const client = await test.createClient({ proof: true, requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // current blockNumber
     const blockNumber = await client.sendRPC('eth_blockNumber', []).then(_ => parseInt(_.result as any))
@@ -794,7 +794,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getFilterChanges', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
-    const client = await test.createClient({ proof: true, requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // current blockNumber
     const blockNumber = await client.sendRPC('eth_blockNumber', []).then(_ => parseInt(_.result as any))
@@ -826,7 +826,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_newFilter', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
-    const client = await test.createClient({ proof: true, requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
 
@@ -864,7 +864,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_uninstallFilter', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
-    const client = await test.createClient({ proof: true, requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
     // create filter
     const filterId = await client.sendRPC('eth_newBlockFilter', []).then(_ => _.result as string)

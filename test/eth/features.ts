@@ -169,7 +169,7 @@ describe('Features', () => {
     // create  10 nodes
     const test = await TestTransport.createWithRegisteredServers(10)
 
-    const client = await test.createClient({ nodeLimit: 6, requestCount: 1, proof: true })
+    const client = await test.createClient({ nodeLimit: 6, requestCount: 1, proof: 'standard' })
 
     const evWatcher = new EventWatcher(client, 'nodeUpdateFinished')
 
@@ -196,7 +196,7 @@ describe('Features', () => {
 
     // create  10 nodes
     const test = new TestTransport(2)
-    const client = await test.createClient({ maxCodeCache: 100000, requestCount: 1, proof: true, includeCode: false })
+    const client = await test.createClient({ maxCodeCache: 100000, requestCount: 1, proof: 'standard', includeCode: false })
 
 
     // deploy testcontract
@@ -214,7 +214,7 @@ describe('Features', () => {
 
     // create  10 nodes
     const test = new TestTransport(2)
-    const client = await test.createClient({ maxBlockCache: 3, requestCount: 1, proof: true, signatureCount: 1 })
+    const client = await test.createClient({ maxBlockCache: 3, requestCount: 1, proof: 'standard', signatureCount: 1 })
 
     // deploy testcontract
     const pk = await test.createAccount()

@@ -166,7 +166,7 @@ export class TestTransport implements Transport {
       },
       ...(conf || {})
     }, this)
-    await client.updateNodeList(client.defConfig.chainId, { proof: false })
+    await client.updateNodeList(client.defConfig.chainId, { proof: 'none' })
     return client
   }
 
