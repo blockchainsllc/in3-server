@@ -5,7 +5,7 @@ import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
 import * as logger from 'winston'
 import { RPC } from './rpc'
-import { cbor } from 'in3'
+import { cbor, RPCRequest } from 'in3'
 import config from './config'
 import { initConfig } from '../util/db'
 
@@ -40,7 +40,9 @@ app.use(bodyParser())
 
 router.post(/.*/, async ctx => {
   try {
-    const res = cbor.createRefs(await rpc.handle(Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]))
+    const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
+    const result = await rpc.handle(requests)
+    const res = requests.length && requests[0].in3 && requests[0].in3.useRef ? cbor.createRefs(result) : result
     ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
   } catch (err) {
     ctx.status = err.status || 500
