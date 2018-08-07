@@ -1,0 +1,69 @@
+image: node:8-alpine
+variables:
+  COMMIT_IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+  RELEASE_IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
+
+stages:
+    - build
+    - test
+    - deploy
+
+build-server:
+    stage: build
+    script:
+        - apk add --no-cache python make gcc g++ git openssh
+        - echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc
+        - npm set registry https://npm.slock.it
+        - npm install
+        - npm run build
+    artifacts:
+        paths:
+        - node_modules/
+        - js/
+
+compile-contracts:
+    stage: build
+    services:
+        - docker:dind
+    image: jonaskello/docker-and-compose:latest
+    script:
+        - docker run --rm -v $(pwd)/contracts:/contracts ethereum/solc:stable --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/ServerRegistry.sol /contracts/ChainRegistry.sol > contracts/contracts.json
+    artifacts:
+        paths:
+        - contracts/contracts.json
+
+test-server:
+    stage: test
+    variables:
+        RPCURL: http://parity:8545
+    services:
+        - name: slockit/parity-in3:0.3
+          command: 
+            - --jsonrpc-apis=all
+            - --logging=3
+            - --jsonrpc-interface=all
+            - --ws-interface=all
+            - --chain=dev
+            - --gas-cap=8000000
+            - --gasprice=0
+            - --reseal-min-period=0   
+            - --gas-floor-target=8700000
+            - --tracing=on
+          alias: parity
+    script:
+        - npm test
+    dependencies:
+        - build-server
+        - compile-contracts
+
+deploy-docker:
+    stage: deploy
+    services:
+        - docker:dind
+    image: jonaskello/docker-and-compose:latest
+    script:
+        - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+        - docker build --build-arg NPM_REGISTRY_TOKEN=${NPM_REGISTRY_TOKEN} -t $COMMIT_IMAGE_TAG .
+        - docker tag $COMMIT_IMAGE_TAG $RELEASE_IMAGE_TAG
+        - docker push $RELEASE_IMAGE_TAG
+        - docker push $COMMIT_IMAGE_TAG

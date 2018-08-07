@@ -2,7 +2,7 @@
 import { assert } from 'chai'
 import 'mocha'
 import { serialize, BlockData, RPCResponse, util, Proof, LogData } from 'in3'
-import { TestTransport } from '../utils/transport'
+import { TestTransport, getTestClient } from '../utils/transport'
 import { deployChainRegistry, registerServers, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
 import * as logger from 'in3/js/test/util/memoryLogger'
@@ -27,7 +27,7 @@ describe('eth_call', () => {
 
 
     // check deployed code
-    const adr = await deployContract('TestContract', await test.createAccount())
+    const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
 
     const balance = toNumber(await test.getFromServer('eth_getBalance', user, 'latest'))
 
@@ -87,8 +87,8 @@ describe('eth_call', () => {
 
 
     // check deployed code
-    const adr1 = await deployContract('TestContract', pk1)
-    const adr2 = await deployContract('TestContract', pk1)
+    const adr1 = await deployContract('TestContract', pk1, getTestClient())
+    const adr2 = await deployContract('TestContract', pk1, getTestClient())
 
     // increment the counter only on adr1
     await tx.callContract(test.url, adr1, 'increase()', [], { confirm: true, privateKey: pk1, gas: 3000000, value: 0 })
@@ -131,7 +131,7 @@ describe('eth_call', () => {
     let client = await test.createClient({ proof: true, requestCount: 1, includeCode: true })
 
     // deploy testcontract
-    const adr = await deployContract('TestContract', await test.createAccount())
+    const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
     const block = (await test.getFromServer('eth_getBlockByNumber', 'latest', false)) as BlockData
 
     const response = await tx.callContractWithClient(client, adr, 'getBlockHash(uint)', toNumber(block.number))
@@ -149,8 +149,8 @@ describe('eth_call', () => {
 
     // deploy testcontract
     const pk = await test.createAccount()
-    const adr = await deployContract('TestContract', pk)
-    const adr2 = await deployContract('TestContract', pk)
+    const adr = await deployContract('TestContract', pk, getTestClient())
+    const adr2 = await deployContract('TestContract', pk, getTestClient())
 
     const response = await tx.callContractWithClient(client, adr, 'getCodeAt(address)', adr2)
 
@@ -199,8 +199,8 @@ describe('eth_call', () => {
 
     // deploy testcontract
     const pk = await test.createAccount()
-    const adr = await deployContract('TestContract', pk)
-    const adr2 = await deployContract('TestContract', pk)
+    const adr = await deployContract('TestContract', pk, getTestClient())
+    const adr2 = await deployContract('TestContract', pk, getTestClient())
 
     const response = await tx.callContractWithClient(client, adr, 'testDelegateCall(address)', adr2)
 
@@ -235,8 +235,8 @@ describe('eth_call', () => {
 
     // deploy testcontract
     const pk = await test.createAccount()
-    const adr = await deployContract('TestContract', pk)
-    const adr2 = await deployContract('TestContract', pk)
+    const adr = await deployContract('TestContract', pk, getTestClient())
+    const adr2 = await deployContract('TestContract', pk, getTestClient())
 
     const response = await tx.callContractWithClient(client, adr, 'testCall(address)', adr2)
 
@@ -270,8 +270,8 @@ describe('eth_call', () => {
 
     // deploy testcontract
     const pk = await test.createAccount()
-    const adr = await deployContract('TestContract', pk)
-    const adr2 = await deployContract('TestContract', pk)
+    const adr = await deployContract('TestContract', pk, getTestClient())
+    const adr2 = await deployContract('TestContract', pk, getTestClient())
 
     const response = await tx.callContractWithClient(client, adr, 'testCallCode(address)', adr2)
 

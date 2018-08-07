@@ -2,28 +2,26 @@ FROM node:8
 
 WORKDIR /app
 
-# allowing docker to access the private repo
-ARG SSH_PRIVATE_KEY
-RUN mkdir /root/.ssh/
-RUN echo "${SSH_PRIVATE_KEY}" > /root/.ssh/id_rsa
-RUN chmod 600 /root/.ssh/id_rsa
-RUN ssh-keyscan -t rsa github.com > ~/.ssh/known_hosts
+ARG NPM_REGISTRY_TOKEN
 
-
-# install deps
-COPY package.json ./
-RUN npm install
-
-# compile src
 COPY tsconfig.json  ./
 COPY src  ./src/
 COPY contracts  ./contracts/
+COPY package.json ./
+
+# allowing docker to access the private repo
+RUN echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
+    && npm set registry https://npm.slock.it \
+    && npm install \
+    && rm ~/.npmrc
+
+# compile src
 RUN npm run build
 
 # clean up
 # pruning does not work with git-modules, so we can use it when the repo is public
-# RUN npm prune --production 
-RUN rm -rf src tsconfig.json /root/.ssh/id_rsa
+RUN npm prune --production 
+RUN rm -rf src tsconfig.json ~/.npmrc
 
 # setup ENTRYPOINT
 EXPOSE 8500

@@ -74,7 +74,7 @@ options.push({
 })
 
 const vals = cargs.options(options)
-const val2 = vals.parse(process.argv, { mri: { string: options.map(_ => _.name) } })
+const val2 = !process.env.CI && vals.parse(process.argv, { mri: { string: options.map(_ => _.name) } })
 
 
 

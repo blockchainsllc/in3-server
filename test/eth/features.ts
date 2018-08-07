@@ -4,7 +4,7 @@ import 'mocha'
 import { util, BlockData, serialize, Signature, ServerList, RPCResponse } from 'in3'
 import { registerServers, deployContract } from '../../src/util/registry';
 import * as ethUtil from 'ethereumjs-util'
-import { TestTransport } from '../utils/transport';
+import { TestTransport, getTestClient } from '../utils/transport';
 import Watcher from '../../src/chains/watch'
 import EventWatcher from '../utils/EventWatcher';
 import * as tx from '../../src/util/tx'
@@ -96,7 +96,7 @@ describe('Features', () => {
     const client = await test.createClient({ requestCount: 1 })
     const pk = await test.createAccount()
 
-    const contract = await deployContract('TestContract', pk)
+    const contract = await deployContract('TestContract', pk, getTestClient())
     const startBlock = toNumber(await test.getFromServer('eth_blockNumber'))
 
     // increment the counter only on adr1
@@ -201,7 +201,7 @@ describe('Features', () => {
 
     // deploy testcontract
     const pk = await test.createAccount()
-    const adr = await deployContract('TestContract', pk)
+    const adr = await deployContract('TestContract', pk, getTestClient())
 
     assert.equal(client.cache.codeCache.data.size, 0)
     const response = await tx.callContractWithClient(client, adr, 'counter()')
