@@ -115,7 +115,7 @@ describe('ETH Standard JSON-RPC', () => {
     const pk2 = await test.createAccount('0x02')
 
     // check deployed code
-    const adr = await deployContract('TestContract', pk1)
+    const adr = await deployContract('TestContract', pk1, getTestClient())
     const receipt = await tx.callContract(getTestClient(), adr, 'increase()', [], {
       confirm: true,
       privateKey: pk1,
@@ -405,7 +405,7 @@ describe('ETH Standard JSON-RPC', () => {
     await client.sendRPC('eth_getCode', [getAddress(pk1), 'latest'], null, { keepIn3: true })
 
     // check deployed code
-    const adr = await deployChainRegistry(pk1)
+    const adr = await deployChainRegistry(pk1, getTestClient())
     const b = await client.sendRPC('eth_getCode', [adr, 'latest'], null, { keepIn3: true })
     const result = b.result as any as BlockData
     assert.exists(b.in3)
@@ -465,7 +465,7 @@ describe('ETH Standard JSON-RPC', () => {
 
 
     // check deployed code
-    const adr = await deployContract('TestContract', pk1)
+    const adr = await deployContract('TestContract', pk1, getTestClient())
     await tx.callContract(getTestClient(), adr, 'increase()', [], {
       confirm: true,
       privateKey: pk1,
@@ -631,10 +631,10 @@ describe('ETH Standard JSON-RPC', () => {
 
 
     // check deployed code
-    const adr = await deployContract('TestContract', pk1)
+    const adr = await deployContract('TestContract', pk1, getTestClient())
 
     // check deployed code
-    const adr2 = await deployContract('TestContract', pk1)
+    const adr2 = await deployContract('TestContract', pk1, getTestClient())
 
     // increase the count 
     await tx.callContract(getTestClient(), adr, 'increase()', [], {
@@ -728,7 +728,7 @@ describe('ETH Standard JSON-RPC', () => {
     const pk1 = await test.createAccount('0x01')
 
     // check deployed code
-    const adr = await deployContract('TestContract', pk1)
+    const adr = await deployContract('TestContract', pk1, getTestClient())
     const receipt = await tx.callContract(getTestClient(), adr, 'increase()', [], {
       confirm: true,
       privateKey: pk1,
@@ -831,7 +831,7 @@ describe('ETH Standard JSON-RPC', () => {
     const pk1 = await test.createAccount('0x01')
 
     // check deployed code
-    const address = await deployContract('TestContract', pk1)
+    const address = await deployContract('TestContract', pk1, getTestClient())
 
     // current blockNumber
     const blockNumber = await client.sendRPC('eth_blockNumber', []).then(_ => parseInt(_.result as any))
