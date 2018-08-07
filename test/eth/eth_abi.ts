@@ -2,7 +2,7 @@
 import { assert, expect, should } from 'chai'
 import 'mocha'
 import Client, { chainData, serialize, BlockData, RPCResponse, util, Proof, LogData } from 'in3'
-import { TestTransport } from '../utils/transport'
+import { TestTransport, getTestClient } from '../utils/transport'
 import { deployChainRegistry, registerServers, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
 import * as logger from 'in3/js/test/util/memoryLogger'
@@ -116,7 +116,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // check deployed code
     const adr = await deployContract('TestContract', pk1)
-    const receipt = await tx.callContract('http://localhost:8545', adr, 'increase()', [], {
+    const receipt = await tx.callContract(getTestClient(), adr, 'increase()', [], {
       confirm: true,
       privateKey: pk1,
       gas: 3000000,
@@ -466,7 +466,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // check deployed code
     const adr = await deployContract('TestContract', pk1)
-    await tx.callContract('http://localhost:8545', adr, 'increase()', [], {
+    await tx.callContract(getTestClient(), adr, 'increase()', [], {
       confirm: true,
       privateKey: pk1,
       gas: 3000000,
@@ -637,7 +637,7 @@ describe('ETH Standard JSON-RPC', () => {
     const adr2 = await deployContract('TestContract', pk1)
 
     // increase the count 
-    await tx.callContract('http://localhost:8545', adr, 'increase()', [], {
+    await tx.callContract(getTestClient(), adr, 'increase()', [], {
       confirm: true,
       privateKey: pk1,
       gas: 3000000,
@@ -645,7 +645,7 @@ describe('ETH Standard JSON-RPC', () => {
     })
 
     // increase the count 
-    await tx.callContract('http://localhost:8545', adr2, 'increase()', [], {
+    await tx.callContract(getTestClient(), adr2, 'increase()', [], {
       confirm: true,
       privateKey: pk1,
       gas: 3000000,
@@ -729,7 +729,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // check deployed code
     const adr = await deployContract('TestContract', pk1)
-    const receipt = await tx.callContract('http://localhost:8545', adr, 'increase()', [], {
+    const receipt = await tx.callContract(getTestClient(), adr, 'increase()', [], {
       confirm: true,
       privateKey: pk1,
       gas: 3000000,
@@ -844,7 +844,7 @@ describe('ETH Standard JSON-RPC', () => {
     assert.equal(changes.length, 0)
 
     // now run a transaction and trigger an event
-    const receipt = await tx.callContract('http://localhost:8545', address, 'increase()', [], {
+    const receipt = await tx.callContract(getTestClient(), address, 'increase()', [], {
       confirm: true,
       privateKey: pk1,
       gas: 3000000,

@@ -5,7 +5,7 @@ import Client, { chainData, util } from 'in3'
 import { deployChainRegistry, registerServers } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
 import * as logger from 'in3/js/test/util/memoryLogger'
-import { LoggingAxiosTransport } from '../utils/transport'
+import { LoggingAxiosTransport, getTestClient } from '../utils/transport'
 
 describe('Deploying Contracts', () => {
   it('deploy and register servers', async () => {
@@ -24,7 +24,7 @@ describe('Deploying Contracts', () => {
       pk: pk2,
       props: '0xFF',
       deposit: 0
-    }], '0x99', null, 'http://localhost:8545', new LoggingAxiosTransport())
+    }], '0x99', null, getTestClient(), new LoggingAxiosTransport())
 
 
     // create a client which reads the chainData from the contract
@@ -39,7 +39,7 @@ describe('Deploying Contracts', () => {
           // we give him a bootnode which simply reads directly from parity
           nodeList: [{
             address: util.getAddress(pk),
-            url: 'http://localhost:8545',
+            url: getTestClient(),
             chainIds: ['0x99'],
             deposit: 0
           }]

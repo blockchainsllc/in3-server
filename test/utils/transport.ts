@@ -8,6 +8,19 @@ import { registerServers } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
 logger.setLogger('memory')
 
+let testClient = (process && process.env && process.env.RPCURL) || 'http://localhost:8545'
+if (process && process.argv) {
+  const urlIndex = process.argv.findIndex(_ => _.startsWith('--rpcUrl'))
+  if (urlIndex >= 0)
+    testClient = process.argv[urlIndex].startsWith('-rpcUrl=') ? process.argv[urlIndex].substr(9).trim() : process.argv[urlIndex + 1]
+}
+
+export function getTestClient() {
+  return testClient
+}
+
+
+
 const getAddress = util.getAddress
 
 export type ResponseModifier = (RPCRequest, RPCResponse, url?: string) => RPCResponse
@@ -60,7 +73,7 @@ export class TestTransport implements Transport {
         chains: {
           [this.chainId]: {
             watchInterval: -1,
-            rpcUrl: 'http://localhost:8545',
+            rpcUrl: getTestClient(),
             privateKey,
             registry,
             minBlockHeight: 0
@@ -68,7 +81,7 @@ export class TestTransport implements Transport {
         }
       }, this, this.nodeList)
     }
-    this.url = 'http://localhost:8545'
+    this.url = getTestClient()
   }
 
   injectRandom(randomVals: number[]) {
