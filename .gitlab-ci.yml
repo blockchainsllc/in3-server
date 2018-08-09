@@ -10,6 +10,8 @@ stages:
 
 build-server:
     stage: build
+    tags:
+    - short-jobs
     script:
         - apk add --no-cache python make gcc g++ git openssh
         - echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc
@@ -23,6 +25,8 @@ build-server:
 
 compile-contracts:
     stage: build
+    tags:
+    - short-jobs
     services:
         - docker:dind
     image: jonaskello/docker-and-compose:latest
@@ -34,6 +38,8 @@ compile-contracts:
 
 test-server:
     stage: test
+    tags:
+    - short-jobs
     variables:
         RPCURL: http://parity:8545
     services:
@@ -58,6 +64,8 @@ test-server:
 
 deploy-docker:
     stage: deploy
+    tags:
+    - short-jobs
     services:
         - docker:dind
     image: jonaskello/docker-and-compose:latest
