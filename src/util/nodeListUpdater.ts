@@ -150,7 +150,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
       address: toChecksumAddress(owner),
       url,
       index: i,
-      deposit: deposit.toNumber(),
+      deposit: parseInt(deposit.toString()),
       props: props.toNumber(),
       chainIds: [handler.chainId],
       unregisterRequestTime: unregisterTime.toNumber()
