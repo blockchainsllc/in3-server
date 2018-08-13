@@ -24,6 +24,7 @@ describe('Features', () => {
 
 
     const test = await TestTransport.createWithRegisteredServers(2)
+    let lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 2
     const client = await test.createClient({ requestCount: 1 })
     const watcher: Watcher = test.handlers['#1'].getHandler().watcher
     const events = new EventWatcher(client, 'nodeUpdateStarted', 'nodeUpdateFinished')
@@ -42,7 +43,7 @@ describe('Features', () => {
     let response = await client.sendRPC('eth_blockNumber')
 
     // This will now get an updated blocknumber with the current block
-    assert.equal(response.in3.lastNodeList, currentBlock)
+    assert.equal(response.in3.lastNodeList, lastChangeBlock)
     assert.equal(watcher.block.number, currentBlock)
 
     // this starts an update of the nodelist in the client
@@ -59,6 +60,7 @@ describe('Features', () => {
       props: '0xffff',
       deposit: 20000
     }], test.chainRegistry, test.chainRegistry, test.url)
+    lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 1
 
 
     // the watcher will find an register-event and triggers an update of the server-nodelist
@@ -76,7 +78,7 @@ describe('Features', () => {
     response = await client.sendRPC('eth_blockNumber')
 
     // the response contained a new blocknumber
-    assert.equal(response.in3.lastNodeList, currentBlock + 2)
+    assert.equal(response.in3.lastNodeList, lastChangeBlock)
 
 
     // we should now get a nodeUpdateStarted-event
