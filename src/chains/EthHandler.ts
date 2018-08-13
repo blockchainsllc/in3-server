@@ -33,7 +33,7 @@ export default class EthHandler {
     checkPrivateKey(this.config)
 
     // create watcher checking the registry-contract for events
-    this.watcher = new Watcher(this, interval, config.persistentFile || 'lastBlock.json')
+    this.watcher = new Watcher(this, interval, config.persistentFile || 'lastBlock.json', config.startBlock)
 
     // start the watcher in the background
     if (interval > 0)

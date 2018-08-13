@@ -126,8 +126,9 @@ export default class Watcher extends EventEmitter {
 
       const logs = logResponse.result as LogData[]
       if (logs.length) {
+
         // always update the list
-        await this.handler.updateNodeList(currentBlock)
+        await this.handler.updateNodeList(Math.max(...logs.map(_ => parseInt(_.blockNumber))) || currentBlock)
         res = logs.map(decodeEvent)
 
         // trigger events
