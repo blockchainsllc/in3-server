@@ -90,7 +90,7 @@ export default class Watcher extends EventEmitter {
     const next = err => {
       if (err && err instanceof Error) console.error(err)
       if (this.interval && this.running)
-        this._interval = setTimeout(() => this.check(), this.interval)
+        this._interval = setTimeout(() => this.check(), this.interval*1000)
       else
         this.running = false
     }
