@@ -61,6 +61,27 @@ test-server:
     dependencies:
         - build-server
         - compile-contracts
+    artifacts:
+      name: "test-reports-$CI_JOB_NAME"
+      paths:
+        - test/report
+
+pages:
+  stage: deploy
+  tags:
+    - short-jobs
+  environment:
+    name: test-results
+    url: http://in3.git-pages.slock.it/in3-server
+  dependencies:
+    - test-in3
+  script:
+    - mkdir -p public/
+    - cp -r test/report/* public/
+  artifacts:
+    paths:
+      - public
+
 
 deploy-docker:
     stage: deploy
