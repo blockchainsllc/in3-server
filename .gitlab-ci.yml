@@ -62,9 +62,9 @@ test-server:
         - build-server
         - compile-contracts
     artifacts:
-      name: "test-reports-$CI_JOB_NAME"
-      paths:
-        - test/report
+        name: "test-reports-$CI_JOB_NAME"
+        paths:
+           - test/report
 
 pages:
   stage: deploy
