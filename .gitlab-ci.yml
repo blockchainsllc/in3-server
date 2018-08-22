@@ -74,7 +74,7 @@ pages:
     name: test-results
     url: http://in3.git-pages.slock.it/in3-server
   dependencies:
-    - test-in3
+    - test-server
   script:
     - mkdir -p public/
     - cp -r test/report/* public/
