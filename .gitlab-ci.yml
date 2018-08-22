@@ -1,4 +1,4 @@
-image: node:8-alpine
+image: docker.slock.it/build-images/node:8-alpine
 variables:
   COMMIT_IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
   RELEASE_IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
@@ -13,9 +13,7 @@ build-server:
     tags:
     - short-jobs
     script:
-        - apk add --no-cache python make gcc g++ git openssh
-        - echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc
-        - npm set registry https://npm.slock.it
+        - sh /prepare.sh
         - npm install
         - npm run build
     artifacts:
@@ -57,6 +55,8 @@ test-server:
             - --tracing=on
           alias: parity
     script:
+        - sh /prepare.sh
+        - npm run install
         - npm run testCoverage
     dependencies:
         - build-server
