@@ -57,7 +57,7 @@ test-server:
             - --tracing=on
           alias: parity
     script:
-        - npm test
+        - npm run testCoverage
     dependencies:
         - build-server
         - compile-contracts
