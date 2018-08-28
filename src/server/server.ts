@@ -53,25 +53,29 @@ router.post(/.*/, async ctx => {
 
 })
 
-router.get('/:chain/:method/:args', async ctx => {
+router.get(/.*/, async ctx => {
+  //  '/:chain/:method/:args'
+  const path = ctx.path.split('/')
   try {
+    if (path.length < 2) throw new Error('invalid path')
+    let start = path.indexOf('api')
+    if (start < 0)
+      start = path.findIndex(_ => chainAliases[_] || _.startsWith('0x'))
+    if (start < 0 || start > path.length - 3) throw new Error('invalid path ' + ctx.path)
+    const [chain, method] = path.slice(start)
     const req = {
       id: 1,
       jsonrpc: '2.0',
-      method: ctx.params.method,
-      params: (ctx.params.args || '').split(','),
+      method,
+      params: (path.slice(start + 2).join('/') || '').split(','),
       in3: {
-        chainId: chainAliases[ctx.params.chain] || ctx.params.chain,
+        chainId: chainAliases[chain] || chain,
         ...ctx.query
       }
     }
     const [result] = await rpc.handle([req as any])
-    if (ctx.query.raw) {
-      ctx.status = result.error ? 500 : 200
-      ctx.body = result.result || result.error
-    }
-    else
-      ctx.body = result
+    ctx.status = result.error ? 500 : 200
+    ctx.body = result.result || result.error
 
   } catch (err) {
     ctx.status = err.status || 500
