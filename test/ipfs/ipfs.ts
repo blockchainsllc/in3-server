@@ -17,11 +17,7 @@ describe('ipfs', () => {
 
 
     const res = await client.sendRPC('ipfs_put', ['01020304FF', 'hex'])
-    //    08021205 01020304ff 1805
-
     const hash = res.result
-    console.log(hash)
-
     const data = await client.sendRPC('ipfs_get', [hash, 'hex'])
 
     assert.equal(data.result, '01020304ff')

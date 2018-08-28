@@ -67,7 +67,7 @@ router.get(/.*/, async ctx => {
       id: 1,
       jsonrpc: '2.0',
       method,
-      params: (path.slice(start + 2).join('/') || '').split(',').filter(_ => _),
+      params: (path.slice(start + 2).join('/') || '').split(',').filter(_ => _).map(_ => _ === 'true' ? true : _ === 'false' ? false : _),
       in3: {
         chainId: chainAliases[chain] || chain,
         ...ctx.query
