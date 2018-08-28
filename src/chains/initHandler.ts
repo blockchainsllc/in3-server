@@ -1,4 +1,4 @@
-import EthHandler from './EthHandler'
+import BaseHandler from './BaseHandler'
 import { IN3RPCHandlerConfig, util } from 'in3'
 import * as fs from 'fs'
 import * as scryptsy from 'scrypt.js'
@@ -53,7 +53,7 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
 
 }
 
-export async function checkRegistry(handler: EthHandler): Promise<any> {
+export async function checkRegistry(handler: BaseHandler): Promise<any> {
   if (!handler.config.registry || !handler.config.autoRegistry) {
     // TODO get it from the chainRegistry?
     // we will get the registry from the 

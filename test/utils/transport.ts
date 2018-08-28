@@ -45,7 +45,7 @@ export class TestTransport implements Transport {
     url: string
   }[]
 
-  constructor(count = 5, registry?: string, pks?: string[]) {
+  constructor(count = 5, registry?: string, pks?: string[], handlerConfig?: Partial<IN3RPCHandlerConfig>) {
     this.chainId = '0x1'
     this.lastRandom = 0
     this.randomList = []
@@ -76,7 +76,8 @@ export class TestTransport implements Transport {
             rpcUrl: getTestClient(),
             privateKey,
             registry,
-            minBlockHeight: 0
+            minBlockHeight: 0,
+            ...handlerConfig
           }
         }
       }, this, this.nodeList)
