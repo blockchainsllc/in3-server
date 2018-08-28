@@ -52,8 +52,6 @@ const config: IN3RPCConfig = {
   }
 }
 
-
-
 // take the config from config.json and overwrite it
 try {
   Object.assign(config, JSON.parse(fs.readFileSync('config.json', 'utf-8')))

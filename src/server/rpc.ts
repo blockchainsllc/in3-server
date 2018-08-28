@@ -2,7 +2,8 @@
 import { RPCRequest, RPCResponse, Transport, IN3ResponseConfig, IN3RPCRequestConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
 import EthHandler from '../chains/EthHandler'
 import Watcher from '../chains/watch';
-import { getStats, currentHour } from './stats';
+import { getStats, currentHour } from './stats'
+import IPFSHandler from '../chains/IPFSHandler'
 
 
 export class RPC {
@@ -25,6 +26,9 @@ export class RPC {
       switch (rpcConf.handler || 'eth') {
         case 'eth':
           h = new EthHandler({ ...rpcConf }, transport, nodeList)
+          break
+        case 'ipfs':
+          h = new IPFSHandler({ ...rpcConf }, transport, nodeList)
           break
         // TODO implement other handlers later
         default:
