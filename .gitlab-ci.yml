@@ -43,7 +43,7 @@ test-server:
         IPFS_URL: http://ipfs:5001
     services:
         - name: jbenet/go-ipfs:latest
-          comman: 
+          command: 
             - daemon
             - --offline
           alias: ipfs
