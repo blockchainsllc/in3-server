@@ -40,7 +40,13 @@ test-server:
     - short-jobs
     variables:
         RPCURL: http://parity:8545
+        IPFS_URL: http://ipfs:5001
     services:
+        - name: jbenet/go-ipfs:latest
+          comman: 
+            - daemon
+            - --offline
+          alias: ipfs
         - name: slockit/parity-in3:0.3
           command: 
             - --jsonrpc-apis=all
