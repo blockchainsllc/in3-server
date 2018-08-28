@@ -5,7 +5,7 @@ import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
 import * as logger from 'winston'
 import { RPC } from './rpc'
-import { cbor, RPCRequest } from 'in3'
+import { cbor, RPCRequest, chainAliases } from 'in3'
 import config from './config'
 import { initConfig } from '../util/db'
 
@@ -53,9 +53,38 @@ router.post(/.*/, async ctx => {
 
 })
 
+router.get('/:chain/:method/:args', async ctx => {
+  try {
+    const req = {
+      id: 1,
+      jsonrpc: '2.0',
+      method: ctx.params.method,
+      params: (ctx.params.args || '').split(','),
+      in3: {
+        chainId: chainAliases[ctx.params.chain] || ctx.params.chain,
+        ...ctx.query
+      }
+    }
+    const [result] = await rpc.handle([req as any])
+    if (ctx.query.raw) {
+      ctx.status = result.error ? 500 : 200
+      ctx.body = result.result || result.error
+    }
+    else
+      ctx.body = result
+
+  } catch (err) {
+    ctx.status = err.status || 500
+    ctx.body = err.message
+    logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
+    ctx.app.emit('error', err, ctx)
+  }
+
+})
 
 initConfig().then(() => {
-  rpc = new RPC(config)
+  rpc = new RPC(config);
+  (chainAliases as any).api = Object.keys(config.chains)[0]
   logger.info('staring in3-server...')
   app
     .use(router.routes())
