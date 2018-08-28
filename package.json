@@ -15,8 +15,9 @@
     "parity": "docker run -p 8180:8180 -p 8545:8545 -p 8546:8546 slockit/parity-in3:0.3 --jsonrpc-apis all --logging=3 --jsonrpc-interface=all --tracing on  --ws-interface=all ---chain dev --gas-cap=8000000 --gasprice 0  --reseal-min-period 0   --gas-floor-target 8700000",
     "docker-build": "docker build --squash  --build-arg \"SSH_PRIVATE_KEY=`cat ~/.ssh/id_dsa`\"  -t slockit/in3-server:0.1 .",
     "docker-push": "npm run docker-build && docker push slockit/in3-server:0.1",
-    "docker-run": "docker run -p 8500:8500 slockit/in3-server:latest --privateKey=0x3858a0f49ce12df65031ba0eb0b353abc74f93f8ccd43df9682fd2e2293a4db3 --chain=0x2a --rpcUrl=https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX --minBlockHeight=6 --registry=0x013b82355a066A31427df3140C5326cdE9c64e3A --persistentFile=false --logging-host=logs7.papertrailapp.com --logging-name=Papertrail --logging-port=30571 --logging-type=winston-papertrail",
+    "docker-run": "docker run -p 8500:8500 docker.slock.it/slockit/in3-server:latest --privateKey=0x3858a0f49ce12df65031ba0eb0b353abc74f93f8ccd43df9682fd2e2293a4db3 --chain=0x2a --rpcUrl=https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX --minBlockHeight=6 --registry=0x013b82355a066A31427df3140C5326cdE9c64e3A --persistentFile=false --logging-host=logs7.papertrailapp.com --logging-name=Papertrail --logging-port=30571 --logging-type=winston-papertrail",
     "docker-setup": "docker run -p 8500:8500 slockit/in3-server:latest --privateKey=0x3858a0f49ce12df65031ba0eb0b353abc74f93f8ccd43df9682fd2e2293a4db3 --chain=0x2a --rpcUrl=https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX --minBlockHeight=6 --registry=0x013b82355a066A31427df3140C5326cdE9c64e3A --persistentFile=false --autoRegistry-url=https://in3.slock.it/kovan1 --autoRegistry-capabilities-proof=true --autoRegistry-capabilities-multiChain=true --autoRegistry-deposit=1",
+    "ipfs": "docker run -d -p 5001:5001 jbenet/go-ipfs  daemon --offline",
     "linkIn3": "cd node_modules; rm -rf in3; ln -s ../../in3 in3; cd .."
   },
   "nyc": {
@@ -86,6 +87,7 @@
     "ethereumjs-vm": "2.3.5",
     "ethereumjs-wallet": "^0.6.0",
     "ethjs-util": "0.1.4",
+    "form-data": "^2.3.2",
     "in3": "^1.0.4",
     "koa": "^2.5.0",
     "koa-bodyparser": "^4.2.0",
