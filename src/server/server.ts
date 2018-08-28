@@ -61,13 +61,13 @@ router.get(/.*/, async ctx => {
     let start = path.indexOf('api')
     if (start < 0)
       start = path.findIndex(_ => chainAliases[_] || _.startsWith('0x'))
-    if (start < 0 || start > path.length - 3) throw new Error('invalid path ' + ctx.path)
+    if (start < 0 || start > path.length - 2) throw new Error('invalid path ' + ctx.path)
     const [chain, method] = path.slice(start)
     const req = {
       id: 1,
       jsonrpc: '2.0',
       method,
-      params: (path.slice(start + 2).join('/') || '').split(','),
+      params: (path.slice(start + 2).join('/') || '').split(',').filter(_ => _),
       in3: {
         chainId: chainAliases[chain] || chain,
         ...ctx.query
