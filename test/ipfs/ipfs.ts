@@ -23,6 +23,17 @@ describe('ipfs', () => {
     assert.equal(data.result, '01020304ff')
   })
 
+  it('ipfs_get', async () => {
+    let test = new TestTransport(1, undefined, undefined, { handler: 'ipfs', ipfsUrl: testIPFSClient }) // create a network of 1 node
+    let client = await test.createClient({ proof: 'none', requestCount: 1 })
+
+
+    const res = await client.sendRPC('ipfs_put', ['Hello World', 'utf8'])
+    const hash = res.result
+    for (let i = 0; i < 10; i++)
+      assert.equal((await client.sendRPC('ipfs_get', [hash, 'utf8'])).result, 'Hello World')
+  })
+
 
 
 

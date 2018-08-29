@@ -9,8 +9,15 @@ import * as FormData from 'form-data'
  */
 export default class IPFSHandler extends BaseHandler {
 
+  cache: Map<string, Buffer>
+  maxCacheSize: number
+  maxCacheBufferLength: number
+
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     super(config, transport, nodeList)
+    this.cache = new Map()
+    this.maxCacheBufferLength = 5000
+    this.maxCacheSize = 100
   }
 
 
@@ -21,15 +28,9 @@ export default class IPFSHandler extends BaseHandler {
     switch (request.method) {
 
       case 'ipfs_get':
-        return axios.get(
-          this.config.ipfsUrl + '/api/v0/cat?arg=' + request.params[0],
-          {
-            timeout: this.config.timeout || 30000,
-            responseType: 'arraybuffer'
-          })
-          .then(r => this.toResult(request.id, r.data && encode(r.data, 'binary', request.params[1] || 'base64')),
-            err => this.toError(request.id, 'IPFS Hash not found : ' + err.message)
-          )
+        return this.getHash(request.params[0]).then(
+          r => this.toResult(request.id, r && encode(r, 'binary', request.params[1] || 'base64')),
+          err => this.toError(request.id, 'IPFS Hash not found : ' + err.message))
 
       case 'ipfs_put':
         const formData = new FormData()
@@ -45,6 +46,30 @@ export default class IPFSHandler extends BaseHandler {
       default:
         return super.handle(request)
     }
+  }
+
+  async getHash(hash: string) {
+    // in cache?
+    const cached = this.cache.get(hash)
+    if (cached) return cached
+
+    // read from ipfs
+    const result: Buffer = await axios.get(
+      this.config.ipfsUrl + '/api/v0/cat?arg=' + hash,
+      {
+        timeout: this.config.timeout || 30000,
+        responseType: 'arraybuffer'
+      })
+      .then(r => r.data)
+
+    // should we cache it?
+    if (result.length < this.maxCacheBufferLength) {
+      if (this.cache.size === this.maxCacheSize)
+        this.cache.delete(this.cache.keys().next().value)
+      this.cache[hash] = result
+    }
+
+    return result
   }
 
 }
