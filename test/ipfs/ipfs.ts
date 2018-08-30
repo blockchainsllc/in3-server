@@ -48,14 +48,14 @@ describe('ipfs', () => {
     const hash = res.result
 
     // now manipulate the result
-    test.injectResponse({ method: 'eth_call' }, (req, re: RPCResponse) => {
+    test.injectResponse({ method: 'ipfs_get' }, (req, re: RPCResponse) => {
       re.result = re.result + 'FF'
       return re
     })
 
 
     // this request mus fail because verification fails and there is no other node.
-    test.mustFail(client.sendRPC('ipfs_get', [hash, 'utf8']))
+    await test.mustFail(client.sendRPC('ipfs_get', [hash, 'utf8']))
 
   })
 
