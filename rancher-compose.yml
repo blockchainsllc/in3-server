@@ -1,0 +1,169 @@
+version: '2'
+services:
+  lb-monitor:
+    scale: 1
+    start_on_create: true
+  incubed-kovan-1:
+    start_on_create: true
+  incubed-kovan-2:
+    start_on_create: true
+  incubed-kovan-3:
+    start_on_create: true
+  incubed-kovan-4:
+    start_on_create: true
+  incubed-kovan-5:
+    start_on_create: true
+  
+  incubed-tobalaba-1:
+    start_on_create: true
+  incubed-tobalaba-2:
+    start_on_create: true
+  incubed-tobalaba-3:
+    start_on_create: true
+  incubed-tobalaba-4:
+    start_on_create: true
+  incubed-tobalaba-5:
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: none
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  
+  incubed-ipfs-1:
+    start_on_create: true
+  incubed-ipfs-2:
+    start_on_create: true
+  incubed-ipfs-3:
+    start_on_create: true
+  incubed-ipfs-4:
+    start_on_create: true
+  incubed-ipfs-5:
+    start_on_create: true
+
+  lb:
+    start_on_create: true
+    lb_config:
+      certs: []
+      config: "listen stats \nbind 0.0.0.0:9000\nmode http\nstats enable\nstats hide-version\n\
+        stats realm Haproxy\\ Statistics\nstats uri /haproxy_stats"
+      port_rules:
+      - hostname: in3.slock.it
+        path: /kovan/nd-1
+        priority: 2
+        protocol: http
+        service: incubed-kovan-1
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /kovan/nd-2
+        priority: 4
+        protocol: http
+        service: incubed-kovan-2
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /kovan/nd-3
+        priority: 6
+        protocol: http
+        service: incubed-kovan-3
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /kovan/nd-4
+        priority: 8
+        protocol: http
+        service: incubed-kovan-4
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /kovan/nd-5
+        priority: 10
+        protocol: http
+        service: incubed-kovan-5
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /tobalaba/nd-1
+        priority: 12
+        protocol: http
+        service: incubed-tobalaba-1
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /tobalaba/nd-2
+        priority: 14
+        protocol: http
+        service: incubed-tobalaba-2
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /tobalaba/nd-3
+        priority: 16
+        protocol: http
+        service: incubed-tobalaba-3
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /tobalaba/nd-4
+        priority: 18
+        protocol: http
+        service: incubed-tobalaba-4
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /tobalaba/nd-5
+        priority: 20
+        protocol: http
+        service: incubed-tobalaba-5
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /ipfs/nd-1
+        priority: 21
+        protocol: http
+        service: incubed-ipfs-1
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /ipfs/nd-2
+        priority: 22
+        protocol: http
+        service: incubed-ipfs-2
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /ipfs/nd-3
+        priority: 23
+        protocol: http
+        service: incubed-ipfs-3
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /ipfs/nd-4
+        priority: 24
+        protocol: http
+        service: incubed-ipfs-4
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /ipfs/nd-5
+        priority: 25
+        protocol: http
+        service: incubed-ipfs-5
+        source_port: 80
+        target_port: 8500
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 42
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      reinitializing_timeout: 60000
+

@@ -6,6 +6,7 @@ variables:
 stages:
     - build
     - test
+    - package
     - deploy
 
 build-server:
@@ -62,8 +63,8 @@ test-server:
         - build-server
         - compile-contracts
 
-deploy-docker:
-    stage: deploy
+package-docker:
+    stage: package
     tags:
     - short-jobs
     services:
@@ -75,3 +76,15 @@ deploy-docker:
         - docker tag $COMMIT_IMAGE_TAG $RELEASE_IMAGE_TAG
         - docker push $RELEASE_IMAGE_TAG
         - docker push $COMMIT_IMAGE_TAG
+
+deploy-to-dev:
+    stage: deploy
+    tags:
+      - short-jobs
+    only:
+      - master
+    image: markuskeil/docker-and-rancher
+    services:
+      - docker:dind
+    script:
+      - rancher -w up -d --prune -p -s $CI_PROJECT_PATH_SLUG -c --force-upgrade
