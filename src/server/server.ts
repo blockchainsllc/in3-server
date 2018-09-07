@@ -56,6 +56,7 @@ router.post(/.*/, async ctx => {
 router.get(/.*/, async ctx => {
   //  '/:chain/:method/:args'
   const path = ctx.path.split('/')
+  if (path[path.length - 1] === 'health') return checkHealth(ctx)
   try {
     if (path.length < 2) throw new Error('invalid path')
     let start = path.indexOf('api')
@@ -107,3 +108,16 @@ initConfig().then(() => {
   process.exit(1)
 })
 
+async function checkHealth(ctx: Router.IRouterContext) {
+
+  await Promise.all(
+    Object.keys(rpc.handlers).map(c => rpc.handlers[c].getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })))
+    .then(_ => {
+      ctx.body = { status: 'healthy' }
+      ctx.status = 200
+    }, _ => {
+      ctx.body = { status: 'unhealthy', message: _.message }
+      ctx.status = 500
+    })
+
+}
