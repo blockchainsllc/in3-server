@@ -13,7 +13,11 @@ services:
       io.rancher.scheduler.global: 'true'
   
   lb-monitor:
-    image: slockit/rancher-lb-telegraf:incubed
+    image: docker.slock.it/it/rancher-lb-monitor:master
+    environment:
+      TG_HOST: incubed-lb
+      TG_INFLUXURL: http://influx.10.142.1.1.xip.io:8086
+      TG_LBNAME: lb.in3-in3-server
     stdin_open: true
     tty: true
     labels:
