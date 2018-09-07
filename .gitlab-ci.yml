@@ -110,6 +110,7 @@ deploy-to-dev:
       - short-jobs
     only:
       - master
+      - develop
     image: markuskeil/docker-and-rancher
     services:
       - docker:dind
