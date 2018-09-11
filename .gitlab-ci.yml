@@ -107,7 +107,7 @@ package-docker:
 deploy-to-dev:
     stage: deploy
     tags:
-      - short-jobs
+      - long-jobs
     only:
       - master
       - develop
