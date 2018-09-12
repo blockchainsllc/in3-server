@@ -46,6 +46,17 @@ services:
   incubed-ipfs-5:
     start_on_create: true
 
+  incubed-evan-1:
+    start_on_create: true
+  incubed-evan-2:
+    start_on_create: true
+  incubed-evan-3:
+    start_on_create: true
+  incubed-evan-4:
+    start_on_create: true
+  incubed-evan-5:
+    start_on_create: true
+
   lb:
     start_on_create: true
     lb_config:
@@ -158,6 +169,43 @@ services:
         service: incubed-ipfs-5
         source_port: 80
         target_port: 8500
+      - hostname: in3.slock.it
+        path: /evan/nd-1
+        priority: 2
+        protocol: http
+        service: incubed-evan-1
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /evan/nd-2
+        priority: 4
+        protocol: http
+        service: incubed-evan-2
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /evan/nd-3
+        priority: 6
+        protocol: http
+        service: incubed-evan-3
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /evan/nd-4
+        priority: 8
+        protocol: http
+        service: incubed-evan-4
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /evan/nd-5
+        priority: 10
+        protocol: http
+        service: incubed-evan-5
+        source_port: 80
+        target_port: 8500
+
+
     health_check:
       healthy_threshold: 2
       response_timeout: 2000
