@@ -15,6 +15,11 @@ let rpc: RPC = null
 
 // handle cbor-encoding
 app.use(async (ctx, next) => {
+
+  //allow cross site scripting
+  ctx.response.header("Access-Control-Allow-Origin", "*");
+  ctx.response.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+
   const format = ctx.headers['content-type']
   if (format && format === 'application/cbor') {
     const body = await new Promise((res, rej) => {
@@ -34,6 +39,7 @@ app.use(async (ctx, next) => {
   }
   await next()
 })
+
 
 // handle json
 app.use(bodyParser())
