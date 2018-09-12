@@ -1,0 +1,26 @@
+version: '2'
+services:
+  incubed-server:
+    image: slockit/in3-server:0.1
+    volumes:
+    - $PWD/keys:/secure                                     # directory where the private key is stored 
+    ports:
+    - 8500:8500/tcp                                         # open the port 8500 to be accessed by public
+    command:
+    - --privateKey=/secure/myKey.json                       # internal path to the key
+    - --privateKeyPassphrase=dummy                          # passphrase to unlock the key
+    - --chain=0x2a                                          # chain (kovan)
+    - --rpcUrl=http://incubed-parity:8545                   # url of the kovan-client
+    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e # url of the incubed-registry 
+    - --autoRegistry-url=http://in3.server:8500             # check or register this node for this url
+    - --autoRegistry-deposit=2                              # deposit to use when registering
+
+  incubed-parity:
+    image: slockit/parity-in3:v1.11.7                       # parity-image with the getProof-function implemented
+    command:
+    - --auto-update=none                                    # do not automaticly update the client
+    - --pruning=archive 
+    - --pruning-memory=30000                                # limit storage
+    - --testnet                                             # kovan
+
+
