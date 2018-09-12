@@ -20,6 +20,12 @@ app.use(async (ctx, next) => {
   ctx.response.header("Access-Control-Allow-Origin", "*");
   ctx.response.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 
+  if (ctx.request.method === 'OPTIONS') {
+    ctx.body = ''
+    ctx.status = 200
+    return
+  }
+
   const format = ctx.headers['content-type']
   if (format && format === 'application/cbor') {
     const body = await new Promise((res, rej) => {
