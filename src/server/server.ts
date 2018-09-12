@@ -16,9 +16,10 @@ let rpc: RPC = null
 // handle cbor-encoding
 app.use(async (ctx, next) => {
 
+
   //allow cross site scripting
-  ctx.response.header("Access-Control-Allow-Origin", "*");
-  ctx.response.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  ctx.set('Access-Control-Allow-Origin', '*')
+  ctx.set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
 
   if (ctx.request.method === 'OPTIONS') {
     ctx.body = ''
