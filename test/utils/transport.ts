@@ -84,6 +84,9 @@ export class TestTransport implements Transport {
     }
     this.url = getTestClient()
   }
+  isOnline(): Promise<boolean> {
+    return Promise.resolve(true)
+  }
 
   injectRandom(randomVals: number[]) {
     this.randomList.push(randomVals)
