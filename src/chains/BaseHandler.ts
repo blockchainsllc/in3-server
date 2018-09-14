@@ -4,7 +4,8 @@ import { getNodeList, updateNodeList } from '../util/nodeListUpdater'
 import Watcher from './watch'
 import { checkPrivateKey, checkRegistry } from './initHandler'
 import { collectSignatures, handleSign } from './signatures'
-import { RPCHandler } from '../server/rpc';
+import { RPCHandler } from '../server/rpc'
+import { SimpleCache } from '../util/cache'
 
 const toHex = in3Util.toHex
 const toNumber = in3Util.toNumber
@@ -21,6 +22,7 @@ export default abstract class BaseHandler implements RPCHandler {
   transport: Transport
   chainId: string
   watcher: Watcher
+  cache: SimpleCache
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
@@ -37,8 +39,19 @@ export default abstract class BaseHandler implements RPCHandler {
     this.watcher = new Watcher(this, interval, config.persistentFile || 'lastBlock.json', config.startBlock)
 
     // start the watcher in the background
-    if (interval > 0)
+    if (interval > 0) {
       this.watcher.check()
+      this.cache = new SimpleCache()
+      this.watcher.on('newBlock', () => this.cache.clear())
+    }
+  }
+
+  handleWithCache(request: RPCRequest): Promise<RPCResponse> {
+    return this.cache
+      ? this.cache.getFromCache(request,
+        this.handle.bind(this),
+        (signers, blockNumbers, verifiedHashes) => collectSignatures(this, signers, blockNumbers.map(b => ({ blockNumber: b })), verifiedHashes))
+      : this.handle(request)
   }
 
   handle(request: RPCRequest): Promise<RPCResponse> {
