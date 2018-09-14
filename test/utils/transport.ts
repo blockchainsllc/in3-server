@@ -84,10 +84,6 @@ export class TestTransport implements Transport {
     }
     this.url = getTestClient()
   }
-  isOnline(): Promise<boolean> {
-    return Promise.resolve(true)
-  }
-
   injectRandom(randomVals: number[]) {
     this.randomList.push(randomVals)
   }
@@ -96,7 +92,7 @@ export class TestTransport implements Transport {
       request, response, url
     })
   }
-  isOnline():Promise<boolean> {
+  isOnline(): Promise<boolean> {
     return Promise.resolve(true)
   }
   async mustFail(p: Promise<any>): Promise<any> {
@@ -164,6 +160,7 @@ export class TestTransport implements Transport {
       keepIn3: true,
       chainId: this.chainId,
       timeout: 9999999,
+      loggerUrl: '',
       servers: {
         [this.chainId]: {
           contract: this.nodeList.contract || 'dummy',

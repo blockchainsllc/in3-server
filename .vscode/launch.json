@@ -52,15 +52,13 @@
       "name": "Server starten",
       "program": "${workspaceFolder}/js/src/server/server.js",
       "args": [
-        "--privateKey=0x2817fc5d9d8b9753b6d9888e2cb411c022feb06f416a51e79006e8f89984aac3",
-        "--chain=0x7d0",
-        "--rpcUrl=https://rpc.slock.it/kovan",
-        "--registryRPC=https://rpc.slock.it/kovan",
-        "--minBlockHeight=6",
-        "--registry=0xf0fb87f4757c77ea3416afe87f36acaa0496c7e9",
-        "--persistentFile=false",
-        "--handler=ipfs",
-        "--ipfsUrl=http://188.68.54.252:5001"
+        "--chain=0x44d",
+        "--privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994",
+        "--rpcUrl=https://rpc.slock.it/tobalaba",
+        "--registryRPC=https://rpc.slock.it/tobalaba",
+        "--minBlockHeight=0",
+        "--registry=0x845E484b505443814B992Bf0319A5e8F5e407879",
+        "--persistentFile=false"
       ],
       "outFiles": [
         "${workspaceFolder}/js/**/*.js"

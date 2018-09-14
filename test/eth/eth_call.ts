@@ -1,12 +1,10 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { serialize, BlockData, RPCResponse, util, Proof, LogData } from 'in3'
+import { BlockData, RPCResponse, util, Proof, LogData } from 'in3'
 import { TestTransport, getTestClient } from '../utils/transport'
-import { deployChainRegistry, registerServers, deployContract } from '../../src/util/registry';
+import { deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
-import * as logger from 'in3/js/test/util/memoryLogger'
-import { simpleEncode } from 'ethereumjs-abi'
 const toHex = util.toHex
 const getAddress = util.getAddress
 const toNumber = util.toNumber

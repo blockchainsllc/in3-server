@@ -2,10 +2,9 @@
 import { assert } from 'chai'
 import 'mocha'
 import { util, BlockData, serialize, Signature, RPCRequest, RPCResponse } from 'in3'
-import { registerServers } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
 import * as ethUtil from 'ethereumjs-util'
-import { LoggingAxiosTransport, TestTransport } from '../utils/transport';
+import { TestTransport } from '../utils/transport';
 import Watcher from '../../src/chains/watch';
 
 const bytes32 = serialize.bytes32

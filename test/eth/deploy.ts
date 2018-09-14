@@ -1,9 +1,8 @@
 
-import { assert, expect, should } from 'chai'
+import { assert } from 'chai'
 import 'mocha'
 import Client, { chainData, util } from 'in3'
-import { deployChainRegistry, registerServers } from '../../src/util/registry';
-import * as tx from '../../src/util/tx'
+import { registerServers } from '../../src/util/registry';
 import * as logger from 'in3/js/test/util/memoryLogger'
 import { LoggingAxiosTransport, getTestClient } from '../utils/transport'
 
