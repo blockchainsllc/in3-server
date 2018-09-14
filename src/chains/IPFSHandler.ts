@@ -9,13 +9,13 @@ import * as FormData from 'form-data'
  */
 export default class IPFSHandler extends BaseHandler {
 
-  cache: Map<string, Buffer>
+  ipfsCache: Map<string, Buffer>
   maxCacheSize: number
   maxCacheBufferLength: number
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     super(config, transport, nodeList)
-    this.cache = new Map()
+    this.ipfsCache = new Map()
     this.maxCacheBufferLength = 5000
     this.maxCacheSize = 100
   }
@@ -50,7 +50,7 @@ export default class IPFSHandler extends BaseHandler {
 
   async getHash(hash: string) {
     // in cache?
-    const cached = this.cache.get(hash)
+    const cached = this.ipfsCache.get(hash)
     if (cached) return cached
 
     // read from ipfs
@@ -64,9 +64,9 @@ export default class IPFSHandler extends BaseHandler {
 
     // should we cache it?
     if (result.length < this.maxCacheBufferLength) {
-      if (this.cache.size === this.maxCacheSize)
-        this.cache.delete(this.cache.keys().next().value)
-      this.cache[hash] = result
+      if (this.ipfsCache.size === this.maxCacheSize)
+        this.ipfsCache.delete(this.ipfsCache.keys().next().value)
+      this.ipfsCache[hash] = result
     }
 
     return result
