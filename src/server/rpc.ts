@@ -89,7 +89,7 @@ export class RPC {
 
       return Promise.all([
         handler.getNodeList(false).then(_ => in3.lastNodeList = _.lastBlockNumber),
-        handler.handle(r)
+        handler.handleWithCache(r)
       ])
         .then(_ => ({ ..._[1], in3: { ...(_[1].in3 || {}), ...in3 } }))
     }))
@@ -114,6 +114,7 @@ export class RPC {
 export interface RPCHandler {
   chainId: string
   handle(request: RPCRequest): Promise<RPCResponse>
+  handleWithCache(request: RPCRequest): Promise<RPCResponse>
   getFromServer(request: Partial<RPCRequest>): Promise<RPCResponse>
   getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[]): Promise<ServerList>
