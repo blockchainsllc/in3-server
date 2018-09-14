@@ -93,7 +93,9 @@ export class TestTransport implements Transport {
       request, response, url
     })
   }
-
+  isOnline():Promise<boolean> {
+    return Promise.resolve(true)
+  }
   async mustFail(p: Promise<any>): Promise<any> {
     return p.then(_ => Promise.reject(new Error('Must have failed')), err => true)
   }
