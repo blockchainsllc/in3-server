@@ -89,7 +89,7 @@ export class RPC {
 
       return Promise.all([
         handler.getNodeList(false).then(_ => in3.lastNodeList = _.lastBlockNumber),
-        handler.handleWithCache(r)
+        handler.handle(r)
       ])
         .then(_ => ({ ..._[1], in3: { ...(_[1].in3 || {}), ...in3 } }))
     }))
