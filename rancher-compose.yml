@@ -207,7 +207,7 @@ services:
         source_port: 80
         target_port: 8500
       - hostname: in3.slock.it
-        path: /stats
+        path: /
         priority: 10
         protocol: http
         service: dashboard
