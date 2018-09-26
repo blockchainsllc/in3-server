@@ -33,8 +33,8 @@ services:
     - --privateKey=0x2817fc5d9d8b9753b6d9888e2cb411c022feb06f416a51e79006e8f89984aac3
     - --minBlockHeight=0
     - --chain=0x44d
-    - --registryRPC=http://proxy-tobalaba.parity-rpc:8545
-    - --rpcUrl=http://proxy-tobalaba.parity-rpc:8545
+    - --registryRPC=http://proxy-tobalaba.parity-rpc:6000
+    - --rpcUrl=http://proxy-tobalaba.parity-rpc:6000
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -54,8 +54,8 @@ services:
     - --privateKey=0xcdaf1673f39b8ed271945b582d2f55a61bdf8e278190fbaeccfce33668d1f676
     - --minBlockHeight=0
     - --chain=0x44d
-    - --registryRPC=http://proxy-tobalaba.parity-rpc:8545
-    - --rpcUrl=http://proxy-tobalaba.parity-rpc:8545
+    - --registryRPC=http://proxy-tobalaba.parity-rpc:6000
+    - --rpcUrl=http://proxy-tobalaba.parity-rpc:6000
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -74,8 +74,8 @@ services:
     - --privateKey=0x4a6d44cd0e324d8dafc18be4f5db72e59628221ce5d023768b536c393726cde4
     - --minBlockHeight=0
     - --chain=0x44d
-    - --registryRPC=http://proxy-tobalaba.parity-rpc:8545
-    - --rpcUrl=http://proxy-tobalaba.parity-rpc:8545
+    - --registryRPC=http://proxy-tobalaba.parity-rpc:6000
+    - --rpcUrl=http://proxy-tobalaba.parity-rpc:6000
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -94,8 +94,8 @@ services:
     - --privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994
     - --minBlockHeight=0
     - --chain=0x44d
-    - --registryRPC=http://proxy-tobalaba.parity-rpc:8545
-    - --rpcUrl=http://proxy-tobalaba.parity-rpc:8545
+    - --registryRPC=http://proxy-tobalaba.parity-rpc:6000
+    - --rpcUrl=http://proxy-tobalaba.parity-rpc:6000
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -114,8 +114,8 @@ services:
     - --privateKey=0xcc79e360cc8083da8a5069b94d3d8c8710ace23d16fdd0a9ab2f71146cb8e3eb
     - --minBlockHeight=0
     - --chain=0x44d
-    - --registryRPC=http://proxy-tobalaba.parity-rpc:8545
-    - --rpcUrl=http://proxy-tobalaba.parity-rpc:8545
+    - --registryRPC=http://proxy-tobalaba.parity-rpc:6000
+    - --rpcUrl=http://proxy-tobalaba.parity-rpc:6000
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -173,8 +173,8 @@ services:
     - --privateKey=0x4a6d44cd0e324d8dafc18be4f5db72e59628221ce5d023768b536c393726cde4
     - --minBlockHeight=0
     - --chain=0x2a
-    - --registryRPC=http://proxy-kovan.parity-rpc:8545
-    - --rpcUrl=http://proxy-kovan.parity-rpc:8545
+    - --registryRPC=http://proxy-kovan.parity-rpc:6000
+    - --rpcUrl=http://proxy-kovan.parity-rpc:6000
     - --profile-name=Slockit3
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -192,8 +192,8 @@ services:
     - --privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994
     - --minBlockHeight=0
     - --chain=0x2a
-    - --registryRPC=http://proxy-kovan.parity-rpc:8545
-    - --rpcUrl=http://proxy-kovan.parity-rpc:8545
+    - --registryRPC=http://proxy-kovan.parity-rpc:6000
+    - --rpcUrl=http://proxy-kovan.parity-rpc:6000
     - --profile-name=Slockit4
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -211,8 +211,8 @@ services:
     - --privateKey=0xcc79e360cc8083da8a5069b94d3d8c8710ace23d16fdd0a9ab2f71146cb8e3eb
     - --minBlockHeight=0
     - --chain=0x2a
-    - --registryRPC=http://proxy-kovan.parity-rpc:8545
-    - --rpcUrl=http://proxy-kovan.parity-rpc:8545
+    - --registryRPC=http://proxy-kovan.parity-rpc:6000
+    - --rpcUrl=http://proxy-kovan.parity-rpc:6000
     - --profile-name=Slockit5
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -232,8 +232,8 @@ services:
     command:
     - --privateKey=0x2817fc5d9d8b9753b6d9888e2cb411c022feb06f416a51e79006e8f89984aac3
     - --chain=0x7d0
-    - --registryRPC=http://proxy-kovan.parity-rpc:8545
-    - --rpcUrl=http://proxy-kovan.parity-rpc:8545
+    - --registryRPC=http://proxy-kovan.parity-rpc:6000
+    - --rpcUrl=http://proxy-kovan.parity-rpc:6000
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -252,8 +252,8 @@ services:
     command:
     - --privateKey=0xcdaf1673f39b8ed271945b582d2f55a61bdf8e278190fbaeccfce33668d1f676
     - --chain=0x7d0
-    - --registryRPC=http://proxy-kovan.parity-rpc:8545
-    - --rpcUrl=http://proxy-kovan.parity-rpc:8545
+    - --registryRPC=http://proxy-kovan.parity-rpc:6000
+    - --rpcUrl=http://proxy-kovan.parity-rpc:6000
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -272,8 +272,8 @@ services:
     command:
     - --privateKey=0x4a6d44cd0e324d8dafc18be4f5db72e59628221ce5d023768b536c393726cde4
     - --chain=0x7d0
-    - --registryRPC=http://proxy-kovan.parity-rpc:8545
-    - --rpcUrl=http://proxy-kovan.parity-rpc:8545
+    - --registryRPC=http://proxy-kovan.parity-rpc:6000
+    - --rpcUrl=http://proxy-kovan.parity-rpc:6000
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -292,8 +292,8 @@ services:
     command:
     - --privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994
     - --chain=0x7d0
-    - --registryRPC=http://proxy-kovan.parity-rpc:8545
-    - --rpcUrl=http://proxy-kovan.parity-rpc:8545
+    - --registryRPC=http://proxy-kovan.parity-rpc:6000
+    - --rpcUrl=http://proxy-kovan.parity-rpc:6000
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -312,8 +312,8 @@ services:
     command:
     - --privateKey=0xcc79e360cc8083da8a5069b94d3d8c8710ace23d16fdd0a9ab2f71146cb8e3eb
     - --chain=0x7d0
-    - --registryRPC=http://proxy-kovan.parity-rpc:8545
-    - --rpcUrl=http://proxy-kovan.parity-rpc:8545
+    - --registryRPC=http://proxy-kovan.parity-rpc:6000
+    - --rpcUrl=http://proxy-kovan.parity-rpc:6000
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -335,8 +335,8 @@ services:
     - --privateKey=0x2817fc5d9d8b9753b6d9888e2cb411c022feb06f416a51e79006e8f89984aac3
     - --minBlockHeight=0
     - --chain=0x4b1
-    - --registryRPC=http://proxy-rpc.third-party-evan-network:8545
-    - --rpcUrl=http://proxy-rpc.third-party-evan-network:8545
+    - --registryRPC=http://proxy-rpc.third-party-evan-network:6000
+    - --rpcUrl=http://proxy-rpc.third-party-evan-network:6000
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -356,8 +356,8 @@ services:
     - --privateKey=0xcdaf1673f39b8ed271945b582d2f55a61bdf8e278190fbaeccfce33668d1f676
     - --minBlockHeight=0
     - --chain=0x4b1
-    - --registryRPC=http://proxy-rpc.third-party-evan-network:8545
-    - --rpcUrl=http://proxy-rpc.third-party-evan-network:8545
+    - --registryRPC=http://proxy-rpc.third-party-evan-network:6000
+    - --rpcUrl=http://proxy-rpc.third-party-evan-network:6000
     - --profile-name=Slockit2
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -376,8 +376,8 @@ services:
     - --privateKey=0x4a6d44cd0e324d8dafc18be4f5db72e59628221ce5d023768b536c393726cde4
     - --minBlockHeight=0
     - --chain=0x4b1
-    - --registryRPC=http://proxy-rpc.third-party-evan-network:8545
-    - --rpcUrl=http://proxy-rpc.third-party-evan-network:8545
+    - --registryRPC=http://proxy-rpc.third-party-evan-network:6000
+    - --rpcUrl=http://proxy-rpc.third-party-evan-network:6000
     - --profile-name=Slockit3
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -396,8 +396,8 @@ services:
     - --privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994
     - --minBlockHeight=0
     - --chain=0x4b1
-    - --registryRPC=http://proxy-rpc.third-party-evan-network:8545
-    - --rpcUrl=http://proxy-rpc.third-party-evan-network:8545
+    - --registryRPC=http://proxy-rpc.third-party-evan-network:6000
+    - --rpcUrl=http://proxy-rpc.third-party-evan-network:6000
     - --profile-name=Slockit4
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -416,8 +416,8 @@ services:
     - --privateKey=0xcc79e360cc8083da8a5069b94d3d8c8710ace23d16fdd0a9ab2f71146cb8e3eb
     - --minBlockHeight=0
     - --chain=0x4b1
-    - --registryRPC=http://proxy-rpc.third-party-evan-network:8545
-    - --rpcUrl=http://proxy-rpc.third-party-evan-network:8545
+    - --registryRPC=http://proxy-rpc.third-party-evan-network:6000
+    - --rpcUrl=http://proxy-rpc.third-party-evan-network:6000
     - --profile-name=Slockit5
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
