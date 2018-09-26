@@ -87,7 +87,7 @@ router.get(/.*/, async ctx => {
         ...ctx.query
       }
     }
-    if (ctx.request.headers && ctx.request.headers.Referer && ctx.request.headers.Referer.indexOf('in3')>=0) 
+    if (ctx.request.headers && (ctx.request.headers.Referrer || ctx.request.headers.referrer || ctx.request.headers.Referer || ctx.request.headers.referer || '').indexOf('in3')>=0) 
       (req.in3 || (req.in3={})).noStats=true
     const [result] = await rpc.handle([req as any])
     ctx.status = result.error ? 500 : 200
