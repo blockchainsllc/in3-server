@@ -22,6 +22,7 @@ export class Stat {
   }
 
   update(r: RPCRequest) {
+    if (r.in3 && ((r.in3 as any).noStats)) return
     this.data.requests++
     this.data.methods[r.method] = (this.data.methods[r.method] || 0) + 1
     this.data.lastRequest = Date.now()
