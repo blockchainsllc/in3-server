@@ -4,6 +4,7 @@ services:
     scale: 1
     start_on_create: true
   incubed-kovan-1:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -16,6 +17,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-kovan-2:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -28,6 +30,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-kovan-3:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -40,6 +43,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-kovan-4:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -52,6 +56,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-kovan-5:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -65,6 +70,7 @@ services:
       reinitializing_timeout: 60000
   
   incubed-tobalaba-1:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -77,6 +83,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-tobalaba-2:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -89,6 +96,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-tobalaba-3:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -101,6 +109,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-tobalaba-4:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -113,6 +122,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-tobalaba-5:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -126,6 +136,7 @@ services:
       reinitializing_timeout: 60000
   
   incubed-ipfs-1:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -138,6 +149,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-ipfs-2:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -150,6 +162,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-ipfs-3:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -162,6 +175,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-ipfs-4:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -174,6 +188,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-ipfs-5:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -187,6 +202,7 @@ services:
       reinitializing_timeout: 60000
 
   incubed-evan-1:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -199,6 +215,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-evan-2:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -211,6 +228,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-evan-3:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -223,6 +241,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-evan-4:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -235,6 +254,7 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   incubed-evan-5:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
