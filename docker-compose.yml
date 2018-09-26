@@ -44,7 +44,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.hostname_override: container_name
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
 
   incubed-tobalaba-2:
     image: docker.slock.it/in3/in3-server:latest
@@ -64,7 +64,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
 
   incubed-tobalaba-3:
     image: docker.slock.it/in3/in3-server:latest
@@ -84,7 +84,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   
   incubed-tobalaba-4:
     image: docker.slock.it/in3/in3-server:latest
@@ -104,7 +104,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   
   incubed-tobalaba-5:
     image: docker.slock.it/in3/in3-server:latest
@@ -124,7 +124,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
 
 # KOVAN
   incubed-kovan-1:
@@ -145,7 +145,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   incubed-kovan-2:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -164,7 +164,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   incubed-kovan-3:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -183,7 +183,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   incubed-kovan-4:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -202,7 +202,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   incubed-kovan-5:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -221,7 +221,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
 
 # IPFS
 
@@ -244,7 +244,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   incubed-ipfs-2:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -264,7 +264,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   incubed-ipfs-3:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -284,7 +284,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   incubed-ipfs-4:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -304,7 +304,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   incubed-ipfs-5:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -324,7 +324,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
 
 # EVAN 
   incubed-evan-1:
@@ -346,7 +346,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.hostname_override: container_name
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
 
   incubed-evan-2:
     image: docker.slock.it/in3/in3-server:latest
@@ -366,7 +366,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
 
   incubed-evan-3:
     image: docker.slock.it/in3/in3-server:latest
@@ -386,7 +386,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   
   incubed-evan-4:
     image: docker.slock.it/in3/in3-server:latest
@@ -406,7 +406,7 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
   
   incubed-evan-5:
     image: docker.slock.it/in3/in3-server:latest
@@ -426,5 +426,5 @@ services:
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'
+      
 
