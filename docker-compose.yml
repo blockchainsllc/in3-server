@@ -427,3 +427,4 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+
