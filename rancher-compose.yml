@@ -204,7 +204,13 @@ services:
         service: incubed-evan-5
         source_port: 80
         target_port: 8500
-
+      - hostname: in3.slock.it
+        path: /
+        priority: 100
+        protocol: http
+        service: in3-dashboard/dashboard
+        source_port: 80
+        target_port: 80
 
     health_check:
       healthy_threshold: 2
