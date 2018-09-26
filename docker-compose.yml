@@ -427,13 +427,3 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
-
-  #dashboard
-  dashboard:
-    image: docker.slock.it/in3/dashboard:latest
-    stdin_open: true
-    tty: true
-    labels:
-      io.rancher.scheduler.affinity:host_label: role=application
-      io.rancher.container.pull_image: always
-      io.rancher.scheduler.global: 'true'

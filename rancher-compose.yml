@@ -210,7 +210,7 @@ services:
         path: /
         priority: 100
         protocol: http
-        service: dashboard
+        service: in3-dashboard/dashboard
         source_port: 80
         target_port: 80
 
