@@ -199,6 +199,9 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
       }
     }
   }
+  // if we don't have a block, we will return nu result, since pending can not be proofed
+  else
+    return {...response, result:null}
   return response
 }
 
