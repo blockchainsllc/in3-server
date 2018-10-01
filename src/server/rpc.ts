@@ -46,9 +46,11 @@ export class RPC {
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
       const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
       const in3: IN3ResponseConfig = {} as any
+      const start = Date.now()
 
       // update stats
       currentHour.update(r)
+
 
       if (r.method === 'in3_nodeList')
         return handler.getNodeList(
@@ -63,7 +65,7 @@ export class RPC {
             id: r.id,
             result: result as any,
             jsonrpc: r.jsonrpc,
-            in3: { ...in3 }
+            in3: { ...in3, execTime:Date.now()-start }
           }
           const proof = res.result.proof
           if (proof) {
@@ -89,7 +91,10 @@ export class RPC {
 
       return Promise.all([
         handler.getNodeList(false).then(_ => in3.lastNodeList = _.lastBlockNumber),
-        handler.handle(r)
+        handler.handle(r).then(_=>{
+          (in3 as any).execTime=Date.now()-start 
+          return _
+        })
       ])
         .then(_ => ({ ..._[1], in3: { ...(_[1].in3 || {}), ...in3 } }))
     }))

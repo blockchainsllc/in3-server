@@ -110,6 +110,7 @@ export default class Watcher extends EventEmitter {
     ])
 
     if (this.block.number == currentBlock) return
+    if (!currentBlock) throw new Error('The current Block was empty!')
 
     this.emit('newBlock', currentBlock)
 
@@ -122,6 +123,7 @@ export default class Watcher extends EventEmitter {
     ])
 
     if (blockResponse.error) throw new Error('Error getting the block ' + currentBlock + ': ' + blockResponse.error)
+    if (!blockResponse.result) throw new Error('Invalid Response getting the block ' + currentBlock + ': ' + JSON.stringify(blockResponse))
 
     if (logResponse) {
       if (logResponse.error) throw new Error('Error getting the logs : ' + logResponse.error)
