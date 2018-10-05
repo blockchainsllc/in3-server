@@ -80,7 +80,7 @@
     "axios": "^0.18.0",
     "cbor": "^4.0.0",
     "cli-color": "^1.2.0",
-    "ethereumjs-abi": "0.6.5",
+    "ethereumjs-abi": "^0.6.5",
     "ethereumjs-account": "2.0.5",
     "ethereumjs-tx": "1.3.4",
     "ethereumjs-util": "5.2.0",

@@ -2,6 +2,7 @@ import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ut
 import { handeGetTransaction, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
 import BaseHandler from './BaseHandler'
 import { handleSign } from './signatures';
+import { simpleEncode, simpleDecode } from 'ethereumjs-abi'
 
 const toHex = in3Util.toHex
 const toNumber = in3Util.toNumber
@@ -32,10 +33,20 @@ export default class EthHandler extends BaseHandler {
       request.in3.verification = 'never'
 
     // execute it
-    return this.handleRPCMethod(request)
+    const result = await this.handleRPCMethod(request)
+    if ((request as any).convert)
+      (request as any).convert(result)
+    return result
   }
 
   private async handleRPCMethod(request: RPCRequest) {
+
+    // handle shortcut-functions
+    if (request.method==='in3_call') {
+      request.method='eth_call'
+      request.params= createCallParams(request)
+    }
+       
 
     // handle special jspn-rpc
     if (request.in3.verification.startsWith('proof'))
@@ -82,8 +93,47 @@ export default class EthHandler extends BaseHandler {
         return this.getFromServer(request)
     }
   }
-
-
 }
 
+function createCallParams(request: RPCRequest):any[] {
+  const params = request.params || []
+  const methodRegex =/^\w+\((.*)\)$/gm
+  let [contract, method] = params as string[]
+  if (!contract) throw new Error('First argument needs to be a valid contract address')
+  if (!method) throw new Error('First argument needs to be a valid contract method signature')
+  if (method.indexOf('(')<0) method+='()'
 
+  // since splitting for get is simply split(',') the method-signature is also split, so we reunit it.
+  while (method.indexOf(')')<0 && params.length>2) {
+    method+=','+params[2]
+    params.splice(2,1)
+  }
+
+  if (method.indexOf(':')>0) {
+    const srcFullMethod=method;
+    const fullMethod = method.endsWith(')') ? method : method.split(':').join(':(')+')'
+    const retTypes = method.split(':')[1].substr(1).replace(')',' ').trim().split(',');
+    (request as any).convert = result=>{
+      if (result.result)
+        result.result = simpleDecode(fullMethod, Buffer.from(result.result.substr(2),'hex')).map((v,i)=>{
+          if (Buffer.isBuffer(v)) return '0x'+v.toString('hex')
+          if (v && v.ixor) return v.toString()
+          if (retTypes[i]!=='string' && typeof v==='string' && v[1]!=='x')
+             return '0x'+v
+          return v
+        })
+      if (Array.isArray(result.result) && !srcFullMethod.endsWith(')'))
+        result.result = result.result[0]
+      return result
+    }
+    method = method.substr(0,method.indexOf(':'))
+  }
+
+  const m = methodRegex.exec(method)
+  if (!m) throw new Error('No valid method signature for '+method)
+  const types = m[1].split(',').filter(_=>_)
+  const values = params.slice(2,types.length+2)
+  if (values.length<types.length) throw new Error('invalid number of arguments. Must be at least '+types.length)
+
+  return [{to:contract, data: '0x'+simpleEncode(method,...values).toString('hex')},params[types.length+2] || 'latest']
+}
