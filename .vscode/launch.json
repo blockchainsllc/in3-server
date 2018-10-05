@@ -52,12 +52,12 @@
       "name": "Server starten",
       "program": "${workspaceFolder}/js/src/server/server.js",
       "args": [
-        "--chain=0x44d",
-        "--privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994",
-        "--rpcUrl=https://rpc.slock.it/tobalaba",
-        "--registryRPC=https://rpc.slock.it/tobalaba",
+        "--chain=0x2a",
+        "--privateKey=0xcdaf1673f39b8ed271945b582d2f55a61bdf8e278190fbaeccfce33668d1f676 ",
+        "--rpcUrl=https://rpc.slock.it/kovan",
+        "--registryRPC=https://rpc.slock.it/kovan",
         "--minBlockHeight=0",
-        "--registry=0x845E484b505443814B992Bf0319A5e8F5e407879",
+        "--registry=0x27a37a1210Df14f7E058393d026e2fB53B7cf8c1",
         "--persistentFile=false"
       ],
       "outFiles": [
