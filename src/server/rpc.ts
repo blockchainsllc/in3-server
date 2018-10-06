@@ -100,6 +100,11 @@ export class RPC {
     }))
   }
 
+  getRequestFromPath(path: string[], in3: { chainId:string}): RPCRequest {
+    const handler = this.getHandler(in3.chainId)
+    if (!handler) null
+    return handler.getRequestFromPath(path,in3)
+  }
 
   init() {
     return Promise.all(Object.keys(this.handlers).map(c =>
@@ -124,6 +129,7 @@ export interface RPCHandler {
   getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[]): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
+  getRequestFromPath(path: string[], in3: { chainId:string}): RPCRequest
   checkRegistry(): Promise<any>
   config: IN3RPCHandlerConfig
   watcher?: Watcher

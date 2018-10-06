@@ -93,6 +93,27 @@ export default class EthHandler extends BaseHandler {
         return this.getFromServer(request)
     }
   }
+j
+  getRequestFromPath(path: string[], in3: { chainId: string; }): RPCRequest {
+    if (path[0] && path[0].startsWith('0x') && path[0].length<43) {
+      const [contract, method ] = path
+      const r: RPCRequest = { id:1, jsonrpc:'2.0', method:'', params:[contract,'latest'], in3}
+      switch (method) {
+        case 'balance' : return { ...r, method: 'eth_getBalance'}
+        case 'nonce' : return { ...r, method: 'eth_getTransactionCount'}
+        case 'code' : return { ...r, method: 'eth_getCode'}
+        case 'storage' : return { ...r, method: 'eth_getStorageAt', params:[contract,path[2],'latest']}
+        default:
+          return { ...r, method: 'in3_call', params:[contract, method,...path.slice(2).join('/').split(',').filter(_ => _).map(_ => _ === 'true' ? true : _ === 'false' ? false : _)]}
+      }
+    }
+    else if (path[0] && path[0].startsWith('0x') && path[0].length>43)       
+       return { id:1, jsonrpc:'2.0', method:'eth_getTransactionReceipt', params:[path[0]], in3}
+    else if (path[0] && (parseInt(path[0]) || path[0]==='latest'))
+       return { id:1, jsonrpc:'2.0', method:'eth_getBlockByNumber', params:[path[0]==='latest' ? 'latest':'0x'+parseInt(path[0]).toString(16) ,false], in3}
+
+    return null
+  }
 }
 
 function createCallParams(request: RPCRequest):any[] {

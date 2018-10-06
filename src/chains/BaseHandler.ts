@@ -91,6 +91,10 @@ export default abstract class BaseHandler implements RPCHandler {
     return nl
   }
 
+  getRequestFromPath(path: string[], in3: { chainId: string; }): RPCRequest {
+    return null
+  }
+
 
   toCleanRequest(request: Partial<RPCRequest>): RPCRequest {
     return {
