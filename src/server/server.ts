@@ -111,12 +111,16 @@ initConfig().then(() => {
     .use(router.allowedMethods())
     .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
 
+  const doInit = () => {
+    rpc.init().catch(err => {
+      console.error('Error initializing the server : ' + err.message)
+      logger.error('Error initializing the server : ', err)
+      setTimeout(doInit,20000)
+    })
+  }
+
   // after starting the server, we should make sure our nodelist is up-to-date.
-  setTimeout(() => rpc.init().catch(err => {
-    console.error('Error initializing the server : ' + err.message)
-    logger.error('Error initializing the server : ', err)
-    process.exit(1)
-  }))
+  setTimeout(doInit)
 }).catch(err => {
   console.error('Error starting the server : ' + err.message, config)
   logger.error('Error starting the server ' + err, config)
