@@ -68,6 +68,74 @@ services:
       strategy: recreate
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
+
+  incubed-mainnet-1:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-mainnet-2:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-mainnet-3:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-mainnet-4:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-mainnet-5:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+
+
   
   incubed-tobalaba-1:
     scale: 1
@@ -274,6 +342,41 @@ services:
       config: "listen stats \nbind 0.0.0.0:9000\nmode http\nstats enable\nstats hide-version\n\
         stats realm Haproxy\\ Statistics\nstats uri /haproxy_stats"
       port_rules:
+      - hostname: in3.slock.it
+        path: /mainnet/nd-1
+        priority: 2
+        protocol: http
+        service: incubed-mainnet-1
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /mainnet/nd-2
+        priority: 4
+        protocol: http
+        service: incubed-mainnet-2
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /mainnet/nd-3
+        priority: 6
+        protocol: http
+        service: incubed-mainnet-3
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /mainnet/nd-4
+        priority: 8
+        protocol: http
+        service: incubed-mainnet-4
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /mainnet/nd-5
+        priority: 10
+        protocol: http
+        service: incubed-mainnet-5
+        source_port: 80
+        target_port: 8500
       - hostname: in3.slock.it
         path: /kovan/nd-1
         priority: 2
