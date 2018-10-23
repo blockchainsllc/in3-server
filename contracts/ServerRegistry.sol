@@ -24,16 +24,20 @@ contract ServerRegistry {
     
     Web3Server[] public servers;
 
+    // index for unique url and owner
+    mapping (address => bool) ownerIndex;
+    mapping (bytes32 => bool) urlIndex;
+    
+
     function totalServers() public constant returns (uint)  {
         return servers.length;
     }
 
     /// register a new Server with the sender as owner    
     function registerServer(string _url, uint _props) public payable {
+        bytes32 urlHash = keccak256(_url);
         // make sure this url and also this owner was not registered before.
-        bytes32 hash = keccak256(_url);
-        for (uint i=0;i<servers.length;i++) 
-            require(keccak256(servers[i].url)!=hash && servers[i].owner!=msg.sender);
+        require (!urlIndex[urlHash] && !ownerIndex[msg.sender]);
 
         // create new Webserver
         Web3Server memory m;
@@ -42,7 +46,23 @@ contract ServerRegistry {
         m.owner = msg.sender;
         m.deposit = msg.value;
         servers.push(m);
+        urlIndex[urlHash] = true;
+        ownerIndex[msg.sender] = true;
         emit LogServerRegistered(_url, _props, msg.sender,msg.value);
+    }
+
+    /// updates a Server by adding the msg.value to the deposit and setting the props    
+    function updateServer(uint _serverIndex, uint _props) public payable {
+        Web3Server storage server = servers[_serverIndex];
+        require(server.owner == msg.sender);
+
+        if (msg.value>0) 
+          server.deposit += msg.value;
+
+        if (_props!=server.props)
+          server.props = _props;
+
+        emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
     }
 
     /// this should be called before unregistering a server.
@@ -105,6 +125,7 @@ contract ServerRegistry {
     }
 
 
+    /// convicts a server that signed a wrong blockhash
     function convict(uint _serverIndex, bytes32 _blockhash, uint _blocknumber, uint8 _v, bytes32 _r, bytes32 _s) public {
         // if the blockhash is correct you cannot convict the server
         require(blockhash(_blocknumber) != _blockhash);
@@ -131,6 +152,9 @@ contract ServerRegistry {
     
     function removeServer(uint _serverIndex) internal {
         emit LogServerRemoved(servers[_serverIndex].url, servers[_serverIndex].owner );
+        urlIndex[keccak256(servers[_serverIndex].url)] = false;
+        ownerIndex[servers[_serverIndex].owner ] = false;
+
         uint length = servers.length;
         Web3Server memory m = servers[length - 1];
         servers[_serverIndex] = m;
