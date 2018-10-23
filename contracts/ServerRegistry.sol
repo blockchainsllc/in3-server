@@ -3,8 +3,6 @@ pragma solidity ^0.4.19;
 /// @title Registry for IN3-Nodes
 contract ServerRegistry {
 
-    uint internal constant unregisterDeposit = 100000;//TODO
-
     event LogServerRegistered(string url, uint props, address owner, uint deposit);
     event LogServerUnregisterRequested(string url, address owner, address caller);
     event LogServerUnregisterCanceled(string url, address owner);
@@ -18,7 +16,8 @@ contract ServerRegistry {
         uint props; // a list of properties-flags representing the capabilities of the server
 
         // unregister state
-        uint unregisterTime; // earliest timestamp to call unregister
+        uint128 unregisterTime; // earliest timestamp in to to call unregister
+        uint128 unregisterDeposit; // Deposit for unregistering
         address unregisterCaller; // address of the caller requesting the unregister
     }
     
@@ -80,11 +79,12 @@ contract ServerRegistry {
         require(server.unregisterCaller == address(0x0));
 
         if (server.unregisterCaller == server.owner) 
-           server.unregisterTime = now + 1 hours;
+           server.unregisterTime = uint128(now + 1 hours);
         else {
-            server.unregisterTime = now + 28 days; // 28 days are always good ;-) 
+            server.unregisterTime = uint128(now + 28 days); // 28 days are always good ;-) 
             // the requester needs to pay the unregisterDeposit in order to spam-protect the server
-            require(msg.value == unregisterDeposit);
+            require(msg.value == calcUnregisterDeposit(_serverIndex) );
+            server.unregisterDeposit = uint128(msg.value);
         }
         server.unregisterCaller = msg.sender;
         emit LogServerUnregisterRequested(server.url, server.owner, msg.sender );
@@ -98,7 +98,7 @@ contract ServerRegistry {
         uint payBackOwner = server.deposit;
         if (server.unregisterCaller != server.owner) {
             payBackOwner -= server.deposit / 5;  // the owner will only receive 80% of his deposit back.
-            server.unregisterCaller.transfer( unregisterDeposit + server.deposit - payBackOwner );
+            server.unregisterCaller.transfer( server.unregisterDeposit + server.deposit - payBackOwner );
         }
 
         if (payBackOwner > 0)
@@ -116,7 +116,7 @@ contract ServerRegistry {
         // if this was requested by somebody who does not own this server,
         // the owner will get his deposit
         if (server.unregisterCaller != server.owner) 
-            server.owner.transfer( unregisterDeposit );
+            server.owner.transfer( server.unregisterDeposit );
 
         server.unregisterCaller = address(0);
         server.unregisterTime = 0;
@@ -159,5 +159,11 @@ contract ServerRegistry {
         Web3Server memory m = servers[length - 1];
         servers[_serverIndex] = m;
         servers.length--;
+    }
+    
+    function calcUnregisterDeposit(uint _serverIndex) view public returns(uint128) {
+        Web3Server storage server = servers[_serverIndex];
+         // cancelUnregisteringServer costs 22k gas, we took about twist that much due to volatility of gasPrices
+        return uint128(server.deposit / 50 + tx.gasprice * 50000);
     }
 }
