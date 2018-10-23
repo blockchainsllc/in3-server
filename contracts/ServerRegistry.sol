@@ -164,4 +164,5 @@ contract ServerRegistry {
     function calcUnregisterDeposit(uint _serverIndex) constant returns(uint128) {
         Web3Server storage server = servers[_serverIndex];
         return server.deposit / 50 + tx.gasprice * 50000; // cancelUnregisteringServer costs 22k gas, we took about twist that much due to volatility of gasPrices
+    }
 }
