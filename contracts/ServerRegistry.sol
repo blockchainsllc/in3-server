@@ -79,12 +79,12 @@ contract ServerRegistry {
         require(server.unregisterCaller==address(0x0));
 
         if (server.unregisterCaller == server.owner) 
-           server.unregisterTime = now + 1 hours;
+           server.unregisterTime = uint128(now + 1 hours);
         else {
-            server.unregisterTime = now + 28 days; // 28 days are always good ;-) 
+            server.unregisterTime = uint128(now + 28 days); // 28 days are always good ;-) 
             // the requester needs to pay the unregisterDeposit in order to spam-protect the server
             require(msg.value == calcUnregisterDeposit(_serverIndex) );
-            server.unregisterDeposit = msg.value;
+            server.unregisterDeposit = uint128(msg.value);
         }
         server.unregisterCaller = msg.sender;
         emit LogServerUnregisterRequested(server.url, server.owner, msg.sender );
@@ -161,8 +161,9 @@ contract ServerRegistry {
         servers.length--;
     }
     
-    function calcUnregisterDeposit(uint _serverIndex) constant returns(uint128) {
+    function calcUnregisterDeposit(uint _serverIndex) view public returns(uint128) {
         Web3Server storage server = servers[_serverIndex];
-        return server.deposit / 50 + tx.gasprice * 50000; // cancelUnregisteringServer costs 22k gas, we took about twist that much due to volatility of gasPrices
+         // cancelUnregisteringServer costs 22k gas, we took about twist that much due to volatility of gasPrices
+        return uint128(server.deposit / 50 + tx.gasprice * 50000);
     }
 }

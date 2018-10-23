@@ -138,7 +138,7 @@ describe('Convict', () => {
     const watcher = test.handlers['#1'].getHandler().watcher
     // read all events (should be only the 2 register-events
     assert.equal((await watcher.update()).length, 2)
-    const unregisterDeposit = 100000
+    const unregisterDeposit = 10000/50
 
     const user = await test.createAccount()
 
