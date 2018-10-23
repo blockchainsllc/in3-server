@@ -114,7 +114,7 @@ contract ServerRegistry {
         // if this was requested by somebody who does not own this server,
         // the owner will get his deposit
         if (server.unregisterCaller != server.owner) 
-            server.owner.transfer( unregisterDeposit );
+            server.owner.transfer( server.deposit / 10 );
 
         server.unregisterCaller = address(0);
         server.unregisterTime = 0;
