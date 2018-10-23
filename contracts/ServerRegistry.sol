@@ -3,7 +3,7 @@ pragma solidity ^0.4.19;
 /// @title Registry for IN3-Nodes
 contract ServerRegistry {
 
-    uint internal constant unregisterDeposit = 100000;
+    uint internal constant unregisterDeposit = 100000;//TODO
 
     event LogServerRegistered(string url, uint props, address owner, uint deposit);
     event LogServerUnregisterRequested(string url, address owner, address caller);
@@ -18,7 +18,7 @@ contract ServerRegistry {
         uint props; // a list of properties-flags representing the capabilities of the server
 
         // unregister state
-        uint unregisterTime; // earliest timestamp in to to call unregister
+        uint unregisterTime; // earliest timestamp to call unregister
         address unregisterCaller; // address of the caller requesting the unregister
     }
     
@@ -77,14 +77,14 @@ contract ServerRegistry {
     function requestUnregisteringServer(uint _serverIndex) payable public {
         Web3Server storage server = servers[_serverIndex];
         // this can only be called if nobody requested it before
-        require(server.unregisterCaller==address(0x0));
+        require(server.unregisterCaller == address(0x0));
 
         if (server.unregisterCaller == server.owner) 
            server.unregisterTime = now + 1 hours;
         else {
             server.unregisterTime = now + 28 days; // 28 days are always good ;-) 
             // the requester needs to pay the unregisterDeposit in order to spam-protect the server
-            require(msg.value==unregisterDeposit);
+            require(msg.value == unregisterDeposit);
         }
         server.unregisterCaller = msg.sender;
         emit LogServerUnregisterRequested(server.url, server.owner, msg.sender );
@@ -93,15 +93,15 @@ contract ServerRegistry {
     function confirmUnregisteringServer(uint _serverIndex) public {
         Web3Server storage server = servers[_serverIndex];
         // this can only be called if somebody requested it before
-        require(server.unregisterCaller!=address(0x0) && server.unregisterTime < now);
+        require(server.unregisterCaller != address(0x0) && server.unregisterTime < now);
 
         uint payBackOwner = server.deposit;
         if (server.unregisterCaller != server.owner) {
-            payBackOwner -= server.deposit/5;  // the owner will only receive 80% of his deposit back.
+            payBackOwner -= server.deposit / 5;  // the owner will only receive 80% of his deposit back.
             server.unregisterCaller.transfer( unregisterDeposit + server.deposit - payBackOwner );
         }
 
-        if (payBackOwner>0)
+        if (payBackOwner > 0)
             server.owner.transfer( payBackOwner );
 
         removeServer(_serverIndex);
@@ -111,7 +111,7 @@ contract ServerRegistry {
         Web3Server storage server = servers[_serverIndex];
 
         // this can only be called by the owner and if somebody requested it before
-        require(server.unregisterCaller!=address(0) &&  server.owner == msg.sender);
+        require(server.unregisterCaller != address(0) &&  server.owner == msg.sender);
 
         // if this was requested by somebody who does not own this server,
         // the owner will get his deposit
@@ -134,8 +134,8 @@ contract ServerRegistry {
         require(ecrecover(keccak256(_blockhash, _blocknumber), _v, _r, _s) == servers[_serverIndex].owner);
 
         // remove the deposit
-        if (servers[_serverIndex].deposit>0) {
-            uint payout = servers[_serverIndex].deposit/2;
+        if (servers[_serverIndex].deposit > 0) {
+            uint payout = servers[_serverIndex].deposit / 2;
             // send 50% to the caller of this function
             msg.sender.transfer(payout);
 
