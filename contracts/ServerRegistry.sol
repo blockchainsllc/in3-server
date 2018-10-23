@@ -3,8 +3,6 @@ pragma solidity ^0.4.19;
 /// @title Registry for IN3-Nodes
 contract ServerRegistry {
 
-    uint internal constant unregisterDeposit = 100000;
-
     event LogServerRegistered(string url, uint props, address owner, uint deposit);
     event LogServerUnregisterRequested(string url, address owner, address caller);
     event LogServerUnregisterCanceled(string url, address owner);
@@ -84,7 +82,7 @@ contract ServerRegistry {
         else {
             server.unregisterTime = now + 28 days; // 28 days are always good ;-) 
             // the requester needs to pay the unregisterDeposit in order to spam-protect the server
-            require(msg.value==unregisterDeposit);
+            require(msg.value == server.deposit / 10);
         }
         server.unregisterCaller = msg.sender;
         emit LogServerUnregisterRequested(server.url, server.owner, msg.sender );
@@ -98,7 +96,7 @@ contract ServerRegistry {
         uint payBackOwner = server.deposit;
         if (server.unregisterCaller != server.owner) {
             payBackOwner -= server.deposit/5;  // the owner will only receive 80% of his deposit back.
-            server.unregisterCaller.transfer( unregisterDeposit + server.deposit - payBackOwner );
+            server.unregisterCaller.transfer( server.deposit / 10 + server.deposit - payBackOwner );
         }
 
         if (payBackOwner>0)
