@@ -16,7 +16,8 @@ contract ServerRegistry {
         uint props; // a list of properties-flags representing the capabilities of the server
 
         // unregister state
-        uint unregisterTime; // earliest timestamp in to to call unregister
+        uint128 unregisterTime; // earliest timestamp in to to call unregister
+        uimt128 unregisterDeposit // Deposit for unregistering
         address unregisterCaller; // address of the caller requesting the unregister
     }
     
@@ -82,7 +83,8 @@ contract ServerRegistry {
         else {
             server.unregisterTime = now + 28 days; // 28 days are always good ;-) 
             // the requester needs to pay the unregisterDeposit in order to spam-protect the server
-            require(msg.value == server.deposit / 10);
+            require(msg.value == calcUnregisterDeposit(_serverIndex) );
+            server.unregisterDeposit = msg.value;
         }
         server.unregisterCaller = msg.sender;
         emit LogServerUnregisterRequested(server.url, server.owner, msg.sender );
@@ -95,8 +97,8 @@ contract ServerRegistry {
 
         uint payBackOwner = server.deposit;
         if (server.unregisterCaller != server.owner) {
-            payBackOwner -= server.deposit/5;  // the owner will only receive 80% of his deposit back.
-            server.unregisterCaller.transfer( server.deposit / 10 + server.deposit - payBackOwner );
+            payBackOwner -= server.deposit / 5;  // the owner will only receive 80% of his deposit back.
+            server.unregisterCaller.transfer( server.unregisterDeposit + server.deposit - payBackOwner );
         }
 
         if (payBackOwner>0)
@@ -114,7 +116,7 @@ contract ServerRegistry {
         // if this was requested by somebody who does not own this server,
         // the owner will get his deposit
         if (server.unregisterCaller != server.owner) 
-            server.owner.transfer( server.deposit / 10 );
+            server.owner.transfer( server.unregisterDeposit );
 
         server.unregisterCaller = address(0);
         server.unregisterTime = 0;
@@ -158,4 +160,8 @@ contract ServerRegistry {
         servers[_serverIndex] = m;
         servers.length--;
     }
+    
+    function calcUnregisterDeposit(uint _serverIndex) constant returns(uint128) {
+        Web3Server storage server = servers[_serverIndex];
+        return server.deposit / 50 + tx.gasprice * 100000;
 }
