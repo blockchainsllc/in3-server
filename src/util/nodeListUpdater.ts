@@ -88,7 +88,9 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
   const keys: Buffer[] = getStorageKeys(nodeList.nodes)
 
   const address = nodeList.contract
-  const blockNr = '0x' + nodeList.lastBlockNumber.toString(16)
+  // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
+  const lastBlock  =  await handler.getFromServer({ method:'eth_blockNumber', params:[] }).then(_=>parseInt(_.result))
+  const blockNr =  lastBlock ? '0x'+Math.max(nodeList.lastBlockNumber,lastBlock -  (handler.config.minBlockHeight || 0)).toString(16) : 'latest'
 
   // read the response,blockheader and trace from server
   const [blockResponse, proof] = await handler.getAllFromServer([
