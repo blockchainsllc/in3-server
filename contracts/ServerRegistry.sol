@@ -17,7 +17,7 @@ contract ServerRegistry {
 
         // unregister state
         uint128 unregisterTime; // earliest timestamp in to to call unregister
-        uimt128 unregisterDeposit; // Deposit for unregistering
+        uint128 unregisterDeposit; // Deposit for unregistering
         address unregisterCaller; // address of the caller requesting the unregister
     }
     
