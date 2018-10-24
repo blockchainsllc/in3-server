@@ -127,10 +127,10 @@ contract ServerRegistry {
 
     /// convicts a server that signed a wrong blockhash
     function convict(uint _serverIndex, bytes32 _blockhash, uint _blocknumber, uint8 _v, bytes32 _r, bytes32 _s) public {
-        bytes32 blockhash = blockhash(_blocknumber);
+        bytes32 evm_blockhash = blockhash(_blocknumber);
         
         // if the blockhash is correct you cannot convict the server
-        require(blockhash != 0x0 && blockhash != _blockhash);
+        require(evm_blockhash != 0x0 && evm_blockhash != _blockhash);
 
         // make sure the hash was signed by the owner of the server
         require(ecrecover(keccak256(_blockhash, _blocknumber), _v, _r, _s) == servers[_serverIndex].owner);
