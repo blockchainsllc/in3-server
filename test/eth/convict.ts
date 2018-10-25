@@ -249,10 +249,6 @@ describe('Convict', () => {
         props:'0xff'
       }], test.chainId, null, test.url, transport, false)
     )
-
   })
-
-
-
 })
 
