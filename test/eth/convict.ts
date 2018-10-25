@@ -4,8 +4,9 @@ import 'mocha'
 import { util, BlockData, serialize, Signature, RPCRequest, RPCResponse } from 'in3'
 import * as tx from '../../src/util/tx'
 import * as ethUtil from 'ethereumjs-util'
-import { TestTransport } from '../utils/transport';
-import Watcher from '../../src/chains/watch';
+import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
+import Watcher from '../../src/chains/watch'
+import { registerServers } from '../../src/util/registry'
 
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
@@ -27,6 +28,11 @@ describe('Convict', () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
 
+    // make sure we have more than 256 blocks in order to test older blocks
+    const currentBlock = parseInt(await test.getFromServer('eth_blockNumber'))
+    for (let b = 0; b<256-currentBlock;b++)
+       await test.createAccount()
+
     // read current Block
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
     // create a event-watcher starting with the current block
@@ -44,6 +50,23 @@ describe('Convict', () => {
     }).catch(_ => false)
 
     assert.isFalse(rc, 'Transaction must fail, because we sent the correct hash')
+
+    // now test if we can send a wrong blockhash, but the block is older than 256 blocks:
+
+    // wrong blockhash signed by first node
+    s = sign({number:1} as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
+    // must fail, since we cannot convict with a correct blockhash
+    rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false)
+
+    assert.isFalse(rc, 'Transaction must fail, because the block is too old')
+
+    // now try a successfull convict with a wrong blockhash
+
 
     // wrong blockhash signed by first node
     s = sign(block, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
@@ -71,6 +94,7 @@ describe('Convict', () => {
     const events = await watcher.update()
     assert.equal(events.length, 2)
     assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
+
 
   })
 
@@ -174,6 +198,58 @@ describe('Convict', () => {
 
     // the owner now got the deposit from the
     assert.equal(balanceOwnerAfter - balanceOwnerBefore, unregisterDeposit)
+  })
+
+  it('registerDuplicate', async () => {
+    // create an empty registry
+    const test = await new TestTransport(1)
+    const pk1 = await test.createAccount()
+    const pk2 = await test.createAccount()
+    const transport = new LoggingAxiosTransport()
+
+    // register 2 different servers should work
+    let registers = await registerServers(pk1, null, [{
+      url:'test1.com',
+      deposit:0,
+      pk:pk1,
+      props:'0xff'
+    },{
+      url:'test2.com',
+      deposit:0,
+      pk:pk2,
+      props:'0xff'
+    }], test.chainId, null, test.url, transport, false)
+
+    // register same url servers should not work
+    await test.mustFail(
+      registerServers(pk1, null, [{
+        url:'test1.com',
+        deposit:0,
+        pk:pk1,
+        props:'0xff'
+      },{
+        url:'test1.com',
+        deposit:0,
+        pk:pk2,
+        props:'0xff'
+      }], test.chainId, null, test.url, transport, false)
+    )
+
+    // register same pk servers should not work
+    await test.mustFail(
+      registerServers(pk1, null, [{
+        url:'test1.com',
+        deposit:0,
+        pk:pk1,
+        props:'0xff'
+      },{
+        url:'test2.com',
+        deposit:0,
+        pk:pk1,
+        props:'0xff'
+      }], test.chainId, null, test.url, transport, false)
+    )
+
   })
 
 
