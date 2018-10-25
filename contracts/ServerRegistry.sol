@@ -103,7 +103,7 @@ contract ServerRegistry {
         else {
             server.unregisterTime = uint128(now + 28 days); // 28 days are always good ;-) 
             // the requester needs to pay the unregisterDeposit in order to spam-protect the server
-            require(msg.value >= calcUnregisterDeposit(_serverIndex), "at least calcUnregisterDeposit is required fto request unregister");
+            require(msg.value == calcUnregisterDeposit(_serverIndex), "the exact calcUnregisterDeposit is required to request unregister");
             server.unregisterDeposit = uint128(msg.value);
         }
         server.unregisterCaller = msg.sender;
@@ -209,9 +209,9 @@ contract ServerRegistry {
     }
 
     function checkLimits() internal view {
-        // within the first year this contract may never hold more than 500 ETH
-        if (block.number < 11433000)
-           require(address(this).balance < 500 ether, "Limit of 500 ETH reached");
+        // within the 6 months this contract may never hold more than 500 ETH
+        if (now < 1560808800)
+           require(address(this).balance < 50 ether, "Limit of 50 ETH reached");
     }
 
 }
