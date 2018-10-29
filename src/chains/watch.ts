@@ -1,3 +1,22 @@
+/***********************************************************
+* This file is part of the Slock.it IoT Layer.             *
+* The Slock.it IoT Layer contains:                         *
+*   - USN (Universal Sharing Network)                      *
+*   - INCUBED (Trustless INcentivized remote Node Network) *
+************************************************************
+* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
+* All Rights Reserved.                                     *
+************************************************************
+* You may use, distribute and modify this code under the   *
+* terms of the license contract you have concluded with    *
+* Slock.it GmbH.                                           *
+* For information about liability, maintenance etc. also   *
+* refer to the contract concluded with Slock.it GmbH.      *
+************************************************************
+* For more information, please refer to https://slock.it   *
+* For questions, please contact info@slock.it              *
+***********************************************************/
+
 import { util, LogData } from 'in3'
 import { sha3, toChecksumAddress } from 'ethereumjs-util'
 import { rawDecode } from 'ethereumjs-abi'
@@ -90,7 +109,7 @@ export default class Watcher extends EventEmitter {
     const next = err => {
       if (err && err instanceof Error) console.error(err)
       if (this.interval && this.running)
-        this._interval = setTimeout(() => this.check(), this.interval*1000)
+        this._interval = setTimeout(() => this.check(), this.interval * 1000)
       else
         this.running = false
     }
@@ -110,6 +129,9 @@ export default class Watcher extends EventEmitter {
     ])
 
     if (this.block.number == currentBlock) return
+    if (!currentBlock) throw new Error('The current Block was empty!')
+
+    this.emit('newBlock', currentBlock)
 
     const [blockResponse, logResponse] = await this.handler.getAllFromServer([{
       method: 'eth_getBlockByNumber', params: [toHex(currentBlock), false]
@@ -120,6 +142,7 @@ export default class Watcher extends EventEmitter {
     ])
 
     if (blockResponse.error) throw new Error('Error getting the block ' + currentBlock + ': ' + blockResponse.error)
+    if (!blockResponse.result) throw new Error('Invalid Response getting the block ' + currentBlock + ': ' + JSON.stringify(blockResponse))
 
     if (logResponse) {
       if (logResponse.error) throw new Error('Error getting the logs : ' + logResponse.error)

@@ -1,9 +1,28 @@
 
-import { assert, expect, should } from 'chai'
+/***********************************************************
+* This file is part of the Slock.it IoT Layer.             *
+* The Slock.it IoT Layer contains:                         *
+*   - USN (Universal Sharing Network)                      *
+*   - INCUBED (Trustless INcentivized remote Node Network) *
+************************************************************
+* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
+* All Rights Reserved.                                     *
+************************************************************
+* You may use, distribute and modify this code under the   *
+* terms of the license contract you have concluded with    *
+* Slock.it GmbH.                                           *
+* For information about liability, maintenance etc. also   *
+* refer to the contract concluded with Slock.it GmbH.      *
+************************************************************
+* For more information, please refer to https://slock.it   *
+* For questions, please contact info@slock.it              *
+***********************************************************/
+
+import { assert } from 'chai'
 import 'mocha'
-import Client, { chainData, serialize, BlockData, RPCResponse, util, Proof, LogData } from 'in3'
+import { serialize, BlockData, RPCResponse, util, Proof, LogData } from 'in3'
 import { TestTransport, getTestClient } from '../utils/transport'
-import { deployChainRegistry, registerServers, deployContract } from '../../src/util/registry';
+import { deployChainRegistry, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
 import * as logger from 'in3/js/test/util/memoryLogger'
 import { simpleEncode } from 'ethereumjs-abi'

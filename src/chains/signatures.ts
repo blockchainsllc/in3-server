@@ -1,4 +1,24 @@
-import EthHandler from './EthHandler'
+/***********************************************************
+* This file is part of the Slock.it IoT Layer.             *
+* The Slock.it IoT Layer contains:                         *
+*   - USN (Universal Sharing Network)                      *
+*   - INCUBED (Trustless INcentivized remote Node Network) *
+************************************************************
+* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
+* All Rights Reserved.                                     *
+************************************************************
+* You may use, distribute and modify this code under the   *
+* terms of the license contract you have concluded with    *
+* Slock.it GmbH.                                           *
+* For information about liability, maintenance etc. also   *
+* refer to the contract concluded with Slock.it GmbH.      *
+************************************************************
+* For more information, please refer to https://slock.it   *
+* For questions, please contact info@slock.it              *
+***********************************************************/
+
+import BaseHandler from './BaseHandler'
+
 import { BlockData, RPCRequest, RPCResponse, Signature, util, serialize } from 'in3'
 import { sha3, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
@@ -9,7 +29,7 @@ const bytes32 = serialize.bytes32
 const address = serialize.address
 const bytes = serialize.bytes
 
-export async function collectSignatures(handler: EthHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
+export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
   // nothing to do?
   if (!addresses || !addresses.length || !requestedBlocks || !requestedBlocks.length) return []
 
@@ -98,7 +118,7 @@ export function sign(pk: string, blocks: { blockNumber: number, hash: string }[]
   })
 }
 
-export async function handleSign(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
+export async function handleSign(handler: BaseHandler, request: RPCRequest): Promise<RPCResponse> {
   const blocks = request.params as { blockNumber: number, hash: string }[]
   const blockData = await handler.getAllFromServer([
     ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toHex(b.blockNumber), false] })),

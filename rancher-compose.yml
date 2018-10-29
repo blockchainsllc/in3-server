@@ -4,25 +4,7 @@ services:
     scale: 1
     start_on_create: true
   incubed-kovan-1:
-    start_on_create: true
-  incubed-kovan-2:
-    start_on_create: true
-  incubed-kovan-3:
-    start_on_create: true
-  incubed-kovan-4:
-    start_on_create: true
-  incubed-kovan-5:
-    start_on_create: true
-  
-  incubed-tobalaba-1:
-    start_on_create: true
-  incubed-tobalaba-2:
-    start_on_create: true
-  incubed-tobalaba-3:
-    start_on_create: true
-  incubed-tobalaba-4:
-    start_on_create: true
-  incubed-tobalaba-5:
+    scale: 1
     start_on_create: true
     health_check:
       healthy_threshold: 2
@@ -31,20 +13,327 @@ services:
       unhealthy_threshold: 3
       initializing_timeout: 60000
       interval: 2000
-      strategy: none
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-kovan-2:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-kovan-3:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-kovan-4:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-kovan-5:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+
+  incubed-mainnet-1:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-mainnet-2:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-mainnet-3:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-mainnet-4:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-mainnet-5:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+
+
+  
+  incubed-tobalaba-1:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-tobalaba-2:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-tobalaba-3:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-tobalaba-4:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-tobalaba-5:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
   
   incubed-ipfs-1:
+    scale: 1
     start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
   incubed-ipfs-2:
+    scale: 1
     start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
   incubed-ipfs-3:
+    scale: 1
     start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
   incubed-ipfs-4:
+    scale: 1
     start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
   incubed-ipfs-5:
+    scale: 1
     start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+
+  incubed-evan-1:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-evan-2:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-evan-3:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-evan-4:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-evan-5:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
 
   lb:
     start_on_create: true
@@ -53,6 +342,41 @@ services:
       config: "listen stats \nbind 0.0.0.0:9000\nmode http\nstats enable\nstats hide-version\n\
         stats realm Haproxy\\ Statistics\nstats uri /haproxy_stats"
       port_rules:
+      - hostname: in3.slock.it
+        path: /mainnet/nd-1
+        priority: 2
+        protocol: http
+        service: incubed-mainnet-1
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /mainnet/nd-2
+        priority: 4
+        protocol: http
+        service: incubed-mainnet-2
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /mainnet/nd-3
+        priority: 6
+        protocol: http
+        service: incubed-mainnet-3
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /mainnet/nd-4
+        priority: 8
+        protocol: http
+        service: incubed-mainnet-4
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /mainnet/nd-5
+        priority: 10
+        protocol: http
+        service: incubed-mainnet-5
+        source_port: 80
+        target_port: 8500
       - hostname: in3.slock.it
         path: /kovan/nd-1
         priority: 2
@@ -158,6 +482,49 @@ services:
         service: incubed-ipfs-5
         source_port: 80
         target_port: 8500
+      - hostname: in3.slock.it
+        path: /evan/nd-1
+        priority: 2
+        protocol: http
+        service: incubed-evan-1
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /evan/nd-2
+        priority: 4
+        protocol: http
+        service: incubed-evan-2
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /evan/nd-3
+        priority: 6
+        protocol: http
+        service: incubed-evan-3
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /evan/nd-4
+        priority: 8
+        protocol: http
+        service: incubed-evan-4
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /evan/nd-5
+        priority: 10
+        protocol: http
+        service: incubed-evan-5
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /
+        priority: 100
+        protocol: http
+        service: in3-dashboard/dashboard
+        source_port: 80
+        target_port: 80
+
     health_check:
       healthy_threshold: 2
       response_timeout: 2000

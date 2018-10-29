@@ -13,12 +13,123 @@ services:
       io.rancher.scheduler.global: 'true'
   
   lb-monitor:
-    image: slockit/rancher-lb-telegraf:incubed
+    image: docker.slock.it/it/rancher-lb-monitor:master
+    environment:
+      TG_HOST: incubed-lb
+      TG_INFLUXURL: http://influx.10.142.1.1.xip.io:8086
+      TG_LBNAME: lb.in3-in3-server
     stdin_open: true
     tty: true
     labels:
       io.rancher.container.pull_image: always
       io.rancher.scheduler.affinity:host_label: role=application
+
+# MAINNET 
+  incubed-mainnet-1:
+    image: docker.slock.it/in3/in3-server:latest
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=0x2817fc5d9d8b9753b6d9888e2cb411c022feb06f416a51e79006e8f89984aac3
+    - --minBlockHeight=0
+    - --chain=0x1
+    - --registryRPC=http://parity-mainnet-pruned.parity-rpc:8545
+    - --rpcUrl=http://parity-mainnet-pruned.parity-rpc:8545
+    - --profile-name=Slockit1
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --registry=0xFdb0eA8AB08212A1fFfDB35aFacf37C3857083ca
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: role=application
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: 'true'
+      
+
+  incubed-mainnet-2:
+    image: docker.slock.it/in3/in3-server:latest
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=0xcdaf1673f39b8ed271945b582d2f55a61bdf8e278190fbaeccfce33668d1f676
+    - --minBlockHeight=0
+    - --chain=0x1
+    - --registryRPC=http://parity-mainnet-pruned.parity-rpc:8545
+    - --rpcUrl=http://parity-mainnet-pruned.parity-rpc:8545
+    - --profile-name=Slockit2
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --registry=0xFdb0eA8AB08212A1fFfDB35aFacf37C3857083ca
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: role=application
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: 'true'
+      
+
+  incubed-mainnet-3:
+    image: docker.slock.it/in3/in3-server:latest
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=0x4a6d44cd0e324d8dafc18be4f5db72e59628221ce5d023768b536c393726cde4
+    - --minBlockHeight=0
+    - --chain=0x1
+    - --registryRPC=http://parity-mainnet-pruned.parity-rpc:8545
+    - --rpcUrl=http://parity-mainnet-pruned.parity-rpc:8545
+    - --profile-name=Slockit3
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --registry=0xFdb0eA8AB08212A1fFfDB35aFacf37C3857083ca
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: role=application
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: 'true'
+      
+  
+  incubed-mainnet-4:
+    image: docker.slock.it/in3/in3-server:latest
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994
+    - --minBlockHeight=0
+    - --chain=0x1
+    - --registryRPC=http://parity-mainnet-pruned.parity-rpc:8545
+    - --rpcUrl=http://parity-mainnet-pruned.parity-rpc:8545
+    - --profile-name=Slockit4
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --registry=0xFdb0eA8AB08212A1fFfDB35aFacf37C3857083ca
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: role=application
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: 'true'
+      
+  
+  incubed-mainnet-5:
+    image: docker.slock.it/in3/in3-server:latest
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=0xcc79e360cc8083da8a5069b94d3d8c8710ace23d16fdd0a9ab2f71146cb8e3eb
+    - --minBlockHeight=0
+    - --chain=0x1
+    - --registryRPC=http://parity-mainnet-pruned.parity-rpc:8545
+    - --rpcUrl=http://parity-mainnet-pruned.parity-rpc:8545
+    - --profile-name=Slockit5
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --registry=0xFdb0eA8AB08212A1fFfDB35aFacf37C3857083ca
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: role=application
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: 'true'
+      
 
 # TOBALABA 
   incubed-tobalaba-1:
@@ -29,8 +140,8 @@ services:
     - --privateKey=0x2817fc5d9d8b9753b6d9888e2cb411c022feb06f416a51e79006e8f89984aac3
     - --minBlockHeight=0
     - --chain=0x44d
-    - --registryRPC=http://parity-tobalaba.parity-rpc:8545
-    - --rpcUrl=http://parity-tobalaba.parity-rpc:8545
+    - --registryRPC=http://parity-tobalaba-one.parity-rpc:8545
+    - --rpcUrl=http://parity-tobalaba-one.parity-rpc:8545
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -41,6 +152,7 @@ services:
       io.rancher.container.hostname_override: container_name
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
 
   incubed-tobalaba-2:
     image: docker.slock.it/in3/in3-server:latest
@@ -50,9 +162,9 @@ services:
     - --privateKey=0xcdaf1673f39b8ed271945b582d2f55a61bdf8e278190fbaeccfce33668d1f676
     - --minBlockHeight=0
     - --chain=0x44d
-    - --registryRPC=http://parity-tobalaba.parity-rpc:8545
-    - --rpcUrl=http://parity-tobalaba.parity-rpc:8545
-    - --profile-name=Slockit1
+    - --registryRPC=http://parity-tobalaba-one.parity-rpc:8545
+    - --rpcUrl=http://parity-tobalaba-one.parity-rpc:8545
+    - --profile-name=Slockit2
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --registry=0x845E484b505443814B992Bf0319A5e8F5e407879
@@ -61,6 +173,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
 
   incubed-tobalaba-3:
     image: docker.slock.it/in3/in3-server:latest
@@ -70,9 +183,9 @@ services:
     - --privateKey=0x4a6d44cd0e324d8dafc18be4f5db72e59628221ce5d023768b536c393726cde4
     - --minBlockHeight=0
     - --chain=0x44d
-    - --registryRPC=http://parity-tobalaba.parity-rpc:8545
-    - --rpcUrl=http://parity-tobalaba.parity-rpc:8545
-    - --profile-name=Slockit1
+    - --registryRPC=http://parity-tobalaba-two.parity-rpc:8545
+    - --rpcUrl=http://parity-tobalaba-two.parity-rpc:8545
+    - --profile-name=Slockit3
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --registry=0x845E484b505443814B992Bf0319A5e8F5e407879
@@ -81,6 +194,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
   
   incubed-tobalaba-4:
     image: docker.slock.it/in3/in3-server:latest
@@ -90,9 +204,9 @@ services:
     - --privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994
     - --minBlockHeight=0
     - --chain=0x44d
-    - --registryRPC=http://parity-tobalaba.parity-rpc:8545
-    - --rpcUrl=http://parity-tobalaba.parity-rpc:8545
-    - --profile-name=Slockit1
+    - --registryRPC=http://parity-tobalaba-two.parity-rpc:8545
+    - --rpcUrl=http://parity-tobalaba-two.parity-rpc:8545
+    - --profile-name=Slockit4
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --registry=0x845E484b505443814B992Bf0319A5e8F5e407879
@@ -101,6 +215,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
   
   incubed-tobalaba-5:
     image: docker.slock.it/in3/in3-server:latest
@@ -110,9 +225,9 @@ services:
     - --privateKey=0xcc79e360cc8083da8a5069b94d3d8c8710ace23d16fdd0a9ab2f71146cb8e3eb
     - --minBlockHeight=0
     - --chain=0x44d
-    - --registryRPC=http://parity-tobalaba.parity-rpc:8545
-    - --rpcUrl=http://parity-tobalaba.parity-rpc:8545
-    - --profile-name=Slockit1
+    - --registryRPC=http://parity-tobalaba-two.parity-rpc:8545
+    - --rpcUrl=http://parity-tobalaba-two.parity-rpc:8545
+    - --profile-name=Slockit5
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --registry=0x845E484b505443814B992Bf0319A5e8F5e407879
@@ -121,6 +236,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
 
 # KOVAN
   incubed-kovan-1:
@@ -131,8 +247,8 @@ services:
     - --privateKey=0x2817fc5d9d8b9753b6d9888e2cb411c022feb06f416a51e79006e8f89984aac3
     - --minBlockHeight=0
     - --chain=0x2a
-    - --registryRPC=http://proxy-kovan.parity-rpc:6000
-    - --rpcUrl=http://proxy-kovan.parity-rpc:6000
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -142,6 +258,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
   incubed-kovan-2:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -150,8 +267,8 @@ services:
     - --privateKey=0xcdaf1673f39b8ed271945b582d2f55a61bdf8e278190fbaeccfce33668d1f676
     - --minBlockHeight=0
     - --chain=0x2a
-    - --registryRPC=http://proxy-kovan.parity-rpc:6000
-    - --rpcUrl=http://proxy-kovan.parity-rpc:6000
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
     - --profile-name=Slockit2
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -161,6 +278,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
   incubed-kovan-3:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -169,8 +287,8 @@ services:
     - --privateKey=0x4a6d44cd0e324d8dafc18be4f5db72e59628221ce5d023768b536c393726cde4
     - --minBlockHeight=0
     - --chain=0x2a
-    - --registryRPC=http://parity-kovan.parity-rpc:8545
-    - --rpcUrl=http://parity-kovan.parity-rpc:8545
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
     - --profile-name=Slockit3
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -180,6 +298,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
   incubed-kovan-4:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -188,8 +307,8 @@ services:
     - --privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994
     - --minBlockHeight=0
     - --chain=0x2a
-    - --registryRPC=http://parity-kovan.parity-rpc:8545
-    - --rpcUrl=http://parity-kovan.parity-rpc:8545
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
     - --profile-name=Slockit4
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -199,6 +318,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
   incubed-kovan-5:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -207,8 +327,8 @@ services:
     - --privateKey=0xcc79e360cc8083da8a5069b94d3d8c8710ace23d16fdd0a9ab2f71146cb8e3eb
     - --minBlockHeight=0
     - --chain=0x2a
-    - --registryRPC=http://parity-kovan.parity-rpc:8545
-    - --rpcUrl=http://parity-kovan.parity-rpc:8545
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
     - --profile-name=Slockit5
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -218,6 +338,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
 
 # IPFS
 
@@ -228,8 +349,8 @@ services:
     command:
     - --privateKey=0x2817fc5d9d8b9753b6d9888e2cb411c022feb06f416a51e79006e8f89984aac3
     - --chain=0x7d0
-    - --registryRPC=http://parity-kovan.parity-rpc:8545
-    - --rpcUrl=http://parity-kovan.parity-rpc:8545
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -241,6 +362,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
   incubed-ipfs-2:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -248,9 +370,9 @@ services:
     command:
     - --privateKey=0xcdaf1673f39b8ed271945b582d2f55a61bdf8e278190fbaeccfce33668d1f676
     - --chain=0x7d0
-    - --registryRPC=http://parity-kovan.parity-rpc:8545
-    - --rpcUrl=http://parity-kovan.parity-rpc:8545
-    - --profile-name=Slockit1
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
+    - --profile-name=Slockit2
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --registry=0xf0fb87f4757c77ea3416afe87f36acaa0496c7e9
@@ -261,6 +383,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
   incubed-ipfs-3:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -268,9 +391,9 @@ services:
     command:
     - --privateKey=0x4a6d44cd0e324d8dafc18be4f5db72e59628221ce5d023768b536c393726cde4
     - --chain=0x7d0
-    - --registryRPC=http://parity-kovan.parity-rpc:8545
-    - --rpcUrl=http://parity-kovan.parity-rpc:8545
-    - --profile-name=Slockit1
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
+    - --profile-name=Slockit3
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --registry=0xf0fb87f4757c77ea3416afe87f36acaa0496c7e9
@@ -281,6 +404,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
   incubed-ipfs-4:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -288,9 +412,9 @@ services:
     command:
     - --privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994
     - --chain=0x7d0
-    - --registryRPC=http://parity-kovan.parity-rpc:8545
-    - --rpcUrl=http://parity-kovan.parity-rpc:8545
-    - --profile-name=Slockit1
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
+    - --profile-name=Slockit4
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --registry=0xf0fb87f4757c77ea3416afe87f36acaa0496c7e9
@@ -301,6 +425,7 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
   incubed-ipfs-5:
     image: docker.slock.it/in3/in3-server:latest
     stdin_open: true
@@ -308,9 +433,9 @@ services:
     command:
     - --privateKey=0xcc79e360cc8083da8a5069b94d3d8c8710ace23d16fdd0a9ab2f71146cb8e3eb
     - --chain=0x7d0
-    - --registryRPC=http://parity-kovan.parity-rpc:8545
-    - --rpcUrl=http://parity-kovan.parity-rpc:8545
-    - --profile-name=Slockit1
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
+    - --profile-name=Slockit5
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --registry=0xf0fb87f4757c77ea3416afe87f36acaa0496c7e9
@@ -321,4 +446,112 @@ services:
       io.rancher.scheduler.affinity:host_label: role=application
       io.rancher.container.pull_image: always
       io.rancher.scheduler.global: 'true'
+      
+
+# EVAN 
+  incubed-evan-1:
+    image: docker.slock.it/in3/in3-server:latest
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=0x2817fc5d9d8b9753b6d9888e2cb411c022feb06f416a51e79006e8f89984aac3
+    - --minBlockHeight=0
+    - --chain=0x4b1
+    - --registryRPC=http://parity-evan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-evan-one.parity-rpc:8545
+    - --profile-name=Slockit1
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: role=application
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: 'true'
+      
+
+  incubed-evan-2:
+    image: docker.slock.it/in3/in3-server:latest
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=0xcdaf1673f39b8ed271945b582d2f55a61bdf8e278190fbaeccfce33668d1f676
+    - --minBlockHeight=0
+    - --chain=0x4b1
+    - --registryRPC=http://parity-evan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-evan-one.parity-rpc:8545
+    - --profile-name=Slockit2
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: role=application
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: 'true'
+      
+
+  incubed-evan-3:
+    image: docker.slock.it/in3/in3-server:latest
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=0x4a6d44cd0e324d8dafc18be4f5db72e59628221ce5d023768b536c393726cde4
+    - --minBlockHeight=0
+    - --chain=0x4b1
+    - --registryRPC=http://parity-evan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-evan-one.parity-rpc:8545
+    - --profile-name=Slockit3
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: role=application
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: 'true'
+      
+  
+  incubed-evan-4:
+    image: docker.slock.it/in3/in3-server:latest
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994
+    - --minBlockHeight=0
+    - --chain=0x4b1
+    - --registryRPC=http://parity-evan-two.parity-rpc:8545
+    - --rpcUrl=http://parity-evan-two.parity-rpc:8545
+    - --profile-name=Slockit4
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: role=application
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: 'true'
+      
+  
+  incubed-evan-5:
+    image: docker.slock.it/in3/in3-server:latest
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=0xcc79e360cc8083da8a5069b94d3d8c8710ace23d16fdd0a9ab2f71146cb8e3eb
+    - --minBlockHeight=0
+    - --chain=0x4b1
+    - --registryRPC=http://parity-evan-two.parity-rpc:8545
+    - --rpcUrl=http://parity-evan-two.parity-rpc:8545
+    - --profile-name=Slockit5
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: role=application
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: 'true'
+      
 

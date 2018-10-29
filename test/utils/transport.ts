@@ -1,3 +1,22 @@
+/***********************************************************
+* This file is part of the Slock.it IoT Layer.             *
+* The Slock.it IoT Layer contains:                         *
+*   - USN (Universal Sharing Network)                      *
+*   - INCUBED (Trustless INcentivized remote Node Network) *
+************************************************************
+* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
+* All Rights Reserved.                                     *
+************************************************************
+* You may use, distribute and modify this code under the   *
+* terms of the license contract you have concluded with    *
+* Slock.it GmbH.                                           *
+* For information about liability, maintenance etc. also   *
+* refer to the contract concluded with Slock.it GmbH.      *
+************************************************************
+* For more information, please refer to https://slock.it   *
+* For questions, please contact info@slock.it              *
+***********************************************************/
+
 import Client, { Transport, AxiosTransport, RPCRequest, RPCResponse, IN3NodeConfig, IN3Config, util, ServerList, IN3RPCHandlerConfig } from 'in3'
 
 import * as logger from '../../src/util/logger'
@@ -45,7 +64,7 @@ export class TestTransport implements Transport {
     url: string
   }[]
 
-  constructor(count = 5, registry?: string, pks?: string[]) {
+  constructor(count = 5, registry?: string, pks?: string[], handlerConfig?: Partial<IN3RPCHandlerConfig>) {
     this.chainId = '0x1'
     this.lastRandom = 0
     this.randomList = []
@@ -76,14 +95,14 @@ export class TestTransport implements Transport {
             rpcUrl: getTestClient(),
             privateKey,
             registry,
-            minBlockHeight: 0
+            minBlockHeight: 0,
+            ...handlerConfig
           }
         }
       }, this, this.nodeList)
     }
     this.url = getTestClient()
   }
-
   injectRandom(randomVals: number[]) {
     this.randomList.push(randomVals)
   }
@@ -92,7 +111,9 @@ export class TestTransport implements Transport {
       request, response, url
     })
   }
-
+  isOnline(): Promise<boolean> {
+    return Promise.resolve(true)
+  }
   async mustFail(p: Promise<any>): Promise<any> {
     return p.then(_ => Promise.reject(new Error('Must have failed')), err => true)
   }
@@ -158,6 +179,7 @@ export class TestTransport implements Transport {
       keepIn3: true,
       chainId: this.chainId,
       timeout: 9999999,
+      loggerUrl: '',
       servers: {
         [this.chainId]: {
           contract: this.nodeList.contract || 'dummy',

@@ -1,18 +1,34 @@
 
+/***********************************************************
+* This file is part of the Slock.it IoT Layer.             *
+* The Slock.it IoT Layer contains:                         *
+*   - USN (Universal Sharing Network)                      *
+*   - INCUBED (Trustless INcentivized remote Node Network) *
+************************************************************
+* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
+* All Rights Reserved.                                     *
+************************************************************
+* You may use, distribute and modify this code under the   *
+* terms of the license contract you have concluded with    *
+* Slock.it GmbH.                                           *
+* For information about liability, maintenance etc. also   *
+* refer to the contract concluded with Slock.it GmbH.      *
+************************************************************
+* For more information, please refer to https://slock.it   *
+* For questions, please contact info@slock.it              *
+***********************************************************/
+
 import { assert } from 'chai'
 import 'mocha'
-import { util, BlockData, serialize, Signature, ServerList, RPCResponse } from 'in3'
+import { util, serialize, ServerList, RPCResponse } from 'in3'
 import { registerServers, deployContract } from '../../src/util/registry';
-import * as ethUtil from 'ethereumjs-util'
 import { TestTransport, getTestClient } from '../utils/transport';
 import Watcher from '../../src/chains/watch'
 import EventWatcher from '../utils/EventWatcher';
 import * as tx from '../../src/util/tx'
 import { RPC } from '../../src/server/rpc';
 
-const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
-const toHex = util.toHex
 const getAddress = util.getAddress
 
 describe('Features', () => {

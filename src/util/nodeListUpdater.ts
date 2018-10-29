@@ -1,3 +1,22 @@
+/***********************************************************
+* This file is part of the Slock.it IoT Layer.             *
+* The Slock.it IoT Layer contains:                         *
+*   - USN (Universal Sharing Network)                      *
+*   - INCUBED (Trustless INcentivized remote Node Network) *
+************************************************************
+* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
+* All Rights Reserved.                                     *
+************************************************************
+* You may use, distribute and modify this code under the   *
+* terms of the license contract you have concluded with    *
+* Slock.it GmbH.                                           *
+* For information about liability, maintenance etc. also   *
+* refer to the contract concluded with Slock.it GmbH.      *
+************************************************************
+* For more information, please refer to https://slock.it   *
+* For questions, please contact info@slock.it              *
+***********************************************************/
+
 import { RPCHandler } from '../server/rpc'
 import * as tx from './tx'
 import * as abi from 'ethereumjs-abi'
@@ -64,11 +83,13 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
   const keys: Buffer[] = [storage.getStorageArrayKey(0)]
 
   for (const n of list) {
-    for (let i = 0; i < 5; i++)
+    for (let i = 0; i < 4; i++)
       keys.push(storage.getStorageArrayKey(0, n.index, 6, i))
-    const urlKey = util.toBN(keccak256(keys[keys.length - 5]))
-    for (let i = 0; i < Math.floor(n.url.length / 32); i++)
-      keys.push(bytes32(urlKey.add(util.toBN(i))))
+    const urlKey = util.toBN(keccak256(keys[keys.length - 4]))
+    if (n.url.length > 31) {
+      for (let i = 0; i < n.url.length / 32; i++)
+        keys.push(bytes32(urlKey.add(util.toBN(i))))
+    }
   }
 
   return keys
@@ -86,7 +107,9 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
   const keys: Buffer[] = getStorageKeys(nodeList.nodes)
 
   const address = nodeList.contract
-  const blockNr = '0x' + nodeList.lastBlockNumber.toString(16)
+  // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
+  const lastBlock  =  await handler.getFromServer({ method:'eth_blockNumber', params:[] }).then(_=>parseInt(_.result))
+  const blockNr =  lastBlock ? '0x'+Math.max(nodeList.lastBlockNumber,lastBlock -  (handler.config.minBlockHeight || 0)).toString(16) : 'latest'
 
   // read the response,blockheader and trace from server
   const [blockResponse, proof] = await handler.getAllFromServer([

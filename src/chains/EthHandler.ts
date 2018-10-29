@@ -1,51 +1,39 @@
-import { RPCRequest, RPCResponse, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util } from 'in3'
+/***********************************************************
+* This file is part of the Slock.it IoT Layer.             *
+* The Slock.it IoT Layer contains:                         *
+*   - USN (Universal Sharing Network)                      *
+*   - INCUBED (Trustless INcentivized remote Node Network) *
+************************************************************
+* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
+* All Rights Reserved.                                     *
+************************************************************
+* You may use, distribute and modify this code under the   *
+* terms of the license contract you have concluded with    *
+* Slock.it GmbH.                                           *
+* For information about liability, maintenance etc. also   *
+* refer to the contract concluded with Slock.it GmbH.      *
+************************************************************
+* For more information, please refer to https://slock.it   *
+* For questions, please contact info@slock.it              *
+***********************************************************/
+
+import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, util as in3Util } from 'in3'
 import { handeGetTransaction, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
-import axios from 'axios'
-import { getNodeList, updateNodeList } from '../util/nodeListUpdater'
-import Watcher from './watch'
-import { checkPrivateKey, checkRegistry } from './initHandler'
-import { collectSignatures, handleSign } from './signatures'
+import BaseHandler from './BaseHandler'
+import { handleSign } from './signatures';
+import { simpleEncode, simpleDecode } from 'ethereumjs-abi'
 
 const toHex = in3Util.toHex
 const toNumber = in3Util.toNumber
-const bytes32 = serialize.bytes32
-const address = serialize.address
 
 /**
  * handles EVM-Calls
  */
-export default class EthHandler {
-  counter: number
-  config: IN3RPCHandlerConfig
-  nodeList: ServerList
-  transport: Transport
-  chainId: string
-  watcher: Watcher
+export default class EthHandler extends BaseHandler {
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
-    this.config = config || {} as IN3RPCHandlerConfig
-    this.transport = transport || new AxiosTransport()
-    this.nodeList = nodeList || { nodes: undefined }
-    this.counter = 1
-    const interval = config.watchInterval || 5
-
-    // check that we have a valid private key and if needed decode it
-    checkPrivateKey(this.config)
-
-    // create watcher checking the registry-contract for events
-    this.watcher = new Watcher(this, interval, config.persistentFile || 'lastBlock.json', config.startBlock)
-
-    // start the watcher in the background
-    if (interval > 0)
-      this.watcher.check()
+    super(config, transport, nodeList)
   }
-
-
-  checkRegistry(): Promise<any> {
-    return checkRegistry(this)
-  }
-
-
 
   /** main method to handle a request */
   async handle(request: RPCRequest): Promise<RPCResponse> {
@@ -64,10 +52,20 @@ export default class EthHandler {
       request.in3.verification = 'never'
 
     // execute it
-    return this.handleRPCMethod(request)
+    const result = await this.handleRPCMethod(request)
+    if ((request as any).convert)
+      (request as any).convert(result)
+    return result
   }
 
   private async handleRPCMethod(request: RPCRequest) {
+
+    // handle shortcut-functions
+    if (request.method==='in3_call') {
+      request.method='eth_call'
+      request.params= createCallParams(request)
+    }
+       
 
     // handle special jspn-rpc
     if (request.in3.verification.startsWith('proof'))
@@ -100,11 +98,11 @@ export default class EthHandler {
 
       case 'eth_sign':
       case 'eth_sendTransaction':
-        return toError(request.id, 'a in3 - node can not sign Messages, because the no unlocked key is allowed!')
+        return this.toError(request.id, 'a in3 - node can not sign Messages, because the no unlocked key is allowed!')
 
       case 'eth_submitWork':
       case 'eth_submitHashrate':
-        return toError(request.id, 'Incubed cannot be used for mining since there is no coinbase')
+        return this.toError(request.id, 'Incubed cannot be used for mining since there is no coinbase')
 
       case 'in3_sign':
         return handleSign(this, request)
@@ -114,54 +112,68 @@ export default class EthHandler {
         return this.getFromServer(request)
     }
   }
+j
+  getRequestFromPath(path: string[], in3: { chainId: string; }): RPCRequest {
+    if (path[0] && path[0].startsWith('0x') && path[0].length<43) {
+      const [contract, method ] = path
+      const r: RPCRequest = { id:1, jsonrpc:'2.0', method:'', params:[contract,'latest'], in3}
+      switch (method) {
+        case 'balance' : return { ...r, method: 'eth_getBalance'}
+        case 'nonce' : return { ...r, method: 'eth_getTransactionCount'}
+        case 'code' : return { ...r, method: 'eth_getCode'}
+        case 'storage' : return { ...r, method: 'eth_getStorageAt', params:[contract,path[2],'latest']}
+        default:
+          return { ...r, method: 'in3_call', params:[contract, method,...path.slice(2).join('/').split(',').filter(_ => _).map(_ => _ === 'true' ? true : _ === 'false' ? false : _)]}
+      }
+    }
+    else if (path[0] && path[0].startsWith('0x') && path[0].length>43)       
+       return { id:1, jsonrpc:'2.0', method:'eth_getTransactionReceipt', params:[path[0]], in3}
+    else if (path[0] && (parseInt(path[0]) || path[0]==='latest'))
+       return { id:1, jsonrpc:'2.0', method:'eth_getBlockByNumber', params:[path[0]==='latest' ? 'latest':'0x'+parseInt(path[0]).toString(16) ,false], in3}
 
-
-  /** returns the result directly from the server */
-  getFromServer(request: Partial<RPCRequest>): Promise<RPCResponse> {
-    if (!request.id) request.id = this.counter++
-    if (!request.jsonrpc) request.jsonrpc = '2.0'
-    return axios.post(this.config.rpcUrl, toCleanRequest(request)).then(_ => _.data)
-  }
-
-  /** returns a array of requests from the server */
-  getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]> {
-    return request.length
-      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ }))).then(_ => _.data)
-      : Promise.resolve([])
-  }
-
-  /** uses the updater to read the nodes from the contract */
-  async updateNodeList(blockNumber: number): Promise<void> {
-    await updateNodeList(this, this.nodeList, blockNumber)
-  }
-
-  /** get the current nodeList */
-  async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[]): Promise<ServerList> {
-    const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
-    if (nl.proof && signers && signers.length)
-      nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber: nl.lastBlockNumber }], verifiedHashes)
-    return nl
-  }
-
-
-}
-
-
-
-
-function toCleanRequest(request: Partial<RPCRequest>): RPCRequest {
-  return {
-    id: request.id,
-    method: request.method,
-    params: request.params,
-    jsonrpc: request.jsonrpc
+    return null
   }
 }
 
-function toError(id: number | string, error: string): RPCResponse {
-  return {
-    id,
-    error,
-    jsonrpc: '2.0'
+function createCallParams(request: RPCRequest):any[] {
+  const params = request.params || []
+  const methodRegex =/^\w+\((.*)\)$/gm
+  let [contract, method] = params as string[]
+  if (!contract) throw new Error('First argument needs to be a valid contract address')
+  if (!method) throw new Error('First argument needs to be a valid contract method signature')
+  if (method.indexOf('(')<0) method+='()'
+
+  // since splitting for get is simply split(',') the method-signature is also split, so we reunit it.
+  while (method.indexOf(')')<0 && params.length>2) {
+    method+=','+params[2]
+    params.splice(2,1)
   }
+
+  if (method.indexOf(':')>0) {
+    const srcFullMethod=method;
+    const fullMethod = method.endsWith(')') ? method : method.split(':').join(':(')+')'
+    const retTypes = method.split(':')[1].substr(1).replace(')',' ').trim().split(',');
+    (request as any).convert = result=>{
+      if (result.result)
+        result.result = simpleDecode(fullMethod, Buffer.from(result.result.substr(2),'hex')).map((v,i)=>{
+          if (Buffer.isBuffer(v)) return '0x'+v.toString('hex')
+          if (v && v.ixor) return v.toString()
+          if (retTypes[i]!=='string' && typeof v==='string' && v[1]!=='x')
+             return '0x'+v
+          return v
+        })
+      if (Array.isArray(result.result) && !srcFullMethod.endsWith(')'))
+        result.result = result.result[0]
+      return result
+    }
+    method = method.substr(0,method.indexOf(':'))
+  }
+
+  const m = methodRegex.exec(method)
+  if (!m) throw new Error('No valid method signature for '+method)
+  const types = m[1].split(',').filter(_=>_)
+  const values = params.slice(2,types.length+2)
+  if (values.length<types.length) throw new Error('invalid number of arguments. Must be at least '+types.length)
+
+  return [{to:contract, data: '0x'+simpleEncode(method,...values).toString('hex')},params[types.length+2] || 'latest']
 }
