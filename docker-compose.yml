@@ -287,8 +287,8 @@ services:
     - --privateKey=0x4a6d44cd0e324d8dafc18be4f5db72e59628221ce5d023768b536c393726cde4
     - --minBlockHeight=0
     - --chain=0x2a
-    - --registryRPC=http://parity-kovan-two.parity-rpc:8545
-    - --rpcUrl=http://parity-kovan-two.parity-rpc:8545
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
     - --profile-name=Slockit3
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -307,8 +307,8 @@ services:
     - --privateKey=0xdb2d2790fce3a4fb45427436b4d049539e74619a1543672023b4fa2a2205f994
     - --minBlockHeight=0
     - --chain=0x2a
-    - --registryRPC=http://parity-kovan-two.parity-rpc:8545
-    - --rpcUrl=http://parity-kovan-two.parity-rpc:8545
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
     - --profile-name=Slockit4
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -327,8 +327,8 @@ services:
     - --privateKey=0xcc79e360cc8083da8a5069b94d3d8c8710ace23d16fdd0a9ab2f71146cb8e3eb
     - --minBlockHeight=0
     - --chain=0x2a
-    - --registryRPC=http://parity-kovan-two.parity-rpc:8545
-    - --rpcUrl=http://parity-kovan-two.parity-rpc:8545
+    - --registryRPC=http://parity-kovan-one.parity-rpc:8545
+    - --rpcUrl=http://parity-kovan-one.parity-rpc:8545
     - --profile-name=Slockit5
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
