@@ -87,13 +87,13 @@ export default abstract class BaseHandler implements RPCHandler {
   getFromServer(request: Partial<RPCRequest>): Promise<RPCResponse> {
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
-    return axios.post(this.config.rpcUrl, this.toCleanRequest(request)).then(_ => _.data)
+    return axios.post(this.config.rpcUrl, this.toCleanRequest(request),{ headers:{'Content-Type':'application/json'}}).then(_ => _.data)
   }
 
   /** returns a array of requests from the server */
   getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]> {
     return request.length
-      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ }))).then(_ => _.data)
+      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })),{ headers:{'Content-Type':'application/json'}}).then(_ => _.data)
       : Promise.resolve([])
   }
 
