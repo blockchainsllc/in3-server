@@ -61,22 +61,21 @@ if (config.logging.file || config.logging.type)
 
 
 if (config.logging.file)
-  winston.add(winston.transports.File, {
+  winston.add(new winston.transports.File({
     filename: config.logging.file,
-    json: false,
     level: config.logging.level,
-    timestamp: () => new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
+    /* timestamp: () => new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
     formatter: options =>
       color.grey(options.timestamp() + ' ' + options.level.toUpperCase()) + ' ' +
       (options.message ? colorize(options.level, options.message) : '') +
       (options.meta && Object.keys(options.meta).length ? '\n' +
-        color.grey(options.meta.stack ? options.meta.stack : JSON.stringify(options.meta, null, 2)) : '')
-  })
+        color.grey(options.meta.stack ? options.meta.stack : JSON.stringify(options.meta, null, 2)) : '') */
+  }))
 
 if (config.logging.type) {
   const firstChain = config.chains[Object.keys(config.chains)[0]]
   const id = config.id || (firstChain && sha3(firstChain.privateKey).toString('hex').replace('0x', '').substr(0, 4)) || 'in3-server'
   // tslint:disable-next-line:non-literal-require
   const lt = require(config.logging.type)
-  winston.add(config.logging.name ? lt[config.logging.name] : lt, { programm: id, ...config.logging })
+  winston.add(config.logging.name ? new lt[config.logging.name]({ programm: id, ...config.logging }) : new lt({ programm: id, ...config.logging }))
 }
