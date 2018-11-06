@@ -118,7 +118,7 @@ describe('Convict', () => {
     assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
 
 
-  }).timeout(15000)
+  }).timeout(30000)
 
 
 
