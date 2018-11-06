@@ -26,6 +26,7 @@ import { deployChainRegistry, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
 import * as logger from 'in3/js/test/util/memoryLogger'
 import { simpleEncode } from 'ethereumjs-abi'
+import { toMinHex } from 'in3/js/src/util/util';
 const toHex = util.toHex
 const getAddress = util.getAddress
 
@@ -493,7 +494,7 @@ describe('ETH Standard JSON-RPC', () => {
     })
 
 
-    const b = await client.sendRPC('eth_getStorageAt', [adr, '0x00', 'latest'], null, { keepIn3: true })
+    const b = await client.sendRPC('eth_getStorageAt', [adr, '0x0', 'latest'], null, { keepIn3: true })
     const result = b.result as string
     assert.exists(b.in3)
     assert.exists(b.in3.proof)
@@ -512,7 +513,7 @@ describe('ETH Standard JSON-RPC', () => {
         re.result = '0x09'
         return re
       })
-      await client.sendRPC('eth_getStorageAt', [adr, '0x00', 'latest'])
+      await client.sendRPC('eth_getStorageAt', [adr, '0x0', 'latest'])
     }
     catch {
       failed = true
@@ -687,7 +688,7 @@ describe('ETH Standard JSON-RPC', () => {
     assert.equal(toHex(result1), '0x0000000000000000000000000000000000000000000000000000000000000002')
 
 
-    const b = await client.sendRPC('eth_call', [txArgs], null, { keepIn3: true, includeCode: true })
+    const b = await client.sendRPC('eth_call', [txArgs,'latest'], null, { keepIn3: true, includeCode: true })
 
     const result = b.result as string
     assert.exists(b.in3)
@@ -707,7 +708,7 @@ describe('ETH Standard JSON-RPC', () => {
         re.result = '0x09'
         return re
       })
-      await client.sendRPC('eth_call', [txArgs])
+      await client.sendRPC('eth_call', [txArgs,'latest'])
     }
     catch {
       failed = true
@@ -757,7 +758,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     assert.equal(receipt.logs.length, 1)
 
-    const res = await client.sendRPC('eth_getLogs', [{ fromBlock: toHex(receipt.blockNumber) }], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getLogs', [{ fromBlock: toMinHex(receipt.blockNumber) }], null, { keepIn3: true })
     const result = res.result as any
     assert.exists(res.in3)
     assert.exists(res.in3.proof)
@@ -775,7 +776,7 @@ describe('ETH Standard JSON-RPC', () => {
         ((re.result as any)[0] as LogData).address = getAddress(pk1)
         return re
       })
-      await client.sendRPC('eth_getLogs', [{ fromBlock: toHex(receipt.blockNumber) }])
+      await client.sendRPC('eth_getLogs', [{ fromBlock: toMinHex(receipt.blockNumber) }])
     }
     catch {
       failed = true

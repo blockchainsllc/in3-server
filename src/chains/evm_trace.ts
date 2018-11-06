@@ -30,6 +30,7 @@ const codes = {
   '09': 'MULMOD 3 1 Modulo',
   '0a': 'EXP 2 1 Exponential operation',
   '0b': 'SIGNEXTEND 2 1 Extend length of twos complement signed integer',
+
   '10': 'LT 2 1  Lesser-than comparison',
   '11': 'GT 2 1  Greater-than comparison',
   '12': 'SLT 2 1 Signed less-than comparison',
@@ -41,7 +42,13 @@ const codes = {
   '18': 'XOR 2 1 Bitwise XOR operation',
   '19': 'NOT 1 1 Bitwise NOT operation',
   '1a': 'BYTE 2 1 Retrieve single byte from word',
+
+  '1b': 'SHL 2 1 shift left operation',
+  '1c': 'SHR 2 1 logical shift right operation',
+  '1d': 'SAR 2 1 arithmetic shift right operation',
+
   '20': 'SHA3 2 1 Compute Keccak-256 hash',
+
   '30': 'ADDRESS 0 1 Get address of currently executing account',
   '31': 'BALANCE 1 1 Get balance of the given account',
   '32': 'ORIGIN 0 1 Get execution origination address',
@@ -55,6 +62,10 @@ const codes = {
   '3a': 'GASPRICE 0 1 Get price of gas in current environment',
   '3b': 'EXTCODESIZE 1 1 Get size of an accounts code',
   '3c': 'EXTCODECOPY 4 0  Copy an accounts code to memory',
+  '3d': 'RETURNDATASIZE 0 1 get the size of the return data buffer for the last call',
+  '3e': 'RETURNDATACOPY 3 0 copy return data buffer to memory',
+  '3f': 'EXTCODEHASH 1 1 return the keccak256 hash of contract code',
+  
   '40': 'BLOCKHASH 1 1 Get the hash of one of the 256 most recent complete blocks',
   '41': 'COINBASE 0 1 Get the blocks beneficiary address',
   '42': 'TIMESTAMP 0 1   Get the blocks timestamp',
@@ -204,7 +215,7 @@ export function analyse(trace, storageAccount: string, result?: any, level = '')
       getAccount().storage[stack[stack.length - 1]] = s.ex.push[0]
     else if (op === 'BALANCE')
       getAccount(stack[stack.length - 1]).balance = s.ex.push[0]
-    else if (op === 'EXTCODECOPY' || op === 'EXTCODESIZE')
+    else if (op === 'EXTCODECOPY' || op === 'EXTCODESIZE' || op === 'EXTCODEHASH')
       getAccount(stack[stack.length - 1]).code = true
 
     while (sdel) {

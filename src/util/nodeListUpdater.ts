@@ -121,6 +121,12 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
   if (blockResponse.error) throw new Error('Could not get the block for ' + blockNr + ':' + blockResponse.error)
   if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), keys.map(toHex), blockNr] }, null, 2))
 
+
+  // make sure we use minHex for the proof-keys
+  if (proof.result && proof.result.storageProof)
+  proof.result.storageProof.forEach(p=>p.key=util.toMinHex(p.key))
+    
+
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as BlockData
   const account = proof.result as AccountProof
