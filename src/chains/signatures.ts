@@ -24,6 +24,7 @@ import { sha3, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
 
 const toHex = util.toHex
+const toMinHex = util.toMinHex
 const toNumber = util.toNumber
 const bytes32 = serialize.bytes32
 const address = serialize.address
@@ -36,7 +37,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
   // make sure the 
   const blocks = await Promise.all(requestedBlocks.map(async b => ({
     blockNumber: toNumber(b.blockNumber),
-    hash: toHex(b.hash || await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(b.blockNumber), false] })
+    hash: toHex(b.hash || await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })
       .then(_ => _.result && _.result.hash), 32)
   }))).then(allBlocks => !verifiedHashes ? allBlocks : allBlocks.filter(_ => verifiedHashes.indexOf(_.hash) < 0))
 
@@ -121,7 +122,7 @@ export function sign(pk: string, blocks: { blockNumber: number, hash: string }[]
 export async function handleSign(handler: BaseHandler, request: RPCRequest): Promise<RPCResponse> {
   const blocks = request.params as { blockNumber: number, hash: string }[]
   const blockData = await handler.getAllFromServer([
-    ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toHex(b.blockNumber), false] })),
+    ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })),
     { method: 'eth_blockNumber', params: [] },
   ]).then(a => a.map(_ => _.result as BlockData))
   const blockNumber = blockData.pop() as any as string // the first arg is just the current blockNumber

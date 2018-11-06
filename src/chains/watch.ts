@@ -32,6 +32,7 @@ import { isFunction } from 'util';
 import { useDB, exec } from '../util/db'
 const toNumber = util.toNumber
 const toHex = util.toHex
+const toMinHex = util.toMinHex
 const toBuffer = util.toBuffer
 
 export default class Watcher extends EventEmitter {
@@ -134,10 +135,10 @@ export default class Watcher extends EventEmitter {
     this.emit('newBlock', currentBlock)
 
     const [blockResponse, logResponse] = await this.handler.getAllFromServer([{
-      method: 'eth_getBlockByNumber', params: [toHex(currentBlock), false]
+      method: 'eth_getBlockByNumber', params: [toMinHex(currentBlock), false]
     },
     ... (nodeList && nodeList.contract ? [{
-      method: 'eth_getLogs', params: [{ fromBlock: toHex(this.block.number + 1), toBlock: toHex(currentBlock), address: nodeList.contract }]
+      method: 'eth_getLogs', params: [{ fromBlock: toMinHex(this.block.number + 1), toBlock: toMinHex(currentBlock), address: nodeList.contract }]
     }] : [])
     ])
 

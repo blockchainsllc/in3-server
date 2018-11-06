@@ -43,6 +43,9 @@ const sign = (b: BlockData, pk: string, blockHash?: string) => {
 
 
 describe('Convict', () => {
+
+  
+
   it('convict on contracts', async () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
@@ -115,7 +118,7 @@ describe('Convict', () => {
     assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
 
 
-  })
+  }).timeout(15000)
 
 
 

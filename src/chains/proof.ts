@@ -22,9 +22,11 @@ import { LogProof, LogData, RPCRequest, RPCResponse, BlockData, Signature, Proof
 import * as Trie from 'merkle-patricia-tree'
 import EthHandler from './EthHandler';
 import { collectSignatures } from './signatures'
-import * as evm from './evm'
+import * as evm from './evm_trace'
+import { analyseCall } from './evm_run';
 
 const toHex = util.toHex
+const toMinHex = util.toMinHex
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 
@@ -178,7 +180,7 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
   // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
   if (tx && tx.blockNumber) {
     // get the block including all transactions from the server
-    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(tx.blockNumber), true] }).then(_ => _ && _.result as any)
+    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }).then(_ => _ && _.result as any)
     if (block)
       // create the proof
       response.in3 = {
@@ -198,7 +200,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
   // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
   if (tx && tx.blockNumber) {
     // get the block including all transactions from the server
-    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toHex(tx.blockNumber), true] }).then(_ => _ && _.result as BlockData)
+    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }).then(_ => _ && _.result as BlockData)
     if (block) {
 
       const [signatures, receipts] = await Promise.all([
@@ -238,7 +240,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
     })
 
     // get the blocks from the server
-    const blocks = await handler.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [bn, true] }))).then(all => all.map(_ => _.result as BlockData))
+    const blocks = await handler.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), true] }))).then(all => all.map(_ => _.result as BlockData))
 
     // fetch in parallel
     await Promise.all([
@@ -289,24 +291,30 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
 }
 
 
-
+let useTrace:boolean = undefined
 export async function handleCall(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
+  if (useTrace === undefined)
+     useTrace = await handler.getFromServer({method:'web3_clientVersion',params:[]}).then(_=>_.result.indexOf('Parity')>=0)
+
+  if (request.params && request.params[0] && !request.params[0].value) request.params[0].value='0x0'
   //    console.log('handle call', this.config)
   // read the response,blockheader and trace from server
   const [response, blockResponse, trace] = await handler.getAllFromServer([
     request,
     { method: 'eth_getBlockByNumber', params: [request.params[1] || 'latest', false] },
-    { method: 'trace_call', params: [request.params[0], ['vmTrace'], request.params[1] || 'latest'] }
+    useTrace ? { method: 'trace_call', params: [request.params[0], ['vmTrace'], request.params[1] || 'latest'] } : undefined
   ])
 
   // error checking
   if (response.error) return response
   if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
-  if (trace.error) throw new Error('Could not get the trace :' + trace.error)
+  if (trace && trace.error) throw new Error('Could not get the trace :' + trace.error)
 
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as any
-  const neededProof = evm.analyse((trace.result as any).vmTrace, request.params[0].to)
+  const neededProof = useTrace 
+    ? evm.analyse((trace.result as any).vmTrace, request.params[0].to) 
+    : await analyseCall(request.params[0],request.params[1] || 'latest',handler.getFromServer.bind(handler)) 
 
   // ask for proof for the storage
   const [accountProofs, signatures] = await Promise.all([
@@ -323,6 +331,16 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     const codes = await handler.getAllFromServer(accounts.map(a => ({ method: 'eth_getCode', params: [toHex((a.result as any).address, 20), request.params[1] || 'latest'] })))
     accounts.forEach((r, i) => (accounts[i].result as any).code = codes[i].result)
   }
+
+  for (const ap of accountProofs) {
+    // make sure we use minHex for the proof-keys
+    if (ap.result && ap.result.storageProof)
+    ap.result.storageProof.forEach(p=>p.key=toMinHex(p.key))
+
+  }
+
+     
+
 
   // bundle the answer
   return {
@@ -358,6 +376,11 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
   // error checking
   if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
   if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] }, null, 2))
+
+  // make sure we use minHex for the proof-keys
+  if (proof.result && proof.result.storageProof)
+    proof.result.storageProof.forEach(p=>p.key=toMinHex(p.key))
+     
 
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as any
