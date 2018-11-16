@@ -50,7 +50,7 @@ export default class Watcher extends EventEmitter {
 
 
 
-  constructor(handler: RPCHandler, interval = 5, persistFile: string = 'lastBlock.json', startBlock?: number) {
+  constructor(handler: RPCHandler, interval = 5, persistFile='false', startBlock?: number) {
     super()
     this.handler = handler
     this.interval = interval

@@ -55,7 +55,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
 
     // create watcher checking the registry-contract for events
-    this.watcher = new Watcher(this, interval, config.persistentFile || 'lastBlock.json', config.startBlock)
+    this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock)
 
     // start the watcher in the background
     if (interval > 0) {
