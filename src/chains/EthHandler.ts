@@ -33,7 +33,7 @@ const toNumber = in3Util.toNumber
 export default class EthHandler extends BaseHandler {
 
   // list of addresses allowed to sign for finality
-  authorities:string[]
+  authorities:Buffer[]
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     super(config, transport, nodeList)
@@ -138,10 +138,10 @@ export default class EthHandler extends BaseHandler {
     return null
   }
 
-  async getAuthorities():Promise<string[]> {
+  async getAuthorities(blockNumber:number):Promise<Buffer[]> {
      if (this.authorities) return this.authorities
      const spec = this.getChainSpec()
-     return spec ? this.authorities = await header.getAuthorities(spec, this.getFromServer.bind(this)) : (this.authorities=[])
+     return spec ? this.authorities = await header.getAuthorities(spec,blockNumber, this.getFromServer.bind(this)) : (this.authorities=[])
   }
   
 

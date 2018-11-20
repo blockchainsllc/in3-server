@@ -40,7 +40,7 @@ function createBlock(block: BlockData, verifiedHashes: string[]) {
 export async function addFinality(request:RPCRequest, response:RPCResponse, block:BlockData,handler: EthHandler) {
   const curBlock = handler.watcher.block
   if (block && request && request.in3 && request.in3.finality && response.in3 && response.in3.proof) {
-    const validators = await handler.getAuthorities()
+    const validators = await handler.getAuthorities(toNumber(block.number))
     if (validators) {
       let bn = parseInt(block.number as any)
       const blocks = response.in3.proof.finalityBlocks= []
