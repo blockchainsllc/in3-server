@@ -22,11 +22,26 @@
 import * as Koa from 'koa'
 import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
-import * as logger from 'winston'
+import * as winston from 'winston'
 import { RPC } from './rpc'
 import { cbor, RPCRequest, chainAliases } from 'in3'
 import config from './config'
 import { initConfig } from '../util/db'
+
+// Setup logger
+const nodeEnv: string = process.env.NODE_ENV || 'production';
+const logger = winston.createLogger({
+  levels: winston.config.syslog.levels,
+  format: nodeEnv === 'production' ? winston.format.json() : winston.format.simple(),
+  transports: [
+    new winston.transports.Console(nodeEnv === 'production' ? { level: 'info' }: { level: 'debug' })
+  ],
+  exceptionHandlers: [
+      new winston.transports.Console({handleExceptions:true})
+    ],  
+    exitOnError: false, // <--- set this to false
+});
+
 
 export const app = new Koa()
 const router = new Router()
@@ -79,7 +94,8 @@ router.post(/.*/, async ctx => {
   } catch (err) {
     ctx.status = err.status || 500
     ctx.body = err.message
-    logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
+    //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
+    logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, {reqBody: ctx.request.body, errStack: err.stack, reqHeaders:ctx.request.headers, peerIp: ctx.request.ip});
     ctx.app.emit('error', err, ctx)
   }
 
@@ -115,7 +131,8 @@ router.get(/.*/, async ctx => {
   } catch (err) {
     ctx.status = err.status || 500
     ctx.body = err.message
-    logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
+    //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
+    logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, {reqBody: ctx.request.body, errStack: err.stack, reqHeaders:ctx.request.headers, peerIp: ctx.request.ip});
     ctx.app.emit('error', err, ctx)
   }
 
@@ -132,8 +149,8 @@ initConfig().then(() => {
 
   const doInit = () => {
     rpc.init().catch(err => {
-      console.error('Error initializing the server : ' + err.message)
-      logger.error('Error initializing the server : ', err)
+      //console.error('Error initializing the server : ' + err.message)
+      logger.error('Error initializing the server : ' + err.message, {errStack: err.stack});
       setTimeout(doInit,20000)
     })
   }
@@ -141,8 +158,8 @@ initConfig().then(() => {
   // after starting the server, we should make sure our nodelist is up-to-date.
   setTimeout(doInit)
 }).catch(err => {
-  console.error('Error starting the server : ' + err.message, config)
-  logger.error('Error starting the server ' + err, config)
+  //console.error('Error starting the server : ' + err.message, config)
+  logger.error('Error starting the server ' + err.message, {in3Config:config,errStack:err.stack})
   process.exit(1)
 })
 

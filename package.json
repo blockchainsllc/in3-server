@@ -95,7 +95,7 @@
     "koa-router": "^7.4.0",
     "merkle-patricia-tree": "^2.3.1",
     "pg-promise": "^8.4.5",
-    "winston": "^2.4.2",
+    "winston": "^3.1.0",
     "winston-papertrail": "^1.0.5"
   }
 }
