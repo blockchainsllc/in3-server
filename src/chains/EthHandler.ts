@@ -17,11 +17,12 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, util as in3Util } from 'in3'
+import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec , util as in3Util, header } from 'in3'
 import { handeGetTransaction, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
 import BaseHandler from './BaseHandler'
 import { handleSign } from './signatures';
 import { simpleEncode, simpleDecode } from 'ethereumjs-abi'
+const clientConf = require('in3/js/src/client/defaultConfig.json')
 
 const toHex = in3Util.toHex
 const toNumber = in3Util.toNumber
@@ -30,6 +31,9 @@ const toNumber = in3Util.toNumber
  * handles EVM-Calls
  */
 export default class EthHandler extends BaseHandler {
+
+  // list of addresses allowed to sign for finality
+  authorities:string[]
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     super(config, transport, nodeList)
@@ -112,7 +116,7 @@ export default class EthHandler extends BaseHandler {
         return this.getFromServer(request)
     }
   }
-j
+
   getRequestFromPath(path: string[], in3: { chainId: string; }): RPCRequest {
     if (path[0] && path[0].startsWith('0x') && path[0].length<43) {
       const [contract, method ] = path
@@ -132,6 +136,19 @@ j
        return { id:1, jsonrpc:'2.0', method:'eth_getBlockByNumber', params:[path[0]==='latest' ? 'latest':'0x'+parseInt(path[0]).toString(16) ,false], in3}
 
     return null
+  }
+
+  async getAuthorities():Promise<string[]> {
+     if (this.authorities) return this.authorities
+     const spec = this.getChainSpec()
+     return spec ? this.authorities = await header.getAuthorities(spec, this.getFromServer.bind(this)) : (this.authorities=[])
+  }
+  
+
+
+  getChainSpec():ChainSpec {
+    const chain = clientConf.servers[this.chainId]
+    return chain && chain.chainSpec
   }
 }
 
@@ -177,3 +194,4 @@ function createCallParams(request: RPCRequest):any[] {
 
   return [{to:contract, data: '0x'+simpleEncode(method,...values).toString('hex')},params[types.length+2] || 'latest']
 }
+

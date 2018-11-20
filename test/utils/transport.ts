@@ -123,7 +123,7 @@ export class TestTransport implements Transport {
   }
 
   async getFromServer(method: string, ...params: any[]) {
-    const res = await axios.post(this.url, { id: 1, jsonrpc: '2.0', method, params })
+    const res = await axios.post(this.url, { id: 1, jsonrpc: '2.0', method, params },{ headers:{'Content-Type':'application/json'}})
     if (res.status !== 200) throw new Error('Wrong status! Error getting ' + method + ' ' + JSON.stringify(params))
     if (!res.data) throw new Error('No response! Error getting ' + method + ' ' + JSON.stringify(params))
     if (res.data.error) throw new Error('Error getting ' + method + ' ' + JSON.stringify(params) + ' : ' + JSON.stringify(res.data.error))

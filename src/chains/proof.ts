@@ -10,7 +10,7 @@
 * You may use, distribute and modify this code under the   *
 * terms of the license contract you have concluded with    *
 * Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
+* For information about liability, maintenance etc. also   *‚
 * refer to the contract concluded with Slock.it GmbH.      *
 ************************************************************
 * For more information, please refer to https://slock.it   *
@@ -18,9 +18,9 @@
 ***********************************************************/
 
 import { rlp, toChecksumAddress } from 'ethereumjs-util'
-import { LogProof, LogData, RPCRequest, RPCResponse, BlockData, Signature, Proof, ReceiptData, serialize, util, TransactionData } from 'in3'
+import { LogProof, LogData, RPCRequest, RPCResponse, BlockData, Signature, Proof, ReceiptData, serialize, util, TransactionData, header } from 'in3'
 import * as Trie from 'merkle-patricia-tree'
-import EthHandler from './EthHandler';
+import EthHandler from './EthHandler'
 import { collectSignatures } from './signatures'
 import * as evm from './evm_trace'
 import { analyseCall } from './evm_run';
@@ -35,6 +35,32 @@ function createBlock(block: BlockData, verifiedHashes: string[]) {
     return '' + parseInt(block.number as any)
   else
     return serialize.blockToHex(block)
+}
+
+export async function addFinality(request:RPCRequest, response:RPCResponse, block:BlockData,handler: EthHandler) {
+  const curBlock = handler.watcher.block
+  if (block && request && request.in3 && request.in3.finality && response.in3 && response.in3.proof) {
+    const validators = await handler.getAuthorities()
+    if (validators) {
+      let bn = parseInt(block.number as any)
+      const blocks = response.in3.proof.finalityBlocks= []
+      const signers = [header.getSigner(new serialize.Block(block))]
+      const minNumber = Math.round(request.in3.finality * validators.length / 100)
+      while (signers.length<minNumber) {
+        bn = bn+1
+        if (curBlock && curBlock.number<bn) break
+        const b = await handler.getFromServer({method:'eth_getBlockByNumber', params:[ '0x'+bn.toString(16),false]})
+        if (!b || b.error || !b.result) break
+        const s = header.getSigner(new serialize.Block(b.result))
+        if (!signers.find(_=>_.equals(s)))
+          signers.push(s)
+
+        blocks.push(createBlock(b.result, request.in3.verifiedHashes))
+      }
+    }
+  }
+  if (response.in3 && curBlock && curBlock.number) response.in3.currentBlock = curBlock.number
+  return response
 }
 
 /** creates the merkle-proof for a transation */
@@ -166,6 +192,8 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
         response.result = '0x' + blockData.transactions.length.toString(16)
       }
     }
+
+    return addFinality(request,response,blockData, handler)
   }
 
   return response
@@ -188,7 +216,8 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
           await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
           request.in3.verifiedHashes) as any
       }
-  }
+      return addFinality(request, response, block, handler)
+    }
   return response
 }
 
@@ -218,6 +247,8 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
           signatures,
           request.in3.verifiedHashes)
       }
+
+      return addFinality(request,response,block, handler)
     }
   }
   // if we don't have a block, we will return nu result, since pending can not be proofed
@@ -343,17 +374,18 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
 
 
   // bundle the answer
-  return {
-    ...response,
-    in3: {
-      proof: {
-        type: 'callProof',
-        block: createBlock(block, request.in3.verifiedHashes),
-        signatures,
-        accounts: Object.keys(neededProof.accounts).reduce((p, v, i) => { p[v] = accountProofs[i].result; return p }, {})
+  return addFinality(request,
+    {
+      ...response,
+      in3: {
+        proof: {
+          type: 'callProof',
+          block: createBlock(block, request.in3.verifiedHashes),
+          signatures,
+          accounts: Object.keys(neededProof.accounts).reduce((p, v, i) => { p[v] = accountProofs[i].result; return p }, {})
+        }
       }
-    }
-  }
+    },block, handler)
 }
 
 
@@ -396,7 +428,8 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
     result = account.storageProof[0].value
 
   // bundle the answer
-  return {
+  return addFinality(request,
+    {
     id: request.id,
     jsonrpc: '2.0',
     result,
@@ -408,7 +441,7 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
         accounts: { [toChecksumAddress(address)]: proof.result }
       }
     }
-  }
+  }, block, handler)
 }
 
 
