@@ -118,6 +118,24 @@ export class TestTransport implements Transport {
     return p.then(_ => Promise.reject(new Error('Must have failed')), err => true)
   }
 
+  
+  detectFraud(client:Client, method:string, params:any[], conf:Partial<IN3Config>, fn:(req:RPCRequest, res:RPCResponse)=>any|RPCResponse, mustFail=true) : Promise<any>{
+
+    this.clearInjectedResponsed()  
+    // now manipulate the result
+    this.injectResponse({ method }, (req,res)=>fn(req,res) || res)
+    return client.sendRPC(method, params)
+    .then(()=>{
+      if (mustFail)
+        throw new Error('This rpc-call '+method+' must fail because it was manipulated, but did not')
+
+    },()=>{
+      if (!mustFail)
+        throw new Error('This rpc-call '+method+' must not fail even though it was manipulated, but did')
+    })
+  }
+
+
   clearInjectedResponsed() {
     this.injectedResponses.length = 0
   }
