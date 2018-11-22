@@ -17,17 +17,17 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { rlp, toChecksumAddress } from 'ethereumjs-util'
 import { LogProof, LogData, RPCRequest, RPCResponse, BlockData, Signature, Proof, ReceiptData, serialize, util, TransactionData, header } from 'in3'
-import * as Trie from 'merkle-patricia-tree'
-import EthHandler from './EthHandler'
-import { collectSignatures } from './signatures'
-import * as evm from './evm_trace'
-import { analyseCall } from './evm_run';
+import { rlp, toChecksumAddress } from 'ethereumjs-util'
+import * as Trie                  from 'merkle-patricia-tree'
+import EthHandler                 from './EthHandler'
+import { collectSignatures }      from '../../chains/signatures'
+import * as evm                   from './evm_trace'
+import { analyseCall }            from './evm_run'
 
-const toHex = util.toHex
+const toHex    = util.toHex
 const toMinHex = util.toMinHex
-const bytes32 = serialize.bytes32
+const bytes32  = serialize.bytes32
 const toNumber = util.toNumber
 
 function createBlock(block: BlockData, verifiedHashes: string[]) {
@@ -42,9 +42,9 @@ export async function addFinality(request:RPCRequest, response:RPCResponse, bloc
   if (block && request && request.in3 && request.in3.finality && response.in3 && response.in3.proof) {
     const validators = await handler.getAuthorities(toNumber(block.number))
     if (validators) {
-      let bn = parseInt(block.number as any)
-      const blocks = response.in3.proof.finalityBlocks= []
-      const signers = [header.getSigner(new serialize.Block(block))]
+      let   bn        = parseInt(block.number as any)
+      const blocks    = response.in3.proof.finalityBlocks = []
+      const signers   = [header.getSigner(new serialize.Block(block))]
       const minNumber = Math.round(request.in3.finality * validators.length / 100)
       while (signers.length<minNumber) {
         bn = bn+1
@@ -89,8 +89,8 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
     Trie.prove(trie, rlp.encode(txIndex), (err, prove) => {
       if (err) return reject(err)
       resolve({
-        type: 'transactionProof',
-        block: createBlock(block, verifiedHashes),
+        type       : 'transactionProof',
+        block      : createBlock(block, verifiedHashes),
         merkleProof: prove.map(toHex),
         txIndex, signatures
       })
@@ -98,16 +98,16 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[]): Promise<Proof> {
+export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], useFull=false): Promise<Proof> {
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
   if (txIndex < 0)
     throw new Error('tx not found')
 
-  const [txProof, merkleProof] = await Promise.all([
+  const [txProof, merkleProof, merkleProofPrev] = await Promise.all([
     createMerkleProof(
       block.transactions.map((t, i) => ({
-        key: rlp.encode(i),
+        key  : rlp.encode(i),
         value: serialize.serialize(serialize.toTransaction(t))
       })),
       rlp.encode(txIndex),
@@ -115,20 +115,30 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
     ),
     createMerkleProof(
       receipts.map(r => ({
-        key: rlp.encode(toNumber(r.transactionIndex)),
+        key  : rlp.encode(toNumber(r.transactionIndex)),
         value: serialize.serialize(serialize.toReceipt(r))
       })),
       rlp.encode(txIndex),
       bytes32(block.receiptsRoot)
-    )
-  ]).then(a => a.map(_ => _.map(toHex)))
+    ),
+    // TOCDO performancewise this could be optimized, since we build the merkltree twice.
+    useFull && txIndex>0 && createMerkleProof(
+      receipts.map(r => ({
+        key  : rlp.encode(toNumber(r.transactionIndex)),
+        value: serialize.serialize(serialize.toReceipt(r))
+      })),
+      rlp.encode(txIndex-1),
+      bytes32(block.receiptsRoot)
+    ),
 
+  ]).then(a => a.map(_ => _ && _.map(toHex)))
 
   return {
-    type: 'receiptProof',
+    type : 'receiptProof',
     block: createBlock(block, verifiedHashes),
     txProof, merkleProof,
-    txIndex, signatures
+    txIndex, signatures,
+    ...  merkleProofPrev ? {} : {merkleProofPrev}
   }
 }
 
@@ -180,6 +190,10 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
         signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: toNumber(blockData.number), hash: blockData.hash }], request.in3.verifiedHashes)
       }
     }
+
+    if (request.in3.useFullProof && blockData.uncles && blockData.uncles.length) 
+      // we need to include all uncles
+      response.in3.proof.uncles = await handler.getAllFromServer(blockData.uncles.map(b=>({ method:'eth_getBlockByHash',params:[b,false]}))).then(a=>a.map(_=>serialize.blockToHex(_.result)))
 
     const transactions: TransactionData[] = blockData.transactions
     if (!request.params[1]) {
@@ -233,9 +247,21 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
     if (block) {
 
       const [signatures, receipts] = await Promise.all([
+        // signatures for the block of the transaction
         collectSignatures(handler, request.in3.signatures, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes),
+
+        // get all receipts, because we need to build the MerkleTree
         handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })))
-          .then(a => a.map(_ => _.result as ReceiptData))
+          .then(a => a.map(_ => _.result as ReceiptData)),
+
+        // get all txs to also proof the tx (in case of full proof)
+        // request.in3.useFullProof && handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })))
+        //  .then(a => a.map(_ => _.result as ReceiptData))
+
+        
+
+
+        
       ])
 
       // create the proof

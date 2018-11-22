@@ -17,13 +17,13 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import BaseHandler from './BaseHandler'
-import { IN3RPCHandlerConfig, util } from 'in3'
-import * as fs from 'fs'
-import * as scryptsy from 'scrypt.js'
-import * as cryp from 'crypto'
-import * as ethUtil from 'ethereumjs-util'
-import { registerServers } from '../util/registry'
+import BaseHandler                    from './BaseHandler'
+import { IN3RPCHandlerConfig, util }  from 'in3'
+import * as fs                        from 'fs'
+import * as scryptsy                  from 'scrypt.js'
+import * as cryp                      from 'crypto'
+import * as ethUtil                   from 'ethereumjs-util'
+import { registerServers }            from '../util/registry'
 
 
 
@@ -88,25 +88,25 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
     return
 
   const units = {
-    ether: '1000000000000000000',
+    ether : '1000000000000000000',
     finney: '1000000000000000',
-    szabo: '1000000000000',
-    gwei: 1000000000,
-    nano: 1000000000,
-    mwei: 1000000,
-    pico: 1000000,
-    kwei: 1000,
-    wei: 1
+    szabo : '1000000000000',
+    gwei  : 1000000000,
+    nano  : 1000000000,
+    mwei  : 1000000,
+    pico  : 1000000,
+    kwei  : 1000,
+    wei   : 1
   }
-  const unit = autoReg.depositUnit || 'ether'
+  const unit    = autoReg.depositUnit || 'ether'
   if (!units[unit]) throw new Error('The unit ' + unit + ' is not supported, only ' + Object.keys(units).join())
-  const caps = autoReg.capabilities || {}
+  const caps    = autoReg.capabilities || {}
   const deposit = '0x' + util.toBN(autoReg.deposit || 0).mul(util.toBN(units[unit])).toString(16)
-  const props = util.toHex((caps.proof ? 1 : 0) + (caps.multiChain ? 2 : 0))
+  const props   = util.toHex((caps.proof ? 1 : 0) + (caps.multiChain ? 2 : 0))
 
   await registerServers(handler.config.privateKey, handler.config.registry, [{
     url: autoReg.url,
-    pk: handler.config.privateKey,
+    pk : handler.config.privateKey,
     props,
     deposit: deposit as any
   }], handler.chainId, undefined, handler.config.registryRPC || handler.config.rpcUrl, undefined, false)

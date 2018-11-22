@@ -17,9 +17,9 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import * as fs from 'fs'
+import * as fs                                               from 'fs'
 import { IN3RPCConfig, IN3RPCHandlerConfig, util, typeDefs } from 'in3'
-import * as cargs from 'args'
+import * as cargs                                            from 'args'
 
 const options: any = []
 function parseDef(def: { properties: any, type: string }, targetPath = [], targetOb: any, prefix = '') {
@@ -34,9 +34,9 @@ function parseDef(def: { properties: any, type: string }, targetPath = [], targe
     }
     else
       options.push({
-        name: prefix + p,
+        name       : prefix + p,
         description: val.description,
-        init: v => {
+        init       : v => {
           const t = targetPath.reduce((t, pp) => t[pp] || (t[pp] = {}), targetOb)
 
           switch (val.type) {
@@ -59,14 +59,14 @@ function parseDef(def: { properties: any, type: string }, targetPath = [], targe
 
 // defaults for the config
 const config: IN3RPCConfig = {
-  port: 8500,
+  port  : 8500,
   chains: {
     '0x2a': {
-      rpcUrl: 'https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX', //'http://localhost:8545',
-      privateKey: '',
+      rpcUrl        : 'https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX',   //'http://localhost:8545',
+      privateKey    : '',
       minBlockHeight: 6,
-      registry: '0x013b82355a066A31427df3140C5326cdE9c64e3A', // registry-contract
-      registryRPC: '',
+      registry      : '0x013b82355a066A31427df3140C5326cdE9c64e3A',     // registry-contract
+      registryRPC   : '',
     }
   }
 }
@@ -84,7 +84,6 @@ parseDef(typeDefs.IN3RPCConfig, [], config)
 parseDef(typeDefs.IN3RPCHandlerConfig, [], handler)
 options.push({
   name: 'chain', description: 'chainId', init: chainId => {
-
     config.chains = { [chainId]: handler }
     return chainId
   }
@@ -92,8 +91,6 @@ options.push({
 
 const vals = cargs.options(options)
 const val2 = !process.env.CI && vals.parse(process.argv, { mri: { string: options.map(_ => _.name) } })
-
-
 
 // fix chainIds to minHex
 for (const c of Object.keys(config.chains)) {

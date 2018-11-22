@@ -20,7 +20,7 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { serialize, BlockData, RPCResponse, util, Proof, LogData } from 'in3'
+import { serialize, BlockData, RPCResponse, util, Proof, LogData, IN3Config, RPCRequest, IN3Client } from 'in3'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployChainRegistry, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
@@ -32,7 +32,6 @@ const getAddress = util.getAddress
 
 // our test private key
 const pk = '0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
-
 
 describe('ETH Standard JSON-RPC', () => {
   it('eth_blockNumber', async () => {
@@ -108,21 +107,10 @@ describe('ETH Standard JSON-RPC', () => {
 
     logger.info('result', res)
 
+    await test.detectFraud(client,'eth_getTransactionByHash',[receipt.transactionHash],null,(req,re)=>{
+      re.result.to = re.result.from
+    })
 
-    let failed = false
-    try {
-      // now manipulate the result
-      test.injectResponse({ method: 'eth_getTransactionByHash' }, (req, re: RPCResponse) => {
-        // we change a property
-        (re.result as any).to = (re.result as any).from
-        return re
-      })
-      await client.sendRPC('eth_getTransactionByHash', [receipt.transactionHash])
-    }
-    catch {
-      failed = true
-    }
-    assert.isTrue(failed, 'The manipulated transaction must fail!')
   })
 
 
@@ -166,21 +154,14 @@ describe('ETH Standard JSON-RPC', () => {
 
     logger.info('result', res)
 
+    await test.detectFraud(client,'eth_getTransactionReceipt',[receipt.transactionHash],null,(req,re)=>{
+      re.result.cumulativeGasUsed += '00'
+    })
 
-    let failed = false
-    try {
-      // now manipulate the result
-      test.injectResponse({ method: 'eth_getTransactionReceipt' }, (req, re: RPCResponse) => {
-        // we change a property
-        (re.result as any).cumulativeGasUsed += '00'
-        return re
-      })
-      await client.sendRPC('eth_getTransactionReceipt', [receipt.transactionHash])
-    }
-    catch {
-      failed = true
-    }
-    assert.isTrue(failed, 'The manipulated transaction must fail!')
+    await test.detectFraud(client,'eth_getTransactionReceipt',[receipt.transactionHash],null,(req,re)=>{
+      re.result.gasUsed += '00'
+    })
+
   })
 
 
@@ -228,21 +209,9 @@ describe('ETH Standard JSON-RPC', () => {
 
     assert.equal('0x' + block.hash().toString('hex').toLowerCase(), (b.result as any as BlockData).hash, 'the hash of the blockheader in the proof must be the same as the blockHash in the Transactiondata')
 
-
-    let failed = false
-    try {
-      // now manipulate the result
-      test.injectResponse({ method: 'eth_getBlockByNumber' }, (req, re: RPCResponse) => {
-        // we change a property
-        (re.result as any).gasUsed = (re.result as any).gasLimit
-        return re
-      })
-      await client.sendRPC('eth_getBlockByNumber', [(b.result as any as BlockData).number, true])
-    }
-    catch {
-      failed = true
-    }
-    assert.isTrue(failed, 'The manipulated block must fail!')
+    await test.detectFraud(client,'eth_getBlockByNumber',[(b.result as BlockData).number, true],null,(req,re)=>{
+      (re.result as any).gasUsed = (re.result as any).gasLimit
+    })
   })
 
   it('eth_getBlockByHash', async () => {

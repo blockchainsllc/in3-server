@@ -19,14 +19,15 @@
 ***********************************************************/
 
 import { RPCRequest, RPCResponse, Transport, IN3ResponseConfig, IN3RPCRequestConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
-import EthHandler from '../chains/EthHandler'
-import Watcher from '../chains/watch';
-import { getStats, currentHour } from './stats'
-import IPFSHandler from '../chains/IPFSHandler'
+import Watcher                    from '../chains/watch';
+import { getStats, currentHour }  from './stats'
+
+import IPFSHandler                from '../modules/ipfs/IPFSHandler'
+import EthHandler                 from '../modules/eth/EthHandler'
 
 
 export class RPC {
-  conf: IN3RPCConfig
+  conf    : IN3RPCConfig
   handlers: { [chain: string]: RPCHandler }
 
   constructor(conf: IN3RPCConfig, transport?: Transport, nodeList?: ServerList) {
@@ -63,9 +64,9 @@ export class RPC {
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
-      const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
-      const in3: IN3ResponseConfig = {} as any
-      const start = Date.now()
+      const handler                         = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
+      const in3: IN3ResponseConfig          = {} as any
+      const start                           = Date.now()
 
       // update stats
       currentHour.update(r)
@@ -97,9 +98,9 @@ export class RPC {
       if (r.method === 'in3_stats') {
         const p = this.conf.profile || {}
         return {
-          id: r.id,
+          id     : r.id,
           jsonrpc: r.jsonrpc,
-          result: {
+          result : {
             profile: p,
             ...(p.noStats ? {} : { stats: getStats() })
           }
