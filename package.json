@@ -89,7 +89,7 @@
     "ethereumjs-wallet": "^0.6.0",
     "ethjs-util": "0.1.4",
     "form-data": "^2.3.2",
-    "in3": "^1.1.11",
+    "in3": "^1.1.12",
     "koa": "^2.5.0",
     "koa-bodyparser": "^4.2.0",
     "koa-router": "^7.4.0",
