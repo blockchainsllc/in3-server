@@ -18,14 +18,15 @@
 ***********************************************************/
 
 import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec , util as in3Util, header } from 'in3'
-import { handeGetTransaction, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
-import BaseHandler from './BaseHandler'
-import { handleSign } from './signatures';
-import { simpleEncode, simpleDecode } from 'ethereumjs-abi'
-const clientConf = require('in3/js/src/client/defaultConfig.json')
+import { simpleEncode, simpleDecode }                                                                               from 'ethereumjs-abi'
 
-const toHex = in3Util.toHex
-const toNumber = in3Util.toNumber
+import { handeGetTransaction, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs }      from './proof'
+import BaseHandler                                                                                                  from '../../chains/BaseHandler'
+import { handleSign }                                                                                               from '../../chains/signatures';
+
+const clientConf = require('in3/js/src/client/defaultConfig.json')
+const toHex      = in3Util.toHex
+const toNumber   = in3Util.toNumber
 
 /**
  * handles EVM-Calls
@@ -122,11 +123,11 @@ export default class EthHandler extends BaseHandler {
       const [contract, method ] = path
       const r: RPCRequest = { id:1, jsonrpc:'2.0', method:'', params:[contract,'latest'], in3}
       switch (method) {
-        case 'balance' : return { ...r, method: 'eth_getBalance'}
-        case 'nonce' : return { ...r, method: 'eth_getTransactionCount'}
-        case 'code' : return { ...r, method: 'eth_getCode'}
-        case 'storage' : return { ...r, method: 'eth_getStorageAt', params:[contract,path[2],'latest']}
-        default:
+        case 'balance': return { ...r, method: 'eth_getBalance'}
+        case 'nonce'  : return { ...r, method: 'eth_getTransactionCount'}
+        case 'code'   : return { ...r, method: 'eth_getCode'}
+        case 'storage': return { ...r, method: 'eth_getStorageAt', params:[contract,path[2],'latest']}
+        default       : 
           return { ...r, method: 'in3_call', params:[contract, method,...path.slice(2).join('/').split(',').filter(_ => _).map(_ => _ === 'true' ? true : _ === 'false' ? false : _)]}
       }
     }
@@ -157,7 +158,7 @@ function createCallParams(request: RPCRequest):any[] {
   const methodRegex =/^\w+\((.*)\)$/gm
   let [contract, method] = params as string[]
   if (!contract) throw new Error('First argument needs to be a valid contract address')
-  if (!method) throw new Error('First argument needs to be a valid contract method signature')
+  if (!method)   throw new Error('First argument needs to be a valid contract method signature')
   if (method.indexOf('(')<0) method+='()'
 
   // since splitting for get is simply split(',') the method-signature is also split, so we reunit it.
@@ -167,9 +168,9 @@ function createCallParams(request: RPCRequest):any[] {
   }
 
   if (method.indexOf(':')>0) {
-    const srcFullMethod=method;
-    const fullMethod = method.endsWith(')') ? method : method.split(':').join(':(')+')'
-    const retTypes = method.split(':')[1].substr(1).replace(')',' ').trim().split(',');
+    const srcFullMethod = method;
+    const fullMethod    = method.endsWith(')') ? method : method.split(':').join(':(')+')'
+    const retTypes      = method.split(':')[1].substr(1).replace(')',' ').trim().split(', ');
     (request as any).convert = result=>{
       if (result.result)
         result.result = simpleDecode(fullMethod, Buffer.from(result.result.substr(2),'hex')).map((v,i)=>{

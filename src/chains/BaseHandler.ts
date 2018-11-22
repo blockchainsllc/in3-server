@@ -17,37 +17,34 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util } from 'in3'
-import axios from 'axios'
-import { getNodeList, updateNodeList } from '../util/nodeListUpdater'
-import Watcher from './watch'
+import { RPCRequest, RPCResponse, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util } 
+                                          from 'in3'
+import axios                              from 'axios'
+import { getNodeList, updateNodeList }    from './nodeListUpdater'
+import Watcher                            from './watch'
 import { checkPrivateKey, checkRegistry } from './initHandler'
-import { collectSignatures, handleSign } from './signatures'
-import { RPCHandler } from '../server/rpc'
-import { SimpleCache } from '../util/cache'
-
-const toHex = in3Util.toHex
-const toNumber = in3Util.toNumber
-const bytes32 = serialize.bytes32
-const address = serialize.address
+import { collectSignatures, handleSign }  from './signatures'
+import { RPCHandler }                     from '../server/rpc'
+import { SimpleCache }                    from '../util/cache'
 
 /**
  * handles eth_sign and eth_nodelist
  */
 export default abstract class BaseHandler implements RPCHandler {
-  counter: number
-  config: IN3RPCHandlerConfig
-  nodeList: ServerList
+  counter  : number
+  config   : IN3RPCHandlerConfig
+  nodeList : ServerList
   transport: Transport
-  chainId: string
-  watcher: Watcher
-  cache: SimpleCache
+  chainId  : string
+  watcher  : Watcher
+  cache    : SimpleCache
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
-    this.config = config || {} as IN3RPCHandlerConfig
+    this.config    = config || {} as IN3RPCHandlerConfig
     this.transport = transport || new AxiosTransport()
-    this.nodeList = nodeList || { nodes: undefined }
-    this.counter = 1
+    this.nodeList  = nodeList || { nodes: undefined }
+    this.counter   = 1
+
     const interval = config.watchInterval || 5
 
     // check that we have a valid private key and if needed decode it
@@ -122,9 +119,9 @@ export default abstract class BaseHandler implements RPCHandler {
 
   toCleanRequest(request: Partial<RPCRequest>): RPCRequest {
     return {
-      id: request.id,
-      method: request.method,
-      params: request.params,
+      id     : request.id,
+      method : request.method,
+      params : request.params,
       jsonrpc: request.jsonrpc
     }
   }

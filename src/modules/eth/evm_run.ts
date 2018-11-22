@@ -26,16 +26,16 @@ import { util, serialize, RPCRequest, RPCResponse} from 'in3'
 
 /** executes a transaction-call to a smart contract */
 export async function analyseCall(args: {
-  to: string
-  data: string
-  value?: string
-  from?: string
-}, block:string, getFromServer:(request: Partial<RPCRequest>)=> Promise<RPCResponse> ):Promise<{
+    to    : string
+    data  : string
+    value?: string
+    from? : string
+  }, block: string, getFromServer: (request: Partial<RPCRequest>)=> Promise<RPCResponse> ): Promise<{
   blocks: string[],
   result: Buffer,
   accounts: {
     [name: string]: {
-      code?: boolean | string,
+      code?   : boolean | string,
       balance?: string,
       storage?: {
         [key: string]: string
@@ -45,14 +45,14 @@ export async function analyseCall(args: {
 }>  {
 
   const res: {
-    blocks: string[],
-    result?: Buffer,
+    blocks  : string[],
+    result? : Buffer,
     accounts: {
       [name: string]: {
-        address:string
-        ac:Account,
-        proof?:any,
-        code?: boolean | string,
+        address : string
+        ac      : Account,
+        proof?  : any,
+        code?   : boolean | string,
         balance?: string,
         storage?: {
           [key: string]: string
@@ -63,16 +63,14 @@ export async function analyseCall(args: {
 
   // create new state for a vm
   const state = new Trie()
-  const vm = new VM({ state })
-
+  const vm    = new VM({ state })
 
   // create a transaction-object
-  const tx = serialize.createTx({ gas: '0x5b8d80', gasLimit: '0x5b8d80', from: '0x0000000000000000000000000000000000000000', ...args })
+  const tx    = serialize.createTx({ gas: '0x5b8d80', gasLimit: '0x5b8d80', from: '0x0000000000000000000000000000000000000000', ...args })
 
   function getAccount(address:string) {
     if (!(res.accounts[address])) 
       res.accounts[address]={ address, storage:{}, ac:new Account()}
-    
     return res.accounts[address]
   }
 
@@ -125,8 +123,8 @@ export async function analyseCall(args: {
         break
 
       case 'SLOAD':
-        const ac = getAccount(util.toHex(ev.address, 20))
-        const key = serialize.bytes32(ev.stack[ev.stack.length - 1])
+        const ac   = getAccount(util.toHex(ev.address, 20))
+        const key  = serialize.bytes32(ev.stack[ev.stack.length - 1])
         const mKey = util.toMinHex('0x'+key.toString('hex'))
 
         if (ac.storage[mKey]===undefined)

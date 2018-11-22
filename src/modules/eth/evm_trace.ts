@@ -166,10 +166,10 @@ const codes = {
 
 
 export function analyse(trace, storageAccount: string, result?: any, level = ''): {
-  blocks: string[],
+  blocks  : string[],
   accounts: {
     [name: string]: {
-      code?: boolean | string,
+      code?   : boolean | string,
       balance?: string,
       storage?: {
         [key: string]: string
@@ -178,10 +178,10 @@ export function analyse(trace, storageAccount: string, result?: any, level = '')
   }
 } {
   //  console.error('anaylse ' + storageAccount)
-  const code = trace.code.substr(2)
-  const stack = []
-  if (!result) result = { blocks: [], accounts: { [storageAccount]: { storage: {}, code: trace.code } } }
-  const getAccount = (a?: string) => result.accounts[a || storageAccount] || (result.accounts[a || storageAccount] = { storage: {} })
+  const code             = trace.code.substr(2)
+  const stack            = []
+  if (!result)    result = { blocks: [], accounts: { [storageAccount]: { storage: {}, code: trace.code } } }
+  const getAccount       = (a?: string) => result.accounts[a || storageAccount] || (result.accounts[a || storageAccount] = { storage: {} })
 
   trace.ops.forEach((s, count) => {
     const c = codes[code.substr(s.pc * 2, 2)] as string
@@ -233,13 +233,3 @@ export function analyse(trace, storageAccount: string, result?: any, level = '')
   return result
 
 }
-
-
-
-
-/*
-60 {"cost":3,"ex":{"mem":null,"push":["'1':'"],"store":null,"used":4676704},"pc":507,"sub":null}
-54 {"cost":200,"ex":{"mem":null,"push":["'d34abc7edf64f507a0f939cfea6a799e9526e3ae':'"],"store":null,"used":4676504},"pc":509,"sub":null}
-60 {"cost":3,"ex":{"mem":null,"push":["'2':'"],"store":null,"used":4676501},"pc":510,"sub":null}
-54 {"cost":200,"ex":{"mem":null,"push":["'422ed4cf8c08eabe86d516dcfc578fe9a9d70e2fb2fa3db669e7613cd026b7b5':'"],"store":null,"used":4676301},"pc":512,"sub":null}
-*/

@@ -17,17 +17,17 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { rlp, toChecksumAddress } from 'ethereumjs-util'
 import { LogProof, LogData, RPCRequest, RPCResponse, BlockData, Signature, Proof, ReceiptData, serialize, util, TransactionData, header } from 'in3'
-import * as Trie from 'merkle-patricia-tree'
-import EthHandler from './EthHandler'
-import { collectSignatures } from './signatures'
-import * as evm from './evm_trace'
-import { analyseCall } from './evm_run';
+import { rlp, toChecksumAddress } from 'ethereumjs-util'
+import * as Trie                  from 'merkle-patricia-tree'
+import EthHandler                 from './EthHandler'
+import { collectSignatures }      from '../../chains/signatures'
+import * as evm                   from './evm_trace'
+import { analyseCall }            from './evm_run'
 
-const toHex = util.toHex
+const toHex    = util.toHex
 const toMinHex = util.toMinHex
-const bytes32 = serialize.bytes32
+const bytes32  = serialize.bytes32
 const toNumber = util.toNumber
 
 function createBlock(block: BlockData, verifiedHashes: string[]) {
@@ -42,9 +42,9 @@ export async function addFinality(request:RPCRequest, response:RPCResponse, bloc
   if (block && request && request.in3 && request.in3.finality && response.in3 && response.in3.proof) {
     const validators = await handler.getAuthorities(toNumber(block.number))
     if (validators) {
-      let bn = parseInt(block.number as any)
-      const blocks = response.in3.proof.finalityBlocks= []
-      const signers = [header.getSigner(new serialize.Block(block))]
+      let   bn        = parseInt(block.number as any)
+      const blocks    = response.in3.proof.finalityBlocks = []
+      const signers   = [header.getSigner(new serialize.Block(block))]
       const minNumber = Math.round(request.in3.finality * validators.length / 100)
       while (signers.length<minNumber) {
         bn = bn+1
@@ -89,8 +89,8 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
     Trie.prove(trie, rlp.encode(txIndex), (err, prove) => {
       if (err) return reject(err)
       resolve({
-        type: 'transactionProof',
-        block: createBlock(block, verifiedHashes),
+        type       : 'transactionProof',
+        block      : createBlock(block, verifiedHashes),
         merkleProof: prove.map(toHex),
         txIndex, signatures
       })
@@ -107,7 +107,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
   const [txProof, merkleProof] = await Promise.all([
     createMerkleProof(
       block.transactions.map((t, i) => ({
-        key: rlp.encode(i),
+        key  : rlp.encode(i),
         value: serialize.serialize(serialize.toTransaction(t))
       })),
       rlp.encode(txIndex),
@@ -115,7 +115,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
     ),
     createMerkleProof(
       receipts.map(r => ({
-        key: rlp.encode(toNumber(r.transactionIndex)),
+        key  : rlp.encode(toNumber(r.transactionIndex)),
         value: serialize.serialize(serialize.toReceipt(r))
       })),
       rlp.encode(txIndex),
@@ -125,7 +125,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
 
 
   return {
-    type: 'receiptProof',
+    type : 'receiptProof',
     block: createBlock(block, verifiedHashes),
     txProof, merkleProof,
     txIndex, signatures
