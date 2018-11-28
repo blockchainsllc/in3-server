@@ -31,19 +31,21 @@ import { SimpleCache }                    from '../util/cache'
  * handles eth_sign and eth_nodelist
  */
 export default abstract class BaseHandler implements RPCHandler {
-  counter  : number
-  config   : IN3RPCHandlerConfig
-  nodeList : ServerList
-  transport: Transport
-  chainId  : string
-  watcher  : Watcher
-  cache    : SimpleCache
+  openRequests: number
+  counter     : number
+  config      : IN3RPCHandlerConfig
+  nodeList    : ServerList
+  transport   : Transport
+  chainId     : string
+  watcher     : Watcher
+  cache       : SimpleCache
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
-    this.config    = config || {} as IN3RPCHandlerConfig
-    this.transport = transport || new AxiosTransport()
-    this.nodeList  = nodeList || { nodes: undefined }
-    this.counter   = 1
+    this.config       = config || {} as IN3RPCHandlerConfig
+    this.transport    = transport || new AxiosTransport()
+    this.nodeList     = nodeList || { nodes: undefined }
+    this.counter      = 1
+    this.openRequests = 0
 
     const interval = config.watchInterval || 5
 
@@ -84,13 +86,17 @@ export default abstract class BaseHandler implements RPCHandler {
   getFromServer(request: Partial<RPCRequest>): Promise<RPCResponse> {
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
-    return axios.post(this.config.rpcUrl, this.toCleanRequest(request),{ headers:{'Content-Type':'application/json'}}).then(_ => _.data)
+    return axios.post(this.config.rpcUrl, this.toCleanRequest(request),{ headers:{'Content-Type':'application/json'}}).then(_ => _.data, err=>{
+      throw new Error('Error '+err.message+' fetching request '+JSON.stringify(request)+' from '+this.config.rpcUrl)
+    })
   }
 
   /** returns a array of requests from the server */
   getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]> {
     return request.length
-      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })),{ headers:{'Content-Type':'application/json'}}).then(_ => _.data)
+      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })),{ headers:{'Content-Type':'application/json'}}).then(_ => _.data, err=>{
+        throw new Error('Error '+err.message+' fetching requests '+JSON.stringify(request)+' from '+this.config.rpcUrl)
+      })
       : Promise.resolve([])
   }
 

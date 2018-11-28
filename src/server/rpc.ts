@@ -73,7 +73,7 @@ export class RPC {
 
 
       if (r.method === 'in3_nodeList')
-        return handler.getNodeList(
+        return manageRequest(handler,handler.getNodeList(
           in3Request.verification && in3Request.verification.startsWith('proof'),
           r.params[0] || 0,
           r.params[1],
@@ -93,7 +93,7 @@ export class RPC {
             res.in3.proof = proof
           }
           return res as RPCResponse
-        })
+        }))
 
       if (r.method === 'in3_stats') {
         const p = this.conf.profile || {}
@@ -105,18 +105,16 @@ export class RPC {
             ...(p.noStats ? {} : { stats: getStats() })
           }
         } as RPCResponse
-
-
       }
 
-      return Promise.all([
+      return manageRequest(handler, Promise.all([
         handler.getNodeList(false).then(_ => in3.lastNodeList = _.lastBlockNumber),
         handler.handle(r).then(_=>{
           (in3 as any).execTime=Date.now()-start 
           return _
         })
       ])
-        .then(_ => ({ ..._[1], in3: { ...(_[1].in3 || {}), ...in3 } }))
+        .then(_ => ({ ..._[1], in3: { ...(_[1].in3 || {}), ...in3 } })))
     }))
   }
 
@@ -139,9 +137,19 @@ export class RPC {
 
 }
 
-
+function manageRequest<T>(handler:RPCHandler, p:Promise<T>):Promise<T> {
+   handler.openRequests++
+   return p.then((r:T)=>{
+     handler.openRequests--
+     return r
+   },err=>{
+     handler.openRequests--
+     throw err
+   })
+}
 
 export interface RPCHandler {
+  openRequests: number
   chainId: string
   handle(request: RPCRequest): Promise<RPCResponse>
   handleWithCache(request: RPCRequest): Promise<RPCResponse>
