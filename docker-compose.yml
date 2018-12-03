@@ -2,7 +2,7 @@ version: '2'
 services:
   
   lb:
-    image: rancher/lb-service-haproxy:v0.9.1
+    image: rancher/lb-service-haproxy:v0.9.6
     expose:
     - 80:80/tcp
     labels:
@@ -16,8 +16,8 @@ services:
     image: docker.slock.it/it/rancher-lb-monitor:master
     environment:
       TG_HOST: incubed-lb
-      TG_INFLUXURL: http://influx.10.142.1.1.xip.io:8086
-      TG_LBNAME: lb.in3-in3-server
+      TG_INFLUXURL: http://10.142.1.1:8086
+      TG_LBNAME: lb.in3-ts-in3-server
     stdin_open: true
     tty: true
     labels:
