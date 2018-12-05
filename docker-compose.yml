@@ -26,7 +26,7 @@ services:
 
 # MAINNET 
   incubed-mainnet-1:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -47,7 +47,7 @@ services:
       
 
   incubed-mainnet-2:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -67,7 +67,7 @@ services:
       
 
   incubed-mainnet-3:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -87,7 +87,7 @@ services:
       
   
   incubed-mainnet-4:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -107,7 +107,7 @@ services:
       
   
   incubed-mainnet-5:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -128,7 +128,7 @@ services:
 
 # TOBALABA 
   incubed-tobalaba-1:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -149,7 +149,7 @@ services:
       
 
   incubed-tobalaba-2:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -169,7 +169,7 @@ services:
       
 
   incubed-tobalaba-3:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -189,7 +189,7 @@ services:
       
   
   incubed-tobalaba-4:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -209,7 +209,7 @@ services:
       
   
   incubed-tobalaba-5:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -230,7 +230,7 @@ services:
 
 # KOVAN
   incubed-kovan-1:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -249,7 +249,7 @@ services:
       io.rancher.container.pull_image: always
       
   incubed-kovan-2:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -268,7 +268,7 @@ services:
       io.rancher.container.pull_image: always
       
   incubed-kovan-3:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -287,7 +287,7 @@ services:
       io.rancher.container.pull_image: always
       
   incubed-kovan-4:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -306,7 +306,7 @@ services:
       io.rancher.container.pull_image: always
       
   incubed-kovan-5:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -328,7 +328,7 @@ services:
 # IPFS
 
   incubed-ipfs-1:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -348,7 +348,7 @@ services:
       io.rancher.container.pull_image: always
       
   incubed-ipfs-2:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -368,7 +368,7 @@ services:
       io.rancher.container.pull_image: always
       
   incubed-ipfs-3:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -388,7 +388,7 @@ services:
       io.rancher.container.pull_image: always
       
   incubed-ipfs-4:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -408,7 +408,7 @@ services:
       io.rancher.container.pull_image: always
       
   incubed-ipfs-5:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -430,7 +430,7 @@ services:
 
 # EVAN 
   incubed-evan-1:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -451,7 +451,7 @@ services:
       
 
   incubed-evan-2:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -471,7 +471,7 @@ services:
       
 
   incubed-evan-3:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -491,7 +491,7 @@ services:
       
   
   incubed-evan-4:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
@@ -511,7 +511,7 @@ services:
       
   
   incubed-evan-5:
-    image: docker.slock.it/in3/ts/in3-server:latest
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
