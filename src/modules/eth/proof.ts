@@ -292,9 +292,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
 
     // find all needed blocks
     const proof: LogProof = {}
-    logs.forEach(l => {
-      const b = proof[toHex(l.blockNumber)] || (proof[toHex(l.blockNumber)] = { receipts: {}, allReceipts: [] } as any)
-    })
+    logs.forEach(l =>  proof[toHex(l.blockNumber)] || (proof[toHex(l.blockNumber)] = { receipts: {}, allReceipts: [] } as any))
 
     // get the blocks from the server
     const blocks = await handler.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), true] }))).then(all => all.map(_ => _.result as BlockData))
