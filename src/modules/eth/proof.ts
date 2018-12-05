@@ -164,18 +164,12 @@ export async function createMerkleProof(values: { key: Buffer, value: Buffer }[]
 
 
 
-
-
-
-
-
-
 export async function handleBlock(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
 
   // ask the server for the block with all transactions
   const response = await handler.getFromServer(
     request.method.indexOf('Count') > 0
-      ? { method: 'eth_getBlockBy' + request.method.substr(30), params: [request.params[0], true] }
+      ? { id: request.id, method: 'eth_getBlockBy' + request.method.substr(30), params: [request.params[0], true] }
       : { ...request, params: [request.params[0], true] })
 
   const blockData = response && response.result as BlockData
