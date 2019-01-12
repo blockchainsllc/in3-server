@@ -27,6 +27,7 @@ import { RPC } from './rpc'
 import { cbor, RPCRequest, chainAliases } from 'in3'
 import config from './config'
 import { initConfig } from '../util/db'
+import { encodeObject } from '../util/binjson'
 
 // Setup logger
 const nodeEnv: string = process.env.NODE_ENV || 'production';
@@ -34,12 +35,12 @@ const logger = winston.createLogger({
   levels: winston.config.syslog.levels,
   format: nodeEnv === 'production' ? winston.format.json() : winston.format.simple(),
   transports: [
-    new winston.transports.Console(nodeEnv === 'production' ? { level: 'info' }: { level: 'debug' })
+    new winston.transports.Console(nodeEnv === 'production' ? { level: 'info' } : { level: 'debug' })
   ],
   exceptionHandlers: [
-      new winston.transports.Console({handleExceptions:true})
-    ],  
-    exitOnError: false, // <--- set this to false
+    new winston.transports.Console({ handleExceptions: true })
+  ],
+  exitOnError: false, // <--- set this to false
 });
 
 
@@ -90,12 +91,18 @@ router.post(/.*/, async ctx => {
     const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
     const result = await rpc.handle(requests)
     const res = requests.length && requests[0].in3 && requests[0].in3.useRef ? cbor.createRefs(result) : result
-    ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
+    let body = Array.isArray(ctx.request.body) ? res : res[0]
+    if (requests.length && requests[0].in3 && requests[0].in3.useBinary) {
+      ctx.set('content-type', 'application/in3')
+      ctx.body = encodeObject(body)
+    }
+    else
+      ctx.body = body
   } catch (err) {
     ctx.status = err.status || 500
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
-    logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, {reqBody: ctx.request.body, errStack: err.stack, reqHeaders:ctx.request.headers, peerIp: ctx.request.ip});
+    logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
     ctx.app.emit('error', err, ctx)
   }
 
@@ -112,7 +119,7 @@ router.get(/.*/, async ctx => {
       start = path.findIndex(_ => chainAliases[_] || _.startsWith('0x'))
     if (start < 0 || start > path.length - 2) throw new Error('invalid path ' + ctx.path)
     const [chain, method] = path.slice(start)
-    const req = rpc.getRequestFromPath(path.slice(start+1),{chainId: chainAliases[chain] || chain,...ctx.query}) || {
+    const req = rpc.getRequestFromPath(path.slice(start + 1), { chainId: chainAliases[chain] || chain, ...ctx.query }) || {
       id: 1,
       jsonrpc: '2.0',
       method,
@@ -122,8 +129,8 @@ router.get(/.*/, async ctx => {
         ...ctx.query
       }
     }
-    if (ctx.request.headers && (ctx.request.headers.Referrer || ctx.request.headers.referrer || ctx.request.headers.Referer || ctx.request.headers.referer || '').indexOf('in3')>=0) 
-      (req.in3 || (req.in3={})).noStats=true
+    if (ctx.request.headers && (ctx.request.headers.Referrer || ctx.request.headers.referrer || ctx.request.headers.Referer || ctx.request.headers.referer || '').indexOf('in3') >= 0)
+      (req.in3 || (req.in3 = {})).noStats = true
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
     ctx.body = result.result || result.error
@@ -132,7 +139,7 @@ router.get(/.*/, async ctx => {
     ctx.status = err.status || 500
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
-    logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, {reqBody: ctx.request.body, errStack: err.stack, reqHeaders:ctx.request.headers, peerIp: ctx.request.ip});
+    logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
     ctx.app.emit('error', err, ctx)
   }
 
@@ -150,8 +157,8 @@ initConfig().then(() => {
   const doInit = () => {
     rpc.init().catch(err => {
       //console.error('Error initializing the server : ' + err.message)
-      logger.error('Error initializing the server : ' + err.message, {errStack: err.stack});
-      setTimeout(doInit,20000)
+      logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
+      setTimeout(doInit, 20000)
     })
   }
 
@@ -159,7 +166,7 @@ initConfig().then(() => {
   setTimeout(doInit)
 }).catch(err => {
   //console.error('Error starting the server : ' + err.message, config)
-  logger.error('Error starting the server ' + err.message, {in3Config:config,errStack:err.stack})
+  logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
   process.exit(1)
 })
 
