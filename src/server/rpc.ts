@@ -19,15 +19,16 @@
 ***********************************************************/
 
 import { RPCRequest, RPCResponse, Transport, IN3ResponseConfig, IN3RPCRequestConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
-import Watcher                    from '../chains/watch';
-import { getStats, currentHour }  from './stats'
+import Watcher from '../chains/watch';
+import { getStats, currentHour } from './stats'
 
-import IPFSHandler                from '../modules/ipfs/IPFSHandler'
-import EthHandler                 from '../modules/eth/EthHandler'
+import IPFSHandler from '../modules/ipfs/IPFSHandler'
+import EthHandler from '../modules/eth/EthHandler'
+import { getValidatorHistory } from './poa'
 
 
 export class RPC {
-  conf    : IN3RPCConfig
+  conf: IN3RPCConfig
   handlers: { [chain: string]: RPCHandler }
 
   constructor(conf: IN3RPCConfig, transport?: Transport, nodeList?: ServerList) {
@@ -64,16 +65,16 @@ export class RPC {
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
-      const handler                         = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
-      const in3: IN3ResponseConfig          = {} as any
-      const start                           = Date.now()
+      const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
+      const in3: IN3ResponseConfig = {} as any
+      const start = Date.now()
 
       // update stats
       currentHour.update(r)
 
 
       if (r.method === 'in3_nodeList')
-        return manageRequest(handler,handler.getNodeList(
+        return manageRequest(handler, handler.getNodeList(
           in3Request.verification && in3Request.verification.startsWith('proof'),
           r.params[0] || 0,
           r.params[1],
@@ -85,7 +86,7 @@ export class RPC {
             id: r.id,
             result: result as any,
             jsonrpc: r.jsonrpc,
-            in3: { ...in3, execTime:Date.now()-start }
+            in3: { ...in3, execTime: Date.now() - start }
           }
           const proof = res.result.proof
           if (proof) {
@@ -95,12 +96,21 @@ export class RPC {
           return res as RPCResponse
         }))
 
-      if (r.method === 'in3_stats') {
+      else if (r.method === 'in3_validatorlist')
+        return manageRequest(handler, getValidatorHistory(handler)
+        ).then(result => ({
+          id: r.id,
+          result: { states: result.states, lastCheckedBlock: result.lastCheckedBlock },
+          jsonrpc: r.jsonrpc,
+          in3: { ...in3, execTime: Date.now() - start }
+        }))
+
+      else if (r.method === 'in3_stats') {
         const p = this.conf.profile || {}
         return {
-          id     : r.id,
+          id: r.id,
           jsonrpc: r.jsonrpc,
-          result : {
+          result: {
             profile: p,
             ...(p.noStats ? {} : { stats: getStats() })
           }
@@ -109,25 +119,29 @@ export class RPC {
 
       return manageRequest(handler, Promise.all([
         handler.getNodeList(false).then(_ => in3.lastNodeList = _.lastBlockNumber),
-        handler.handle(r).then(_=>{
-          (in3 as any).execTime=Date.now()-start 
+        getValidatorHistory(handler).then(_ => in3.lastValidatorChange = _.lastValidatorChange),
+        handler.handle(r).then(_ => {
+          (in3 as any).execTime = Date.now() - start
           return _
         })
       ])
-        .then(_ => ({ ..._[1], in3: { ...(_[1].in3 || {}), ...in3 } })))
+        .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })))
     }))
   }
 
-  getRequestFromPath(path: string[], in3: { chainId:string}): RPCRequest {
+  getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest {
     const handler = this.getHandler(in3.chainId)
     if (!handler) null
-    return handler.getRequestFromPath(path,in3)
+    return handler.getRequestFromPath(path, in3)
   }
 
   init() {
     return Promise.all(Object.keys(this.handlers).map(c =>
-      this.handlers[c].getNodeList(true)
-        .then(() => this.handlers[c].checkRegistry())
+      Promise.all([
+        this.handlers[c].getNodeList(true)
+          .then(() => this.handlers[c].checkRegistry()),
+        getValidatorHistory(this.handlers[c])
+      ])
     ))
   }
 
@@ -137,15 +151,15 @@ export class RPC {
 
 }
 
-function manageRequest<T>(handler:RPCHandler, p:Promise<T>):Promise<T> {
-   handler.openRequests++
-   return p.then((r:T)=>{
-     handler.openRequests--
-     return r
-   },err=>{
-     handler.openRequests--
-     throw err
-   })
+function manageRequest<T>(handler: RPCHandler, p: Promise<T>): Promise<T> {
+  handler.openRequests++
+  return p.then((r: T) => {
+    handler.openRequests--
+    return r
+  }, err => {
+    handler.openRequests--
+    throw err
+  })
 }
 
 export interface RPCHandler {
@@ -157,7 +171,7 @@ export interface RPCHandler {
   getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[]): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
-  getRequestFromPath(path: string[], in3: { chainId:string}): RPCRequest
+  getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
   checkRegistry(): Promise<any>
   config: IN3RPCHandlerConfig
   watcher?: Watcher

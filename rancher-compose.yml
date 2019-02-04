@@ -335,6 +335,73 @@ services:
       request_line: GET "/health" "HTTP/1.0"
       reinitializing_timeout: 60000
 
+  incubed-goerli-1:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-goerli-2:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-goerli-3:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-goerli-4:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  incubed-goerli-5:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 8500
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/health" "HTTP/1.0"
+      reinitializing_timeout: 60000
+
+
   lb:
     start_on_create: true
     lb_config:
@@ -515,6 +582,41 @@ services:
         priority: 10
         protocol: http
         service: incubed-evan-5
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /goerli/nd-1
+        priority: 2
+        protocol: http
+        service: incubed-goerli-1
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /goerli/nd-2
+        priority: 4
+        protocol: http
+        service: incubed-goerli-2
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /goerli/nd-3
+        priority: 6
+        protocol: http
+        service: incubed-goerli-3
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /goerli/nd-4
+        priority: 8
+        protocol: http
+        service: incubed-goerli-4
+        source_port: 80
+        target_port: 8500
+      - hostname: in3.slock.it
+        path: /goerli/nd-5
+        priority: 10
+        protocol: http
+        service: incubed-goerli-5
         source_port: 80
         target_port: 8500
       - hostname: in3.slock.it
