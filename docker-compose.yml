@@ -545,7 +545,7 @@ services:
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
-    - --registry=0x8B5c564006533a5DA8C69d120c2A564208b4644d
+    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e
     - --persistentFile=false
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
@@ -566,7 +566,7 @@ services:
     - --profile-name=Slockit2
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
-    - --registry=0x8B5c564006533a5DA8C69d120c2A564208b4644d
+    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e
     - --persistentFile=false
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
@@ -586,7 +586,7 @@ services:
     - --profile-name=Slockit3
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
-    - --registry=0x8B5c564006533a5DA8C69d120c2A564208b4644d
+    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e
     - --persistentFile=false
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
@@ -606,7 +606,7 @@ services:
     - --profile-name=Slockit4
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
-    - --registry=0x8B5c564006533a5DA8C69d120c2A564208b4644d
+    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e
     - --persistentFile=false
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
@@ -626,7 +626,7 @@ services:
     - --profile-name=Slockit5
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
-    - --registry=0x8B5c564006533a5DA8C69d120c2A564208b4644d
+    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e
     - --persistentFile=false
     labels:
       io.rancher.scheduler.affinity:host_label: role=application
