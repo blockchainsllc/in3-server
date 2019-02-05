@@ -17,21 +17,22 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import * as fs                      from 'fs'
-import { EventEmitter }             from 'events'
-import { util, LogData }            from 'in3'
-import { sha3, toChecksumAddress }  from 'ethereumjs-util'
-import { rawDecode }                from 'ethereumjs-abi'
+import * as fs from 'fs'
+import { EventEmitter } from 'events'
+import { util, LogData } from 'in3'
+import { sha3, toChecksumAddress } from 'ethereumjs-util'
+import { rawDecode } from 'ethereumjs-abi'
 
-import { RPCHandler }               from '../server/rpc';
-import { getABI }                   from '../util/registry'
-import * as logger                  from '../util/logger'
-import * as tx                      from '../util/tx'
-import { useDB, exec }              from '../util/db'
-import config                       from '../server/config'
+import { RPCHandler } from '../server/rpc';
+import { getABI } from '../util/registry'
+import * as logger from '../util/logger'
+import * as tx from '../util/tx'
+import { useDB, exec } from '../util/db'
+import config from '../server/config'
+import { updateValidatorHistory } from '../server/poa';
 
 const toNumber = util.toNumber
-const toHex    = util.toHex
+const toHex = util.toHex
 const toMinHex = util.toMinHex
 const toBuffer = util.toBuffer
 
@@ -39,20 +40,20 @@ export default class Watcher extends EventEmitter {
 
   _lastBlock: {
     number: number,
-    hash  : string
+    hash: string
   }
 
-  _interval  : any
-  handler    : RPCHandler
-  interval   : number
+  _interval: any
+  handler: RPCHandler
+  interval: number
   persistFile: string
-  running    : boolean
+  running: boolean
 
 
   constructor(handler: RPCHandler, interval = 5, persistFile = 'false', startBlock?: number) {
     super()
-    this.handler     = handler
-    this.interval    = interval
+    this.handler = handler
+    this.interval = interval
     this.persistFile = persistFile === 'false' ? '' : persistFile
     if (startBlock)
       this._lastBlock = { number: startBlock, hash: toHex(0, 32) }
@@ -66,7 +67,7 @@ export default class Watcher extends EventEmitter {
 
   get block(): {
     number: number,
-    hash  : string
+    hash: string
   } {
     if (!this._lastBlock) {
       try {
@@ -141,11 +142,11 @@ export default class Watcher extends EventEmitter {
     }] : [])
     ])
 
-    if (blockResponse.error)   throw new Error('Error getting the block ' + currentBlock + ': ' + blockResponse.error)
+    if (blockResponse.error) throw new Error('Error getting the block ' + currentBlock + ': ' + blockResponse.error)
     if (!blockResponse.result) throw new Error('Invalid Response getting the block ' + currentBlock + ': ' + JSON.stringify(blockResponse))
 
     if (logResponse) {
-      if (logResponse.error)   throw new Error('Error getting the logs : ' + logResponse.error)
+      if (logResponse.error) throw new Error('Error getting the logs : ' + logResponse.error)
 
       const logs = logResponse.result as LogData[]
       if (logs.length) {
@@ -162,6 +163,9 @@ export default class Watcher extends EventEmitter {
 
     // save block
     this.block = { number: currentBlock, hash: toHex(blockResponse.result.hash, 32) }
+
+    // update validators
+    await updateValidatorHistory(this.handler)
 
     return res
   }
@@ -182,7 +186,7 @@ function decodeEvent(log: LogData) {
 }
 
 function fixType(type: string, val: any) {
-  if (type === 'address')      return toChecksumAddress(val)
+  if (type === 'address') return toChecksumAddress(val)
   if (type.startsWith('uint')) return toNumber(val)
   if (type.startsWith('byte')) return toHex(val.startsWith('0x') ? val : '0x' + val)
   return val
@@ -198,9 +202,9 @@ function decodeData(data: any, inputs: { type: string, name: string }[]) {
 }
 
 const abi = getABI('ServerRegistry').filter(_ => _.type === 'event') as {
-  name  : string
+  name: string
   inputs: any[]
-  hash  : string
+  hash: string
 }[]
 abi.forEach(_ => _.hash = toHex(sha3(_.name + '(' + _.inputs.map(i => i.type).join(',') + ')'), 32))
 
@@ -216,9 +220,9 @@ function handleUnregister(ev, handler: RPCHandler) {
 
     return tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'cancelUnregisteringServer(uint)', [node.index], {
       privateKey: handler.config.privateKey,
-      gas       : 400000,
-      value     : 0,
-      confirm   : true
+      gas: 400000,
+      value: 0,
+      confirm: true
     })
       .then(_ => logger.info('called successfully cancelUnregisteringServer! '))
 

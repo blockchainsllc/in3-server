@@ -50,6 +50,13 @@ export interface ValidatorHistory {
     }
 }
 export async function getValidatorHistory(handler: RPCHandler): Promise<ValidatorHistory> {
+    const chain = chains[handler.chainId]
+    const spec = chain && chain.chainSpec
+    const engine = spec && spec.engine as string
+    return !chain ? null : (chain.history || (chain.history = { states: [], lastCheckedBlock: 0, lastValidatorChange: 0, queue: null }))
+
+}
+export async function updateValidatorHistory(handler: RPCHandler): Promise<ValidatorHistory> {
 
     const chain = chains[handler.chainId]
     const spec = chain && chain.chainSpec
@@ -78,6 +85,7 @@ export async function getValidatorHistory(handler: RPCHandler): Promise<Validato
                 history.lastEpoch = { block: 0, epochValidators: spec.genesisValidatorList, validators: [...spec.genesisValidatorList], header: null, pendingVotes: {} }
             }
         }
+
         await updateCliqueHistory(spec.epoch || 30000, handler, history, currentBlock)
     }
 
@@ -118,6 +126,7 @@ function getSigner(block: BlockData) {
 }
 
 function updateVotes(blocks: BlockData[], history: ValidatorHistory) {
+    //    console.log('update votes ' + parseInt(blocks[0].number as any) + ' - ' + parseInt(blocks[blocks.length - 1].number as any))
     history.lastCheckedBlock = parseInt(blocks[blocks.length - 1].number as any)
     for (const b of blocks) {
         const newValidator = b.miner.toLowerCase()
@@ -152,6 +161,7 @@ function updateVotes(blocks: BlockData[], history: ValidatorHistory) {
                 validators: vals,
                 proof
             })
+            console.log("found VOTE for " + newValidator)
             history.lastValidatorChange = history.states[history.states.length - 1].block
 
             delete history.lastEpoch.pendingVotes[newValidator]
@@ -161,6 +171,7 @@ function updateVotes(blocks: BlockData[], history: ValidatorHistory) {
 }
 
 async function updateCliqueHistory(epoch: number, handler: RPCHandler, history: ValidatorHistory, currentBlock: number) {
+
     // collect blockheaders
     const headers: number[] = []
     const len = 100;
