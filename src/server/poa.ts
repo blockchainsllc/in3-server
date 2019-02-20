@@ -53,7 +53,7 @@ export async function getValidatorHistory(handler: RPCHandler): Promise<Validato
     const chain = chains[handler.chainId]
     const spec = chain && chain.chainSpec
     const engine = spec && spec.engine as string
-    return !chain ? null : (chain.history || (chain.history = { states: [], lastCheckedBlock: 0, lastValidatorChange: 0, queue: null }))
+    return !chain ? {} : (chain.history || (chain.history = { states: [], lastCheckedBlock: 0, lastValidatorChange: 0, queue: null }))
 
 }
 export async function updateValidatorHistory(handler: RPCHandler): Promise<ValidatorHistory> {
