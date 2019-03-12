@@ -286,7 +286,7 @@ describe('Convict', () => {
       block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
       const blockNumber = toNumber(block.number)
-      blockHashRegAddress = await deployBlockhashRegistry(pk1)
+      blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
       const contractBlockHash = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber]))[0].toString('hex')
       assert.equal(block.hash, contractBlockHash)
 
