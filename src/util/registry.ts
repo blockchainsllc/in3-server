@@ -62,6 +62,14 @@ export function deployServerRegistry(pk: string, url = 'http://localhost:8545', 
 
 }
 
+export function deployBlockhashRegistry(pk: string, url = "http://localhost:8545", transport?: Transport) {
+  return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('BlockhashRegistry') >= 0)].bin, {
+    privateKey: pk,
+    gas: 3000000,
+    confirm: true
+  }, transport).then(_ => toChecksumAddress(_.contractAddress) as string)
+}
+
 
 export async function registerServers(pk: string, registry: string, data: {
   url: string,

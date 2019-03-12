@@ -25,7 +25,8 @@ import * as tx from '../../src/util/tx'
 import * as ethUtil from 'ethereumjs-util'
 import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
 import Watcher from '../../src/chains/watch'
-import { registerServers } from '../../src/util/registry'
+import { registerServers, deployBlockhashRegistry } from '../../src/util/registry'
+import { Block } from 'in3/js/src/modules/eth/serialize';
 
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
@@ -44,7 +45,7 @@ const sign = (b: BlockData, pk: string, blockHash?: string) => {
 
 describe('Convict', () => {
 
-  
+
 
   it('convict on contracts', async () => {
 
@@ -52,8 +53,8 @@ describe('Convict', () => {
 
     // make sure we have more than 256 blocks in order to test older blocks
     const currentBlock = parseInt(await test.getFromServer('eth_blockNumber'))
-    for (let b = 0; b<256-currentBlock;b++)
-       await test.createAccount()
+    for (let b = 0; b < 256 - currentBlock; b++)
+      await test.createAccount()
 
     // read current Block
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
@@ -76,7 +77,7 @@ describe('Convict', () => {
     // now test if we can send a wrong blockhash, but the block is older than 256 blocks:
 
     // wrong blockhash signed by first node
-    s = sign({number:1} as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
+    s = sign({ number: 1 } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
     // must fail, since we cannot convict with a correct blockhash
     rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
@@ -184,7 +185,7 @@ describe('Convict', () => {
     const watcher = test.handlers['#1'].getHandler().watcher
     // read all events (should be only the 2 register-events
     assert.equal((await watcher.update()).length, 2)
-    const unregisterDeposit = 10000/50
+    const unregisterDeposit = 10000 / 50
 
     const user = await test.createAccount()
 
@@ -231,46 +232,85 @@ describe('Convict', () => {
 
     // register 2 different servers should work
     let registers = await registerServers(pk1, null, [{
-      url:'test1.com',
-      deposit:0,
-      pk:pk1,
-      props:'0xff'
-    },{
-      url:'test2.com',
-      deposit:0,
-      pk:pk2,
-      props:'0xff'
+      url: 'test1.com',
+      deposit: 0,
+      pk: pk1,
+      props: '0xff'
+    }, {
+      url: 'test2.com',
+      deposit: 0,
+      pk: pk2,
+      props: '0xff'
     }], test.chainId, null, test.url, transport, false)
 
     // register same url servers should not work
     await test.mustFail(
       registerServers(pk1, null, [{
-        url:'test1.com',
-        deposit:0,
-        pk:pk1,
-        props:'0xff'
-      },{
-        url:'test1.com',
-        deposit:0,
-        pk:pk2,
-        props:'0xff'
+        url: 'test1.com',
+        deposit: 0,
+        pk: pk1,
+        props: '0xff'
+      }, {
+        url: 'test1.com',
+        deposit: 0,
+        pk: pk2,
+        props: '0xff'
       }], test.chainId, null, test.url, transport, false)
     )
 
     // register same pk servers should not work
     await test.mustFail(
       registerServers(pk1, null, [{
-        url:'test1.com',
-        deposit:0,
-        pk:pk1,
-        props:'0xff'
-      },{
-        url:'test2.com',
-        deposit:0,
-        pk:pk1,
-        props:'0xff'
+        url: 'test1.com',
+        deposit: 0,
+        pk: pk1,
+        props: '0xff'
+      }, {
+        url: 'test2.com',
+        deposit: 0,
+        pk: pk1,
+        props: '0xff'
       }], test.chainId, null, test.url, transport, false)
     )
+  })
+
+  describe('Blockheader contract', () => {
+
+    let blockHashRegAddress
+    let block
+    let test
+
+    it('deploy blockheader contract', async () => {
+      test = await TestTransport.createWithRegisteredServers(2)
+      const pk1 = test.getHandlerConfig(0).privateKey
+      block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+
+      const blockNumber = toNumber(block.number)
+      blockHashRegAddress = await deployBlockhashRegistry(pk1)
+      const contractBlockHash = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber]))[0].toString('hex')
+      assert.equal(block.hash, contractBlockHash)
+
+    })
+
+    it('getParentAndBlockhash', async () => {
+
+      const b = new Block(block)
+      const serializedHeader = b.serializeHeader()
+
+
+      const contractResult = await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [serializedHeader])
+
+      const parentHash = "0x" + contractResult[0].toString('hex')
+      const blockHash = "0x" + contractResult[1].toString('hex')
+
+      assert.equal(parentHash, ((await test.getFromServer('eth_getBlockByHash', block.parentHash, false)) as BlockData).hash)
+      assert.equal(blockHash, block.hash)
+
+
+      //console.log(b.serializeHeader())
+      //  console.log(block)
+    })
+
   })
 })
 
