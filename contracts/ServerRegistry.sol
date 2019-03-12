@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-pragma solidity ^0.4.25;
+pragma solidity ^0.5.4;
 
 /// @title Registry for IN3-Servers
 contract ServerRegistry {
@@ -36,17 +36,17 @@ contract ServerRegistry {
 
     /// a Server is removed
     event LogServerRemoved(string url, address owner);
-
+  
     struct In3Server {
         string url;  // the url of the server
-        address owner; // the owner, which is also the key to sign blockhashes
+        address payable owner; // the owner, which is also the key to sign blockhashes
         uint deposit; // stored deposit
         uint props; // a list of properties-flags representing the capabilities of the server
 
         // unregister state
         uint128 unregisterTime; // earliest timestamp in to to call unregister
         uint128 unregisterDeposit; // Deposit for unregistering
-        address unregisterCaller; // address of the caller requesting the unregister
+        address payable unregisterCaller; // address of the caller requesting the unregister
     }
 
     /// server list of incubed nodes    
@@ -57,12 +57,13 @@ contract ServerRegistry {
     mapping (bytes32 => bool) urlIndex;
     
     /// length of the serverlist
-    function totalServers() public view returns (uint)  {
+    function totalServers() external view returns (uint)  {
         return servers.length;
     }
 
+  
     /// register a new Server with the sender as owner    
-    function registerServer(string _url, uint _props) public payable {
+    function registerServer(string calldata _url, uint _props) external payable {
         checkLimits();
 
         bytes32 urlHash = keccak256(bytes(_url));
@@ -87,7 +88,7 @@ contract ServerRegistry {
     }
 
     /// updates a Server by adding the msg.value to the deposit and setting the props    
-    function updateServer(uint _serverIndex, uint _props) public payable {
+    function updateServer(uint _serverIndex, uint _props) external payable {
         checkLimits();
 
         In3Server storage server = servers[_serverIndex];
@@ -110,7 +111,7 @@ contract ServerRegistry {
     ///    in this case he needs to pay a small deposit, which he will lose 
     //       if the owner become active again 
     //       or the caller will receive 20% of the deposit in case the owner does not react.
-    function requestUnregisteringServer(uint _serverIndex) payable public {
+    function requestUnregisteringServer(uint _serverIndex) payable external {
 
         In3Server storage server = servers[_serverIndex];
 
@@ -132,7 +133,7 @@ contract ServerRegistry {
     /// this function must be called by the caller of the requestUnregisteringServer-function after 28 days
     /// if the owner did not cancel, the caller will receive 20% of the server deposit + his own deposit.
     /// the owner will receive 80% of the server deposit before the server will be removed.
-    function confirmUnregisteringServer(uint _serverIndex) public {
+    function confirmUnregisteringServer(uint _serverIndex) external {
         In3Server storage server = servers[_serverIndex];
         // this can only be called if somebody requested it before
         require(server.unregisterCaller != address(0x0) && server.unregisterTime < now, "Only the caller is allowed to confirm");
@@ -151,7 +152,7 @@ contract ServerRegistry {
 
     /// this function must be called by the owner to cancel the unregister-process.
     /// if the caller is not the owner, then he will also get the deposit paid by the caller.
-    function cancelUnregisteringServer(uint _serverIndex) public {
+    function cancelUnregisteringServer(uint _serverIndex) external {
         In3Server storage server = servers[_serverIndex];
 
         // this can only be called by the owner and if somebody requested it before
@@ -173,7 +174,7 @@ contract ServerRegistry {
 
 
     /// convicts a server that signed a wrong blockhash
-    function convict(uint _serverIndex, bytes32 _blockhash, uint _blocknumber, uint8 _v, bytes32 _r, bytes32 _s) public {
+    function convict(uint _serverIndex, bytes32 _blockhash, uint _blocknumber, uint8 _v, bytes32 _r, bytes32 _s) external {
         bytes32 evm_blockhash = blockhash(_blocknumber);
         
         // if the blockhash is correct you cannot convict the server
@@ -181,7 +182,7 @@ contract ServerRegistry {
 
         // make sure the hash was signed by the owner of the server
         require(
-            ecrecover(keccak256(_blockhash, _blocknumber), _v, _r, _s) == servers[_serverIndex].owner, 
+            ecrecover(keccak256(abi.encodePacked(_blockhash, _blocknumber)), _v, _r, _s) == servers[_serverIndex].owner, 
             "the block was not signed by the owner of the server");
 
         // remove the deposit
@@ -232,5 +233,5 @@ contract ServerRegistry {
         if (now < 1560808800)
            require(address(this).balance < 50 ether, "Limit of 50 ETH reached");
     }
-
+    
 }

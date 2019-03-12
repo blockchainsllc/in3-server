@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-pragma solidity ^0.4.19;
+pragma solidity ^0.5.4;
 
 contract ChainRegistry {
 
@@ -33,9 +33,9 @@ contract ChainRegistry {
 
     event LogChainRegistered(bytes32 indexed chain);
 
-    function registerChain(bytes32 chain, string bootNodes, string meta, address registryContract, bytes32 contractChain) public {
+    function registerChain(bytes32 chain, string calldata bootNodes, string calldata meta, address registryContract, bytes32 contractChain) external {
         Chain storage data = chains[chain];
-        require(data.owner==0x0 || data.owner==msg.sender);
+        require(data.owner==address(0x0) || data.owner==msg.sender);
         data.bootNodes = bootNodes;
         data.owner = msg.sender;
         data.registryContract = registryContract;
