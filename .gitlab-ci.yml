@@ -30,7 +30,7 @@ compile-contracts:
     - docker:dind
   image: jonaskello/docker-and-compose:latest
   script:
-    - docker run --rm -v $(pwd)/contracts:/contracts ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/ServerRegistry.sol /contracts/ChainRegistry.sol > contracts/contracts.json
+    - npm run updateContracts
   artifacts:
     paths:
       - contracts/contracts.json
