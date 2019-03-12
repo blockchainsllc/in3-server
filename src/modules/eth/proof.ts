@@ -229,6 +229,26 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
   return response
 }
 
+export async function handeGetTransactionFromBlock(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
+  // ask the server for the tx
+  const response = await handler.getFromServer(request)
+  const tx = response && response.result as any
+  // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
+  if (tx && tx.blockNumber) {
+    // get the block including all transactions from the server
+    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(request.params[0]), true] }).then(_ => _ && _.result as any)
+    if (block)
+      // create the proof
+      response.in3 = {
+        proof: await createTransactionProof(block, block.transactions[request.params[1]].hash as string,
+          await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
+          request.in3.verifiedHashes) as any
+      }
+    return addFinality(request, response, block, handler)
+  }
+  return response
+}
+
 
 export async function handeGetTransactionReceipt(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   // ask the server for the tx
@@ -462,8 +482,3 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
       }
     }, block, handler)
 }
-
-
-
-
-
