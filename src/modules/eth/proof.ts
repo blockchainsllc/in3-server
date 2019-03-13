@@ -236,11 +236,11 @@ export async function handeGetTransactionFromBlock(handler: EthHandler, request:
   // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
   if (tx && tx.blockNumber) {
     // get the block including all transactions from the server
-    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(request.params[0]), true] }).then(_ => _ && _.result as any)
+    const block = await handler.getFromServer({ method: 'eth_getBlockByHash', params: [request.params[0], true] }).then(_ => _ && _.result as any)
     if (block)
       // create the proof
       response.in3 = {
-        proof: await createTransactionProof(block, block.transactions[request.params[1]].hash as string,
+        proof: await createTransactionProof(block, block.transactions[parseInt(request.params[1])].hash as string,
           await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
           request.in3.verifiedHashes) as any
       }

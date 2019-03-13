@@ -131,7 +131,7 @@ describe('ETH Standard JSON-RPC', () => {
       confirm: true
     })
 
-    const res = await client.sendRPC('eth_getTransactionByBlockHashAndIndex', [receipt.blockHash,receipt.transactionIndex], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getTransactionByBlockHashAndIndex', [receipt.blockHash ,receipt.transactionIndex], null, { keepIn3: true })
     const result = res.result
     assert.exists(res.in3)
     assert.exists(res.in3.proof)
