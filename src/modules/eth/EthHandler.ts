@@ -81,7 +81,7 @@ export default class EthHandler extends BaseHandler {
         case 'eth_getBlockTransactionCountByNumber':
           return handleBlock(this, request)
         case 'eth_getTransactionByBlockHashAndIndex':
-        case 'eth_getTransactionFromBlock':
+        case 'eth_getTransactionByBlockNumberAndIndex':
           return handeGetTransactionFromBlock(this, request)
         case 'eth_getTransactionByHash':
           return handeGetTransaction(this, request)
