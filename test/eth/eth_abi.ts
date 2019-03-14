@@ -157,6 +157,113 @@ describe('ETH Standard JSON-RPC', () => {
 
   })
 
+  it('eth_getTransactionByBlockNumberAndIndex', async () => {
+    const test = new TestTransport(3) // create a network of 3 nodes
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
+
+    // create 2 accounts
+    const pk1 = await test.createAccount('0x01')
+    const pk2 = await test.createAccount('0x02')
+
+    // send 1000 wei from a to b
+    const receipt = await tx.sendTransaction(test.url, {
+      privateKey: pk1,
+      gas: 22000,
+      to: util.getAddress(pk2),
+      data: '',
+      value: 1000,
+      confirm: true
+    })
+
+    const res = await client.sendRPC('eth_getTransactionByBlockNumberAndIndex', [receipt.blockNumber ,receipt.transactionIndex], null, { keepIn3: true })
+    const result = res.result
+    assert.exists(res.in3)
+    assert.exists(res.in3.proof)
+    const proof = res.in3.proof as any
+    assert.equal(proof.type, 'transactionProof')
+    assert.exists(proof.block)
+
+
+    const b = await client.sendRPC('eth_getBlockByNumber', [receipt.blockNumber, true], null, { keepIn3: true })
+    logger.info('found Block:', b.result)
+    const block = new serialize.Block(b.result)
+
+    assert.equal('0x' + block.hash().toString('hex').toLowerCase(), (res.result as any).blockHash, 'the hash of the blockheader in the proof must be the same as the blockHash in the Transactiondata')
+
+    // check blocknumber
+    assert.equal(parseInt('0x' + block.number.toString('hex')), parseInt(result.blockNumber), 'we must use the same blocknumber as in the transactiondata')
+
+    logger.info('result', res)
+
+    await test.detectFraud(client,'eth_getTransactionByHash',[receipt.transactionHash],null,(req,re)=>{
+      re.result.to = re.result.from
+    })
+
+  })
+
+  it('eth_getTransactionByBlockHashAndIndex', async () => {
+    const test = new TestTransport(3) // create a network of 3 nodes
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
+
+    // create 2 accounts
+    const pk1 = await test.createAccount('0x01')
+    const pk2 = await test.createAccount('0x02')
+
+    // send 1000 wei from a to b
+    const receipt = await tx.sendTransaction(test.url, {
+      privateKey: pk1,
+      gas: 22000,
+      to: util.getAddress(pk2),
+      data: '',
+      value: 1000,
+      confirm: true
+    })
+
+    const res = await client.sendRPC('eth_getTransactionByBlockHashAndIndex', [receipt.blockHash ,receipt.transactionIndex + 1], null, { keepIn3: true })
+    const result = res.result
+    assert.isNull(result)
+    assert.equal(res.in3.lastValidatorChange, 0)
+    assert.equal(res.in3.lastNodeList, 0)
+
+    const b = await client.sendRPC('eth_getBlockByHash', [receipt.blockHash, true], null, { keepIn3: true })
+    logger.info('found Block:', b.result)
+    assert.isNotNull(b.result)
+    assert.notExists(b.result.transactions[receipt.transactionIndex + 1])
+
+  })
+
+  it('eth_getTransactionByBlockNumberAndIndex', async () => {
+    const test = new TestTransport(3) // create a network of 3 nodes
+    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
+
+    // create 2 accounts
+    const pk1 = await test.createAccount('0x01')
+    const pk2 = await test.createAccount('0x02')
+
+    // send 1000 wei from a to b
+    const receipt = await tx.sendTransaction(test.url, {
+      privateKey: pk1,
+      gas: 22000,
+      to: util.getAddress(pk2),
+      data: '',
+      value: 1000,
+      confirm: true
+    })
+
+    const res = await client.sendRPC('eth_getTransactionByBlockNumberAndIndex', [receipt.blockNumber ,receipt.transactionIndex + 1], null, { keepIn3: true })
+    const result = res.result
+    assert.isNull(result)
+    assert.equal(res.in3.lastValidatorChange, 0)
+    assert.equal(res.in3.lastNodeList, 0)
+
+
+    const b = await client.sendRPC('eth_getBlockByNumber', [receipt.blockNumber, true], null, { keepIn3: true })
+    logger.info('found Block:', b.result)
+    assert.isNotNull(b.result)
+    assert.notExists(b.result.transactions[receipt.transactionIndex + 1])
+    
+  })
+
   it('eth_getTransactionReceipt', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
     const client = await test.createClient({ proof: 'standard', requestCount: 1 })

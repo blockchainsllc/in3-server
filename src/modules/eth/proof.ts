@@ -234,20 +234,20 @@ export async function handeGetTransactionFromBlock(handler: EthHandler, request:
   const response = await handler.getFromServer(request)
   const tx = response && response.result as any
   // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
-  if (tx && tx.blockNumber) {
-    // get the block including all transactions from the server
-    let block
+  let block
+  
+  if (request.method === "eth_getTransactionByBlockHashAndIndex")
+    block = await handler.getFromServer({ method: 'eth_getBlockByHash', params: [request.params[0], true] }).then(_ => _ && _.result as any)
+  else if (request.method === "eth_getTransactionByBlockNumberAndIndex")
+    block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [request.params[0], true] }).then(_ => _ && _.result as any)
 
-    if (request.method === "eth_getTransactionByBlockHashAndIndex") block = await handler.getFromServer({ method: 'eth_getBlockByHash', params: [request.params[0], true] }).then(_ => _ && _.result as any)
-    else if (request.method === "eth_getTransactionByBlockNumberAndIndex") block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [request.params[0], true] }).then(_ => _ && _.result as any)
-
-    if (block)
-      // create the proof
-      response.in3 = {
-        proof: await createTransactionProof(block, block.transactions[parseInt(request.params[1])].hash as string,
-          await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
-          request.in3.verifiedHashes) as any
-      }
+  if (tx && block) {
+    // create the proof
+    response.in3 = {
+      proof: await createTransactionProof(block, block.transactions[parseInt(request.params[1])].hash as string,
+        await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
+        request.in3.verifiedHashes) as any
+    }
     return addFinality(request, response, block, handler)
   }
   return response
