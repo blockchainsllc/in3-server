@@ -20,6 +20,7 @@
 import { LogProof, LogData, RPCRequest, RPCResponse, BlockData, Signature, Proof, ReceiptData, serialize, util, TransactionData, header } from 'in3'
 import { rlp, toChecksumAddress } from 'ethereumjs-util'
 import * as Trie from 'merkle-patricia-tree'
+import In3Trie from 'in3-trie'
 import EthHandler from './EthHandler'
 import { collectSignatures } from '../../chains/signatures'
 import * as evm from './evm_trace'
@@ -100,34 +101,31 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
 /** creates the merkle-proof for a transation */
 export async function createTransactionFromBlockProof(block: BlockData, txIndex: number, signatures: Signature[], verifiedHashes: string[]): Promise<Proof> {
   // create trie
-  const trie = new Trie()
+  const trie = new In3Trie()
   // fill in all transactions
-  await Promise.all(block.transactions.map(tx => new Promise((resolve, reject) =>
-    trie.put(
+  await Promise.all(block.transactions.map(tx =>
+    trie.setValue(
       rlp.encode(parseInt(tx.transactionIndex)), // path as txIndex
       serialize.createTx(tx).serialize(),  // raw transactions
-      error => error ? reject(error) : resolve(true)
     )
-  )))
+  ))
 
   // check roothash
   if (block.transactionsRoot !== '0x' + trie.root.toString('hex'))
     throw new Error('The transactionHash is wrong! : ' + block.transactionsRoot + '!==0x' + trie.root.toString('hex'))
 
-  if(!block.transactions[txIndex]) {
-    txIndex = -1
+  //create proof
+  const proof: Proof = {
+    type: 'transactionProof',
+    block: createBlock(block, verifiedHashes),
+    merkleProof: (await trie.getProof(rlp.encode(txIndex))).map(proof => {
+      return toHex(proof).toString()
+    }),
+    txIndex,
+    signatures
   }
-  // create prove
-  return new Promise<Proof>((resolve, reject) =>
-    Trie.prove(trie, rlp.encode(txIndex), (err, prove) => {
-      if (err) return reject(err)
-      resolve({
-        type: 'transactionProof',
-        block: createBlock(block, verifiedHashes),
-        merkleProof: prove.map(toHex),
-        txIndex, signatures
-      })
-    }))
+
+  return proof
 }
 
 /** creates the merkle-proof for a transation */
