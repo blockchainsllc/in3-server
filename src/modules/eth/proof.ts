@@ -98,6 +98,39 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
 }
 
 /** creates the merkle-proof for a transation */
+export async function createTransactionFromBlockProof(block: BlockData, txIndex: number, signatures: Signature[], verifiedHashes: string[]): Promise<Proof> {
+  // create trie
+  const trie = new Trie()
+  // fill in all transactions
+  await Promise.all(block.transactions.map(tx => new Promise((resolve, reject) =>
+    trie.put(
+      rlp.encode(parseInt(tx.transactionIndex)), // path as txIndex
+      serialize.createTx(tx).serialize(),  // raw transactions
+      error => error ? reject(error) : resolve(true)
+    )
+  )))
+
+  // check roothash
+  if (block.transactionsRoot !== '0x' + trie.root.toString('hex'))
+    throw new Error('The transactionHash is wrong! : ' + block.transactionsRoot + '!==0x' + trie.root.toString('hex'))
+
+  if(!block.transactions[txIndex]) {
+    txIndex = -1
+  }
+  // create prove
+  return new Promise<Proof>((resolve, reject) =>
+    Trie.prove(trie, rlp.encode(txIndex), (err, prove) => {
+      if (err) return reject(err)
+      resolve({
+        type: 'transactionProof',
+        block: createBlock(block, verifiedHashes),
+        merkleProof: prove.map(toHex),
+        txIndex, signatures
+      })
+    }))
+}
+
+/** creates the merkle-proof for a transation */
 export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], useFull = false): Promise<Proof> {
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
@@ -230,22 +263,23 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
 }
 
 export async function handeGetTransactionFromBlock(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
-  // ask the server for the tx
-  const response = await handler.getFromServer(request)
-  const tx = response && response.result as any
   // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
   let block
-  
+
   if (request.method === "eth_getTransactionByBlockHashAndIndex")
     block = await handler.getFromServer({ method: 'eth_getBlockByHash', params: [request.params[0], true] }).then(_ => _ && _.result as any)
   else if (request.method === "eth_getTransactionByBlockNumberAndIndex")
     block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [request.params[0], true] }).then(_ => _ && _.result as any)
 
-  if (tx && block) {
+  // ask the server for the tx
+  const response = await handler.getFromServer(request)
+  const tx = response && response.result as any
+
+  if (block) {
     // create the proof
     response.in3 = {
-      proof: await createTransactionProof(block, block.transactions[parseInt(request.params[1])].hash as string,
-        await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
+      proof: await createTransactionFromBlockProof(block, parseInt(request.params[1]),
+        await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
         request.in3.verifiedHashes) as any
     }
     return addFinality(request, response, block, handler)

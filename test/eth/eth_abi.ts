@@ -201,7 +201,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   })
 
-  it('eth_getTransactionByBlockHashAndIndex', async () => {
+  it('eth_getTransactionByBlockHashAndIndex(failing)', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
     const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
@@ -232,7 +232,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   })
 
-  it('eth_getTransactionByBlockNumberAndIndex', async () => {
+  it('eth_getTransactionByBlockNumberAndIndex(failing)', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
     const client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
@@ -261,7 +261,7 @@ describe('ETH Standard JSON-RPC', () => {
     logger.info('found Block:', b.result)
     assert.isNotNull(b.result)
     assert.notExists(b.result.transactions[receipt.transactionIndex + 1])
-    
+
   })
 
   it('eth_getTransactionReceipt', async () => {
