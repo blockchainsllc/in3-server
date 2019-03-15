@@ -106,7 +106,7 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
   await Promise.all(block.transactions.map(tx =>
     trie.setValue(
       rlp.encode(parseInt(tx.transactionIndex)), // path as txIndex
-      serialize.createTx(tx).serialize(),  // raw transactions
+      serialize.createTx(tx).serialize()  // raw transactions
     )
   ))
 
@@ -269,9 +269,14 @@ export async function handeGetTransactionFromBlock(handler: EthHandler, request:
   else if (request.method === "eth_getTransactionByBlockNumberAndIndex")
     block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [request.params[0], true] }).then(_ => _ && _.result as any)
 
-  // ask the server for the tx
-  const response = await handler.getFromServer(request)
-  const tx = response && response.result as any
+    const response: RPCResponse = {
+      jsonrpc: '2.0',
+      id: request.id,
+      result: null
+    }
+
+    // find the transaction in the block
+    response.result = block.transactions[parseInt(request.params[1])] ? block.transactions[parseInt(request.params[1])] : null
 
   if (block) {
     // create the proof
