@@ -103,12 +103,8 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
   // create trie
   const trie = new In3Trie()
   // fill in all transactions
-  await Promise.all(block.transactions.map(tx =>
-    trie.setValue(
-      rlp.encode(parseInt(tx.transactionIndex)), // path as txIndex
-      serialize.createTx(tx).serialize()  // raw transactions
-    )
-  ))
+  for(const tx of block.transactions)
+    await trie.setValue(rlp.encode(parseInt(tx.transactionIndex)), serialize.serialize(serialize.toTransaction(tx)))
 
   // check roothash
   if (block.transactionsRoot !== '0x' + trie.root.toString('hex'))
