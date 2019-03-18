@@ -20,6 +20,7 @@
 import { LogProof, LogData, RPCRequest, RPCResponse, BlockData, Signature, Proof, ReceiptData, serialize, util, TransactionData, header } from 'in3'
 import { rlp, toChecksumAddress } from 'ethereumjs-util'
 import * as Trie from 'merkle-patricia-tree'
+import In3Trie from 'in3-trie'
 import EthHandler from './EthHandler'
 import { collectSignatures } from '../../chains/signatures'
 import * as evm from './evm_trace'
@@ -95,6 +96,36 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
         txIndex, signatures
       })
     }))
+}
+
+/** creates the merkle-proof for a transation */
+export async function createTransactionFromBlockProof(block: BlockData, txIndex: number, signatures: Signature[], verifiedHashes: string[]): Promise<Proof> {
+  // create trie
+  const trie = new In3Trie()
+  // fill in all transactions
+  await Promise.all(block.transactions.map(tx =>
+    trie.setValue(
+      rlp.encode(parseInt(tx.transactionIndex)), // path as txIndex
+      serialize.createTx(tx).serialize()  // raw transactions
+    )
+  ))
+
+  // check roothash
+  if (block.transactionsRoot !== '0x' + trie.root.toString('hex'))
+    throw new Error('The transactionHash is wrong! : ' + block.transactionsRoot + '!==0x' + trie.root.toString('hex'))
+
+  //create proof
+  const proof: Proof = {
+    type: 'transactionProof',
+    block: createBlock(block, verifiedHashes),
+    merkleProof: (await trie.getProof(rlp.encode(txIndex))).map(proof => {
+      return toHex(proof).toString()
+    }),
+    txIndex,
+    signatures
+  }
+
+  return proof
 }
 
 /** creates the merkle-proof for a transation */
@@ -224,6 +255,36 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
           await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
           request.in3.verifiedHashes) as any
       }
+    return addFinality(request, response, block, handler)
+  }
+  return response
+}
+
+export async function handeGetTransactionFromBlock(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
+  // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
+  let block
+
+  if (request.method === "eth_getTransactionByBlockHashAndIndex")
+    block = await handler.getFromServer({ method: 'eth_getBlockByHash', params: [request.params[0], true] }).then(_ => _ && _.result as any)
+  else if (request.method === "eth_getTransactionByBlockNumberAndIndex")
+    block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [request.params[0], true] }).then(_ => _ && _.result as any)
+
+    const response: RPCResponse = {
+      jsonrpc: '2.0',
+      id: request.id,
+      result: null
+    }
+
+    // find the transaction in the block
+    response.result = block.transactions[parseInt(request.params[1])] ? block.transactions[parseInt(request.params[1])] : null
+
+  if (block) {
+    // create the proof
+    response.in3 = {
+      proof: await createTransactionFromBlockProof(block, parseInt(request.params[1]),
+        await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
+        request.in3.verifiedHashes) as any
+    }
     return addFinality(request, response, block, handler)
   }
   return response
@@ -462,8 +523,3 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
       }
     }, block, handler)
 }
-
-
-
-
-

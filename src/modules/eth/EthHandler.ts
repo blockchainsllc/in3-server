@@ -20,7 +20,7 @@
 import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec , util as in3Util, header } from 'in3'
 import { simpleEncode, simpleDecode }                                                                               from 'ethereumjs-abi'
 
-import { handeGetTransaction, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs }      from './proof'
+import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs }      from './proof'
 import BaseHandler                                                                                                  from '../../chains/BaseHandler'
 import { handleSign }                                                                                               from '../../chains/signatures';
 
@@ -70,7 +70,7 @@ export default class EthHandler extends BaseHandler {
       request.method='eth_call'
       request.params= createCallParams(request)
     }
-       
+
 
     // handle special jspn-rpc
     if (request.in3.verification.startsWith('proof'))
@@ -80,6 +80,9 @@ export default class EthHandler extends BaseHandler {
         case 'eth_getBlockTransactionCountByHash':
         case 'eth_getBlockTransactionCountByNumber':
           return handleBlock(this, request)
+        case 'eth_getTransactionByBlockHashAndIndex':
+        case 'eth_getTransactionByBlockNumberAndIndex':
+          return handeGetTransactionFromBlock(this, request)
         case 'eth_getTransactionByHash':
           return handeGetTransaction(this, request)
         case 'eth_getTransactionReceipt':
@@ -98,7 +101,7 @@ export default class EthHandler extends BaseHandler {
 
       }
 
-    // handle in3-methods  
+    // handle in3-methods
     switch (request.method) {
 
       case 'eth_sign':
@@ -127,11 +130,11 @@ export default class EthHandler extends BaseHandler {
         case 'nonce'  : return { ...r, method: 'eth_getTransactionCount'}
         case 'code'   : return { ...r, method: 'eth_getCode'}
         case 'storage': return { ...r, method: 'eth_getStorageAt', params:[contract,path[2],'latest']}
-        default       : 
+        default       :
           return { ...r, method: 'in3_call', params:[contract, method,...path.slice(2).join('/').split(',').filter(_ => _).map(_ => _ === 'true' ? true : _ === 'false' ? false : _)]}
       }
     }
-    else if (path[0] && path[0].startsWith('0x') && path[0].length>43)       
+    else if (path[0] && path[0].startsWith('0x') && path[0].length>43)
        return { id:1, jsonrpc:'2.0', method:'eth_getTransactionReceipt', params:[path[0]], in3}
     else if (path[0] && (parseInt(path[0]) || path[0]==='latest'))
        return { id:1, jsonrpc:'2.0', method:'eth_getBlockByNumber', params:[path[0]==='latest' ? 'latest':'0x'+parseInt(path[0]).toString(16) ,false], in3}
@@ -144,7 +147,7 @@ export default class EthHandler extends BaseHandler {
      const spec = this.getChainSpec()
      return spec ? this.authorities = await header.getAuthorities(spec,blockNumber, this.getFromServer.bind(this)) : (this.authorities=[])
   }
-  
+
 
 
   getChainSpec():ChainSpec {
@@ -195,4 +198,3 @@ function createCallParams(request: RPCRequest):any[] {
 
   return [{to:contract, data: '0x'+simpleEncode(method,...values).toString('hex')},params[types.length+2] || 'latest']
 }
-
