@@ -21,7 +21,7 @@ import { simpleEncode, simpleDecode, methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress, BN, keccak256 } from 'ethereumjs-util'
 import Client, { Transport, AxiosTransport, RPCResponse, util, transport } from 'in3'
 import * as ETx from 'ethereumjs-tx'
-
+import { ethers } from 'ethers'
 
 const toHex = util.toHex
 
@@ -56,7 +56,23 @@ export async function callContract(url: string, contract: string, signature: str
   confirm?: boolean
 }, transport?: Transport) {
   if (!transport) transport = new AxiosTransport()
-  const data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
+  //const data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
+
+  let data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
+
+  if (signature === 'calculateBlockheaders(bytes[],bytes32):(bytes32)'
+    || signature === 'recreateBlockheaders(uint,bytes[])') {
+
+    const signaturesplit = signature.split(':')[0]
+
+    const typeTest = signaturesplit.substring(signaturesplit.indexOf('(') + 1, (signaturesplit.indexOf(')')))
+
+    const typeArray = typeTest.split(",")
+    const methodHash = '0x' + (methodID(signature.substr(0, signature.indexOf('(')), typeArray)).toString('hex')
+
+    data = methodHash + ethers.utils.defaultAbiCoder.encode(typeArray, args).substr(2)
+
+  }
 
   if (txargs)
     return sendTransaction(url, { ...txargs, to: contract, data }, transport)
@@ -70,7 +86,7 @@ export async function callContract(url: string, contract: string, signature: str
     },
       'latest']
   }).then((_: RPCResponse) => _.error
-    ? Promise.reject(new Error('Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
+    ? Promise.reject(new Error('Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify('args') + ':' + _.error)) as any
     : _.result + ''
   )))
 }
