@@ -223,10 +223,10 @@ describe('Blockheader contract', () => {
         }
     })
 
-    it('create 260 blocks', async () => {
+    it('create 150 blocks', async () => {
         const test = await TestTransport.createWithRegisteredServers(2)
 
-        for (let i = 0; i < 260; i++) {
+        for (let i = 0; i < 150; i++) {
             await test.createAccount()
         }
     })
