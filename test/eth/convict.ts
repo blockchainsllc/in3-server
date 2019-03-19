@@ -25,7 +25,7 @@ import * as tx from '../../src/util/tx'
 import * as ethUtil from 'ethereumjs-util'
 import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
 import Watcher from '../../src/chains/watch'
-import { registerServers } from '../../src/util/registry'
+import { registerServers, deployBlockhashRegistry } from '../../src/util/registry'
 
 
 
@@ -53,13 +53,43 @@ describe('Convict', () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
 
+    const blockHashRegAddress = await deployBlockhashRegistry(test.getHandlerConfig(0).privateKey, test.url)
+
+    // setting the blockhash registry once
+    await tx.callContract(test.url, test.nodeList.contract, 'setBlockRegistry(address)', [blockHashRegAddress], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    })
+
+
+    // must fail, since we already registerd a contract
+    let rbhr = await tx.callContract(test.url, test.nodeList.contract, 'setBlockRegistry(address)', [blockHashRegAddress], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false)
+
+    assert.isFalse(rbhr, 'Transaction must fail, we already registered a contract')
+
+    // creating a snaphsot
+    const snapshotreceipt = await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+
+    const blockNumberInSnapshot = toNumber(snapshotreceipt.blockNumber) - 1
+    const contractBlockHash = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumberInSnapshot]))[0].toString('hex')
+
+
     // make sure we have more than 256 blocks in order to test older blocks
     const currentBlock = parseInt(await test.getFromServer('eth_blockNumber'))
-    for (let b = 0; b < 256 - currentBlock; b++)
+    //for (let b = 0; b < 256 - currentBlock; b++) {
+    for (let b = 0; b < 300; b++) {
       await test.createAccount()
+    }
 
     // read current Block
-    const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+    let block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
     // create a event-watcher starting with the current block
     const watcher = new Watcher(test.getHandler(0), 0, null, toNumber(block.number))
 
@@ -90,11 +120,23 @@ describe('Convict', () => {
 
     assert.isFalse(rc, 'Transaction must fail, because the block is too old')
 
-    // now try a successfull convict with a wrong blockhash
+    block = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumberInSnapshot), false) as BlockData
+    s = sign(block, test.getHandlerConfig(0).privateKey)
+    // must fail, since we cannot convict with a correct blockhash
+    rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false)
 
+    assert.isFalse(rc, 'Transaction must fail, because block is correct')
+
+    // must fail, since we cannot convict with a correct blockhash
 
     // wrong blockhash signed by first node
-    s = sign(block, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
+    //s = sign(block, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
+    s = sign({ number: blockNumberInSnapshot } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
 
     // the sender to convit will be second node
     const sender = util.getAddress(test.getHandlerConfig(1).privateKey)
@@ -122,8 +164,6 @@ describe('Convict', () => {
 
 
   }).timeout(50000)
-
-
 
   it('verify and convict', async () => {
 
