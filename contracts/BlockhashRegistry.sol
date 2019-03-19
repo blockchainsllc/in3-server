@@ -56,7 +56,7 @@ contract BlockhashRegistry {
     }
 
     // starts with a given blockhash and adds earlier blocks
-    function calculateBlockheaders(bytes[] memory _blockheaders, bytes32 _bHash) public view returns (bytes32 bhash) {
+    function calculateBlockheaders(bytes[] memory _blockheaders, bytes32 _bHash) public pure returns (bytes32 bhash) {
 
         bytes32 currentBlockhash = _bHash;
         bytes32 calcParent = 0x0;

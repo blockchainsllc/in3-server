@@ -19,6 +19,8 @@
 
 pragma solidity ^0.5.4;
 
+import "./BlockhashRegistry.sol";
+
 /// @title Registry for IN3-Servers
 contract ServerRegistry {
 
@@ -40,6 +42,8 @@ contract ServerRegistry {
     struct In3Server {
         string url;  // the url of the server
         address payable owner; // the owner, which is also the key to sign blockhashes
+        uint64 timeout; // timeout after which the owner is allowed to receive his stored deposit
+
         uint deposit; // stored deposit
         uint props; // a list of properties-flags representing the capabilities of the server
 
@@ -52,9 +56,17 @@ contract ServerRegistry {
     /// server list of incubed nodes    
     In3Server[] public servers;
 
+    BlockhashRegistry blockRegistry;
+
+
     // index for unique url and owner
     mapping (address => bool) ownerIndex;
     mapping (bytes32 => bool) urlIndex;
+
+    function setBlockRegistry(address _registry) external {
+        require(address(blockRegistry) == address(0x0),"blockRegistry already registered");
+        blockRegistry = BlockhashRegistry(_registry);
+    }
     
     /// length of the serverlist
     function totalServers() external view returns (uint)  {
@@ -77,6 +89,7 @@ contract ServerRegistry {
         m.props = _props;
         m.owner = msg.sender;
         m.deposit = msg.value;
+        m.timeout = 1 hours;
         servers.push(m);
 
         // make sure they are used
@@ -102,6 +115,14 @@ contract ServerRegistry {
         emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
     }
 
+    function updateTimeout(uint _serverIndex, uint64 _timeout) external { 
+        In3Server storage server = servers[_serverIndex];
+        require(server.owner == msg.sender, "only the owner may update the timeout");
+
+        require(server.timeout < _timeout, "only increasing the timeout is allowed");
+        server.timeout = _timeout;
+    }
+
     /// this should be called before unregistering a server.
     /// there are 2 use cases:
     /// a) the owner wants to stop offering the service and remove the server.
@@ -119,7 +140,7 @@ contract ServerRegistry {
         require(server.unregisterCaller == address(0x0), "Server is already unregistering");
 
         if (server.unregisterCaller == server.owner) 
-           server.unregisterTime = uint128(now + 1 hours);
+           server.unregisterTime = uint128(now + server.timeout);
         else {
             server.unregisterTime = uint128(now + 28 days); // 28 days are always good ;-) 
             // the requester needs to pay the unregisterDeposit in order to spam-protect the server
@@ -176,6 +197,10 @@ contract ServerRegistry {
     /// convicts a server that signed a wrong blockhash
     function convict(uint _serverIndex, bytes32 _blockhash, uint _blocknumber, uint8 _v, bytes32 _r, bytes32 _s) external {
         bytes32 evm_blockhash = blockhash(_blocknumber);
+
+        if(evm_blockhash == 0x0) {
+            evm_blockhash = blockRegistry.blockhashMapping(_blocknumber);
+        }
         
         // if the blockhash is correct you cannot convict the server
         require(evm_blockhash != 0x0 && evm_blockhash != _blockhash, "the block is too old or you try to convict with a correct hash");
