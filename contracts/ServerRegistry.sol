@@ -41,6 +41,7 @@ contract ServerRegistry {
   
     struct In3Server {
         string url;  // the url of the server
+
         address payable owner; // the owner, which is also the key to sign blockhashes
         uint64 timeout; // timeout after which the owner is allowed to receive his stored deposit
 
@@ -138,6 +139,8 @@ contract ServerRegistry {
 
         // this can only be called if nobody requested it before
         require(server.unregisterCaller == address(0x0), "Server is already unregistering");
+       
+        server.unregisterCaller = msg.sender;
 
         if (server.unregisterCaller == server.owner) 
            server.unregisterTime = uint128(now + server.timeout);
@@ -147,7 +150,6 @@ contract ServerRegistry {
             require(msg.value == calcUnregisterDeposit(_serverIndex), "the exact calcUnregisterDeposit is required to request unregister");
             server.unregisterDeposit = uint128(msg.value);
         }
-        server.unregisterCaller = msg.sender;
         emit LogServerUnregisterRequested(server.url, server.owner, msg.sender);
     }
     
