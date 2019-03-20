@@ -15,8 +15,7 @@ contract BlockhashRegistry {
     function snapshot() public {
 
         // blockhash cannot return the current block, so we use the block before the current one
-        uint prevBlockNumber = block.number-1;
-        saveBlockNumber(prevBlockNumber);
+        saveBlockNumber(block.number-1);
     }
 
     // stores a certain blockhash to the state
