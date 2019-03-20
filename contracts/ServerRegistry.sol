@@ -57,7 +57,7 @@ contract ServerRegistry {
     /// server list of incubed nodes    
     In3Server[] public servers;
 
-    BlockhashRegistry blockRegistry;
+    BlockhashRegistry public blockRegistry;
 
 
     // index for unique url and owner
