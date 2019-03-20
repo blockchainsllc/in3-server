@@ -322,7 +322,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
         createTransactionReceiptProof(b, allReceipts, th, [], request.in3.verifiedHashes)
           .then(p => blockProof.receipts[th] = {
             txHash: th,
-            txIndex: parseInt(allReceipts.find(_ => _.transactionHash).transactionIndex),
+            txIndex: parseInt(allReceipts.find(_ => _.transactionHash == th).transactionIndex),
             proof: p.merkleProof,
             txProof: p.txProof,
           })
