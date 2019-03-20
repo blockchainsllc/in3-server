@@ -77,7 +77,9 @@ describe('Blockheader contract', () => {
         for (let j = 0; j < chains.length; j++) {
             const allBlocks = blockHeaderFile[chains[j]];
 
-            for (let i = 0; i < allBlocks.length; i++) {
+            const numberBlocks = process.env.GITLAB_CI ? allBlocks.length : 10
+
+            for (let i = 0; i < numberBlocks; i++) {
 
                 const b = new Block(allBlocks[i])
                 const s = new serialize.Block(allBlocks[i] as any).serializeHeader()
@@ -169,13 +171,15 @@ describe('Blockheader contract', () => {
 
         const chains = Object.keys(blockHeaderFile);
         for (let j = 0; j < chains.length; j++) {
-            const allBlocks = blockHeaderFile[chains[j]];
+
+            const allBlocks = process.env.GITLAB_CI ? blockHeaderFile[chains[j]] : blockHeaderFile[chains[j]].slice(0, 10)
 
             const firstBlock = allBlocks.shift();
 
             const startHash = allBlocks[allBlocks.length - 1].hash;
 
             let serialzedBlocks = [];
+
 
             for (const b of allBlocks) {
                 const s = new serialize.Block(b as any).serializeHeader()
@@ -199,7 +203,7 @@ describe('Blockheader contract', () => {
 
         const chains = Object.keys(blockHeaderFile);
         for (let j = 0; j < chains.length; j++) {
-            const allBlocks = blockHeaderFile[chains[j]];
+            const allBlocks = process.env.GITLAB_CI ? blockHeaderFile[chains[j]] : blockHeaderFile[chains[j]].slice(0, 10)
 
             const firstBlock = allBlocks.shift();
             const startHash = allBlocks[allBlocks.length - 1].hash;
@@ -223,10 +227,13 @@ describe('Blockheader contract', () => {
         }
     })
 
-    it('create 150 blocks', async () => {
+    const headerLength = process.env.GITLAB_CI ? 150 : 10
+
+
+    it(`create ${headerLength} blocks`, async () => {
         const test = await TestTransport.createWithRegisteredServers(2)
 
-        for (let i = 0; i < 150; i++) {
+        for (let i = 0; i < headerLength; i++) {
             await test.createAccount()
         }
     })
@@ -248,7 +255,9 @@ describe('Blockheader contract', () => {
         let blockheaderArray = [];
         blockheaderArray.push(sstart.serializeHeader());
 
-        for (let i = 1; i < 150; i++) {
+
+
+        for (let i = 1; i < headerLength; i++) {
             const b = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber - i), false) as BlockData
             const s = new serialize.Block(b as any);
             blockheaderArray.push(s.serializeHeader());
@@ -256,14 +265,14 @@ describe('Blockheader contract', () => {
         }
         const targetBlock = ("0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash]))[0].toString('hex'))
 
-        const blockHashBefore = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - 150]))[0].toString('hex')
+        const blockHashBefore = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength]))[0].toString('hex')
 
         const result = await tx.callContract(test.url, blockHashRegAddress, 'recreateBlockheaders(uint,bytes[])', [blockNumber, blockheaderArray], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 8000000 })
 
         const blockResult = await test.getFromServer('eth_getBlockByHash', targetBlock, false) as BlockData
-        const blockHashAfter = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - 150]))[0].toString('hex')
+        const blockHashAfter = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength]))[0].toString('hex')
 
-        const blockByNumber = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber - 150), false)
+        const blockByNumber = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber - headerLength), false)
 
         assert.equal(blockByNumber.hash, blockHashAfter)
 
@@ -273,7 +282,7 @@ describe('Blockheader contract', () => {
         assert.equal(blockHashBefore, "0x0000000000000000000000000000000000000000000000000000000000000000")
         assert.equal(blockHashAfter, blockResult.hash)
 
-        assert.equal((blockNumber - toNumber(blockResult.number)), 150)
+        assert.equal((blockNumber - toNumber(blockResult.number)), headerLength)
     })
 
     it('recreateBlockheaders fail', async () => {
@@ -293,7 +302,7 @@ describe('Blockheader contract', () => {
         let blockheaderArray = [];
         blockheaderArray.push(sstart.serializeHeader());
 
-        for (let i = 1; i < 150; i++) {
+        for (let i = 1; i < headerLength; i++) {
             const b = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber - i), false) as BlockData
             const s = new serialize.Block(b as any);
             blockheaderArray.push(s.serializeHeader());
