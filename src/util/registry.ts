@@ -21,6 +21,7 @@ import * as tx from './tx'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { Transport, util } from 'in3'
 import { readFileSync } from 'fs'
+import { padStart } from 'in3/js/src/util/util';
 const toHex = util.toHex
 
 const bin = JSON.parse(readFileSync('./contracts/contracts.json', 'utf8'))
@@ -53,8 +54,11 @@ export function deployChainRegistry(pk: string, url = 'http://localhost:8545', t
 
 }
 
-export function deployServerRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
-  return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('ServerRegistry') >= 0)].bin, {
+export async function deployServerRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
+
+  const blockHashAddress = (await deployBlockhashRegistry(pk, url, transport)).substr(2)
+
+  return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('ServerRegistry') >= 0)].bin + padStart(blockHashAddress, 32), {
     privateKey: pk,
     gas: 3000000,
     confirm: true
