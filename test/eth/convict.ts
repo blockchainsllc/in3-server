@@ -53,26 +53,7 @@ describe('Convict', () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
 
-    const blockHashRegAddress = await deployBlockhashRegistry(test.getHandlerConfig(0).privateKey, test.url)
-
-    // setting the blockhash registry once
-    await tx.callContract(test.url, test.nodeList.contract, 'setBlockRegistry(address)', [blockHashRegAddress], {
-      privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
-      value: 0,
-      confirm: true
-    })
-
-
-    // must fail, since we already registerd a contract
-    let rbhr = await tx.callContract(test.url, test.nodeList.contract, 'setBlockRegistry(address)', [blockHashRegAddress], {
-      privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
-      value: 0,
-      confirm: true
-    }).catch(_ => false)
-
-    assert.isFalse(rbhr, 'Transaction must fail, we already registered a contract')
+    const blockHashRegAddress = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString('hex')
 
     // creating a snaphsot
     const snapshotreceipt = await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
@@ -144,6 +125,7 @@ describe('Convict', () => {
     // get the balance
     const balanceSenderBefore = toNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
     const balanceRegistryBefore = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
+
 
     // send the transaction to convict with the wrong hash
     rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
