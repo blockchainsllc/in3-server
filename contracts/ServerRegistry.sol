@@ -64,16 +64,14 @@ contract ServerRegistry {
     mapping (address => bool) ownerIndex;
     mapping (bytes32 => bool) urlIndex;
 
-    function setBlockRegistry(address _registry) external {
-        require(address(blockRegistry) == address(0x0),"blockRegistry already registered");
-        blockRegistry = BlockhashRegistry(_registry);
+    constructor(address _blockRegistry) public {
+        blockRegistry = BlockhashRegistry(_blockRegistry);
     }
-    
+
     /// length of the serverlist
     function totalServers() external view returns (uint)  {
         return servers.length;
     }
-
   
     /// register a new Server with the sender as owner    
     function registerServer(string calldata _url, uint _props) external payable {
