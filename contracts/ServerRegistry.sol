@@ -74,7 +74,7 @@ contract ServerRegistry {
     }
   
     /// register a new Server with the sender as owner    
-    function registerServer(string calldata _url, uint _props) external payable {
+    function registerServer(string calldata _url, uint _props, uint64 _timeout) external payable {
         checkLimits();
 
         bytes32 urlHash = keccak256(bytes(_url));
@@ -88,7 +88,7 @@ contract ServerRegistry {
         m.props = _props;
         m.owner = msg.sender;
         m.deposit = msg.value;
-        m.timeout = 1 hours;
+        m.timeout = _timeout > 3600 ? _timeout : 1 hours;
         servers.push(m);
 
         // make sure they are used
@@ -100,7 +100,7 @@ contract ServerRegistry {
     }
 
     /// updates a Server by adding the msg.value to the deposit and setting the props    
-    function updateServer(uint _serverIndex, uint _props) external payable {
+    function updateServer(uint _serverIndex, uint _props, uint64 _timeout) external payable {
         checkLimits();
 
         In3Server storage server = servers[_serverIndex];
@@ -111,15 +111,10 @@ contract ServerRegistry {
 
         if (_props!=server.props)
           server.props = _props;
+
+        if(_timeout > server.timeout)
+            server.timeout = _timeout;
         emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
-    }
-
-    function updateTimeout(uint _serverIndex, uint64 _timeout) external { 
-        In3Server storage server = servers[_serverIndex];
-        require(server.owner == msg.sender, "only the owner may update the timeout");
-
-        require(server.timeout < _timeout, "only increasing the timeout is allowed");
-        server.timeout = _timeout;
     }
 
     /// this should be called before unregistering a server.

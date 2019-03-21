@@ -265,7 +265,8 @@ export class TestTransport implements Transport {
         url: '#' + (i + 1),
         pk: pks[i],
         props: '0xffff',
-        deposit: 10000
+        deposit: 10000,
+        timeout: 3600
       })
     }
 

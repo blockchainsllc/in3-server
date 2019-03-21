@@ -80,14 +80,16 @@ export async function registerServers(pk: string, registry: string, data: {
   pk: string
   props: string
   deposit: number
+  timeout: number
 }[], chainId: string, chainRegistry?: string, url = 'http://localhost:8545', transport?: Transport, registerChain = true) {
   if (!registry)
     registry = await deployServerRegistry(pk, url, transport)
 
   for (const c of data)
-    await tx.callContract(url, registry, 'registerServer(string,uint)', [
+    await tx.callContract(url, registry, 'registerServer(string,uint,uint64)', [
       c.url,
-      toHex(c.props, 32)
+      toHex(c.props, 32),
+      c.timeout
     ], {
         privateKey: c.pk,
         gas: 3000000,

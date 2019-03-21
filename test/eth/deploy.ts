@@ -35,13 +35,15 @@ describe('Deploying Contracts', () => {
       url: '#1',
       pk,
       props: '0xFF',
-      deposit: 0
+      deposit: 0,
+      timeout: 3600
     },
     {
       url: '#2',
       pk: pk2,
       props: '0xFF',
-      deposit: 0
+      deposit: 0,
+      timeout: 3600
     }], '0x99', null, getTestClient(), new LoggingAxiosTransport())
 
 

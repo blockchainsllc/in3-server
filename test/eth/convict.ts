@@ -284,12 +284,14 @@ describe('Convict', () => {
       url: 'test1.com',
       deposit: 0,
       pk: pk1,
-      props: '0xff'
+      props: '0xff',
+      timeout: 7200,
     }, {
       url: 'test2.com',
       deposit: 0,
       pk: pk2,
-      props: '0xff'
+      props: '0xff',
+      timeout: 7200,
     }], test.chainId, null, test.url, transport, false)
 
     // register same url servers should not work
@@ -298,12 +300,14 @@ describe('Convict', () => {
         url: 'test1.com',
         deposit: 0,
         pk: pk1,
-        props: '0xff'
+        props: '0xff',
+        timeout: 7200,
       }, {
         url: 'test1.com',
         deposit: 0,
         pk: pk2,
-        props: '0xff'
+        props: '0xff',
+        timeout: 7200,
       }], test.chainId, null, test.url, transport, false)
     )
 
@@ -313,12 +317,14 @@ describe('Convict', () => {
         url: 'test1.com',
         deposit: 0,
         pk: pk1,
-        props: '0xff'
+        props: '0xff',
+        timeout: 3600
       }, {
         url: 'test2.com',
         deposit: 0,
         pk: pk1,
-        props: '0xff'
+        props: '0xff',
+        timeout: 3600
       }], test.chainId, null, test.url, transport, false)
     )
   })

@@ -21,7 +21,7 @@
 import { assert } from 'chai'
 import 'mocha'
 import { util, serialize, ServerList, RPCResponse } from 'in3'
-import EthChainContext from 'in3/js/src/modules/eth/EthChainContext' 
+import EthChainContext from 'in3/js/src/modules/eth/EthChainContext'
 import { registerServers, deployContract } from '../../src/util/registry';
 import { TestTransport, getTestClient } from '../utils/transport';
 import Watcher from '../../src/chains/watch'
@@ -75,7 +75,8 @@ describe('Features', () => {
       url: '#3',
       pk,
       props: '0xffff',
-      deposit: 20000
+      deposit: 20000,
+      timeout: 7200,
     }], test.chainRegistry, test.chainRegistry, test.url)
     lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 1
 
@@ -158,7 +159,7 @@ describe('Features', () => {
             capabilities: {
               proof: true,
               multiChain: true
-            }
+            },
           },
           privateKey: pk,
           rpcUrl: test.url,
