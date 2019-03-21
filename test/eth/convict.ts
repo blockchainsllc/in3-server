@@ -329,6 +329,48 @@ describe('Convict', () => {
     )
   })
 
+  it('registerServer and changing timeout', async () => {
+    const test = await TestTransport.createWithRegisteredServers(2)
+    let serverBefore = await test.getServerFromContract(0)
+    assert.equal(serverBefore.timeout.toNumber(), 3600)
+    assert.equal(toHex(serverBefore.props), "0xffff")
 
+    const pk1 = await test.createAccount()
+    const transport = new LoggingAxiosTransport()
+
+    assert.equal(await test.getServerCountFromContract(), 2)
+
+    await registerServers(pk1, test.nodeList.contract, [{
+      url: 'test3.com',
+      deposit: 0,
+      pk: pk1,
+      props: '0xff',
+      timeout: 7200,
+    }], test.chainId, null, test.url, transport, false)
+
+    assert.equal(await test.getServerCountFromContract(), 3)
+
+    serverBefore = await test.getServerFromContract(2)
+    assert.equal(toNumber(serverBefore.timeout), 7200)
+    assert.equal(toHex(serverBefore.props), "0xff")
+
+    // changing props
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint,uint64)', [2, 0x0fff, 0], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+    let serverAfter = await test.getServerFromContract(2)
+
+    assert.equal(toNumber(serverAfter.timeout), 7200)
+    assert.equal(toHex(serverAfter.props), "0x0fff")
+
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint,uint64)', [2, 0x0fff, 14400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+    serverAfter = await test.getServerFromContract(2)
+    assert.equal(toHex(serverAfter.props), "0x0fff")
+    assert.equal(toNumber(serverAfter.timeout), 14400)
+
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint,uint64)', [2, 0xffff, 16400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+    serverAfter = await test.getServerFromContract(2)
+    assert.equal(toHex(serverAfter.props), "0xffff")
+    assert.equal(toNumber(serverAfter.timeout), 16400)
+
+
+  })
 })
-
