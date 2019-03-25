@@ -227,7 +227,7 @@ describe('Blockheader contract', () => {
         }
     })
 
-    const headerLength = process.env.GITLAB_CI ? 150 : 10
+    const headerLength = process.env.GITLAB_CI ? 250 : 10
 
 
     it(`create ${headerLength} blocks`, async () => {
@@ -236,7 +236,7 @@ describe('Blockheader contract', () => {
         for (let i = 0; i < headerLength; i++) {
             await test.createAccount()
         }
-    })
+    }).timeout(90000)
 
     it('recreateBlockheaders', async () => {
         const test = await TestTransport.createWithRegisteredServers(2)
