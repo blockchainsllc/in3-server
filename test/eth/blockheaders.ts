@@ -333,5 +333,63 @@ describe('Blockheader contract', () => {
 
     })
 
+    if (process.env.GITLAB_CI) {
+        it('recreateBlockheaders gas costs', async () => {
+
+            const test = await TestTransport.createWithRegisteredServers(2)
+            const pk1 = test.getHandlerConfig(0).privateKey
+
+            const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
+
+            const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+
+            await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+
+            const blockNumber = toNumber(block.number)
+
+            const sstart = new serialize.Block(block as any);
+
+            let blockheaderArray = [];
+
+            for (let j = 175; j <= 275; j += 5) {
+                blockheaderArray.push(sstart.serializeHeader());
+
+                for (let i = 1; i < j; i++) {
+                    const b = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber - i), false) as BlockData
+                    const s = new serialize.Block(b as any);
+                    blockheaderArray.push(s.serializeHeader());
+
+                }
+
+                const targetBlock = ("0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash]))[0].toString('hex'))
+
+                const blockHashBefore = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - j]))[0].toString('hex')
+
+                const result = await tx.callContract(test.url, blockHashRegAddress, 'recreateBlockheaders(uint,bytes[])', [blockNumber, blockheaderArray], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 8000000 })
+
+                const blockResult = await test.getFromServer('eth_getBlockByHash', targetBlock, false) as BlockData
+                const blockHashAfter = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - j]))[0].toString('hex')
+
+                const blockByNumber = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber - j), false)
+
+                assert.equal(blockByNumber.hash, blockHashAfter)
+
+                assert.equal(toNumber(blockResult.number), toNumber(result.logs[0].topics[1]))
+                assert.equal(blockResult.hash, result.logs[0].topics[2])
+
+                assert.equal(blockHashBefore, "0x0000000000000000000000000000000000000000000000000000000000000000")
+                assert.equal(blockHashAfter, blockResult.hash)
+
+                assert.equal((blockNumber - toNumber(blockResult.number)), j)
+
+                // console.log(result)
+                console.log(`used ${toNumber(result.gasUsed)} gas for recreating ${j} blockheaders`)
+
+                blockheaderArray = []
+            }
+        }).timeout(90000)
+
+    }
+
 
 })
