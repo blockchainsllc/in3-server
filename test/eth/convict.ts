@@ -247,6 +247,56 @@ describe('Convict', () => {
   })
 
 
+  it('requestUnregisteringServer - 28days', async () => {
+
+    const test = await TestTransport.createWithRegisteredServers(2)
+    // read all events (should be only the 2 register-events
+    const unregisterDeposit = 10000 / 50
+
+    const user = await test.createAccount()
+
+    // the user regquests to unregister this server
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: unregisterDeposit - 1, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because the wrong value was sent')
+
+    let balanceBefore = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
+
+    // the user regquests to unregister this server
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(1).privateKey, value: unregisterDeposit, confirm: true, gas: 300000 })
+
+    let balanceAfter = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
+
+    assert.equal(balanceBefore - balanceAfter, 200)
+
+    balanceBefore = balanceAfter
+
+    const balanceOwnerBefore = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
+
+    // should fail now
+    let rc = await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false)
+
+    assert.isFalse(rc)
+
+    await test.increaseTime(28 * 86400 + 10)
+
+    rc = await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    })
+
+
+    balanceAfter = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
+
+    assert.equal(balanceAfter - balanceBefore, 2200)
+  })
+
+
   it('requestUnregisteringServer - timeout', async () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
