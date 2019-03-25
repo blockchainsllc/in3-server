@@ -20,7 +20,7 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util, BlockData, serialize, Signature, RPCRequest, RPCResponse } from 'in3'
+import { util, BlockData, serialize, Signature, RPCRequest, RPCResponse, transport } from 'in3'
 import * as tx from '../../src/util/tx'
 import * as ethUtil from 'ethereumjs-util'
 import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
@@ -268,6 +268,28 @@ describe('Convict', () => {
     assert.equal(serverAfter.owner, serverAfter.unregisterCaller)
     assert.equal(serverAfter.unregisterTime - Number(block.timestamp), 3600)
     assert.equal(serverAfter.unregisterDeposit, 0)
+
+    const balanceOwnerBefore = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
+
+    let rc = await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
+      privateKey: test.getHandlerConfig(0).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false)
+
+    // wait 2h 
+    await test.increaseTime(7201)
+
+    rc = await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
+      privateKey: test.getHandlerConfig(0).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    })
+    const balanceOwnerAfter = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
+
+    assert.equal(balanceOwnerAfter - balanceOwnerBefore, 10000)
 
 
   })

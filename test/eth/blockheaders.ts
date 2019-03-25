@@ -315,7 +315,7 @@ describe('Blockheader contract', () => {
 
         const targetBlock = ("0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash]))[0].toString('hex'))
 
-        const blockHashBefore = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - 150]))[0].toString('hex')
+        const blockHashBefore = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength]))[0].toString('hex')
 
         let failed = false
         try {
@@ -326,7 +326,7 @@ describe('Blockheader contract', () => {
         }
 
         assert.isTrue(failed)
-        const blockHashAfter = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - 150]))[0].toString('hex')
+        const blockHashAfter = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength]))[0].toString('hex')
 
         assert.equal(blockHashBefore, "0x0000000000000000000000000000000000000000000000000000000000000000")
         assert.equal(blockHashAfter, "0x0000000000000000000000000000000000000000000000000000000000000000")

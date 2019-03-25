@@ -278,7 +278,9 @@ export class TestTransport implements Transport {
     return res
   }
 
-
+  async increaseTime(secondsToIncrease) {
+    await axios.post(this.url, { id: 1, jsonrpc: '2.0', method: 'evm_increaseTime', params: [secondsToIncrease] }, { headers: { 'Content-Type': 'application/json' } })
+  }
 
 }
 
