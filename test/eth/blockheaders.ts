@@ -351,7 +351,7 @@ describe('Blockheader contract', () => {
 
             let blockheaderArray = [];
 
-            for (let j = 175; j <= 275; j += 5) {
+            for (let j = 175; j <= 300; j += 5) {
                 blockheaderArray.push(sstart.serializeHeader());
 
                 for (let i = 1; i < j; i++) {
@@ -382,8 +382,21 @@ describe('Blockheader contract', () => {
 
                 assert.equal((blockNumber - toNumber(blockResult.number)), j)
 
-                // console.log(result)
-                console.log(`used ${toNumber(result.gasUsed)} gas for recreating ${j} blockheaders`)
+                const gasUsed = toNumber(result.gasUsed)
+
+                const gasPrice = 4800000000
+
+                const costs = gasUsed * gasPrice / 1000000000000000000
+
+                const blocksPerDay = 86400 / 12
+
+                const numberTx = Math.ceil(blocksPerDay / j)
+
+                const gasPerDay = numberTx * gasUsed
+
+                const etherPerDay = gasPerDay * gasPrice / 1000000000000000000
+
+                console.log(`blocks: ${j} gas used: ${gasUsed}\tEther: ${costs.toPrecision(6)}\tEther/Block: ${(costs / j).toPrecision(6)}\t1 day: ${etherPerDay}\t`)
 
                 blockheaderArray = []
             }
