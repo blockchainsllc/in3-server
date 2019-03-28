@@ -58,7 +58,8 @@ contract ServerRegistry {
     In3Server[] public servers;
 
     BlockhashRegistry public blockRegistry;
-
+    /// version: major minor fork(000) date(yyyy/mm/dd)
+    uint constant public version = 12300020190328;
 
     // index for unique url and owner
     mapping (address => bool) ownerIndex;
