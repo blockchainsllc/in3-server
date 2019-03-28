@@ -57,6 +57,8 @@ contract ServerRegistry {
     /// server list of incubed nodes    
     In3Server[] public servers;
 
+    /// add your additional storage here. If you add information before this line you will break in3 nodelist
+
     BlockhashRegistry public blockRegistry;
     /// version: major minor fork(000) date(yyyy/mm/dd)
     uint constant public version = 12300020190328;
