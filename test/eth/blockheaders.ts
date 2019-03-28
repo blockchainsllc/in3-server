@@ -229,7 +229,7 @@ describe('Blockheader contract', () => {
         }
     })
 
-    const headerLength = process.env.GITLAB_CI ? 150 : 10
+    const headerLength = process.env.GITLAB_CI ? 250 : 10
 
 
     it(`create ${headerLength} blocks`, async () => {
