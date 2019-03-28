@@ -409,217 +409,217 @@ services:
       config: "listen stats \nbind 0.0.0.0:9000\nmode http\nstats enable\nstats hide-version\n\
         stats realm Haproxy\\ Statistics\nstats uri /haproxy_stats"
       port_rules:
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /mainnet/nd-1
         priority: 2
         protocol: http
         service: incubed-mainnet-1
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /mainnet/nd-2
         priority: 4
         protocol: http
         service: incubed-mainnet-2
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /mainnet/nd-3
         priority: 6
         protocol: http
         service: incubed-mainnet-3
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /mainnet/nd-4
         priority: 8
         protocol: http
         service: incubed-mainnet-4
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /mainnet/nd-5
         priority: 10
         protocol: http
         service: incubed-mainnet-5
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /kovan/nd-1
         priority: 2
         protocol: http
         service: incubed-kovan-1
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /kovan/nd-2
         priority: 4
         protocol: http
         service: incubed-kovan-2
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /kovan/nd-3
         priority: 6
         protocol: http
         service: incubed-kovan-3
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /kovan/nd-4
         priority: 8
         protocol: http
         service: incubed-kovan-4
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /kovan/nd-5
         priority: 10
         protocol: http
         service: incubed-kovan-5
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /tobalaba/nd-1
         priority: 12
         protocol: http
         service: incubed-tobalaba-1
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /tobalaba/nd-2
         priority: 14
         protocol: http
         service: incubed-tobalaba-2
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /tobalaba/nd-3
         priority: 16
         protocol: http
         service: incubed-tobalaba-3
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /tobalaba/nd-4
         priority: 18
         protocol: http
         service: incubed-tobalaba-4
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /tobalaba/nd-5
         priority: 20
         protocol: http
         service: incubed-tobalaba-5
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /ipfs/nd-1
         priority: 21
         protocol: http
         service: incubed-ipfs-1
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /ipfs/nd-2
         priority: 22
         protocol: http
         service: incubed-ipfs-2
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /ipfs/nd-3
         priority: 23
         protocol: http
         service: incubed-ipfs-3
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /ipfs/nd-4
         priority: 24
         protocol: http
         service: incubed-ipfs-4
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /ipfs/nd-5
         priority: 25
         protocol: http
         service: incubed-ipfs-5
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /evan/nd-1
         priority: 2
         protocol: http
         service: incubed-evan-1
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /evan/nd-2
         priority: 4
         protocol: http
         service: incubed-evan-2
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /evan/nd-3
         priority: 6
         protocol: http
         service: incubed-evan-3
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /evan/nd-4
         priority: 8
         protocol: http
         service: incubed-evan-4
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /evan/nd-5
         priority: 10
         protocol: http
         service: incubed-evan-5
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /goerli/nd-1
         priority: 2
         protocol: http
         service: incubed-goerli-1
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /goerli/nd-2
         priority: 4
         protocol: http
         service: incubed-goerli-2
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /goerli/nd-3
         priority: 6
         protocol: http
         service: incubed-goerli-3
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /goerli/nd-4
         priority: 8
         protocol: http
         service: incubed-goerli-4
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /goerli/nd-5
         priority: 10
         protocol: http
         service: incubed-goerli-5
         source_port: 80
         target_port: 8500
-      - hostname: in3.slock.it
+      - hostname: '*.slock.it'
         path: /
         priority: 100
         protocol: http
