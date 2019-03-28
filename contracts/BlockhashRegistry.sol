@@ -98,4 +98,14 @@ contract BlockhashRegistry {
         blockhashMapping[bnr] = calculatedHash;
         emit LogBlockhashAdded(bnr, calculatedHash);
     }
+
+    /// returns the closest snapshot if found within the given range
+    /// returns 0 if no snapshot has been found in that rnage
+    function searchForAvailableBlock(uint _startNumber, uint _numBlocks) external view returns (uint) {
+
+        for(uint i = _startNumber; i <= (_numBlocks + _startNumber); i++){
+           if(blockhashMapping[i] != 0x0) return i; 
+        }
+
+    }
 }

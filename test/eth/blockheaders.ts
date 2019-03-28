@@ -163,6 +163,8 @@ describe('Blockheader contract', () => {
         assert.isTrue(failed)
     })
 
+
+
     it('calculateBlockheaders', async () => {
         const test = await TestTransport.createWithRegisteredServers(2)
         const pk1 = test.getHandlerConfig(0).privateKey
@@ -227,7 +229,7 @@ describe('Blockheader contract', () => {
         }
     })
 
-    const headerLength = process.env.GITLAB_CI ? 250 : 10
+    const headerLength = process.env.GITLAB_CI ? 150 : 10
 
 
     it(`create ${headerLength} blocks`, async () => {
@@ -332,6 +334,30 @@ describe('Blockheader contract', () => {
         assert.equal(blockHashAfter, "0x0000000000000000000000000000000000000000000000000000000000000000")
 
     })
+
+    it('searchForAvailableBlock', async () => {
+        const test = await TestTransport.createWithRegisteredServers(2)
+        const pk1 = test.getHandlerConfig(0).privateKey
+        const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
+
+        const snapshot1 = await tx.callContract(test.url, blockHashRegAddress, 'searchForAvailableBlock(uint,uint):(uint)', [0, 100])
+
+
+        assert.equal(toNumber(snapshot1[0]), 0)
+        const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+
+        const blockNumber = toNumber(block.number) - 1
+        const snapshot2 = await tx.callContract(test.url, blockHashRegAddress, 'searchForAvailableBlock(uint,uint):(uint)', [blockNumber - 20, 25])
+        assert.equal(toNumber(snapshot2[0]), blockNumber)
+
+        const snapshot3 = await tx.callContract(test.url, blockHashRegAddress, 'searchForAvailableBlock(uint,uint):(uint)', [blockNumber - 20, 20])
+        assert.equal(toNumber(snapshot3[0]), blockNumber)
+
+    })
+
+    /**
+     * CI ONLY TESTS
+     */
 
     if (process.env.GITLAB_CI) {
         it('recreateBlockheaders gas costs', async () => {
