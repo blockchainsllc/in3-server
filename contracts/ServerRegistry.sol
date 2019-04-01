@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-pragma solidity ^0.5.4;
+pragma solidity ^0.5.7;
 
 import "./BlockhashRegistry.sol";
 
@@ -120,6 +120,8 @@ contract ServerRegistry {
         emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
     }
 
+    // TODO: check why deposit-1 worked
+
     /// this should be called before unregistering a server.
     /// there are 2 use cases:
     /// a) the owner wants to stop offering the service and remove the server.
@@ -208,16 +210,24 @@ contract ServerRegistry {
             ecrecover(keccak256(abi.encodePacked(_blockhash, _blocknumber)), _v, _r, _s) == servers[_serverIndex].owner, 
             "the block was not signed by the owner of the server");
 
+        In3Server storage s = servers[_serverIndex];
+
         // remove the deposit
-        if (servers[_serverIndex].deposit > 0) {
-            uint payout = servers[_serverIndex].deposit / 2;
+        if (s.deposit > 0) {
+            uint payout =s.deposit / 2;
             // send 50% to the caller of this function
             msg.sender.transfer(payout);
 
             // and burn the rest by sending it to the 0x0-address
             // this is done in order to make it useless trying to convict your own server with a second account
             // and this getting all the deposit back after signing a wrong hash.
-            address(0).transfer(servers[_serverIndex].deposit-payout);
+            address(0).transfer(s.deposit-payout);
+
+        }
+
+        /// send back the unregister deposit
+        if(s.unregisterDeposit > 0){
+            s.unregisterCaller.transfer(s.unregisterDeposit);
         }
 
         // emit event
