@@ -205,8 +205,6 @@ describe('Convict', () => {
 
   })
 
-
-
   it('verify and convict (block older then 256 blocks)', async () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
@@ -215,13 +213,17 @@ describe('Convict', () => {
 
     const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 }))
 
-    const wrongBlock = txReceipt.blockNumber - 0x101
+    const wrongBlock = txReceipt.blockNumber - 0x12C
     const watcher = test.getHandler(0).watcher
 
     const pk1 = test.getHandlerConfig(0).privateKey
     const pk2 = test.getHandlerConfig(1).privateKey
 
     const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
+
+    //console.log((toNumber(txReceipt.blockNumber) - toNumber(block.number)))
+    assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 300)
+
     const client = await test.createClient()
 
     // this is a correct signature and should not fail.
@@ -478,8 +480,6 @@ describe('Convict', () => {
     let serverBefore = await test.getServerFromContract(0)
     assert.equal(serverBefore.timeout.toNumber(), 3600)
     assert.equal(toHex(serverBefore.props), "0xffff")
-
-    console.log(test.getHandlerConfig(0).registry)
 
     const pk1 = await test.createAccount()
     const transport = new LoggingAxiosTransport()
