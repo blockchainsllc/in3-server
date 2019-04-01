@@ -17,17 +17,18 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import BaseHandler                                                        from './BaseHandler'
-import { BlockData, RPCRequest, RPCResponse, Signature, util, serialize } from 'in3'
-import { sha3, pubToAddress, ecrecover, ecsign }                          from 'ethereumjs-util'
-import { callContract }                                                   from '../util/tx'
+import BaseHandler from './BaseHandler'
+import { BlockData, RPCRequest, RPCResponse, Signature, util, serialize, ServerList, IN3NodeConfig } from 'in3'
+import { sha3, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
+import { callContract } from '../util/tx'
+import { IN3ConfigDefinition } from 'in3/js/src/types/types';
 
-const toHex    = util.toHex
+const toHex = util.toHex
 const toMinHex = util.toMinHex
 const toNumber = util.toNumber
-const bytes32  = serialize.bytes32
-const address  = serialize.address
-const bytes    = serialize.bytes
+const bytes32 = serialize.bytes32
+const address = serialize.address
+const bytes = serialize.bytes
 
 export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
   // nothing to do?
@@ -87,14 +88,27 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash)))
           return s
 
-        // so he signed the wrong blockhash and we have all data to convict him!
-        const txHash = await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
-          privateKey: handler.config.privateKey,
-          gas       : 300000,
-          value     : 0,
-          confirm   : false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-        })
+        const latestBlockNumber = (await handler.getFromServer({ method: "eth_blockNumber", params: [] })).result
+
+
+        const diffBlocks = toNumber(latestBlockNumber) - s.block
+
+
+        if (diffBlocks < 255) {
+
+          // so he signed the wrong blockhash and we have all data to convict him!
+          const txHash = await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
+            privateKey: handler.config.privateKey,
+            gas: 300000,
+            value: 0,
+            confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+          })
+        }
+        else {
+          await handleRecreation(handler, nodes, singingNode, s, diffBlocks)
+        }
         return null
+
       }))
 
     return signatures
@@ -106,20 +120,20 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 export function sign(pk: string, blocks: { blockNumber: number, hash: string }[]): Signature[] {
   return blocks.map(b => {
     const msgHash = sha3('0x' + toHex(b.hash).substr(2).padStart(64, '0') + toHex(b.blockNumber).substr(2).padStart(64, '0'))
-    const sig     = ecsign(msgHash, bytes32(pk))
+    const sig = ecsign(msgHash, bytes32(pk))
     return {
       blockHash: toHex(b.hash),
-      block    : toNumber(b.blockNumber),
-      r        : toHex(sig.r),
-      s        : toHex(sig.s),
-      v        : toNumber(sig.v),
-      msgHash  : toHex(msgHash)
+      block: toNumber(b.blockNumber),
+      r: toHex(sig.r),
+      s: toHex(sig.s),
+      v: toNumber(sig.v),
+      msgHash: toHex(msgHash)
     }
   })
 }
 
 export async function handleSign(handler: BaseHandler, request: RPCRequest): Promise<RPCResponse> {
-  const blocks    = request.params as { blockNumber: number, hash: string }[]
+  const blocks = request.params as { blockNumber: number, hash: string }[]
   const blockData = await handler.getAllFromServer([
     ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })),
     { method: 'eth_blockNumber', params: [] },
@@ -129,14 +143,80 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
   if (!blockNumber) throw new Error('no current blocknumber detectable ')
   if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
 
-  const blockHeight   = handler.config.minBlockHeight === undefined ? 6 : handler.config.minBlockHeight
+  const blockHeight = handler.config.minBlockHeight === undefined ? 6 : handler.config.minBlockHeight
   const tooYoungBlock = blockData.find(block => toNumber(blockNumber) - toNumber(block.number) < blockHeight)
   if (tooYoungBlock)
     throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
 
   return {
-    id     : request.id,
+    id: request.id,
     jsonrpc: request.jsonrpc,
-    result : sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash })))
+    result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash })))
+  }
+}
+
+async function handleRecreation(handler: BaseHandler, nodes: ServerList, singingNode: IN3NodeConfig, s: Signature, diffBlocks: number): Promise<any> {
+  // we have to find the blockHashRegistry
+  const blockHashRegistry = "0x" + (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0].toString("hex")
+
+  // we have to calculate whether it's worth convicting a server
+  const [url, owner, timeout, deposit, props, unregisterTime, unregisterDeposit, unregisterCaller] = await callContract(handler.config.rpcUrl, nodes.contract, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128,address)', [toNumber(singingNode.index)])
+  const latestSS = toNumber((await callContract(handler.config.rpcUrl, blockHashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [s.block, diffBlocks]))[0])
+  const costPerBlock = 86412400000000
+  const blocksMissing = latestSS - s.block
+  const costs = blocksMissing * costPerBlock * 1.25
+
+  if (costs > (deposit / 2)) {
+    //it's not worth it
+    return null
+  }
+  else {
+    // it's worth convicting the server
+    const blockrequest = []
+    for (let i = 0; i < blocksMissing; i++) {
+      blockrequest.push({
+        jsonrpc: '2.0',
+        id: i + 1,
+        method: 'eth_getBlockByNumber', params: [
+          toHex(latestSS - i), false
+        ]
+      })
+    }
+
+    const blockhashes = await handler.getAllFromServer(blockrequest)
+
+    const serialzedBlocks = []
+    for (const bresponse of blockhashes) {
+      serialzedBlocks.push(new serialize.Block(bresponse.result as any).serializeHeader());
+    }
+
+    const transactionArrays = []
+
+    // splitting the blocks in array with the size of 235 (sweet spot)
+    while (serialzedBlocks.length) {
+      transactionArrays.push(serialzedBlocks.splice(0, 235));
+    }
+
+    let diffBlock = 0;
+
+
+    for (const txArray of transactionArrays) {
+
+      await callContract(handler.config.rpcUrl, blockHashRegistry, 'recreateBlockheaders(uint,bytes[])', [latestSS - diffBlock, txArray], {
+        privateKey: handler.config.privateKey,
+        gas: 8000000,
+        value: 0,
+        confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+      })
+      diffBlock += txArray.length
+    }
+
+    await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
+      privateKey: handler.config.privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+    })
+
   }
 }
