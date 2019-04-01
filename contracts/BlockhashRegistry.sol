@@ -1,4 +1,4 @@
-pragma solidity ^0.5.4;
+pragma solidity ^0.5.7;
 pragma experimental ABIEncoderV2;
 
 /// @title Registry for blockhashes
@@ -106,6 +106,5 @@ contract BlockhashRegistry {
         for(uint i = _startNumber; i <= (_numBlocks + _startNumber); i++){
            if(blockhashMapping[i] != 0x0) return i; 
         }
-
     }
 }
