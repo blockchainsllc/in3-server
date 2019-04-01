@@ -211,7 +211,7 @@ export class TestTransport implements Transport {
   }
 
   /** creates a random private key and transfers some ether to this address */
-  async createAccount(seed?: string, eth = 100000): Promise<string> {
+  async createAccount(seed?: string, eth = 50000000000000000): Promise<string> {
     const pkBuffer = seed
       ? seed.startsWith('0x')
         ? Buffer.from(seed.substr(2).padStart(64, '0'), 'hex')
@@ -260,12 +260,12 @@ export class TestTransport implements Transport {
 
     // create accounts
     for (let i = 0; i < count; i++) {
-      pks.push(await test.createAccount())
+      pks.push(await test.createAccount(null, 2000000000000000000))
       servers.push({
         url: '#' + (i + 1),
         pk: pks[i],
         props: '0xffff',
-        deposit: 10000,
+        deposit: 1000000000000000000,
         timeout: 3600
       })
     }
