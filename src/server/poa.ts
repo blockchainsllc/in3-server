@@ -199,7 +199,34 @@ async function updateCliqueHistory(epoch: number, handler: RPCHandler, history: 
 
 
 async function updateAuraHistory(validatorContract: string, handler: RPCHandler, history: ValidatorHistory, currentBlock: number) {
-    history.lastCheckedBlock = currentBlock
-    //TODO update history
 
+    if (history.lastCheckedBlock === currentBlock) return
+
+    const lastCheckedBlockHex = '0x' + history.lastCheckedBlock.toString(16)
+    const currentBlockHex = '0x' + currentBlock.toString(16)
+
+    const logs = await handler.getFromServer({
+        method: "eth_getLogs",
+        params: [{
+            fromBlock: lastCheckedBlockHex,
+            toBlock: currentBlockHex,
+            address: validatorContract,
+            topics: ["55252fa6eee4741b4e24a74a70e9c11fd2c2281df8d6ea13126ff845f7825c89"]
+        }]
+    })
+
+    console.log(logs)
+
+    history.lastCheckedBlock = currentBlock
+
+    /*
+    1. if the server was just started (no Validator History) if it was run
+        eth_getLogs for every block until now
+    2. else run eth_getLogs for the current block
+    3. if eth_getLogs find a log of validator change call the contract and
+        finalize if there was a change in the list of validators
+    4. create a proof or use the eth_call proof for validator change
+    5. store the validator list in the validator history data structure.
+    6. update the last checked blocknumber
+    */
 }
