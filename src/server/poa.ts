@@ -25,8 +25,6 @@ import { rlp } from 'ethereumjs-util'
 import { rawDecode } from 'ethereumjs-abi'
 import { publicToAddress } from 'ethereumjs-util'
 import { handleLogs, handeGetTransactionReceipt, handleCall } from '../modules/eth/proof'
-//TODO: remove this on final commit
-const writefile = require('write-json-file')
 const chains = require('in3/js/src/client/defaultConfig.json').servers
 
 export interface HistoryEntry {
