@@ -204,8 +204,6 @@ async function updateCliqueHistory(epoch: number, handler: RPCHandler, history: 
 
 async function updateAuraHistory(validatorContract: string, handler: RPCHandler, history: ValidatorHistory, currentBlock: number) {
 
-    if (history.lastCheckedBlock === currentBlock) return
-
     const logs = await handleLogs(handler as any, {
         jsonrpc: "2.0",
         method: "eth_getLogs",
@@ -241,9 +239,6 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         }
       })
     })
-
-    //TODO: remove this on final commit
-    await writefile('states.json', {states: history.states})
 
     history.lastCheckedBlock = currentBlock
 }
