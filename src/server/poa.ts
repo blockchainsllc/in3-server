@@ -24,7 +24,7 @@ import { recover } from 'secp256k1'
 import { rlp } from 'ethereumjs-util'
 import { rawDecode } from 'ethereumjs-abi'
 import { publicToAddress } from 'ethereumjs-util'
-import { handleLogs, handeGetTransactionReceipt, handleCall } from '../modules/eth/proof'
+import { handleLogs } from '../modules/eth/proof'
 const chains = require('in3/js/src/client/defaultConfig.json').servers
 
 export interface HistoryEntry {
@@ -202,6 +202,7 @@ async function updateCliqueHistory(epoch: number, handler: RPCHandler, history: 
 
 async function updateAuraHistory(validatorContract: string, handler: RPCHandler, history: ValidatorHistory, currentBlock: number) {
 
+    //handle logs expects a EthHandler type so the handler is passed as any
     const logs = await handleLogs(handler as any, {
         jsonrpc: "2.0",
         method: "eth_getLogs",
@@ -218,16 +219,14 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
     })
 
 
-    await logs.result.forEach(log => {
+    logs.result.forEach(log => {
       const validatorList = rawDecode(['address[]'], Buffer.from(log.data.substr(2), 'hex'))[0]
-
-      if(validatorList.length == 0) console.log(parseInt(log.blockNumber) )
 
       //restitch proof into a logproof object
       let logProof = {}
       logProof[log.blockNumber] = logs.in3.proof.logProof[log.blockNumber]
 
-      //update the history
+      //update the history states
       history.states.push({
         validators: validatorList,
         block: parseInt(log.blockNumber),
@@ -238,5 +237,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
       })
     })
 
+    //update history "last" fields
     history.lastCheckedBlock = currentBlock
+    history.lastValidatorChange = history.states[history.states.length - 1].block
 }
