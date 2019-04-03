@@ -220,21 +220,21 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
 
 
     logs.result.forEach(log => {
-      const validatorList = rawDecode(['address[]'], Buffer.from(log.data.substr(2), 'hex'))[0]
+        const validatorList = rawDecode(['address[]'], Buffer.from(log.data.substr(2), 'hex'))[0]
 
-      //restitch proof into a logproof object
-      let logProof = {}
-      logProof[log.blockNumber] = logs.in3.proof.logProof[log.blockNumber]
+        //restitch proof into a logproof object
+        let logProof = {}
+        logProof[log.blockNumber] = logs.in3.proof.logProof[log.blockNumber]
 
-      //update the history states
-      history.states.push({
-        validators: validatorList,
-        block: parseInt(log.blockNumber),
-        proof: {
-          type: 'logProof',
-          logProof: logProof
-        }
-      })
+        //update the history states
+        history.states.push({
+            validators: validatorList,
+            block: parseInt(log.blockNumber),
+            proof: {
+                type: 'logProof',
+                logProof: logProof
+            }
+        })
     })
 
     //update history "last" fields
