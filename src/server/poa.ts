@@ -18,17 +18,21 @@
 ***********************************************************/
 
 
-import { RPCRequest, serialize, BlockData } from 'in3'
+import { RPCRequest, serialize, BlockData, Proof} from 'in3'
 import { RPCHandler } from './rpc'
 import { recover } from 'secp256k1'
 import { rlp } from 'ethereumjs-util'
+import { rawDecode } from 'ethereumjs-abi'
 import { publicToAddress } from 'ethereumjs-util'
+import { handleLogs, handeGetTransactionReceipt, handleCall } from '../modules/eth/proof'
+//TODO: remove this on final commit
+const writefile = require('write-json-file')
 const chains = require('in3/js/src/client/defaultConfig.json').servers
 
 export interface HistoryEntry {
     validators: string[]
     block: number
-    proof: string[]
+    proof: Proof | string[]
 }
 export interface ValidatorHistory {
     states: HistoryEntry[]
@@ -202,31 +206,44 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
 
     if (history.lastCheckedBlock === currentBlock) return
 
-    const lastCheckedBlockHex = '0x' + history.lastCheckedBlock.toString(16)
-    const currentBlockHex = '0x' + currentBlock.toString(16)
-
-    const logs = await handler.getFromServer({
+    const logs = await handleLogs(handler as any, {
+        jsonrpc: "2.0",
         method: "eth_getLogs",
         params: [{
-            fromBlock: lastCheckedBlockHex,
-            toBlock: currentBlockHex,
+            fromBlock: '0x' + history.lastCheckedBlock.toString(16),
+            toBlock: '0x' + currentBlock.toString(16),
             address: validatorContract,
-            topics: ["55252fa6eee4741b4e24a74a70e9c11fd2c2281df8d6ea13126ff845f7825c89"]
-        }]
+            topics: [["0x55252fa6eee4741b4e24a74a70e9c11fd2c2281df8d6ea13126ff845f7825c89"]]
+        }],
+        in3: {
+            chainId: handler.chainId,
+            verification: "proof"
+        }
     })
 
-    console.log(logs)
+
+    await logs.result.forEach(log => {
+      const validatorList = rawDecode(['address[]'], Buffer.from(log.data.substr(2), 'hex'))[0]
+
+      if(validatorList.length == 0) console.log(parseInt(log.blockNumber) )
+
+      //restitch proof into a logproof object
+      let logProof = {}
+      logProof[log.blockNumber] = logs.in3.proof.logProof[log.blockNumber]
+
+      //update the history
+      history.states.push({
+        validators: validatorList,
+        block: parseInt(log.blockNumber),
+        proof: {
+          type: 'logProof',
+          logProof: logProof
+        }
+      })
+    })
+
+    //TODO: remove this on final commit
+    await writefile('states.json', {states: history.states})
 
     history.lastCheckedBlock = currentBlock
-
-    /*
-    1. if the server was just started (no Validator History) if it was run
-        eth_getLogs for every block until now
-    2. else run eth_getLogs for the current block
-    3. if eth_getLogs find a log of validator change call the contract and
-        finalize if there was a change in the list of validators
-    4. create a proof or use the eth_call proof for validator change
-    5. store the validator list in the validator history data structure.
-    6. update the last checked blocknumber
-    */
 }
