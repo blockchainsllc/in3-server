@@ -22,72 +22,72 @@ import * as Account from 'ethereumjs-account'
 import * as Block from 'ethereumjs-block'
 import * as Trie from 'merkle-patricia-tree'
 import { rlp } from 'ethereumjs-util'
-import { util, serialize, RPCRequest, RPCResponse} from 'in3'
+import { util, serialize, RPCRequest, RPCResponse } from 'in3'
 
 /** executes a transaction-call to a smart contract */
 export async function analyseCall(args: {
-    to    : string
-    data  : string
-    value?: string
-    from? : string
-  }, block: string, getFromServer: (request: Partial<RPCRequest>)=> Promise<RPCResponse> ): Promise<{
+  to: string
+  data: string
+  value?: string
+  from?: string
+}, block: string, getFromServer: (request: Partial<RPCRequest>) => Promise<RPCResponse>): Promise<{
   blocks: string[],
   result: Buffer,
   accounts: {
     [name: string]: {
-      code?   : boolean | string,
+      code?: boolean | string,
       balance?: string,
       storage?: {
         [key: string]: string
       }
     }
   }
-}>  {
+}> {
 
   const res: {
-    blocks  : string[],
-    result? : Buffer,
+    blocks: string[],
+    result?: Buffer,
     accounts: {
       [name: string]: {
-        address : string
-        ac      : Account,
-        proof?  : any,
-        code?   : boolean | string,
+        address: string
+        ac: Account,
+        proof?: any,
+        code?: boolean | string,
         balance?: string,
         storage?: {
           [key: string]: string
         }
       }
     }
-  } = { blocks:[], accounts:{} }
+  } = { blocks: [], accounts: {} }
 
   // create new state for a vm
   const state = new Trie()
-  const vm    = new VM({ state })
+  const vm = new VM({ state })
 
   // create a transaction-object
-  const tx    = serialize.createTx({ gas: '0x5b8d80', gasLimit: '0x5b8d80', from: '0x0000000000000000000000000000000000000000', ...args })
+  const tx = serialize.createTx({ gas: '0x5b8d80', gasLimit: '0x5b8d80', from: '0x0000000000000000000000000000000000000000', ...args })
 
-  function getAccount(address:string) {
-    if (!(res.accounts[address])) 
-      res.accounts[address]={ address, storage:{}, ac:new Account()}
+  function getAccount(address: string) {
+    if (!(res.accounts[address]))
+      res.accounts[address] = { address, storage: {}, ac: new Account() }
     return res.accounts[address]
   }
 
-  let err :any = null
+  let err: any = null
 
-  function handle(res:Promise<any>, next) {
-    res.then(_=>next(),error=>{
+  function handle(res: Promise<any>, next) {
+    res.then(_ => next(), error => {
       if (!err) err = error
       next(error)
     })
   }
 
-  function setCode(ad:string) {
+  function setCode(ad: string) {
     const a = getAccount(util.toHex(ad, 20))
-    return getFromServer({ method:'eth_getCode', params:[a.address, block]})
-    .then(_=> util.promisify(a.ac, a.ac.setCode, state, util.toBuffer(a.code = _.result)))
-    .then(_=> util.promisify(state, state.put, util.toBuffer(a.address, 20), a.ac.serialize()))
+    return getFromServer({ method: 'eth_getCode', params: [a.address, block] })
+      .then(_ => util.promisify(a.ac, a.ac.setCode, state, util.toBuffer(a.code = _.result)))
+      .then(_ => util.promisify(state, state.put, util.toBuffer(a.address, 20), a.ac.serialize()))
   }
 
   // get the code of the contract
@@ -102,37 +102,37 @@ export async function analyseCall(args: {
       case 'EXTCODECOPY':
         const acc = getAccount(util.toHex('0x' + ev.stack[ev.stack.length - 1].toString(16), 20))
 
-        if (ev.opcode.name==='BALANCE' && acc.balance === undefined) 
-            return handle(getFromServer({ method:'eth_getBalance', params:[acc.address, block]}).then(_=> {
-               // set the account data
-               acc.ac.balance = acc.balance = _.result
-               return util.promisify(state, state.put, util.toBuffer(acc.address, 20), acc.ac.serialize())
-              }),next)
-        else if (ev.opcode.name!=='BALANCE' && acc.code === undefined) 
-            return handle(setCode(acc.address),next)
+        if (ev.opcode.name === 'BALANCE' && acc.balance === undefined)
+          return handle(getFromServer({ method: 'eth_getBalance', params: [acc.address, block] }).then(_ => {
+            // set the account data
+            acc.ac.balance = acc.balance = _.result
+            return util.promisify(state, state.put, util.toBuffer(acc.address, 20), acc.ac.serialize())
+          }), next)
+        else if (ev.opcode.name !== 'BALANCE' && acc.code === undefined)
+          return handle(setCode(acc.address), next)
         break
 
       case 'CALL':
       case 'CALLCODE':
       case 'DELEGATECALL':
       case 'STATICCALL':
-         const a = getAccount(util.toHex('0x' + ev.stack[ev.stack.length - 2].toString(16), 20))
-         if (a.code === undefined) 
-          return handle(setCode(a.address),next)
+        const a = getAccount(util.toHex('0x' + ev.stack[ev.stack.length - 2].toString(16), 20))
+        if (a.code === undefined)
+          return handle(setCode(a.address), next)
 
         break
 
       case 'SLOAD':
-        const ac   = getAccount(util.toHex(ev.address, 20))
-        const key  = serialize.bytes32(ev.stack[ev.stack.length - 1])
-        const mKey = util.toMinHex('0x'+key.toString('hex'))
+        const ac = getAccount(util.toHex(ev.address, 20))
+        const key = serialize.bytes32(ev.stack[ev.stack.length - 1])
+        const mKey = util.toMinHex('0x' + key.toString('hex'))
 
-        if (ac.storage[mKey]===undefined)
-          return handle(getFromServer({ method:'eth_getStorageAt', params:[ac.address, '0x'+key.toString('hex') ,block]}).then(_=> {
+        if (ac.storage[mKey] === undefined)
+          return handle(getFromServer({ method: 'eth_getStorageAt', params: [ac.address, '0x' + key.toString('hex'), block] }).then(_ => {
             // set the storage data
-            return util.promisify(ac.ac, ac.ac.setStorage, state, key, rlp.encode(util.toBuffer( ac.storage[mKey]= _.result, 32)))
-            .then(()=>util.promisify(state, state.put, util.toBuffer(ac.address, 20), ac.ac.serialize()))
-          }),next)
+            return util.promisify(ac.ac, ac.ac.setStorage, state, key, rlp.encode(util.toBuffer(ac.storage[mKey] = _.result, 32)))
+              .then(() => util.promisify(state, state.put, util.toBuffer(ac.address, 20), ac.ac.serialize()))
+          }), next)
         break
 
       default:
