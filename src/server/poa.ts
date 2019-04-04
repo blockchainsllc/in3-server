@@ -18,7 +18,7 @@
 ***********************************************************/
 
 
-import { RPCRequest, serialize, BlockData, Proof} from 'in3'
+import { RPCRequest, serialize, BlockData, Proof, LogData} from 'in3'
 import { RPCHandler } from './rpc'
 import { recover } from 'secp256k1'
 import { rlp } from 'ethereumjs-util'
@@ -31,6 +31,7 @@ export interface HistoryEntry {
     validators: string[]
     block: number
     proof: Proof | string[]
+    data?: LogData[]
 }
 export interface ValidatorHistory {
     states: HistoryEntry[]
@@ -218,7 +219,6 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         }
     })
 
-
     logs.result.forEach(log => {
         const validatorList = rawDecode(['address[]'], Buffer.from(log.data.substr(2), 'hex'))[0]
 
@@ -233,7 +233,8 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
             proof: {
                 type: 'logProof',
                 logProof: logProof
-            }
+            },
+            data: [log]
         })
     })
 
