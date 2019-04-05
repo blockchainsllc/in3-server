@@ -100,7 +100,7 @@ export class RPC {
         return manageRequest(handler, getValidatorHistory(handler)
         ).then(result => ({
           id: r.id,
-          result: { states: result.states, lastCheckedBlock: result.lastCheckedBlock },
+          result: { states: result.states.filter(s => r.params?(!(s.block < parseInt(r.params[0]))):true), lastCheckedBlock: result.lastCheckedBlock },
           jsonrpc: r.jsonrpc,
           in3: { ...in3, execTime: Date.now() - start }
         }))
