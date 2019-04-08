@@ -25,6 +25,8 @@ import { sendTransaction, callContract } from '../../src/util/tx'
 import axios from 'axios'
 import { registerServers } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
+import { toBN } from 'in3/js/src/util/util';
+import { BigNumber } from 'ethers/utils';
 logger.setLogger('memory')
 
 let testClient = (process && process.env && process.env.RPCURL) || 'http://localhost:8545'
@@ -211,7 +213,7 @@ export class TestTransport implements Transport {
   }
 
   /** creates a random private key and transfers some ether to this address */
-  async createAccount(seed?: string, eth = 50000000000000000): Promise<string> {
+  async createAccount(seed?: string, eth = toBN('50000000000000000000')): Promise<string> {
     const pkBuffer = seed
       ? seed.startsWith('0x')
         ? Buffer.from(seed.substr(2).padStart(64, '0'), 'hex')
@@ -260,12 +262,13 @@ export class TestTransport implements Transport {
 
     // create accounts
     for (let i = 0; i < count; i++) {
-      pks.push(await test.createAccount(null, 2000000000000000000))
+
+      pks.push(await test.createAccount(null))
       servers.push({
         url: '#' + (i + 1),
         pk: pks[i],
         props: '0xffff',
-        deposit: 1000000000000000000,
+        deposit: 10000,
         timeout: 3600
       })
     }
