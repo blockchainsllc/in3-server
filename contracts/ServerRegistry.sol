@@ -120,8 +120,6 @@ contract ServerRegistry {
         emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
     }
 
-    // TODO: check why deposit-1 worked
-
     /// this should be called before unregistering a server.
     /// there are 2 use cases:
     /// a) the owner wants to stop offering the service and remove the server.
