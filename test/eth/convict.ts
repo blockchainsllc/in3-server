@@ -27,6 +27,7 @@ import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
 import Watcher from '../../src/chains/watch'
 import { registerServers, deployBlockhashRegistry } from '../../src/util/registry'
 import { toBN } from 'in3/js/src/util/util';
+import { BigNumber } from 'ethers/utils';
 
 
 
@@ -123,8 +124,8 @@ describe('Convict', () => {
     const sender = util.getAddress(test.getHandlerConfig(1).privateKey)
 
     // get the balance
-    const balanceSenderBefore = BigInt(await test.getFromServer('eth_getBalance', sender, 'latest'))
-    const balanceRegistryBefore = BigInt(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
+    const balanceSenderBefore = new BigNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
+    const balanceRegistryBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
 
     const d = (await test.getServerFromContract(0))
 
@@ -138,11 +139,12 @@ describe('Convict', () => {
     })
 
 
-    const balanceSenderAfter = BigInt(await test.getFromServer('eth_getBalance', sender, 'latest'))
-    const balanceRegistryAfter = BigInt(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
+    const balanceSenderAfter = new BigNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
+    const balanceRegistryAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
 
-    assert.equal((balanceSenderAfter - balanceSenderBefore), BigInt(serverContract.deposit / 2))
-    assert.equal(balanceRegistryBefore - balanceRegistryAfter, serverContract.deposit)
+    assert.equal((balanceSenderAfter.sub(balanceSenderBefore)).toString(), new BigNumber(serverContract.deposit / 2).toString())
+
+    assert.equal(balanceRegistryBefore.sub(balanceRegistryAfter).toString(), serverContract.deposit)
     const events = await watcher.update()
     assert.equal(events.length, 2)
     assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
@@ -340,13 +342,13 @@ describe('Convict', () => {
     // just read all events
     await watcher.update()
 
-    const balanceBeforeUnregister = BigInt(await test.getFromServer('eth_getBalance', util.getAddress(unregisterAccount), 'latest'))
+    const balanceBeforeUnregister = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(unregisterAccount), 'latest'))
 
     await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: unregisterAccount, value: unregisterDeposit, confirm: true, gas: 300000 })
 
-    const balanceAfterUnregister = BigInt(await test.getFromServer('eth_getBalance', util.getAddress(unregisterAccount), 'latest'))
+    const balanceAfterUnregister = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(unregisterAccount), 'latest'))
 
-    assert.equal(balanceBeforeUnregister - balanceAfterUnregister, BigInt(serverContract.deposit / 50))
+    assert.equal(balanceBeforeUnregister.sub(balanceAfterUnregister).toString(), (serverContract.deposit / 50).toString())
 
     // this is a correct signature and should not fail.
     const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
@@ -363,9 +365,9 @@ describe('Convict', () => {
 
     assert.equal(events.map(_ => _.event).join(), 'LogServerUnregisterRequested,LogServerConvicted,LogServerRemoved')
 
-    const balanceAfterConvict = BigInt(await test.getFromServer('eth_getBalance', util.getAddress(unregisterAccount), 'latest'))
+    const balanceAfterConvict = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(unregisterAccount), 'latest'))
 
-    assert.equal(balanceAfterConvict, balanceBeforeUnregister)
+    assert.equal(balanceAfterConvict.toString(), balanceBeforeUnregister.toString())
 
   })
 
@@ -452,7 +454,7 @@ describe('Convict', () => {
     // the user regquests to unregister this server
     await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: unregisterDeposit, confirm: true, gas: 300000 })
 
-    const balanceOwnerBefore = BigInt(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
+    const balanceOwnerBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
 
     // this should have picked up the first event, but als executing a transaction and reacting to it.
     let events = await watcher.update()
@@ -473,9 +475,9 @@ describe('Convict', () => {
     assert.equal(events[0].url, '#1')
     assert.equal(events[0].owner, test.nodeList.nodes[0].address)
 
-    const balanceOwnerAfter = BigInt(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
+    const balanceOwnerAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
     // the owner now got the deposit from the
-    assert.equal(balanceOwnerAfter - balanceOwnerBefore, BigInt(unregisterDeposit))
+    assert.equal(balanceOwnerAfter.sub(balanceOwnerBefore).toString(), unregisterDeposit.toString())
   })
 
 
@@ -490,18 +492,18 @@ describe('Convict', () => {
     // the user regquests to unregister this server
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: unregisterDeposit / 2, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because the wrong value was sent')
 
-    let balanceBefore = BigInt(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
+    let balanceBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
 
     // the user regquests to unregister this server
     await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(1).privateKey, value: unregisterDeposit, confirm: true, gas: 300000 })
 
-    let balanceAfter = BigInt(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
+    let balanceAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
 
-    assert.equal(balanceBefore - balanceAfter, BigInt(unregisterDeposit))
+    assert.equal(balanceBefore.sub(balanceAfter).toString(), (unregisterDeposit.toString()))
 
     balanceBefore = balanceAfter
 
-    const balanceOwnerBefore = BigInt(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
+    const balanceOwnerBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
 
     // should fail now
     let rc = await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
@@ -523,9 +525,9 @@ describe('Convict', () => {
     })
 
 
-    balanceAfter = BigInt(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
+    balanceAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
 
-    assert.equal(balanceAfter - balanceBefore, BigInt(unregisterDeposit + (serverContract.deposit / 5)))
+    assert.equal(balanceAfter.sub(balanceBefore).toString(), (unregisterDeposit + (serverContract.deposit / 5)).toString())
   })
 
 
@@ -551,7 +553,7 @@ describe('Convict', () => {
     assert.equal(serverAfter.unregisterTime - Number(block.timestamp), 3600)
     assert.equal(serverAfter.unregisterDeposit, 0)
 
-    const balanceOwnerBefore = BigInt(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
+    const balanceOwnerBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
 
     let rc = await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
       privateKey: test.getHandlerConfig(0).privateKey,
@@ -569,9 +571,9 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     })
-    const balanceOwnerAfter = BigInt(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
+    const balanceOwnerAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
 
-    assert.equal(balanceOwnerAfter - balanceOwnerBefore, BigInt(serverBefore.deposit))
+    assert.equal(balanceOwnerAfter.sub(balanceOwnerBefore).toString(), serverBefore.deposit.toString())
 
 
   })
