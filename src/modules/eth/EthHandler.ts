@@ -23,6 +23,7 @@ import { simpleEncode, simpleDecode }                                           
 import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs }      from './proof'
 import BaseHandler                                                                                                  from '../../chains/BaseHandler'
 import { handleSign }                                                                                               from '../../chains/signatures';
+import { getValidatorHistory } from '../../server/poa'
 
 const clientConf = require('in3/js/src/client/defaultConfig.json')
 const toHex      = in3Util.toHex
@@ -145,7 +146,11 @@ export default class EthHandler extends BaseHandler {
   async getAuthorities(blockNumber:number):Promise<Buffer[]> {
      if (this.authorities) return this.authorities
      const spec = this.getChainSpec()
-     return spec ? this.authorities = await header.getAuthorities(spec,blockNumber, this.getFromServer.bind(this)) : (this.authorities=[])
+
+     //get all the states from validatorHistory from the specified blocknumber
+     const validatorStates = (await getValidatorHistory(this)).states.filter(state => !(state.block < blockNumber))
+
+     return spec ? this.authorities = validatorStates[0].validators.map(v => in3Util.toBuffer(v,20)): (this.authorities=[])
   }
 
 

@@ -31,7 +31,7 @@ export interface HistoryEntry {
     validators: string[]
     block: number
     proof: Proof | string[]
-    data?: LogData[]
+    data?: LogData
 }
 export interface ValidatorHistory {
     states: HistoryEntry[]
@@ -234,7 +234,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
                 type: 'logProof',
                 logProof: logProof
             },
-            data: [log]
+            data: log
         })
     })
 
