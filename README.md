@@ -29,7 +29,7 @@ services:
     command:
     - --privateKey=/secure/myKey.json                       # internal path to the key
     - --privateKeyPassphrase=dummy                          # passphrase to unlock the key
-    - --chain=0x1                                           # chain (kovan)
+    - --chain=0x1                                           # chain (mainnet)
     - --rpcUrl=http://incubed-parity:8545                   # url of the kovan-client
     - --registry=0xFdb0eA8AB08212A1fFfDB35aFacf37C3857083ca # url of the incubed-registry 
     - --autoRegistry-url=http://in3.server:8500             # check or register this node for this url

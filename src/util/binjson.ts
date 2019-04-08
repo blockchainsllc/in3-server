@@ -3,10 +3,12 @@ interface BB {
     data: Buffer
     p: number
     len: number
+    bytes?: { data: Buffer, idx: number }[]
+    byteIdx?: number
 }
 
 export function encodeObject(ob: any): Buffer {
-    const bb = { data: Buffer.allocUnsafe(100), p: 0, len: 0 }
+    const bb = { data: Buffer.allocUnsafe(100), p: 0, len: 0, byteIdx: 0, bytes: [] }
     encode(bb, ob)
     const prefix = { data: Buffer.allocUnsafe(bb.p + 4), p: 0, len: 0 }
     encodeTypeandLength(prefix, 6, bufferFromNumber(bb.len), bb.data.slice(0, bb.p))
@@ -66,6 +68,17 @@ function hash(s: string): number {
     return val;
 }
 
+function encodeRefIfExists(bb: BB, data: Buffer) {
+    const found = bb.bytes.find(_ => _.data.equals(data))
+    if (found) {
+        encodeTypeandLength(bb, 4, bufferFromNumber(found.idx + 2));
+        bb.byteIdx++;
+        return true;
+    }
+    bb.bytes.push({ idx: bb.byteIdx, data })
+    return false
+}
+
 function encode(bb: BB, ob: any) {
     const type = typeof (ob);
     bb.len++;
@@ -83,6 +96,7 @@ function encode(bb: BB, ob: any) {
                 encodeTypeandLength(bb, 5, ldata)
             else {
                 data = Buffer.from(even(ob.toString(16)), 'hex')
+                if (encodeRefIfExists(bb, data)) return
                 encodeTypeandLength(bb, 0, bufferFromNumber(data.length), data)
             }
         }
@@ -93,6 +107,7 @@ function encode(bb: BB, ob: any) {
                 ldata = bufferFromNumber((data = Buffer.from(ob, 'utf8')).length)
                 t = 1
             }
+            if (!t && encodeRefIfExists(bb, data)) return
             encodeTypeandLength(bb, t, ldata, data)
         }
         else if (Array.isArray(ob)) {
@@ -111,4 +126,5 @@ function encode(bb: BB, ob: any) {
             }
         }
     }
+    bb.byteIdx++
 }

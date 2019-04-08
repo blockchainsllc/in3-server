@@ -137,7 +137,7 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
   const blockData = await handler.getAllFromServer([
     ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })),
     { method: 'eth_blockNumber', params: [] },
-  ]).then(a => a.map(_ => _.result as BlockData))
+  ], request).then(a => a.map(_ => _.result as BlockData))
   const blockNumber = blockData.pop() as any as string // the first arg is just the current blockNumber
 
   if (!blockNumber) throw new Error('no current blocknumber detectable ')
