@@ -21,7 +21,7 @@ import BaseHandler from './BaseHandler'
 import { BlockData, RPCRequest, RPCResponse, Signature, util, serialize, ServerList, IN3NodeConfig } from 'in3'
 import { sha3, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
-import { IN3ConfigDefinition } from 'in3/js/src/types/types';
+import { toBuffer } from 'in3/js/src/util/util';
 
 const toHex = util.toHex
 const toMinHex = util.toMinHex
@@ -94,10 +94,23 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         const diffBlocks = toNumber(latestBlockNumber) - s.block
 
 
+        //            keccak256(abi.encodePacked(_blockhash, msg.sender, _v, _r, _s)) == ci.convictHash, 
+
+        const convictSignature: Buffer = sha3(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+
+
         if (diffBlocks < 255) {
 
+
+          await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+            privateKey: handler.config.privateKey,
+            gas: 300000,
+            value: 0,
+            confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+          })
+
           // so he signed the wrong blockhash and we have all data to convict him!
-          const txHash = await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
+          const txHash = await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
             privateKey: handler.config.privateKey,
             gas: 300000,
             value: 0,
@@ -211,7 +224,16 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
       diffBlock += txArray.length
     }
 
-    await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
+    const convictSignature: Buffer = sha3(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+
+    await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+      privateKey: handler.config.privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+    })
+
+    await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: handler.config.privateKey,
       gas: 300000,
       value: 0,
