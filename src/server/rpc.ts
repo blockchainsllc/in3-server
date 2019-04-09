@@ -100,7 +100,7 @@ export class RPC {
         return manageRequest(handler, getValidatorHistory(handler)
         ).then(result => {
 
-          const blockNumber = r.params?parseInt(r.params[0]):0
+          const blockNumber = (r.params && r.params.length > 0)?parseInt(r.params[0]):0
 
           const filteredStates = blockNumber != 0
           ? result.states.filter((state, index, states) => {
