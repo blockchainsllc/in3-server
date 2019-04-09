@@ -262,50 +262,6 @@ contract ServerRegistry {
 
     }
 
-/*
-    /// convicts a server that signed a wrong blockhash
-    function _convict(uint _serverIndex, bytes32 _blockhash, uint _blocknumber, uint8 _v, bytes32 _r, bytes32 _s) external {
-        bytes32 evm_blockhash = blockhash(_blocknumber);
-
-        if(evm_blockhash == 0x0) {
-            evm_blockhash = blockRegistry.blockhashMapping(_blocknumber);
-        }
-        
-        // if the blockhash is correct you cannot convict the server
-        require(evm_blockhash != 0x0 && evm_blockhash != _blockhash, "the block is too old or you try to convict with a correct hash");
-
-        // make sure the hash was signed by the owner of the server
-        require(
-            ecrecover(keccak256(abi.encodePacked(_blockhash, _blocknumber)), _v, _r, _s) == servers[_serverIndex].owner, 
-            "the block was not signed by the owner of the server");
-
-        In3Server storage s = servers[_serverIndex];
-
-        // remove the deposit
-        if (s.deposit > 0) {
-            uint payout =s.deposit / 2;
-            // send 50% to the caller of this function
-            msg.sender.transfer(payout);
-
-            // and burn the rest by sending it to the 0x0-address
-            // this is done in order to make it useless trying to convict your own server with a second account
-            // and this getting all the deposit back after signing a wrong hash.
-            address(0).transfer(s.deposit-payout);
-
-        }
-
-        /// send back the unregister deposit
-        if(s.unregisterDeposit > 0){
-            s.unregisterCaller.transfer(s.unregisterDeposit);
-        }
-
-        // emit event
-        emit LogServerConvicted(servers[_serverIndex].url, servers[_serverIndex].owner );
-        
-        removeServer(_serverIndex);
-    }
-    */
-
     /// calculates the minimum deposit you need to pay in order to request unregistering of a server.
     function calcUnregisterDeposit(uint _serverIndex) public view returns(uint128) {
          // cancelUnregisteringServer costs 22k gas, we took about twist that much due to volatility of gasPrices
