@@ -25,13 +25,13 @@ import * as tx from '../../src/util/tx'
 import * as ethUtil from 'ethereumjs-util'
 import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
 import Watcher from '../../src/chains/watch'
-import { registerServers, deployBlockhashRegistry } from '../../src/util/registry'
-import { toBN } from 'in3/js/src/util/util';
+import { registerServers } from '../../src/util/registry'
+import { toBN, toBuffer } from 'in3/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
+import { sha3 } from 'ethereumjs-util'
 
 
-
-
+const address = serialize.address
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 const toHex = util.toHex
@@ -129,15 +129,22 @@ describe('Convict', () => {
 
     const d = (await test.getServerFromContract(0))
 
-    // send the transaction to convict with the wrong hash
-    rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
+    // send the transactions to convict with the wrong hash
+    const convictSignature: Buffer = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
-      confirm: true,
-      gasPrice: 0
+      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
+    await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+    })
 
     const balanceSenderAfter = new BigNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
     const balanceRegistryAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
