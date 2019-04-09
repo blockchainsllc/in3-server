@@ -76,6 +76,7 @@ describe('Convict', () => {
     // sign the correct blockhash 
     let s = sign(block, test.getHandlerConfig(0).privateKey)
 
+    /*
     // must fail, since we cannot convict with a correct blockhash
     let rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
@@ -83,29 +84,62 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     }).catch(_ => false)
+*/
+    let convictSignature: Buffer = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    assert.isFalse(rc, 'Transaction must fail, because we sent the correct hash')
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+    })
 
-    // now test if we can send a wrong blockhash, but the block is older than 256 blocks:
-    // wrong blockhash signed by first node
-    s = sign({ number: 1 } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
-    // must fail, since we cannot convict with a correct blockhash
-    rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
+    let rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
       confirm: true
     }).catch(_ => false)
+    assert.isFalse(rc, 'Transaction must fail, because we sent the correct hash')
 
+
+
+    // now test if we can send a wrong blockhash, but the block is older than 256 blocks:
+    // wrong blockhash signed by first node
+    s = sign({ number: 1 } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
+
+    convictSignature = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [0, convictSignature], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+    })
+
+    rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false)
     assert.isFalse(rc, 'Transaction must fail, because the block is too old')
+
 
     const serverContract = await test.getServerFromContract(0)
     const unregisterDeposit = serverContract.deposit / 50
 
     block = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumberInSnapshot), false) as BlockData
     s = sign(block, test.getHandlerConfig(0).privateKey)
-    // must fail, since we cannot convict with a correct blockhash
-    rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
+
+    convictSignature = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+    })
+
+    rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
@@ -114,10 +148,7 @@ describe('Convict', () => {
 
     assert.isFalse(rc, 'Transaction must fail, because block is correct')
 
-    // must fail, since we cannot convict with a correct blockhash
-
     // wrong blockhash signed by first node
-    //s = sign(block, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
     s = sign({ number: blockNumberInSnapshot } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
 
     // the sender to convit will be second node
@@ -127,24 +158,46 @@ describe('Convict', () => {
     const balanceSenderBefore = new BigNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
     const balanceRegistryBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
 
-    const d = (await test.getServerFromContract(0))
+    const convictSignatureWrong: Buffer = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.s), bytes32(s.s)]))
+
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureWrong], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+    })
+
+    rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false)
+
+    assert.isFalse(rc, 'Transaction must fail, convict signature is wrong')
+
 
     // send the transactions to convict with the wrong hash
-    const convictSignature: Buffer = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+    convictSignature = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+    let a = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
-      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+      confirm: true
     })
 
-    await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
+    let b = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
-      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+      confirm: true
     })
+
+
+    console.log("gas combined")
+
+    console.log((toNumber(a.gasUsed) + toNumber(b.gasUsed)))
 
     const balanceSenderAfter = new BigNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
     const balanceRegistryAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
