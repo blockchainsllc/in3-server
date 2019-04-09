@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec , util as in3Util, header } from 'in3'
+import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec , util as in3Util } from 'in3'
 import { simpleEncode, simpleDecode }                                                                               from 'ethereumjs-abi'
 
 import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs }      from './proof'
