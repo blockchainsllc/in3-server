@@ -67,6 +67,13 @@ contract ServerRegistry {
     mapping (address => bool) ownerIndex;
     mapping (bytes32 => bool) urlIndex;
 
+    struct ConvictInformation {
+        bytes32 convictHash;
+        bytes32 blockHash;
+    }
+
+    mapping (uint => mapping(address => ConvictInformation)) convictMapping;
+
     constructor(address _blockRegistry) public {
         blockRegistry = BlockhashRegistry(_blockRegistry);
     }
@@ -191,9 +198,73 @@ contract ServerRegistry {
         emit LogServerUnregisterCanceled(server.url, server.owner);
     }
 
+    /// commits a blocknumber and a hash
+    function convict(uint _blockNumber, bytes32 _hash) external {
+        bytes32 evm_blockhash = blockhash(_blockNumber);
 
+        if(evm_blockhash == 0x0) {
+            evm_blockhash = blockRegistry.blockhashMapping(_blockNumber);
+        }
+        
+        // if the blockhash is correct you cannot convict the server
+        require(evm_blockhash != 0x0, "block not found");
+    
+        ConvictInformation memory ci;
+        ci.convictHash = _hash;
+        ci.blockHash = evm_blockhash;
+
+        convictMapping[_blockNumber][msg.sender] = ci;
+    
+    }
+
+    function revealConvict(uint _serverIndex, bytes32 _blockhash, uint _blockNumber, uint8 _v, bytes32 _r, bytes32 _s) external {
+
+        ConvictInformation memory ci = convictMapping[_blockNumber][msg.sender];
+
+        // if the blockhash is correct you cannot convict the server
+        require(ci.blockHash != _blockhash, "the block is too old or you try to convict with a correct hash");
+
+        require(
+            ecrecover(keccak256(abi.encodePacked(_blockhash, _blockNumber)), _v, _r, _s) == servers[_serverIndex].owner, 
+            "the block was not signed by the owner of the server");
+
+        require(
+            keccak256(abi.encodePacked(_blockhash, msg.sender, _v, _r, _s)) == ci.convictHash, 
+            "wrong convict hash");
+        
+        In3Server storage s = servers[_serverIndex];
+
+        // remove the deposit
+        if (s.deposit > 0) {
+            uint payout =s.deposit / 2;
+            // send 50% to the caller of this function
+            msg.sender.transfer(payout);
+
+            // and burn the rest by sending it to the 0x0-address
+            // this is done in order to make it useless trying to convict your own server with a second account
+            // and this getting all the deposit back after signing a wrong hash.
+            address(0).transfer(s.deposit-payout);
+
+        }
+
+        /// send back the unregister deposit
+        if(s.unregisterDeposit > 0){
+            s.unregisterCaller.transfer(s.unregisterDeposit);
+        }
+
+        // emit event
+        emit LogServerConvicted(servers[_serverIndex].url, servers[_serverIndex].owner );
+        
+        // clean up
+        delete convictMapping[_blockNumber][msg.sender];
+        
+        removeServer(_serverIndex);
+
+    }
+
+/*
     /// convicts a server that signed a wrong blockhash
-    function convict(uint _serverIndex, bytes32 _blockhash, uint _blocknumber, uint8 _v, bytes32 _r, bytes32 _s) external {
+    function _convict(uint _serverIndex, bytes32 _blockhash, uint _blocknumber, uint8 _v, bytes32 _r, bytes32 _s) external {
         bytes32 evm_blockhash = blockhash(_blocknumber);
 
         if(evm_blockhash == 0x0) {
@@ -233,6 +304,7 @@ contract ServerRegistry {
         
         removeServer(_serverIndex);
     }
+    */
 
     /// calculates the minimum deposit you need to pay in order to request unregistering of a server.
     function calcUnregisterDeposit(uint _serverIndex) public view returns(uint128) {
