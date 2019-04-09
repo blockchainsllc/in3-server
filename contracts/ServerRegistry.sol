@@ -219,7 +219,7 @@ contract ServerRegistry {
 
     function revealConvict(uint _serverIndex, bytes32 _blockhash, uint _blockNumber, uint8 _v, bytes32 _r, bytes32 _s) external {
 
-        ConvictInformation memory ci = convictMapping[_blockNumber][msg.sender];
+        ConvictInformation storage ci = convictMapping[_blockNumber][msg.sender];
 
         // if the blockhash is correct you cannot convict the server
         require(ci.blockHash != _blockhash, "the block is too old or you try to convict with a correct hash");
@@ -255,11 +255,11 @@ contract ServerRegistry {
         // emit event
         emit LogServerConvicted(servers[_serverIndex].url, servers[_serverIndex].owner );
         
-        // clean up
-        delete convictMapping[_blockNumber][msg.sender];
-        
-        removeServer(_serverIndex);
+        /// for some reason currently deleting the ci storage would cost more gas, so we comment this out for now
+        //delete ci.convictHash;
+        //delete ci.blockHash;
 
+        removeServer(_serverIndex);
     }
 
     /// calculates the minimum deposit you need to pay in order to request unregistering of a server.
