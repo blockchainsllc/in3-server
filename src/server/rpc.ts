@@ -99,12 +99,26 @@ export class RPC {
       else if (r.method === 'in3_validatorlist')
         return manageRequest(handler, getValidatorHistory(handler)
         ).then(result => {
-          const filteredStates = result.states.filter(s => r.params?(!(s.block < parseInt(r.params[0]))):true)
+
+          const blockNumber = r.params?parseInt(r.params[0]):0
+
+          const filteredStates = blockNumber != 0
+          ? result.states.filter((state, index, states) => {
+              if(state.block >= blockNumber)
+                return true
+              else if(index != (states.length-1) && blockNumber < states[index + 1].block)
+                return true
+              else if(index === (states.length-1) && blockNumber > states[states.length - 1].block)
+                return true
+              else
+                return false
+            })
+          : result.states
 
           return ({
             id: r.id,
             result: {
-              states: filteredStates.length > 0? filteredStates: result.states[result.states.length-1],
+              states: filteredStates,
               lastCheckedBlock: result.lastCheckedBlock
             },
             jsonrpc: r.jsonrpc,

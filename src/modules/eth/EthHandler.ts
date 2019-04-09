@@ -144,13 +144,22 @@ export default class EthHandler extends BaseHandler {
   }
 
   async getAuthorities(blockNumber:number):Promise<Buffer[]> {
-     if (this.authorities) return this.authorities
-     const spec = this.getChainSpec()
+    if (this.authorities) return this.authorities
+    const spec = this.getChainSpec()
 
-     //get all the states from validatorHistory from the specified blocknumber
-     const validatorStates = (await getValidatorHistory(this)).states.filter(state => !(state.block < blockNumber))
+    //get all the states from validatorHistory from the specified blocknumber
+    const validatorStates = (await getValidatorHistory(this)).states.filter((state, index, states) => {
+        if(state.block >= blockNumber)
+          return true
+        else if(index != (states.length-1) && blockNumber < states[index + 1].block)
+          return true
+        else if(index === (states.length-1) && blockNumber > states[states.length - 1].block)
+          return true
+        else
+          return false
+      })
 
-     return spec ? this.authorities = validatorStates[0].validators.map(v => in3Util.toBuffer(v,20)): (this.authorities=[])
+    return spec ? this.authorities = validatorStates[0].validators.map(v => in3Util.toBuffer(v,20)): (this.authorities=[])
   }
 
 
