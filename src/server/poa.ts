@@ -18,14 +18,15 @@
 ***********************************************************/
 
 
-import { RPCRequest, serialize, BlockData, Proof, LogData} from 'in3'
+import { RPCRequest, serialize, BlockData, Proof, LogData, util} from 'in3'
 import { RPCHandler } from './rpc'
 import { recover } from 'secp256k1'
-import { rlp } from 'ethereumjs-util'
 import { rawDecode } from 'ethereumjs-abi'
-import { publicToAddress } from 'ethereumjs-util'
+import { publicToAddress,rlp } from 'ethereumjs-util'
 import { handleLogs } from '../modules/eth/proof'
 const chains = require('in3/js/src/client/defaultConfig.json').servers
+
+const toHex = util.toHex
 
 export interface HistoryEntry {
     validators: string[]
@@ -224,7 +225,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
 
         //restitch proof into a logproof object
         let logProof = {}
-        logProof[log.blockNumber] = logs.in3.proof.logProof[log.blockNumber]
+        logProof[toHex(log.blockNumber)] = logs.in3.proof.logProof[toHex(log.blockNumber)]
 
         //update the history states
         history.states.push({
