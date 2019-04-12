@@ -31,9 +31,7 @@ COPY package.json ./
 
 # temporarily install dependencies for building packages
 RUN apk add --no-cache --virtual .gyp \
-        python \
-        make \
-        g++ 
+        python 
 
 # allowing docker to access the private repo
 RUN echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
