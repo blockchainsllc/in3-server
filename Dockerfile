@@ -41,8 +41,6 @@ RUN apk add --no-cache --virtual .gyp \
         && rm ~/.npmrc
     && apk del .gyp
 
-RUN
-
 # compile src
 RUN npm run build
 
