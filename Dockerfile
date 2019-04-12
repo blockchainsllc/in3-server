@@ -18,7 +18,7 @@
 #**********************************************************/
 
 
-FROM node:8
+FROM node:11-alpine
 
 WORKDIR /app
 
@@ -40,13 +40,9 @@ RUN npm run build
 
 # clean up
 # pruning does not work with git-modules, so we can use it when the repo is public
-RUN npm prune --production 
+RUN npm prune --production
 RUN rm -rf src tsconfig.json ~/.npmrc
 
 # setup ENTRYPOINT
 EXPOSE 8500
 ENTRYPOINT ["node", "js/server/server.js"]
-
-
-
-
