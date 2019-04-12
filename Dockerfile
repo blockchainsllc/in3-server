@@ -18,7 +18,7 @@
 #**********************************************************/
 
 
-FROM docker.slock.it/build-images/node:8-alpine
+FROM node:11-alpine
 
 WORKDIR /app
 
