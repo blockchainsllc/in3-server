@@ -18,7 +18,7 @@
 #**********************************************************/
 
 
-FROM node:11-alpine
+FROM node:10-alpine
 
 WORKDIR /app
 

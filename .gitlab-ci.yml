@@ -5,9 +5,7 @@ variables:
 
 stages:
   - build
-  - test
   - package
-  - deploy
 
 build-server:
   stage: build
@@ -35,89 +33,6 @@ compile-contracts:
     paths:
       - contracts/contracts.json
 
-test-parity:
-  stage: test
-  tags:
-    - short-jobs
-  variables:
-    RPCURL: http://parity:8545
-    IPFS_URL: http://ipfs:5001
-  services:
-    - name: jbenet/go-ipfs:latest
-      command:
-        - daemon
-        - --offline
-      alias: ipfs
-    - name: slockit/parity-in3:v2.3
-      command:
-        - --jsonrpc-experimental
-        - --jsonrpc-apis=all
-        - --logging=3
-        - --jsonrpc-interface=all
-        - --ws-interface=all
-        - --chain=dev
-        - --gas-cap=8000000
-        - --gasprice=0
-        - --reseal-min-period=0
-        - --gas-floor-target=8700000
-        - --tracing=on
-      alias: parity
-  script:
-    - sh /prepare.sh
-    - npm install
-    - npm run testCoverage
-  dependencies:
-    - build-server
-    - compile-contracts
-  artifacts:
-    name: "test-reports-$CI_JOB_NAME"
-    paths:
-      - test/report
-
-test-geth:
-  stage: test
-  tags:
-    - short-jobs
-  variables:
-    RPCURL: http://geth:8545
-    IPFS_URL: http://ipfs:5001
-  services:
-    - name: jbenet/go-ipfs:latest
-      command:
-        - daemon
-        - --offline
-      alias: ipfs
-    - name: docker.slock.it/build-images/geth:v1.8.18
-      alias: geth
-  script:
-    - sh /prepare.sh
-    - npm install
-  #        - npm run testCoverage             just for now geth seems to have some issues
-  dependencies:
-    - build-server
-    - compile-contracts
-  artifacts:
-    name: "test-reports-$CI_JOB_NAME"
-    paths:
-      - test/report
-
-pages:
-  stage: deploy
-  tags:
-    - short-jobs
-  environment:
-    name: test-results
-    url: http://in3.git-pages.slock.it/in3-server
-  dependencies:
-    - test-parity
-    - test-geth
-  script:
-    - mkdir -p public/
-    - cp -r test/report/* public/
-  artifacts:
-    paths:
-      - public
-
 package-docker:
   stage: package
   tags:
@@ -131,16 +46,3 @@ package-docker:
     - docker tag $COMMIT_IMAGE_TAG $RELEASE_IMAGE_TAG
     - docker push $RELEASE_IMAGE_TAG
     - docker push $COMMIT_IMAGE_TAG
-
-deploy-to-dev:
-  stage: deploy
-  tags:
-    - long-jobs
-  only:
-    - master
-    - develop
-  image: markuskeil/docker-and-rancher
-  services:
-    - docker:dind
-  script:
-    - rancher -w up -d --prune -p -s $CI_PROJECT_PATH_SLUG -c --force-upgrade
