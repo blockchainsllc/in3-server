@@ -4,34 +4,7 @@ variables:
   RELEASE_IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
 
 stages:
-  - build
   - package
-
-build-server:
-  stage: build
-  tags:
-    - short-jobs
-  script:
-    - sh /prepare.sh
-    - npm install
-    - npm run build
-  artifacts:
-    paths:
-      - node_modules/
-      - js/
-
-compile-contracts:
-  stage: build
-  tags:
-    - short-jobs
-  services:
-    - docker:dind
-  image: jonaskello/docker-and-compose:latest
-  script:
-    - docker run --rm -v $(pwd)/contracts:/contracts ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/ServerRegistry.sol /contracts/ChainRegistry.sol > contracts/contracts.json
-  artifacts:
-    paths:
-      - contracts/contracts.json
 
 package-docker:
   stage: package

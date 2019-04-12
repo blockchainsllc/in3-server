@@ -29,11 +29,19 @@ COPY src  ./src/
 COPY contracts  ./contracts/
 COPY package.json ./
 
-# allowing docker to access the private repo
-RUN echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
-    && npm set registry https://npm.slock.it \
-    && npm install \
-    && rm ~/.npmrc
+# temporarily install dependencies for building packages
+RUN apk add --no-cache --virtual .gyp \
+        python \
+        make \
+        g++ \
+    # allowing docker to access the private repo
+    && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
+        && npm set registry https://npm.slock.it \
+        && npm install \
+        && rm ~/.npmrc
+    && apk del .gyp
+
+RUN
 
 # compile src
 RUN npm run build
