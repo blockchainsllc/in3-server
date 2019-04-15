@@ -40,13 +40,13 @@ RUN apk add --no-cache --virtual .gyp \
         && npm set registry https://npm.slock.it \
         && npm install \
         && rm ~/.npmrc \
-        && apk del .gyp \
 
         # compile src
         && npm run build \
 
         # clean up
         # pruning does not work with git-modules, so we can use it when the repo is public
+        && apk del .gyp \
         && npm prune --production \
         && rm -rf src tsconfig.json ~/.npmrc
 
