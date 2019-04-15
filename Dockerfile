@@ -41,7 +41,7 @@ RUN apk add --no-cache --virtual .gyp \
         && npm install \
 
         # compile src
-        && npm run build \
+        && npm run build \
 
         # clean up
         # pruning does not work with git-modules, so we can use it when the repo is public
