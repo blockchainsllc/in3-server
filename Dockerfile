@@ -39,7 +39,6 @@ RUN apk add --no-cache --virtual .gyp \
         && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
         && npm set registry https://npm.slock.it \
         && npm install \
-        && rm ~/.npmrc \
 
         # compile src
         && npm run build \
