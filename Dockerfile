@@ -33,22 +33,22 @@ COPY package.json ./
 RUN apk add --no-cache --virtual .gyp \
         python \
         make \
-        g++
+        g++ \
 
-# allowing docker to access the private repo
-RUN echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
+        # allowing docker to access the private repo
+        && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
         && npm set registry https://npm.slock.it \
         && npm install \
         && rm ~/.npmrc \
-        && apk del .gyp
+        && apk del .gyp \
 
-# compile src
-RUN npm run build
+        # compile src
+        && npm run build \
 
-# clean up
-# pruning does not work with git-modules, so we can use it when the repo is public
-RUN npm prune --production
-RUN rm -rf src tsconfig.json ~/.npmrc
+        # clean up
+        # pruning does not work with git-modules, so we can use it when the repo is public
+        && npm prune --production \
+        && rm -rf src tsconfig.json ~/.npmrc
 
 # setup ENTRYPOINT
 EXPOSE 8500
