@@ -100,26 +100,31 @@ export class RPC {
         return manageRequest(handler, getValidatorHistory(handler)
         ).then(result => {
 
-          const blockNumber = (r.params && r.params.length > 0)?parseInt(r.params[0]):0
+          const blockNumber: number = (r.params && r.params.length > 0)?parseInt(r.params[0]):0
+          const chunkSize: number = (r.params && r.params.length > 1)?parseInt(r.params[1]):1
+          const excludePreviousState: boolean = (r.params && r.params.length > 2)?r.params[2]:false
 
-          const filteredStates = blockNumber != 0
-          ? result.states.filter((state, index, states) => {
+          const statesLength = result.states.length
+
+          const filteredStates = blockNumber != 0 ?
+          result.states.filter((state, index, states) => {
               if(state.block >= blockNumber)
                 return true
-              else if(index != (states.length-1) && blockNumber < states[index + 1].block)
+              else if(index != (statesLength-1) && blockNumber < states[index + 1].block && !excludePreviousState)
                 return true
-              else if(index === (states.length-1) && blockNumber > states[states.length - 1].block)
+              else if(index === (statesLength-1) && blockNumber > states[statesLength - 1].block && !excludePreviousState)
                 return true
               else
                 return false
-            })
+          })
           : result.states
 
           return ({
             id: r.id,
             result: {
-              states: filteredStates,
-              lastCheckedBlock: result.lastCheckedBlock
+              states: chunkSize && chunkSize < filteredStates.length?filteredStates.slice(0, chunkSize):filteredStates,
+              lastCheckedBlock: result.lastCheckedBlock,
+              statesLength: statesLength
             },
             jsonrpc: r.jsonrpc,
             in3: { ...in3, execTime: Date.now() - start }
