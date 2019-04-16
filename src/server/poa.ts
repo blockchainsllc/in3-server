@@ -226,7 +226,9 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         //restitch proof into a logproof object
         let validatorProof = {
             receipts: logs.in3.proof.logProof[toHex(log.blockNumber)].receipts,
-            block: logs.in3.proof.logProof[toHex(log.blockNumber)].block
+            block: logs.in3.proof.logProof[toHex(log.blockNumber)].block,
+            blockHash: log.blockHash,
+            logIndex: log.transactionLogIndex
         }
 
         Object.keys(validatorProof.receipts).forEach(k => {
