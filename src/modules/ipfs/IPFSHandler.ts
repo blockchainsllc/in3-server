@@ -96,7 +96,7 @@ export default class IPFSHandler extends BaseHandler {
 
 function encode(data: string | Buffer, inEncoding: string, outEncoding: string) {
   if (inEncoding === outEncoding) return data
-  const b = Buffer.isBuffer(data) ? data : Buffer.from(data, inEncoding)
+  const b = Buffer.isBuffer(data) ? data : Buffer.from(data, inEncoding as any) // dirty, but needed
   return b.toString(outEncoding)
 }
 
