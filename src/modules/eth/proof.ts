@@ -50,7 +50,7 @@ export async function addFinality(request: RPCRequest, response: RPCResponse, bl
       while (signers.length < minNumber) {
         bn = bn + 1
         if (curBlock && curBlock.number < bn) break
-        const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['0x' + bn.toString(16), false] }, request)
+        const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['0x' + bn.toString(16), false] })
         if (!b || b.error || !b.result) break
         const s = header.getSigner(new serialize.Block(b.result))
         if (!signers.find(_ => _.equals(s)))
@@ -65,37 +65,28 @@ export async function addFinality(request: RPCRequest, response: RPCResponse, bl
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionProof(block: BlockData, txHash: string, signatures: Signature[], verifiedHashes: string[]): Promise<Proof> {
+export async function createTransactionProof(block: BlockData, txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler): Promise<Proof> {
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
   if (txIndex < 0) throw new Error('tx not found')
 
-  // create trie
-  const trie = new Trie()
-  // fill in all transactions
-  await Promise.all(block.transactions.map(tx => new Promise((resolve, reject) =>
-    trie.put(
-      rlp.encode(parseInt(tx.transactionIndex)), // path as txIndex
-      serialize.createTx(tx).serialize(),  // raw transactions
-      error => error ? reject(error) : resolve(true)
-    )
-  )))
-
-  // check roothash
-  if (block.transactionsRoot !== '0x' + trie.root.toString('hex'))
-    throw new Error('The transactionHash is wrong! : ' + block.transactionsRoot + '!==0x' + trie.root.toString('hex'))
+  const txProof = (await createMerkleProof(
+      block.transactions.map((t, i) => ({
+        key: rlp.encode(i),
+        value: serialize.serialize(serialize.toTransaction(t))
+      })),
+      rlp.encode(txIndex),
+      bytes32(block.transactionsRoot),
+      handler
+    )).map(toHex)
 
   // create prove
-  return new Promise<Proof>((resolve, reject) =>
-    Trie.prove(trie, rlp.encode(txIndex), (err, prove) => {
-      if (err) return reject(err)
-      resolve({
-        type: 'transactionProof',
-        block: createBlock(block, verifiedHashes),
-        merkleProof: prove.map(toHex),
-        txIndex, signatures
-      })
-    }))
+  return {
+    type: 'transactionProof',
+    block: createBlock(block, verifiedHashes),
+    merkleProof: txProof,
+    txIndex, signatures
+  }
 }
 
 /** creates the merkle-proof for a transation */
@@ -125,7 +116,7 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], useFull = false): Promise<Proof> {
+export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler, useFull = false): Promise<Proof> {
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
   if (txIndex < 0)
@@ -138,7 +129,8 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
         value: serialize.serialize(serialize.toTransaction(t))
       })),
       rlp.encode(txIndex),
-      bytes32(block.transactionsRoot)
+      bytes32(block.transactionsRoot),
+      handler
     ),
     createMerkleProof(
       receipts.map(r => ({
@@ -146,7 +138,8 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
         value: serialize.serialize(serialize.toReceipt(r))
       })),
       rlp.encode(txIndex),
-      bytes32(block.receiptsRoot)
+      bytes32(block.receiptsRoot),
+      handler
     ),
     // TOCDO performancewise this could be optimized, since we build the merkltree twice.
     useFull && txIndex > 0 && createMerkleProof(
@@ -155,7 +148,8 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
         value: serialize.serialize(serialize.toReceipt(r))
       })),
       rlp.encode(txIndex - 1),
-      bytes32(block.receiptsRoot)
+      bytes32(block.receiptsRoot),
+      handler
     ),
 
   ]).then(a => a.map(_ => _ && _.map(toHex)))
@@ -171,22 +165,29 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
 
 
 
-export async function createMerkleProof(values: { key: Buffer, value: Buffer }[], key: Buffer, expectedRoot?: Buffer) {
-  const trie = new Trie()
-  // fill in all values
-  await Promise.all(values.map(val => new Promise((resolve, reject) =>
-    trie.put(val.key, val.value, error => error ? reject(error) : resolve(true))
-  )))
+export async function createMerkleProof(values: { key: Buffer, value: Buffer }[], key: Buffer, expectedRoot: Buffer, handler: EthHandler) {
+  let trie = (handler.cache && expectedRoot)? handler.cache.getTrie(toMinHex(expectedRoot)): undefined
 
-  if (expectedRoot && !expectedRoot.equals(trie.root))
-    throw new Error('The rootHash is wrong! : ' + toHex(expectedRoot) + '!==' + toHex(trie.root))
+  if(!trie) {
+    trie = new Trie()
+    // fill in all values
+    await Promise.all(values.map(val => new Promise((resolve, reject) =>
+      trie.put(val.key, val.value, error => error ? reject(error) : resolve(true))
+    )))
+
+    if (expectedRoot && !expectedRoot.equals(trie.root))
+      throw new Error('The rootHash is wrong! : ' + toHex(expectedRoot) + '!==' + toHex(trie.root))
+    else if(handler.cache)
+      handler.cache.putTrie(toMinHex(trie.root), trie)
+  }
 
   // create prove
   return new Promise<Buffer[]>((resolve, reject) =>
     Trie.prove(trie, key, (err, prove) => {
       if (err) return reject(err)
       resolve(prove as Buffer[])
-    }))
+    })
+  )
 }
 
 
@@ -197,7 +198,7 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
   const response = await handler.getFromServer(
     request.method.indexOf('Count') > 0
       ? { id: request.id, method: 'eth_getBlockBy' + request.method.substr(30), params: [request.params[0], true] }
-      : { ...request, params: [request.params[0], true] }, request)
+      : { ...request, params: [request.params[0], true] })
 
   const blockData = response && response.result as BlockData
 
@@ -214,7 +215,7 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
 
     if (request.in3.useFullProof && blockData.uncles && blockData.uncles.length)
       // we need to include all uncles
-      response.in3.proof.uncles = await handler.getAllFromServer(blockData.uncles.map(b => ({ method: 'eth_getBlockByHash', params: [b, false] })), request).then(a => a.map(_ => serialize.blockToHex(_.result)))
+      response.in3.proof.uncles = await handler.getAllFromServer(blockData.uncles.map(b => ({ method: 'eth_getBlockByHash', params: [b, false] }))).then(a => a.map(_ => serialize.blockToHex(_.result)))
 
     const transactions: TransactionData[] = blockData.transactions
     if (!request.params[1]) {
@@ -238,18 +239,18 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
 
 export async function handeGetTransaction(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   // ask the server for the tx
-  const response = await handler.getFromServer(request, request)
+  const response = await handler.getFromServer(request)
   const tx = response && response.result as any
   // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
   if (tx && tx.blockNumber) {
     // get the block including all transactions from the server
-    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }, request).then(_ => _ && _.result as any)
+    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }).then(_ => _ && _.result as any)
     if (block)
       // create the proof
       response.in3 = {
         proof: await createTransactionProof(block, request.params[0] as string,
           await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
-          request.in3.verifiedHashes) as any
+          request.in3.verifiedHashes, handler) as any
       }
     return addFinality(request, response, block, handler)
   }
@@ -261,18 +262,18 @@ export async function handeGetTransactionFromBlock(handler: EthHandler, request:
   let block
 
   if (request.method === "eth_getTransactionByBlockHashAndIndex")
-    block = await handler.getFromServer({ method: 'eth_getBlockByHash', params: [request.params[0], true] }, request).then(_ => _ && _.result as any)
+    block = await handler.getFromServer({ method: 'eth_getBlockByHash', params: [request.params[0], true] }).then(_ => _ && _.result as any)
   else if (request.method === "eth_getTransactionByBlockNumberAndIndex")
-    block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [request.params[0], true] }, request).then(_ => _ && _.result as any)
+    block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [request.params[0], true] }).then(_ => _ && _.result as any)
 
-  const response: RPCResponse = {
-    jsonrpc: '2.0',
-    id: request.id,
-    result: null
-  }
+    const response: RPCResponse = {
+      jsonrpc: '2.0',
+      id: request.id,
+      result: null
+    }
 
-  // find the transaction in the block
-  response.result = block.transactions[parseInt(request.params[1])] ? block.transactions[parseInt(request.params[1])] : null
+    // find the transaction in the block
+    response.result = block.transactions[parseInt(request.params[1])] ? block.transactions[parseInt(request.params[1])] : null
 
   if (block) {
     // create the proof
@@ -289,12 +290,12 @@ export async function handeGetTransactionFromBlock(handler: EthHandler, request:
 
 export async function handeGetTransactionReceipt(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   // ask the server for the tx
-  const response = await handler.getFromServer(request, request)
+  const response = await handler.getFromServer(request)
   const tx = response && response.result as ReceiptData
   // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
   if (tx && tx.blockNumber) {
     // get the block including all transactions from the server
-    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }, request).then(_ => _ && _.result as BlockData)
+    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }).then(_ => _ && _.result as BlockData)
     if (block) {
 
       const [signatures, receipts] = await Promise.all([
@@ -302,7 +303,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
         collectSignatures(handler, request.in3.signatures, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes),
 
         // get all receipts, because we need to build the MerkleTree
-        handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })), request)
+        handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })))
           .then(a => a.map(_ => _.result as ReceiptData)),
 
         // get all txs to also proof the tx (in case of full proof)
@@ -322,7 +323,9 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
           receipts,
           request.params[0] as string,
           signatures,
-          request.in3.verifiedHashes)
+          request.in3.verifiedHashes,
+          handler
+        )
       }
 
       return addFinality(request, response, block, handler)
@@ -336,7 +339,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
 
 export async function handleLogs(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   // ask the server for the tx
-  const response = await handler.getFromServer(request, request)
+  const response = await handler.getFromServer(request)
   const logs = response && response.result as LogData[]
   // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
   if (logs && logs.length) {
@@ -346,7 +349,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
     logs.forEach(l => proof[toHex(l.blockNumber)] || (proof[toHex(l.blockNumber)] = { number: toNumber(l.blockNumber), receipts: {}, allReceipts: [] } as any))
 
     // get the blocks from the server
-    const blocks = await handler.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), true] })), request).then(all => all.map(_ => _.result as BlockData))
+    const blocks = await handler.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), true] }))).then(all => all.map(_ => _.result as BlockData))
 
     // fetch in parallel
     await Promise.all([
@@ -354,7 +357,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
       collectSignatures(handler, request.in3.signatures, blocks.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash })), request.in3.verifiedHashes),
       // and get all receipts in all blocks and afterwards reasign them to their block
       handler.getAllFromServer(
-        blocks.map(_ => _.transactions).reduce((p, c) => [...p, ...c], []).map(t => ({ method: 'eth_getTransactionReceipt', params: [t.hash] })), request
+        blocks.map(_ => _.transactions).reduce((p, c) => [...p, ...c], []).map(t => ({ method: 'eth_getTransactionReceipt', params: [t.hash] }))
       ).then(a => a.forEach(r => proof[toHex(r.result.blockNumber)].allReceipts.push(r.result)))
     ])
 
@@ -376,7 +379,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
 
       // create receipt-proofs for all these transactions
       return Promise.all(toProof.map(th =>
-        createTransactionReceiptProof(b, allReceipts, th, [], request.in3.verifiedHashes)
+        createTransactionReceiptProof(b, allReceipts, th, [], request.in3.verifiedHashes, handler)
           .then(p => blockProof.receipts[th] = {
             txHash: th,
             txIndex: parseInt(allReceipts.find(_ => _.transactionHash == th).transactionIndex),
@@ -401,7 +404,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
 let useTrace: boolean = undefined
 export async function handleCall(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   if (useTrace === undefined)
-    useTrace = await handler.getFromServer({ method: 'web3_clientVersion', params: [] }, request).then(_ => _.result.indexOf('Parity') >= 0)
+    useTrace = await handler.getFromServer({ method: 'web3_clientVersion', params: [] }).then(_ => _.result.indexOf('Parity') >= 0)
 
   if (request.params && request.params[0] && !request.params[0].value) request.params[0].value = '0x0'
   //    console.log('handle call', this.config)
@@ -410,7 +413,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     request,
     { method: 'eth_getBlockByNumber', params: [request.params[1] || 'latest', false] },
     useTrace ? { method: 'trace_call', params: [request.params[0], ['vmTrace'], request.params[1] || 'latest'] } : undefined
-  ], request)
+  ])
 
   // error checking
   if (response.error) return response
@@ -427,7 +430,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   const [accountProofs, signatures] = await Promise.all([
     handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
       { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
-    )), request),
+    ))),
     collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes)
   ])
 
@@ -435,7 +438,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   if (request.in3.includeCode) {
     const accounts = accountProofs
       .filter(a => (a.result as any).codeHash !== '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470')
-    const codes = await handler.getAllFromServer(accounts.map(a => ({ method: 'eth_getCode', params: [toHex((a.result as any).address, 20), request.params[1] || 'latest'] })), request)
+    const codes = await handler.getAllFromServer(accounts.map(a => ({ method: 'eth_getCode', params: [toHex((a.result as any).address, 20), request.params[1] || 'latest'] })))
     accounts.forEach((r, i) => (accounts[i].result as any).code = codes[i].result)
   }
 
@@ -479,7 +482,7 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
     { method: 'eth_getBlockByNumber', params: [blockNr, false] },
     { method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] },
     request.method === 'eth_getCode' ? request : null
-  ], request)
+  ])
 
   // error checking
   if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
