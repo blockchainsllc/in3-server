@@ -50,7 +50,7 @@ export async function addFinality(request: RPCRequest, response: RPCResponse, bl
       while (signers.length < minNumber) {
         bn = bn + 1
         if (curBlock && curBlock.number < bn) break
-        const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['0x' + bn.toString(16), false] })
+        const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['0x' + bn.toString(16), false] }, request)
         if (!b || b.error || !b.result) break
         const s = header.getSigner(new serialize.Block(b.result))
         if (!signers.find(_ => _.equals(s)))
