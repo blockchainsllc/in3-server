@@ -48,6 +48,13 @@ export class SimpleCache {
 
   clear() {
     this.data.clear()
+
+    const trieMapSize = this.trieData.size
+    if(trieMapSize > 255) {
+      for(let i = 256; i < trieMapSize; i++){
+        this.trieData.delete(this.trieData.keys().next().value)
+      }
+    }
   }
 
   async getFromCache(request: RPCRequest,
