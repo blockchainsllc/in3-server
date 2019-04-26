@@ -18,22 +18,32 @@
 ***********************************************************/
 
 import { RPCRequest, RPCResponse, util } from "in3"
-
+import * as Trie from 'merkle-patricia-tree'
 
 export class SimpleCache {
 
   data: Map<string, RPCResponse>
-
-
+  trieData: Map<string, Trie>
 
   constructor() {
     this.data = new Map()
+    this.trieData = new Map()
   }
   //  nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber: nl.lastBlockNumber }], verifiedHashes)
 
   put(key: string, response: RPCResponse): RPCResponse {
     this.data.set(key, response)
     return response
+  }
+
+  //put Trie
+  putTrie(key: string, trie: Trie){
+    this.trieData.set(key, trie)
+  }
+
+  //get Trie
+  getTrie(key: string): Trie{
+    return this.trieData.get(key)
   }
 
   clear() {
@@ -78,7 +88,7 @@ export class SimpleCache {
 
 
 function getKey(request: RPCRequest) {
-  return request.method + ':' + JSON.stringify(request.params) + '-' + request.in3 ? (
+  return request.method + ':' + JSON.stringify(request.params) + '-' + (request.in3 ?
     [request.in3.chainId, request.in3.includeCode, request.in3.verification, request.in3.verifiedHashes].map(_ => _ || '').join('|')
-  ) : ''
+    : '')
 }
