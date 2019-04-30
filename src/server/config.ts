@@ -87,19 +87,25 @@ export function readCargs(): IN3RPCConfig{
       return chainId
     }
   })
+  options.push({
+    name: 'cache', description: 'cache merkle tries', init: cache => cache, default: false
+  })
 
   const vals = cargs.options(options)
 
   //load the command line arguments
-  vals.parse(process.argv, { mri: { string: options.map(_ => _.name) } })
+  const processedArgs = vals.parse(process.argv, { mri: { string: options.map(_ => _.name) } })
 
-  // fix chainIds to minHex
+  // fix chainIds to minHex and enable or disable cache
   for (const c of Object.keys(config.chains)) {
     const min = util.toMinHex(c)
     if (min != c) {
       config.chains[min] = config.chains[c]
       delete config.chains[c]
     }
+
+    //enable cache if command line arg is true
+    (config.chains[c] as any).useTrieCache = processedArgs.cache
   }
 
   return config
