@@ -30,6 +30,11 @@ import { initConfig } from '../util/db'
 import { encodeObject } from '../util/binjson'
 
 const config = readCargs()
+let AUTO_REGISTER_FLAG: boolean
+
+if (config.chains[Object.keys(config.chains)[0]].autoRegistry)
+  AUTO_REGISTER_FLAG = true
+
 // Setup logger
 const nodeEnv: string = process.env.NODE_ENV || 'production';
 const logger = winston.createLogger({
@@ -185,7 +190,7 @@ initConfig().then(() => {
 async function checkHealth(ctx: Router.IRouterContext) {
 
   //lies to the rancher that it is healthy to avoid restart loop
-  if (INIT_ERROR) {
+  if (INIT_ERROR && AUTO_REGISTER_FLAG) {
     ctx.body = { status: 'healthy' }
     ctx.status = 200
   }
