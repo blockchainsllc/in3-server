@@ -60,8 +60,8 @@ export class SimpleCache {
     this.data.clear()
 
     const trieMapSize = this.trieData.size
-    if(trieMapSize > 255) {
-      for(let i = 256; i < trieMapSize; i++){
+    if(trieMapSize > 511) {
+      for(let i = 512; i < trieMapSize; i++){
         this.trieData.delete(this.trieData.keys().next().value)
       }
     }
