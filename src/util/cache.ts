@@ -43,7 +43,17 @@ export class SimpleCache {
 
   //get Trie
   getTrie(key: string): Trie{
-    return this.trieData.get(key)
+    //delete and re insert to maintain a LRU cache
+    let readTrie: Trie
+    if(this.trieData.has(key)){
+      readTrie = this.trieData.get(key)
+      this.trieData.delete(key)
+      this.trieData.set(key, readTrie)
+    }
+    else {
+      readTrie = null
+    }
+    return readTrie
   }
 
   clear() {
