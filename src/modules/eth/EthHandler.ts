@@ -84,9 +84,9 @@ export default class EthHandler extends BaseHandler {
         case 'eth_getTransactionByBlockNumberAndIndex':
           return handeGetTransactionFromBlock(this, request)
         case 'eth_getTransactionByHash':
-          return handeGetTransaction(this, request, (this.config as any).useTrieCache)
+          return handeGetTransaction(this, request)
         case 'eth_getTransactionReceipt':
-          return handeGetTransactionReceipt(this, request, (this.config as any).useTrieCache)
+          return handeGetTransactionReceipt(this, request)
         case 'eth_getLogs':
           return handleLogs(this, request)
         case 'eth_call':

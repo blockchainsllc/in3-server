@@ -88,7 +88,7 @@ export function readCargs(): IN3RPCConfig{
     }
   })
   options.push({
-    name: 'cache', description: 'cache merkle tries', init: cache => cache, default: false
+    name: 'cache', type: 'boolean', description: 'cache merkle tries', init: cache => cache, default: false
   })
 
   const vals = cargs.options(options)
@@ -104,8 +104,14 @@ export function readCargs(): IN3RPCConfig{
       delete config.chains[c]
     }
 
-    //enable cache if command line arg is true
-    (config.chains[c] as any).useTrieCache = processedArgs.cache
+    //explicit command must be specified to disable cache else it is enabled
+    if (processedArgs.cache === 'false') {
+      (config.chains[c] as any).useCache = false
+    }
+    else {
+      (config.chains[c] as any).useCache = true
+    }
+
   }
 
   return config

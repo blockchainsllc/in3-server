@@ -65,7 +65,7 @@ export async function addFinality(request: RPCRequest, response: RPCResponse, bl
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionProof(block: BlockData, txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler, useCache: boolean = false): Promise<Proof> {
+export async function createTransactionProof(block: BlockData, txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler): Promise<Proof> {
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
   if (txIndex < 0) throw new Error('tx not found')
@@ -77,8 +77,7 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
       })),
       rlp.encode(txIndex),
       bytes32(block.transactionsRoot),
-      handler,
-      useCache
+      handler
     )).map(toHex)
 
   // create prove
@@ -117,7 +116,7 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler, useCache: boolean = false, useFull = false): Promise<Proof> {
+export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler, useFull = false): Promise<Proof> {
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
   if (txIndex < 0)
@@ -131,8 +130,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
       })),
       rlp.encode(txIndex),
       bytes32(block.transactionsRoot),
-      handler,
-      useCache
+      handler
     ),
     createMerkleProof(
       receipts.map(r => ({
@@ -141,8 +139,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
       })),
       rlp.encode(txIndex),
       bytes32(block.receiptsRoot),
-      handler,
-      useCache
+      handler
     ),
     // TOCDO performancewise this could be optimized, since we build the merkltree twice.
     useFull && txIndex > 0 && createMerkleProof(
@@ -152,8 +149,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
       })),
       rlp.encode(txIndex - 1),
       bytes32(block.receiptsRoot),
-      handler,
-      useCache
+      handler
     ),
 
   ]).then(a => a.map(_ => _ && _.map(toHex)))
@@ -169,8 +165,8 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
 
 
 
-export async function createMerkleProof(values: { key: Buffer, value: Buffer }[], key: Buffer, expectedRoot: Buffer, handler: EthHandler, useCache: boolean) {
-  let trie = (handler.cache && expectedRoot && useCache)? handler.cache.getTrie(toMinHex(expectedRoot)): undefined
+export async function createMerkleProof(values: { key: Buffer, value: Buffer }[], key: Buffer, expectedRoot: Buffer, handler: EthHandler) {
+  let trie = (handler.cache && expectedRoot)? handler.cache.getTrie(toMinHex(expectedRoot)): undefined
 
   if(!trie) {
     trie = new Trie()
@@ -241,7 +237,7 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
 
 
 
-export async function handeGetTransaction(handler: EthHandler, request: RPCRequest, useCache: boolean = false): Promise<RPCResponse> {
+export async function handeGetTransaction(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   // ask the server for the tx
   const response = await handler.getFromServer(request, request)
   const tx = response && response.result as any
@@ -254,7 +250,7 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
       response.in3 = {
         proof: await createTransactionProof(block, request.params[0] as string,
           await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
-          request.in3.verifiedHashes, handler, useCache) as any
+          request.in3.verifiedHashes, handler) as any
       }
     return addFinality(request, response, block, handler)
   }
@@ -292,7 +288,7 @@ export async function handeGetTransactionFromBlock(handler: EthHandler, request:
 }
 
 
-export async function handeGetTransactionReceipt(handler: EthHandler, request: RPCRequest, useCache: boolean = false): Promise<RPCResponse> {
+export async function handeGetTransactionReceipt(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   // ask the server for the tx
   const response = await handler.getFromServer(request, request)
   const tx = response && response.result as ReceiptData
@@ -328,8 +324,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
           request.params[0] as string,
           signatures,
           request.in3.verifiedHashes,
-          handler,
-          useCache
+          handler
         )
       }
 
