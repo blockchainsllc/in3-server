@@ -111,7 +111,7 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
   const registrationCost = txGasPrice * 1000000
 
   if(balance < (autoReg.deposit + registrationCost))
-    throw new Error("Insufficient funds to register a server, need: " + (autoReg.deposit*1000000000) + ", have: " + balance/1000000000)
+    throw new Error("Insufficient funds to register a server, need: " + autoReg.deposit + " ether, have: " + balance + " wei")
 
   await registerServers(handler.config.privateKey, handler.config.registry, [{
     url: autoReg.url,
