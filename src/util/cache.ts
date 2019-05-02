@@ -43,15 +43,25 @@ export class SimpleCache {
 
   //get Trie
   getTrie(key: string): Trie{
-    return this.trieData.get(key)
+    //delete and re insert to maintain a LRU cache
+    let readTrie: Trie
+    if(this.trieData.has(key)){
+      readTrie = this.trieData.get(key)
+      this.trieData.delete(key)
+      this.trieData.set(key, readTrie)
+    }
+    else {
+      readTrie = null
+    }
+    return readTrie
   }
 
   clear() {
     this.data.clear()
 
     const trieMapSize = this.trieData.size
-    if(trieMapSize > 255) {
-      for(let i = 256; i < trieMapSize; i++){
+    if(trieMapSize > 511) {
+      for(let i = 512; i < trieMapSize; i++){
         this.trieData.delete(this.trieData.keys().next().value)
       }
     }
