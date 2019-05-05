@@ -19,7 +19,7 @@
 
 import BaseHandler from './BaseHandler'
 import { BlockData, RPCRequest, RPCResponse, Signature, util, serialize } from 'in3'
-import { sha3, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
+import { keccak, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
 
 const toHex = util.toHex
@@ -63,7 +63,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       return Promise.all(signatures.map(async s => {
 
         // first check the signature
-        const signatureMessageHash: Buffer = sha3(Buffer.concat([bytes32(s.blockHash), bytes32(s.block)]))
+        const signatureMessageHash: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), bytes32(s.block)]))
         if (!bytes32(s.msgHash).equals(signatureMessageHash)) // the message hash is wrong and we don't know what he signed
           return null // can not use it to convict
 
@@ -105,7 +105,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
 export function sign(pk: string, blocks: { blockNumber: number, hash: string }[]): Signature[] {
   return blocks.map(b => {
-    const msgHash = sha3('0x' + toHex(b.hash).substr(2).padStart(64, '0') + toHex(b.blockNumber).substr(2).padStart(64, '0'))
+    const msgHash = keccak('0x' + toHex(b.hash).substr(2).padStart(64, '0') + toHex(b.blockNumber).substr(2).padStart(64, '0'))
     const sig = ecsign(msgHash, bytes32(pk))
     return {
       blockHash: toHex(b.hash),

@@ -18,7 +18,7 @@
 ***********************************************************/
 
 import { } from 'in3'
-import { sha3 } from 'ethereumjs-util'
+import { keccak } from 'ethereumjs-util'
 
 import * as logger from 'in3/js/test/util/memoryLogger'
 import * as winston from 'winston'
@@ -74,7 +74,7 @@ if (config.logging.file)
 
 if (config.logging.type) {
   const firstChain = config.chains[Object.keys(config.chains)[0]]
-  const id = config.id || (firstChain && sha3(firstChain.privateKey).toString('hex').replace('0x', '').substr(0, 4)) || 'in3-server'
+  const id = config.id || (firstChain && keccak(firstChain.privateKey).toString('hex').replace('0x', '').substr(0, 4)) || 'in3-server'
   // tslint:disable-next-line:non-literal-require
   const lt = require(config.logging.type)
   winston.add(config.logging.name ? new lt[config.logging.name]({ programm: id, ...config.logging }) : new lt({ programm: id, ...config.logging }))
