@@ -133,7 +133,7 @@ function updateVotes(blocks: BlockData[], history: ValidatorHistory) {
         if (newValidator == '0x' || newValidator == '0x0000000000000000000000000000000000000000') continue
         const votes = history.lastEpoch.pendingVotes[newValidator] || (history.lastEpoch.pendingVotes[newValidator] = {})
 
-        const nonce = b.nonce || '0x' + rlp.decode(b.sealFields[1]).toString('hex')
+        const nonce = b.nonce || '0x' + (rlp.decode(b.sealFields[1]) as any).toString('hex')
         const validator = '0x' + getSigner(b).toString('hex')
         let add = false
         if (nonce == '0xffffffffffffffff')  // add a validator
