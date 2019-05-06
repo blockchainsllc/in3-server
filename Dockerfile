@@ -18,7 +18,7 @@
 #**********************************************************/
 
 
-FROM node:8
+FROM node:10
 
 WORKDIR /app
 
@@ -33,15 +33,10 @@ COPY package.json ./
 RUN echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
     && npm set registry https://npm.slock.it \
     && npm install \
-    && rm ~/.npmrc
-
-# compile src
-RUN npm run build
-
-# clean up
-# pruning does not work with git-modules, so we can use it when the repo is public
-RUN npm prune --production 
-RUN rm -rf src tsconfig.json ~/.npmrc
+    && rm ~/.npmrc \
+    && npm run build \
+    && npm prune --production \
+    && rm -rf src tsconfig.json ~/.npmrc
 
 # setup ENTRYPOINT
 EXPOSE 8500
