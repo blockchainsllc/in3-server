@@ -175,7 +175,7 @@ initConfig().then(() => {
     rpc.init().catch(err => {
       //console.error('Error initializing the server : ' + err.message)
       logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
-      setTimeout(() => {doInit(retryCount-1)}, 10000)
+      setTimeout(() => {doInit(retryCount-1)}, 20000)
     })
   }
 
@@ -193,6 +193,10 @@ async function checkHealth(ctx: Router.IRouterContext) {
   if (INIT_ERROR && AUTO_REGISTER_FLAG) {
     ctx.body = { status: 'healthy' }
     ctx.status = 200
+  }
+  else if(INIT_ERROR) {
+    ctx.body = { status: 'unhealthy', message: "server initialization error"}
+    ctx.status = 500
   }
   else{
     await Promise.all(
