@@ -23,6 +23,9 @@ FROM node:10
 WORKDIR /app
 
 ARG NPM_REGISTRY_TOKEN
+ARG CI_COMMIT_SHA
+
+ENV VERSION_SHA=$CI_COMMIT_SHA
 
 COPY tsconfig.json  ./
 COPY src  ./src/
@@ -41,7 +44,3 @@ RUN echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
 # setup ENTRYPOINT
 EXPOSE 8500
 ENTRYPOINT ["node", "js/server/server.js"]
-
-
-
-
