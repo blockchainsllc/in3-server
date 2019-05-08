@@ -123,6 +123,7 @@ router.get(/.*/, async ctx => {
   const path = ctx.path.split('/')
 
   if (path[path.length - 1] === 'health') return checkHealth(ctx)
+  else if (path[path.length - 1] === 'version') return getVersion(ctx)
   else if (INIT_ERROR) return initError(ctx)
   try {
     if (path.length < 2) throw new Error('invalid path')
@@ -216,4 +217,16 @@ async function initError(ctx: Router.IRouterContext) {
   //lies to the rancher that it is healthy to avoid restart loop
   ctx.body = "Server uninitialized"
   ctx.status = 200
+}
+
+async function getVersion(ctx: Router.IRouterContext) {
+
+  if (process.env.VERSION_SHA) {
+    ctx.body = process.env.VERSION_SHA
+    ctx.status = 200
+  }
+  else {
+    ctx.body = "Unknown Version"
+    ctx.status = 500
+  }
 }
