@@ -100,8 +100,8 @@ export class RPC {
         return manageRequest(handler, getValidatorHistory(handler)
         ).then(result => {
 
-          const blockNumber: number = (r.params && r.params.length > 0)?parseInt(r.params[0]):0
-          const chunkSize: number = (r.params && r.params.length > 1)?parseInt(r.params[1]):1
+          const blockNumber: number = (r.params && r.params.length > 0)?util.toNumber(r.params[0]):0
+          const chunkSize: number = (r.params && r.params.length > 1)?util.toNumber(r.params[1]):1
           const excludePreviousState: boolean = (r.params && r.params.length > 2)?r.params[2]:false
 
           const statesLength = result.states.length
