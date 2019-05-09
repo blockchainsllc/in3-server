@@ -26,8 +26,8 @@ import { handleSign }                                                           
 import { getValidatorHistory } from '../../server/poa'
 
 const clientConf = require('in3/js/src/client/defaultConfig.json')
-const toHex      = in3Util.toHex
-const toNumber   = in3Util.toNumber
+const toHex = in3Util.toHex
+const toNumber = in3Util.toNumber
 
 /**
  * handles EVM-Calls
@@ -35,7 +35,7 @@ const toNumber   = in3Util.toNumber
 export default class EthHandler extends BaseHandler {
 
   // list of addresses allowed to sign for finality
-  authorities:Buffer[]
+  authorities: Buffer[]
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     super(config, transport, nodeList)
@@ -47,7 +47,7 @@ export default class EthHandler extends BaseHandler {
     if (request.in3 && request.in3.latestBlock && Array.isArray(request.params)) {
       const i = request.params.indexOf('latest')
       if (i >= 0)
-        request.params[i] = toHex((this.watcher.block.number || await this.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => toNumber(_.result))) - request.in3.latestBlock)
+        request.params[i] = toHex((this.watcher.block.number || await this.getFromServer({ method: 'eth_blockNumber', params: [] }, request).then(_ => toNumber(_.result))) - request.in3.latestBlock)
     }
 
     // make sure the in3 params are set
@@ -67,9 +67,9 @@ export default class EthHandler extends BaseHandler {
   private async handleRPCMethod(request: RPCRequest) {
 
     // handle shortcut-functions
-    if (request.method==='in3_call') {
-      request.method='eth_call'
-      request.params= createCallParams(request)
+    if (request.method === 'in3_call') {
+      request.method = 'eth_call'
+      request.params = createCallParams(request)
     }
 
 
@@ -118,27 +118,27 @@ export default class EthHandler extends BaseHandler {
 
       default:
         // default handling by simply getting the response from the server
-        return this.getFromServer(request)
+        return this.getFromServer(request, request)
     }
   }
 
   getRequestFromPath(path: string[], in3: { chainId: string; }): RPCRequest {
-    if (path[0] && path[0].startsWith('0x') && path[0].length<43) {
-      const [contract, method ] = path
-      const r: RPCRequest = { id:1, jsonrpc:'2.0', method:'', params:[contract,'latest'], in3}
+    if (path[0] && path[0].startsWith('0x') && path[0].length < 43) {
+      const [contract, method] = path
+      const r: RPCRequest = { id: 1, jsonrpc: '2.0', method: '', params: [contract, 'latest'], in3 }
       switch (method) {
-        case 'balance': return { ...r, method: 'eth_getBalance'}
-        case 'nonce'  : return { ...r, method: 'eth_getTransactionCount'}
-        case 'code'   : return { ...r, method: 'eth_getCode'}
-        case 'storage': return { ...r, method: 'eth_getStorageAt', params:[contract,path[2],'latest']}
-        default       :
-          return { ...r, method: 'in3_call', params:[contract, method,...path.slice(2).join('/').split(',').filter(_ => _).map(_ => _ === 'true' ? true : _ === 'false' ? false : _)]}
+        case 'balance': return { ...r, method: 'eth_getBalance' }
+        case 'nonce': return { ...r, method: 'eth_getTransactionCount' }
+        case 'code': return { ...r, method: 'eth_getCode' }
+        case 'storage': return { ...r, method: 'eth_getStorageAt', params: [contract, path[2], 'latest'] }
+        default:
+          return { ...r, method: 'in3_call', params: [contract, method, ...path.slice(2).join('/').split(',').filter(_ => _).map(_ => _ === 'true' ? true : _ === 'false' ? false : _)] }
       }
     }
-    else if (path[0] && path[0].startsWith('0x') && path[0].length>43)
-       return { id:1, jsonrpc:'2.0', method:'eth_getTransactionReceipt', params:[path[0]], in3}
-    else if (path[0] && (parseInt(path[0]) || path[0]==='latest'))
-       return { id:1, jsonrpc:'2.0', method:'eth_getBlockByNumber', params:[path[0]==='latest' ? 'latest':'0x'+parseInt(path[0]).toString(16) ,false], in3}
+    else if (path[0] && path[0].startsWith('0x') && path[0].length > 43)
+      return { id: 1, jsonrpc: '2.0', method: 'eth_getTransactionReceipt', params: [path[0]], in3 }
+    else if (path[0] && (parseInt(path[0]) || path[0] === 'latest'))
+      return { id: 1, jsonrpc: '2.0', method: 'eth_getBlockByNumber', params: [path[0] === 'latest' ? 'latest' : '0x' + parseInt(path[0]).toString(16), false], in3 }
 
     return null
   }
@@ -164,51 +164,51 @@ export default class EthHandler extends BaseHandler {
 
 
 
-  getChainSpec():ChainSpec {
+  getChainSpec(): ChainSpec {
     const chain = clientConf.servers[this.chainId]
     return chain && chain.chainSpec
   }
 }
 
-function createCallParams(request: RPCRequest):any[] {
+function createCallParams(request: RPCRequest): any[] {
   const params = request.params || []
-  const methodRegex =/^\w+\((.*)\)$/gm
+  const methodRegex = /^\w+\((.*)\)$/gm
   let [contract, method] = params as string[]
   if (!contract) throw new Error('First argument needs to be a valid contract address')
-  if (!method)   throw new Error('First argument needs to be a valid contract method signature')
-  if (method.indexOf('(')<0) method+='()'
+  if (!method) throw new Error('First argument needs to be a valid contract method signature')
+  if (method.indexOf('(') < 0) method += '()'
 
   // since splitting for get is simply split(',') the method-signature is also split, so we reunit it.
-  while (method.indexOf(')')<0 && params.length>2) {
-    method+=','+params[2]
-    params.splice(2,1)
+  while (method.indexOf(')') < 0 && params.length > 2) {
+    method += ',' + params[2]
+    params.splice(2, 1)
   }
 
-  if (method.indexOf(':')>0) {
+  if (method.indexOf(':') > 0) {
     const srcFullMethod = method;
-    const fullMethod    = method.endsWith(')') ? method : method.split(':').join(':(')+')'
-    const retTypes      = method.split(':')[1].substr(1).replace(')',' ').trim().split(', ');
-    (request as any).convert = result=>{
+    const fullMethod = method.endsWith(')') ? method : method.split(':').join(':(') + ')'
+    const retTypes = method.split(':')[1].substr(1).replace(')', ' ').trim().split(', ');
+    (request as any).convert = result => {
       if (result.result)
-        result.result = simpleDecode(fullMethod, Buffer.from(result.result.substr(2),'hex')).map((v,i)=>{
-          if (Buffer.isBuffer(v)) return '0x'+v.toString('hex')
+        result.result = simpleDecode(fullMethod, Buffer.from(result.result.substr(2), 'hex')).map((v, i) => {
+          if (Buffer.isBuffer(v)) return '0x' + v.toString('hex')
           if (v && v.ixor) return v.toString()
-          if (retTypes[i]!=='string' && typeof v==='string' && v[1]!=='x')
-             return '0x'+v
+          if (retTypes[i] !== 'string' && typeof v === 'string' && v[1] !== 'x')
+            return '0x' + v
           return v
         })
       if (Array.isArray(result.result) && !srcFullMethod.endsWith(')'))
         result.result = result.result[0]
       return result
     }
-    method = method.substr(0,method.indexOf(':'))
+    method = method.substr(0, method.indexOf(':'))
   }
 
   const m = methodRegex.exec(method)
-  if (!m) throw new Error('No valid method signature for '+method)
-  const types = m[1].split(',').filter(_=>_)
-  const values = params.slice(2,types.length+2)
-  if (values.length<types.length) throw new Error('invalid number of arguments. Must be at least '+types.length)
+  if (!m) throw new Error('No valid method signature for ' + method)
+  const types = m[1].split(',').filter(_ => _)
+  const values = params.slice(2, types.length + 2)
+  if (values.length < types.length) throw new Error('invalid number of arguments. Must be at least ' + types.length)
 
-  return [{to:contract, data: '0x'+simpleEncode(method,...values).toString('hex')},params[types.length+2] || 'latest']
+  return [{ to: contract, data: '0x' + simpleEncode(method, ...values).toString('hex') }, params[types.length + 2] || 'latest']
 }

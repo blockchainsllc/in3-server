@@ -23,6 +23,9 @@ FROM node:11-alpine
 WORKDIR /app
 
 ARG NPM_REGISTRY_TOKEN
+ARG CI_COMMIT_SHA
+
+ENV VERSION_SHA=$CI_COMMIT_SHA
 
 COPY tsconfig.json  ./
 COPY src  ./src/

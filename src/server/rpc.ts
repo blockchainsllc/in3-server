@@ -147,7 +147,9 @@ export class RPC {
         handler.getNodeList(false).then(_ => in3.lastNodeList = _.lastBlockNumber),
         getValidatorHistory(handler).then(_ => in3.lastValidatorChange = _.lastValidatorChange),
         handler.handle(r).then(_ => {
-          (in3 as any).execTime = Date.now() - start
+          (in3 as any).execTime = Date.now() - start;
+          (in3 as any).rpcTime = (r as any).rpcTime || 0;
+          (in3 as any).rpcCount = (r as any).rpcCount || 0;
           return _
         })
       ])
@@ -193,8 +195,8 @@ export interface RPCHandler {
   chainId: string
   handle(request: RPCRequest): Promise<RPCResponse>
   handleWithCache(request: RPCRequest): Promise<RPCResponse>
-  getFromServer(request: Partial<RPCRequest>): Promise<RPCResponse>
-  getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]>
+  getFromServer(request: Partial<RPCRequest>, r?: any): Promise<RPCResponse>
+  getAllFromServer(request: Partial<RPCRequest>[], r?: any): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[]): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
