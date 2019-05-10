@@ -212,7 +212,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
             fromBlock: toHex(history.lastCheckedBlock + 1),
             toBlock: toHex(currentBlock),
             address: validatorContract,
-            topics: [["0x55252fa6eee4741b4e24a74a70e9c11fd2c2281df8d6ea13126ff845f7825c89"]]
+            topics: ["0x55252fa6eee4741b4e24a74a70e9c11fd2c2281df8d6ea13126ff845f7825c89"]
         }],
         in3: {
             chainId: handler.chainId,
