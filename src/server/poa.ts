@@ -18,17 +18,21 @@
 ***********************************************************/
 
 
-import { RPCRequest, serialize, BlockData } from 'in3'
+import { RPCRequest, serialize, BlockData, Proof, LogData, util} from 'in3'
 import { RPCHandler } from './rpc'
 import { recover } from 'secp256k1'
-import { rlp } from 'ethereumjs-util'
-import { publicToAddress } from 'ethereumjs-util'
+import { rawDecode } from 'ethereumjs-abi'
+import { publicToAddress,rlp } from 'ethereumjs-util'
+import { handleLogs } from '../modules/eth/proof'
 const chains = require('in3/js/src/client/defaultConfig.json').servers
+
+const toHex = util.toHex
 
 export interface HistoryEntry {
     validators: string[]
     block: number
-    proof: string[]
+    proof: Proof | string[]
+    data?: LogData
 }
 export interface ValidatorHistory {
     states: HistoryEntry[]
@@ -199,7 +203,51 @@ async function updateCliqueHistory(epoch: number, handler: RPCHandler, history: 
 
 
 async function updateAuraHistory(validatorContract: string, handler: RPCHandler, history: ValidatorHistory, currentBlock: number) {
-    history.lastCheckedBlock = currentBlock
-    //TODO update history
 
+    //handle logs expects a EthHandler type so the handler is passed as any
+    const logs = await handleLogs(handler as any, {
+        jsonrpc: "2.0",
+        method: "eth_getLogs",
+        params: [{
+            fromBlock: toHex(history.lastCheckedBlock + 1),
+            toBlock: toHex(currentBlock),
+            address: validatorContract,
+            topics: [["0x55252fa6eee4741b4e24a74a70e9c11fd2c2281df8d6ea13126ff845f7825c89"]]
+        }],
+        in3: {
+            chainId: handler.chainId,
+            verification: "proof"
+        }
+    })
+
+    logs.result.forEach(log => {
+        const validatorList = rawDecode(['address[]'], Buffer.from(log.data.substr(2), 'hex'))[0]
+
+        //restitch proof into a logproof object
+        let validatorProof = {
+            receipts: logs.in3.proof.logProof[toHex(log.blockNumber)].receipts,
+            block: logs.in3.proof.logProof[toHex(log.blockNumber)].block,
+            blockHash: log.blockHash,
+            logIndex: log.transactionLogIndex
+        }
+
+        Object.keys(validatorProof.receipts).forEach(k => {
+            delete validatorProof.receipts[k].txProof;
+            delete validatorProof.receipts[k].txHash;
+        })
+
+        //update the history states
+        history.states.push({
+            validators: validatorList,
+            block: parseInt(log.blockNumber),
+            proof: {
+                type: 'validatorProof',
+                validatorProof: validatorProof
+            }
+        })
+    })
+
+    //update history "last" fields
+    history.lastCheckedBlock = currentBlock
+    history.lastValidatorChange = history.states[history.states.length - 1].block
 }

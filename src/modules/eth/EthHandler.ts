@@ -17,12 +17,13 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec, util as in3Util, header } from 'in3'
-import { simpleEncode, simpleDecode } from 'ethereumjs-abi'
+import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec , util as in3Util } from 'in3'
+import { simpleEncode, simpleDecode }                                                                               from 'ethereumjs-abi'
 
-import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
-import BaseHandler from '../../chains/BaseHandler'
-import { handleSign } from '../../chains/signatures';
+import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs }      from './proof'
+import BaseHandler                                                                                                  from '../../chains/BaseHandler'
+import { handleSign }                                                                                               from '../../chains/signatures';
+import { getValidatorHistory } from '../../server/poa'
 
 const clientConf = require('in3/js/src/client/defaultConfig.json')
 const toHex = in3Util.toHex
@@ -142,10 +143,23 @@ export default class EthHandler extends BaseHandler {
     return null
   }
 
-  async getAuthorities(blockNumber: number): Promise<Buffer[]> {
+  async getAuthorities(blockNumber:number):Promise<Buffer[]> {
     if (this.authorities) return this.authorities
     const spec = this.getChainSpec()
-    return spec ? this.authorities = await header.getAuthorities(spec, blockNumber, this.getFromServer.bind(this)) : (this.authorities = [])
+
+    //get all the states from validatorHistory from the specified blocknumber
+    const validatorStates = (await getValidatorHistory(this)).states.filter((state, index, states) => {
+        if(state.block >= blockNumber)
+          return true
+        else if(index != (states.length-1) && blockNumber < states[index + 1].block)
+          return true
+        else if(index === (states.length-1) && blockNumber > states[states.length - 1].block)
+          return true
+        else
+          return false
+      })
+
+    return spec ? this.authorities = validatorStates[0].validators.map(v => in3Util.toBuffer(v,20)): (this.authorities=[])
   }
 
 

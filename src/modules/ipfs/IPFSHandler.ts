@@ -99,4 +99,3 @@ function encode(data: string | Buffer, inEncoding: string, outEncoding: string) 
   const b = Buffer.isBuffer(data) ? data : Buffer.from(data, inEncoding as any) // dirty, but needed
   return b.toString(outEncoding)
 }
-
