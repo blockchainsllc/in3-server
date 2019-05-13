@@ -27,6 +27,7 @@ import { handleLogs } from '../modules/eth/proof'
 const chains = require('in3/js/src/client/defaultConfig.json').servers
 
 const toHex = util.toHex
+const toNumber = util.toNumber
 
 export interface HistoryEntry {
     validators: string[]
@@ -227,8 +228,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         let validatorProof = {
             receipts: logs.in3.proof.logProof[toHex(log.blockNumber)].receipts,
             block: logs.in3.proof.logProof[toHex(log.blockNumber)].block,
-            blockHash: log.blockHash,
-            logIndex: log.transactionLogIndex
+            logIndex: toNumber(log.transactionLogIndex)
         }
 
         Object.keys(validatorProof.receipts).forEach(k => {
