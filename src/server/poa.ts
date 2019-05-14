@@ -18,7 +18,7 @@
 ***********************************************************/
 
 
-import { RPCRequest, serialize, BlockData, Proof, LogData, util} from 'in3'
+import { RPCRequest, serialize, BlockData, AuraValidatoryProof, LogData, util} from 'in3'
 import { RPCHandler } from './rpc'
 import { recover } from 'secp256k1'
 import { rawDecode } from 'ethereumjs-abi'
@@ -32,8 +32,7 @@ const toNumber = util.toNumber
 export interface HistoryEntry {
     validators: string[]
     block: number
-    proof: Proof | string[]
-    data?: LogData
+    proof: AuraValidatoryProof | string[]
 }
 export interface ValidatorHistory {
     states: HistoryEntry[]
@@ -224,30 +223,33 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
     logs.result.forEach(log => {
         const validatorList = rawDecode(['address[]'], Buffer.from(log.data.substr(2), 'hex'))[0]
 
-        //restitch proof into a logproof object
+        const receipts = logs.in3.proof.logProof[toHex(log.blockNumber)].receipts
+
         let validatorProof = {
-            receipts: logs.in3.proof.logProof[toHex(log.blockNumber)].receipts,
+            /* IMPORTANT:
+            * only the first receipt is taken to  simplify the proofs. There is always a
+            * possibility that there might be two validator change transactions in the same
+            * block but we assume it to be highly unlikely.
+            */
+            txIndex: receipts[Object.keys(receipts)[0]].txIndex,
+            proof: receipts[Object.keys(receipts)[0]].proof,
             block: logs.in3.proof.logProof[toHex(log.blockNumber)].block,
             logIndex: toNumber(log.transactionLogIndex)
-        }
 
-        Object.keys(validatorProof.receipts).forEach(k => {
-            delete validatorProof.receipts[k].txProof;
-            delete validatorProof.receipts[k].txHash;
-        })
+            //TODO: Finality Blocks
+        }
 
         //update the history states
         history.states.push({
             validators: validatorList,
             block: parseInt(log.blockNumber),
-            proof: {
-                type: 'validatorProof',
-                validatorProof: validatorProof
-            }
+            proof: validatorProof as AuraValidatoryProof
         })
+
+        //update the lastValidatorChange added to history
+        history.lastValidatorChange = parseInt(log.blockNumber)
     })
 
     //update history "last" fields
     history.lastCheckedBlock = currentBlock
-    history.lastValidatorChange = history.states[history.states.length - 1].block
 }
