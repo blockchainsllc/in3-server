@@ -234,9 +234,8 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
             txIndex: receipts[Object.keys(receipts)[0]].txIndex,
             proof: receipts[Object.keys(receipts)[0]].proof,
             block: logs.in3.proof.logProof[toHex(log.blockNumber)].block,
-            logIndex: toNumber(log.transactionLogIndex)
-
-            //TODO: Finality Blocks
+            logIndex: toNumber(log.transactionLogIndex),
+            finalityBlocks: []
         }
 
         //update the history states
