@@ -148,18 +148,14 @@ export default class EthHandler extends BaseHandler {
     const spec = this.getChainSpec()
 
     //get all the states from validatorHistory from the specified blocknumber
-    const validatorStates = (await getValidatorHistory(this)).states.filter((state, index, states) => {
-        if(state.block >= blockNumber)
-          return true
-        else if(index != (states.length-1) && blockNumber < states[index + 1].block)
-          return true
-        else if(index === (states.length-1) && blockNumber > states[states.length - 1].block)
-          return true
-        else
-          return false
-      })
+    const validatorStates = (await getValidatorHistory(this)).states
 
-    return spec ? this.authorities = validatorStates[0].validators.map(v => in3Util.toBuffer(v,20)): (this.authorities=[])
+    let pos = 0;
+    for(let i=0; i<validatorStates.length; i++)
+      if(validatorStates[i].block <= blockNumber)
+        pos = i;
+
+    return spec ? this.authorities = validatorStates[pos].validators.map(v => in3Util.toBuffer(v,20)): (this.authorities=[])
   }
 
 
