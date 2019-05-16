@@ -100,13 +100,13 @@ export class RPC {
         return manageRequest(handler, getValidatorHistory(handler)
         ).then(result => {
 
-          const startIndex: number = (r.params && r.params.length > 0)?util.toNumber(r.params[0]):0
-          const limit: number = (r.params && r.params.length > 1)?util.toNumber(r.params[1]):2
+          const startIndex: number = (r.params && r.params.length > 0) ? util.toNumber(r.params[0]) : 0
+          const limit: number = (r.params && r.params.length > 1) ? util.toNumber(r.params[1]) : 2
 
           return ({
             id: r.id,
             result: {
-              states: limit? result.states.slice(startIndex, startIndex + limit + 1): result.states.slice(startIndex),
+              states: limit ? result.states.slice(startIndex, startIndex + limit + 1) : result.states.slice(startIndex),
               lastCheckedBlock: result.lastCheckedBlock
             },
             jsonrpc: r.jsonrpc,
@@ -133,6 +133,7 @@ export class RPC {
           (in3 as any).execTime = Date.now() - start;
           (in3 as any).rpcTime = (r as any).rpcTime || 0;
           (in3 as any).rpcCount = (r as any).rpcCount || 0;
+          (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
           return _
         })
       ])
