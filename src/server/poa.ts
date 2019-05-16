@@ -18,8 +18,9 @@
 ***********************************************************/
 
 
-import { RPCRequest, serialize, BlockData, AuraValidatoryProof, LogData, util} from 'in3'
+import { RPCRequest, header, serialize, BlockData, AuraValidatoryProof, LogData, util } from 'in3'
 import { RPCHandler } from './rpc'
+import EthHandler from '../modules/eth/EthHandler'
 import { recover } from 'secp256k1'
 import { rawDecode } from 'ethereumjs-abi'
 import { publicToAddress,rlp } from 'ethereumjs-util'
@@ -204,8 +205,11 @@ async function updateCliqueHistory(epoch: number, handler: RPCHandler, history: 
 
 async function updateAuraHistory(validatorContract: string, handler: RPCHandler, history: ValidatorHistory, currentBlock: number) {
 
+    //do nothing until the current block is hgiher than the last checked block
+    if (history.lastCheckedBlock >= currentBlock) return
+
     //handle logs expects a EthHandler type so the handler is passed as any
-    const logs = await handleLogs(handler as any, {
+    const logs = await handleLogs(handler as EthHandler, {
         jsonrpc: "2.0",
         method: "eth_getLogs",
         params: [{
@@ -220,11 +224,35 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         }
     })
 
-    logs.result.forEach(log => {
+    for(const log of logs.result) {
         const validatorList = rawDecode(['address[]'], Buffer.from(log.data.substr(2), 'hex'))[0]
-
         const receipts = logs.in3.proof.logProof[toHex(log.blockNumber)].receipts
 
+        /*
+        * Fetch the finality blocks
+        */
+        let bn = parseInt(log.blockNumber)
+        const numValidators = history.states[history.states.length - 1].validators.length
+        const maxNumber = bn + Math.round(2 * numValidators) //The maximum number of blocks it will check is curBlock + 2 times the number of validators
+        const signers = [header.getSigner(new serialize.Block(logs.in3.proof.logProof[toHex(log.blockNumber)].block))]
+        const minSigners = Math.ceil(0.51 * numValidators) //Hardcoded 51% finality
+        const finalityBlocks = []
+
+        while (signers.length < minSigners && bn < maxNumber) {
+            bn = bn + 1
+            if (currentBlock < bn) break
+            const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['0x' + bn.toString(16), false] })
+
+            if (!b || b.error || !b.result) break
+            const currentSigner = header.getSigner(new serialize.Block(b.result))
+            if (!signers.find(_ => _.equals(currentSigner)))
+              signers.push(currentSigner)
+            finalityBlocks.push(serialize.blockToHex(b.result))
+        }
+
+        /*
+        * Stitch the proof
+        */
         let validatorProof = {
             /* IMPORTANT:
             * only the first receipt is taken to  simplify the proofs. There is always a
@@ -235,7 +263,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
             proof: receipts[Object.keys(receipts)[0]].proof,
             block: logs.in3.proof.logProof[toHex(log.blockNumber)].block,
             logIndex: toNumber(log.transactionLogIndex),
-            finalityBlocks: []
+            finalityBlocks: finalityBlocks
         }
 
         //update the history states
@@ -245,10 +273,9 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
             proof: validatorProof as AuraValidatoryProof
         })
 
-        //update the lastValidatorChange added to history
-        history.lastValidatorChange = parseInt(log.blockNumber)
-    })
+    }
 
     //update history "last" fields
     history.lastCheckedBlock = currentBlock
+    history.lastValidatorChange = history.states[history.states.length - 1].block
 }

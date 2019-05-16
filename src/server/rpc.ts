@@ -18,7 +18,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, Transport, IN3ResponseConfig, IN3RPCRequestConfig, util, serialize, header, AuraValidatoryProof, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
+import { RPCRequest, RPCResponse, Transport, IN3ResponseConfig, IN3RPCRequestConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
 import Watcher from '../chains/watch';
 import { getStats, currentHour } from './stats'
 
@@ -104,9 +104,6 @@ export class RPC {
 
           const states = limit? result.states.slice(startIndex, startIndex + limit): result.states.slice(startIndex)
 
-          if(((handler as EthHandler).getChainSpec()).engine == "authorityRound")
-            await addAuraFinality(r, states, handler as EthHandler)
-
           return ({
               id: r.id,
               result: {
@@ -164,35 +161,6 @@ export class RPC {
     return this.handlers[util.toMinHex(chainId || this.conf.defaultChain)]
   }
 
-}
-
-async function addAuraFinality(request: RPCRequest, states: HistoryEntry[], handler: EthHandler) {
-  if (request && request.in3 && request.in3.finality && states.length > 0) {
-    for (const s of states) {
-      const curBlock = handler.watcher.block
-
-      const proof = s.proof as AuraValidatoryProof
-      if (proof && proof.block && s.validators) {
-        let bn = s.block
-
-        const signers = [header.getSigner(new serialize.Block(proof.block))]
-        const minNumber = Math.ceil(Math.min(Math.max(request.in3.finality,0),100) * s.validators.length/100)
-
-        while (signers.length < minNumber) {
-          bn = bn + 1
-          if (curBlock && curBlock.number < bn) break
-          const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['0x' + bn.toString(16), false] }, request)
-
-          if (!b || b.error || !b.result) break
-          const currentSigner = header.getSigner(new serialize.Block(b.result))
-          if (!signers.find(_ => _.equals(currentSigner)))
-            signers.push(currentSigner)
-          proof.finalityBlocks.push(serialize.blockToHex(b.result))
-        }
-        
-      }
-    }
-  }
 }
 
 function manageRequest<T>(handler: RPCHandler, p: Promise<T>): Promise<T> {
