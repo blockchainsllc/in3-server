@@ -18,11 +18,11 @@
 ***********************************************************/
 
 
-import { RPCRequest, serialize, BlockData, Proof, LogData, util} from 'in3'
+import { RPCRequest, serialize, BlockData, Proof, LogData, util } from 'in3'
 import { RPCHandler } from './rpc'
 import { recover } from 'secp256k1'
 import { rawDecode } from 'ethereumjs-abi'
-import { publicToAddress,rlp } from 'ethereumjs-util'
+import { publicToAddress, rlp } from 'ethereumjs-util'
 import { handleLogs } from '../modules/eth/proof'
 const chains = require('in3/js/src/client/defaultConfig.json').servers
 
@@ -243,7 +243,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
             proof: {
                 type: 'validatorProof',
                 validatorProof: validatorProof
-            }
+            } as any
         })
     })
 
