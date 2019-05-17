@@ -102,12 +102,10 @@ export class RPC {
           const startIndex: number = (r.params && r.params.length > 0)?util.toNumber(r.params[0]):0
           const limit: number = (r.params && r.params.length > 1)?util.toNumber(r.params[1]):2
 
-          const states = limit? result.states.slice(startIndex, startIndex + limit): result.states.slice(startIndex)
-
           return ({
               id: r.id,
               result: {
-                states: states,
+                states: limit? result.states.slice(startIndex, startIndex + limit): result.states.slice(startIndex),
                 lastCheckedBlock: result.lastCheckedBlock
               },
               jsonrpc: r.jsonrpc,
