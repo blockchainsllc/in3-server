@@ -13,11 +13,12 @@
 * For information about liability, maintenance etc. also   *
 * refer to the contract concluded with Slock.it GmbH.      *
 ************************************************************
-* For more information, please refer to https://slock.it    *
+* For more information, please refer to https://slock.it   *
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
 pragma solidity ^0.5.7;
+pragma experimental ABIEncoderV2;
 
 import "./BlockhashRegistry.sol";
 
@@ -48,10 +49,8 @@ contract ServerRegistry {
         uint deposit; // stored deposit
         uint props; // a list of properties-flags representing the capabilities of the server
 
-        // unregister state
         uint128 unregisterTime; // earliest timestamp in to to call unregister
-        uint128 unregisterDeposit; // Deposit for unregistering
-        address payable unregisterCaller; // address of the caller requesting the unregister
+        uint128 registerTime; // timestamp when the server was registered
     }
 
     /// server list of incubed nodes    
@@ -62,6 +61,8 @@ contract ServerRegistry {
     BlockhashRegistry public blockRegistry;
     /// version: major minor fork(000) date(yyyy/mm/dd)
     uint constant public version = 12300020190328;
+
+    uint public blockDeployment;
 
     // index for unique url and owner
     mapping (address => bool) ownerIndex;
@@ -76,6 +77,7 @@ contract ServerRegistry {
 
     constructor(address _blockRegistry) public {
         blockRegistry = BlockhashRegistry(_blockRegistry);
+        blockDeployment = block.timestamp;
     }
 
     /// length of the serverlist
@@ -99,6 +101,7 @@ contract ServerRegistry {
         m.owner = msg.sender;
         m.deposit = msg.value;
         m.timeout = _timeout > 3600 ? _timeout : 1 hours;
+        m.registerTime = uint128(block.timestamp); 
         servers.push(m);
 
         // make sure they are used
@@ -127,6 +130,97 @@ contract ServerRegistry {
         emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
     }
 
+    function recoverAddress(bytes memory _sig, bytes32 _evm_blockhash, uint _index, address _owner) public pure returns (address){
+
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+
+       assembly {
+            r := mload(add(_sig, 32))
+            s := mload(add(_sig, 64))
+            v := and(mload(add(_sig, 65)), 255)
+        }
+
+        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+        bytes32 tempHash =  keccak256(abi.encodePacked(_evm_blockhash, _index, _owner));
+        bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, tempHash));
+        return ecrecover(prefixedHash, v, r, s);
+    }
+  
+
+    function checkUnique(address _new, address[] memory _currentSet) internal pure returns (bool){
+        for(uint i=0;i<_currentSet.length;i++){
+            if(_currentSet[i]==_new) return true;
+        }
+    }
+    
+    function getValidVoters(uint _blockNumber, address _voted) public view returns (address[] memory){
+
+        bytes32 evm_blockhash = blockhash(_blockNumber);
+        require(evm_blockhash != 0x0, "block not found");
+
+        // capping the number of required signatures
+        uint requiredSignatures = servers.length > 40? 20: servers.length;
+
+        address[] memory validVoters = new address[](requiredSignatures);
+
+        uint uniqueSignatures = 0;
+        uint i=0;
+        while(uniqueSignatures<requiredSignatures){
+            
+            uint8 tempByteOne = uint8(byte(evm_blockhash[(i+uniqueSignatures)%32]));
+            uint8 tempByteTwo = uint8(byte(evm_blockhash[(i*2+uniqueSignatures)%32]));
+            uint8 tempByteThree = uint8(byte(evm_blockhash[(i*3+uniqueSignatures)%32]));
+
+            uint position = (tempByteOne+tempByteTwo+tempByteThree) % servers.length;
+
+            if(!checkUnique(servers[position].owner,validVoters) && _voted!=servers[position].owner ){
+                validVoters[uniqueSignatures] = servers[position].owner;
+                uniqueSignatures++;
+            }
+            
+            i++;
+        }
+
+        return validVoters;
+
+    }
+
+    function voteUnregisterServer(uint _blockNumber, uint _index, address _owner, bytes[] calldata _signatures) external {
+       
+        bytes32 evm_blockhash = blockhash(_blockNumber);
+        require(evm_blockhash != 0x0, "block not found");
+        require(servers[_index].owner == _owner, "wrong owner for server provided");
+
+        address[] memory validSigners = getValidVoters(_blockNumber,_owner );
+        
+        require(_signatures.length >= validSigners.length,"provided not enough signatures");
+
+        uint successfullSigns = 0;
+ 
+        for(uint i=0; i<_signatures.length; i++){
+
+            address signedAddress =  recoverAddress(_signatures[i], evm_blockhash, _index, _owner);
+
+            for(uint j=0; j<validSigners.length;j++){
+
+                if(signedAddress == validSigners[j]){
+
+                    successfullSigns++;
+
+                    if(successfullSigns > validSigners.length/2){
+
+                        removeServer(_index);
+                        return;
+                    }
+                   break;
+                }               
+            }
+        }
+   }
+
+    
     /// this should be called before unregistering a server.
     /// there are 2 use cases:
     /// a) the owner wants to stop offering the service and remove the server.
@@ -136,23 +230,16 @@ contract ServerRegistry {
     ///    in this case he needs to pay a small deposit, which he will lose 
     //       if the owner become active again 
     //       or the caller will receive 20% of the deposit in case the owner does not react.
-    function requestUnregisteringServer(uint _serverIndex) payable external {
+    function requestUnregisteringServer(uint _serverIndex) external {
 
         In3Server storage server = servers[_serverIndex];
+        require(server.owner == msg.sender,"not the owner");
 
         // this can only be called if nobody requested it before
-        require(server.unregisterCaller == address(0x0), "Server is already unregistering");
+        require(server.unregisterTime == 0, "Server is already unregistering");
        
-        server.unregisterCaller = msg.sender;
+        server.unregisterTime = uint128(now + server.timeout);
 
-        if (server.unregisterCaller == server.owner) 
-           server.unregisterTime = uint128(now + server.timeout);
-        else {
-            server.unregisterTime = uint128(now + 28 days); // 28 days are always good ;-) 
-            // the requester needs to pay the unregisterDeposit in order to spam-protect the server
-            require(msg.value == calcUnregisterDeposit(_serverIndex), "the exact calcUnregisterDeposit is required to request unregister");
-            server.unregisterDeposit = uint128(msg.value);
-        }
         emit LogServerUnregisterRequested(server.url, server.owner, msg.sender);
     }
     
@@ -161,15 +248,13 @@ contract ServerRegistry {
     /// the owner will receive 80% of the server deposit before the server will be removed.
     function confirmUnregisteringServer(uint _serverIndex) external {
         In3Server storage server = servers[_serverIndex];
-        // this can only be called if somebody requested it before
-        require(server.unregisterCaller != address(0x0) && server.unregisterTime < now, "Only the caller is allowed to confirm");
+        
+        require(server.owner == msg.sender, "Only the owner is allowed to confirm");
+
+        require(server.unregisterTime < now, "Only confirm after the timeout allowed");
 
         uint payBackOwner = server.deposit;
-        if (server.unregisterCaller != server.owner) {
-            payBackOwner -= server.deposit / 5;  // the owner will only receive 80% of his deposit back.
-            server.unregisterCaller.transfer(server.unregisterDeposit + server.deposit - payBackOwner);
-        }
-
+  
         if (payBackOwner > 0)
             server.owner.transfer(payBackOwner);
 
@@ -182,22 +267,14 @@ contract ServerRegistry {
         In3Server storage server = servers[_serverIndex];
 
         // this can only be called by the owner and if somebody requested it before
-        require(server.unregisterCaller != address(0) && server.owner == msg.sender, "only the owner is allowed to cancel unregister");
-
-        // if this was requested by somebody who does not own this server,
-        // the owner will get his deposit
-        if (server.unregisterCaller != server.owner) 
-            server.owner.transfer(server.unregisterDeposit);
-
-        // set back storage values
-        server.unregisterCaller = address(0);
+        require(server.owner == msg.sender, "only the owner is allowed to cancel unregister");
+    
         server.unregisterTime = 0;
-        server.unregisterDeposit = 0;
 
         /// emit event
         emit LogServerUnregisterCanceled(server.url, server.owner);
     }
-
+    
     /// commits a blocknumber and a hash
     function convict(uint _blockNumber, bytes32 _hash) external {
         bytes32 evm_blockhash = blockhash(_blockNumber);
@@ -247,11 +324,7 @@ contract ServerRegistry {
 
         }
 
-        /// send back the unregister deposit
-        if(s.unregisterDeposit > 0){
-            s.unregisterCaller.transfer(s.unregisterDeposit);
-        }
-
+   
         // emit event
         emit LogServerConvicted(servers[_serverIndex].url, servers[_serverIndex].owner );
         
@@ -262,14 +335,8 @@ contract ServerRegistry {
         removeServer(_serverIndex);
     }
 
-    /// calculates the minimum deposit you need to pay in order to request unregistering of a server.
-    function calcUnregisterDeposit(uint _serverIndex) public view returns(uint128) {
-         // cancelUnregisteringServer costs 22k gas, we took about twist that much due to volatility of gasPrices
-        return uint128(servers[_serverIndex].deposit / 50 + tx.gasprice * 50000);
-    }
 
-    // internal helper functions
-    
+    // internal helper functions    
     function removeServer(uint _serverIndex) internal {
         // trigger event
         emit LogServerRemoved(servers[_serverIndex].url, servers[_serverIndex].owner);
