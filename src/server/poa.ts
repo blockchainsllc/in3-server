@@ -18,7 +18,7 @@
 ***********************************************************/
 
 
-import { RPCRequest, header, serialize, BlockData,Proof, LogData, util } from 'in3'
+import { RPCRequest, header, serialize, BlockData, Proof, LogData, util } from 'in3'
 import { RPCHandler } from './rpc'
 import EthHandler from '../modules/eth/EthHandler'
 import { recover } from 'secp256k1'
@@ -263,7 +263,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         const numValidators = history.states[history.states.length - 1].validators.length
         const maxNumber = bn + 2 * numValidators //The maximum number of blocks it will check is curBlock + 2 times the number of validators
         const signers = [header.getSigner(serialize.blockFromHex(logs.in3.proof.logProof[toHex(log.blockNumber)].block))]
-        const minSigners = Math.ceil((numValidators + 1) / 2) //Hardcoded 51% finality
+        const minSigners = 1 || Math.ceil((numValidators + 1) / 2) //Hardcoded 51% finality // TODO for now we do not use finality yet, but we must fix it!
         const finalityBlocks = []
 
         while (signers.length < minSigners && bn < maxNumber) {
