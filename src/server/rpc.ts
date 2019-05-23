@@ -74,19 +74,20 @@ export class RPC {
 
 
       if (r.method === 'in3_nodeList')
-        return manageRequest(handler, handler.getNodeList(
+        return manageRequest(handler, Promise.all([handler.getNodeList(
           in3Request.verification && in3Request.verification.startsWith('proof'),
           r.params[0] || 0,
           r.params[1],
           r.params[2] || [],
           in3Request.signatures,
           in3Request.verifiedHashes
-        ).then(async result => {
+        ),
+        getValidatorHistory(handler)]).then(async ([result, validators]) => {
           const res = {
             id: r.id,
             result: result as any,
             jsonrpc: r.jsonrpc,
-            in3: { ...in3, execTime: Date.now() - start }
+            in3: { ...in3, execTime: Date.now() - start, lastValidatorChange: validators.lastValidatorChange }
           }
           const proof = res.result.proof
           if (proof) {
