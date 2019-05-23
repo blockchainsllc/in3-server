@@ -18,7 +18,7 @@
 ***********************************************************/
 
 
-import { RPCRequest, header, serialize, BlockData, LogData, util } from 'in3'
+import { RPCRequest, header, serialize, BlockData,Proof, LogData, util } from 'in3'
 import { RPCHandler } from './rpc'
 import EthHandler from '../modules/eth/EthHandler'
 import { recover } from 'secp256k1'

@@ -132,6 +132,7 @@ export class RPC {
           (in3 as any).execTime = Date.now() - start;
           (in3 as any).rpcTime = (r as any).rpcTime || 0;
           (in3 as any).rpcCount = (r as any).rpcCount || 0;
+          (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
           return _
         })
       ])
