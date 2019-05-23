@@ -100,7 +100,7 @@ export class RPC {
         return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
 
           const startIndex: number = (r.params && r.params.length > 0) ? util.toNumber(r.params[0]) : 0
-          const limit: number = (r.params && r.params.length > 1) ? util.toNumber(r.params[1]) : 2
+          const limit: number = (r.params && r.params.length > 1) ? util.toNumber(r.params[1]) : 0
 
           return ({
             id: r.id,
