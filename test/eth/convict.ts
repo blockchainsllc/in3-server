@@ -26,10 +26,11 @@ import * as ethUtil from 'ethereumjs-util'
 import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
 import Watcher from '../../src/chains/watch'
 import { registerServers } from '../../src/util/registry'
-import { toBN, toBuffer } from 'in3/js/src/util/util';
-import { BigNumber } from 'ethers/utils';
+import { toBN, toBuffer, padStart } from 'in3/js/src/util/util';
+import { BigNumber, toUtf8Bytes } from 'ethers/utils';
 import { sha3 } from 'ethereumjs-util'
-
+import { IN3ConfigDefinition } from 'in3/js/src/types/types';
+import { soliditySha3 } from 'in3/js/src/modules/eth/api'
 
 const address = serialize.address
 const bytes32 = serialize.bytes32
@@ -39,12 +40,42 @@ const toHex = util.toHex
 const sign = (b: BlockData, pk: string, blockHash?: string) => {
   const msgHash = ethUtil.sha3(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number)]))
   const sig = ethUtil.ecsign(msgHash, bytes32(pk)) as Signature
+  //console.log("sig", sig)
   sig.block = toNumber(b.number)
   sig.blockHash = blockHash || b.hash
   sig.address = util.getAddress(pk)
   sig.msgHash = toHex(msgHash, 32)
   return sig
 }
+
+const signVote = (blockhash: string, index: number, owner: string, pk: string) => {
+  //const msgHash = sha3(bytes32(blockhash), (index), address(owner)) // ethUtil.sha3(Buffer.concat([bytes32(blockhash), bytes32(toHex(index)), bytes32(owner)]))
+  //console.log(blockhash + padStart(toHex(index).substr(2), 64, "0") + owner.substr(2))
+
+  const msgHash = (ethUtil.sha3(blockhash + padStart(toHex(index).substr(2), 64, "0") + owner.substr(2)))
+
+  const msgHash2 = ethUtil.sha3(toHex("\x19Ethereum Signed Message:\n32") + toHex(msgHash).substr(2))
+
+  // console.log(soliditySha3(toBN(a)))
+  //  console.log("pk:" + pk)
+  const sig = ethUtil.ecsign((msgHash2), bytes32(pk))
+  /*
+  console.log("message: " + toHex(msgHash, 32))
+  console.log("v: " + toHex(sig.v))
+  console.log("r: " + toHex(sig.r))
+  console.log("s: " + toHex(sig.s))
+
+  console.log(util.getAddress(pk))
+  //console.log(sig)
+  console.log("--")
+  */
+  sig.address = util.getAddress(pk)
+  sig.msgHash = toHex(msgHash, 32)
+  sig.signature = toHex(sig.r) + toHex(sig.s).substr(2) + toHex(sig.v).substr(2)
+  return sig
+}
+
+
 
 
 describe('Convict', () => {
@@ -196,7 +227,7 @@ describe('Convict', () => {
     assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
 
 
-  }).timeout(50000)
+  }).timeout(500000)
 
   it('verify and convict (block within 256 blocks)', async () => {
 
@@ -257,6 +288,78 @@ describe('Convict', () => {
     assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
 
   })
+
+  it('voteUnregisterServer', async () => {
+    const test = await TestTransport.createWithRegisteredServers(2)
+    const privateKeys = [
+      '0x7337e373e5520f5ab4b1cbb1e90127fd0c880c697a03b21c9c8351c370ae3914',
+      '0x9e889f38893b22f42fa18648a2e91587ca3288492018a15bc972f2d0c7f760f6',
+      '0xeb367ce8275eedc798bcf1fd7bd420775919f5631b5ba242ec4213d99420b80c',
+      '0xf6d410e31a81583f0044d7b8561b80462239b9737e31db11ae89da31f9aa4b73',
+      '0xe8cc9372cfeb05ebaf215403b325e410a29b28ff5a024bcfdb03464632917ccb',
+      '0x72248c9e198096676fb2e1f85e814c4b71e82bfdd9df0a790c9b76a60b3f66fa',
+      '0xa5a775a8e5aead78876327ccd0206c3e411527af2760d5731c90d3f932034417',
+      '0x6ebc23630da4eafa2d57aceda4c82a567a4ba11c90dbf3235534ae5790850f82',
+      '0x7585dfc0dcd5bec25c87e515c3cb7cfb4e61c910ac60d2a68aa4f195c24a18f6',
+      '0xcb2e14716fc2f3edc4fb2a6e73c249df4b507e81d34324ebe192c37f07d8241d',
+      '0xf9b287dcb6809e2e541526f6eb861dc1b71b1038f28b9edeb348b8402b3f1dc4',
+      '0x42a0e8de59eaf1b95899e46b041ea6dc8f010ec2a5c4553fda354afd9ce97974',
+      '0xb99657d313f0ea22d22441fc726eee9a6ed82296fbf4480dbbac7c75e2806122',
+      '0xe1c06b839ca2b67a81f84365303be122fbd8de532c55f3f20c0c13c2a34ea021',
+      '0xfc8c4fa8c1fd8503b5c74fe18bd95009614ad3e7f9868b154e8c9b4534595113',
+      '0xa6e127bec3681ab8af27a3b3e0c9cd7a542b6b965c864774cd5aa5a69f3eab33',
+      '0xaf32ca2d663afcb43e7e9811d767ec87e5bf603e286974bbcbc09b5305cc754d',
+      '0x604eb6355288fc10bdb8d83136d946d66d9ccba5c18d6055e1235eed0b17488a',
+      '0x5fb845628b501bdd90d79d2e35701234c2f94be880e1038b64fe0d4e8498c8cc',
+      '0x5dcba4651b58964c90134eaa39301477cd2599be6bd0fba966b7096c5724d7f2',
+    ];
+    const accounts = []
+    for (let i = 0; i < 20; i++) {
+
+      const user = await test.createAccount(privateKeys[i])
+
+      accounts.push({
+        privateKey: user,
+        address: util.getAddress(user)
+
+      })
+      //   console.log(user)
+
+      await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['abc' + i, 1000, 10000], { privateKey: user, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
+
+    }
+
+    assert.equal(await test.getServerCountFromContract(), 22)
+    const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+
+    const blockNumber = toNumber(block.number) - 1
+
+    const validators = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
+
+    assert.equal(validators.length, 11)
+    // console.log(validators)
+
+    const blockSign = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber), false) as BlockData
+
+
+    const abc = []
+
+    for (const a of validators) {
+      abc.push("0x" + a.toLowerCase())
+    }
+
+
+    const txSig = []
+    for (const a of accounts) {
+      const s = signVote(blockSign.hash, 0, util.getAddress(test.getHandlerConfig(0).privateKey), a.privateKey)
+      txSig.push(s.signature)
+    }
+
+    await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,uint,address,bytes[])', [blockNumber, 0, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 })
+    assert.equal(await test.getServerCountFromContract(), 21)
+
+
+  }).timeout(50000)
 
   it('verify and convict (block older then 256 blocks) - worth it', async () => {
 
@@ -328,7 +431,7 @@ describe('Convict', () => {
 
   })
 
-  it('verify and convict (block older then 256 blocks) - request unregister', async () => {
+  it.skip('verify and convict (block older then 256 blocks) - request unregister', async () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
 
@@ -482,7 +585,7 @@ describe('Convict', () => {
   })
 
 
-  it('requestUnregisteringServer - cancel', async () => {
+  it.skip('requestUnregisteringServer - cancel', async () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
     const watcher = test.handlers['#1'].getHandler().watcher
@@ -495,10 +598,11 @@ describe('Convict', () => {
 
     const unregisterDeposit = serverContract.deposit / 50
     // the user regquests to unregister this server
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: unregisterDeposit / 2, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because the wrong value was sent')
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because the wrong value was sent')
 
     // the user regquests to unregister this server
-    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: unregisterDeposit, confirm: true, gas: 300000 })
+
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: 0, confirm: true, gas: 300000 })
 
     const balanceOwnerBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
 
@@ -527,57 +631,7 @@ describe('Convict', () => {
   })
 
 
-  it('requestUnregisteringServer - 28days', async () => {
-
-    const test = await TestTransport.createWithRegisteredServers(2)
-    // read all events (should be only the 2 register-events
-
-    const user = await test.createAccount()
-    const serverContract = await test.getServerFromContract(0)
-    const unregisterDeposit = serverContract.deposit / 50
-    // the user regquests to unregister this server
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: unregisterDeposit / 2, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because the wrong value was sent')
-
-    let balanceBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
-
-    // the user regquests to unregister this server
-    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(1).privateKey, value: unregisterDeposit, confirm: true, gas: 300000 })
-
-    let balanceAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
-
-    assert.equal(balanceBefore.sub(balanceAfter).toString(), (unregisterDeposit.toString()))
-
-    balanceBefore = balanceAfter
-
-    const balanceOwnerBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
-
-    // should fail now
-    let rc = await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
-      privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
-      value: 0,
-      confirm: true
-    }).catch(_ => false)
-
-    assert.isFalse(rc)
-
-    await test.increaseTime(28 * 86400 + 10)
-
-    rc = await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
-      privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
-      value: 0,
-      confirm: true
-    })
-
-
-    balanceAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[1].address, 'latest'))
-
-    assert.equal(balanceAfter.sub(balanceBefore).toString(), (unregisterDeposit + (serverContract.deposit / 5)).toString())
-  })
-
-
-  it('requestUnregisteringServer - timeout', async () => {
+  it('requestUnregisteringServer - cancel', async () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
 
@@ -585,38 +639,76 @@ describe('Convict', () => {
 
     assert.equal(serverBefore.timeout.toNumber(), 3600)
     assert.equal(serverBefore.unregisterTime.toNumber(), 0)
-    assert.equal(serverBefore.unregisterCaller, "0000000000000000000000000000000000000000")
-    assert.equal(serverBefore.unregisterDeposit, 0)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because not the owner of the server')
 
     const receipt = await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+
 
     let block = await test.getFromServer('eth_getBlockByNumber', receipt.blockNumber, false) as BlockData
 
     const serverAfter = await test.getServerFromContract(0)
 
     assert.equal(serverAfter.timeout.toNumber(), 3600)
-    assert.equal(serverAfter.owner, serverAfter.unregisterCaller)
     assert.equal(serverAfter.unregisterTime - Number(block.timestamp), 3600)
-    assert.equal(serverAfter.unregisterDeposit, 0)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because not the owner of the server')
+    await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+
+    const serverAfterCancel = await test.getServerFromContract(0)
+
+    assert.equal(serverAfterCancel.timeout.toNumber(), 3600)
+    assert.equal(serverAfterCancel.unregisterTime.toNumber(), 0)
+
+  })
+
+  it('requestUnregisteringServer', async () => {
+
+    const test = await TestTransport.createWithRegisteredServers(2)
+
+    const serverBefore = await test.getServerFromContract(0)
+
+    assert.equal(serverBefore.timeout.toNumber(), 3600)
+    assert.equal(serverBefore.unregisterTime.toNumber(), 0)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because not the owner of the server')
+
+    const receipt = await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+
+
+    let block = await test.getFromServer('eth_getBlockByNumber', receipt.blockNumber, false) as BlockData
+
+    const serverAfter = await test.getServerFromContract(0)
+
+    assert.equal(serverAfter.timeout.toNumber(), 3600)
+    assert.equal(serverAfter.unregisterTime - Number(block.timestamp), 3600)
 
     const balanceOwnerBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
 
-    let rc = await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
       privateKey: test.getHandlerConfig(0).privateKey,
       gas: 300000,
       value: 0,
       confirm: true
-    }).catch(_ => false)
+    }).catch(_ => false), 'Must fail because the owner is not allowed to confirm yet')
 
     // wait 2h 
     await test.increaseTime(7201)
 
-    rc = await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false), 'Must fail because the sender is not the owner')
+
+    await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
       privateKey: test.getHandlerConfig(0).privateKey,
       gas: 300000,
       value: 0,
       confirm: true
     })
+
     const balanceOwnerAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
 
     assert.equal(balanceOwnerAfter.sub(balanceOwnerBefore).toString(), serverBefore.deposit.toString())

@@ -129,7 +129,7 @@ contract ServerRegistry {
             server.timeout = _timeout;
         emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
     }
-
+    
     function recoverAddress(bytes memory _sig, bytes32 _evm_blockhash, uint _index, address _owner) public pure returns (address){
 
         uint8 v;
@@ -161,7 +161,7 @@ contract ServerRegistry {
         require(evm_blockhash != 0x0, "block not found");
 
         // capping the number of required signatures
-        uint requiredSignatures = servers.length > 40? 20: servers.length;
+        uint requiredSignatures = servers.length > 40? 20: servers.length/2;
 
         address[] memory validVoters = new address[](requiredSignatures);
 
@@ -218,6 +218,8 @@ contract ServerRegistry {
                 }               
             }
         }
+
+        require(false,"not enough signatures");
    }
 
     

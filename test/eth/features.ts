@@ -184,7 +184,7 @@ describe('Features', () => {
 
   })
 
-  it('partial Server List', async () => {
+  it.skip('partial Server List', async () => {
 
     // create  10 nodes
     const test = await TestTransport.createWithRegisteredServers(10)
