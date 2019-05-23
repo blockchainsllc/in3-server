@@ -241,7 +241,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         jsonrpc: "2.0",
         method: "eth_getLogs",
         params: [{
-            fromBlock: toMinHex(history.lastCheckedBlock + 1),
+            fromBlock: toMinHex((history.lastCheckedBlock || 0) + 1),
             toBlock: toMinHex(currentBlock),
             address: validatorContract,
             topics: ["0x55252fa6eee4741b4e24a74a70e9c11fd2c2281df8d6ea13126ff845f7825c89"]
