@@ -24,7 +24,7 @@ import { getStats, currentHour } from './stats'
 
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
-import { getValidatorHistory } from './poa'
+import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
 
 
 export class RPC {
@@ -97,8 +97,7 @@ export class RPC {
         }))
 
       else if (r.method === 'in3_validatorlist')
-        return manageRequest(handler, getValidatorHistory(handler)
-        ).then(result => {
+        return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
 
           const startIndex: number = (r.params && r.params.length > 0) ? util.toNumber(r.params[0]) : 0
           const limit: number = (r.params && r.params.length > 1) ? util.toNumber(r.params[1]) : 2
@@ -106,7 +105,7 @@ export class RPC {
           return ({
             id: r.id,
             result: {
-              states: limit ? result.states.slice(startIndex, startIndex + limit + 1) : result.states.slice(startIndex),
+              states: limit ? result.states.slice(startIndex, startIndex + limit) : result.states.slice(startIndex),
               lastCheckedBlock: result.lastCheckedBlock
             },
             jsonrpc: r.jsonrpc,
@@ -152,7 +151,7 @@ export class RPC {
       Promise.all([
         this.handlers[c].getNodeList(true)
           .then(() => this.handlers[c].checkRegistry()),
-        getValidatorHistory(this.handlers[c])
+        updateValidatorHistory(this.handlers[c])
       ])
     ))
   }
