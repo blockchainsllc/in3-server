@@ -18,16 +18,44 @@
 ***********************************************************/
 
 
-import { RPCRequest, header, serialize, BlockData, AuraValidatoryProof, LogData, util } from 'in3'
+import { RPCRequest, header, serialize, BlockData, LogData, util } from 'in3'
 import { RPCHandler } from './rpc'
 import EthHandler from '../modules/eth/EthHandler'
 import { recover } from 'secp256k1'
 import { rawDecode } from 'ethereumjs-abi'
-import { publicToAddress,rlp } from 'ethereumjs-util'
+import { publicToAddress, rlp } from 'ethereumjs-util'
 import { handleLogs } from '../modules/eth/proof'
 const chains = require('in3/js/src/client/defaultConfig.json').servers
+/**
+ * a Object holding proofs for validator logs. The key is the blockNumber as hex
+ */
+export interface AuraValidatoryProof {
+    /**
+     * the transaction log index
+     */
+    logIndex: number
+    /**
+     * the serialized blockheader
+     * example: 0x72804cfa0179d648ccbe6a65b01a6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b86d8f42c92bbda6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b
+     */
+    block: string
+    /**
+     * the transactionIndex within the block
+     */
+    txIndex: number
+    /**
+     * the merkleProof
+     */
+    proof: string /* ^0x[0-9a-fA-F]+$ */[]
+    /**
+     * the serialized blockheader as hex, required in case of finality asked
+     * example: 0x72804cfa0179d648ccbe6a65b01a6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b86d8f42c92bbda6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b
+     */
+    finalityBlocks?: any[]
+}
 
 const toHex = util.toHex
+const toMinHex = util.toMinHex
 const toNumber = util.toNumber
 
 export interface HistoryEntry {
@@ -213,8 +241,8 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         jsonrpc: "2.0",
         method: "eth_getLogs",
         params: [{
-            fromBlock: toHex(history.lastCheckedBlock + 1),
-            toBlock: toHex(currentBlock),
+            fromBlock: toMinHex(history.lastCheckedBlock + 1),
+            toBlock: toMinHex(currentBlock),
             address: validatorContract,
             topics: ["0x55252fa6eee4741b4e24a74a70e9c11fd2c2281df8d6ea13126ff845f7825c89"]
         }],
@@ -224,8 +252,8 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         }
     })
 
-    for(const log of logs.result) {
-        const validatorList = rawDecode(['address[]'], Buffer.from(log.data.substr(2), 'hex'))[0]
+    for (const log of logs.result) {
+        const validatorList = rawDecode(['address[]'], util.toBuffer(log.data))[0]
         const receipts = logs.in3.proof.logProof[toHex(log.blockNumber)].receipts
 
         /*
@@ -233,20 +261,20 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         */
         let bn = parseInt(log.blockNumber)
         const numValidators = history.states[history.states.length - 1].validators.length
-        const maxNumber = bn + Math.round(2 * numValidators) //The maximum number of blocks it will check is curBlock + 2 times the number of validators
-        const signers = [header.getSigner(new serialize.Block(logs.in3.proof.logProof[toHex(log.blockNumber)].block))]
-        const minSigners = Math.ceil(0.51 * numValidators) //Hardcoded 51% finality
+        const maxNumber = bn + 2 * numValidators //The maximum number of blocks it will check is curBlock + 2 times the number of validators
+        const signers = [header.getSigner(serialize.blockFromHex(logs.in3.proof.logProof[toHex(log.blockNumber)].block))]
+        const minSigners = Math.ceil((numValidators + 1) / 2) //Hardcoded 51% finality
         const finalityBlocks = []
 
         while (signers.length < minSigners && bn < maxNumber) {
             bn = bn + 1
             if (currentBlock < bn) break
-            const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['0x' + bn.toString(16), false] })
+            const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), false] })
 
             if (!b || b.error || !b.result) break
             const currentSigner = header.getSigner(new serialize.Block(b.result))
             if (!signers.find(_ => _.equals(currentSigner)))
-              signers.push(currentSigner)
+                signers.push(currentSigner)
             finalityBlocks.push(serialize.blockToHex(b.result))
         }
 
@@ -263,7 +291,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
             proof: receipts[Object.keys(receipts)[0]].proof,
             block: logs.in3.proof.logProof[toHex(log.blockNumber)].block,
             logIndex: toNumber(log.transactionLogIndex),
-            finalityBlocks: finalityBlocks
+            finalityBlocks
         }
 
         //update the history states

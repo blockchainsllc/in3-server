@@ -17,12 +17,12 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec , util as in3Util } from 'in3'
-import { simpleEncode, simpleDecode }                                                                               from 'ethereumjs-abi'
+import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec, util as in3Util, serialize } from 'in3'
+import { simpleEncode, simpleDecode } from 'ethereumjs-abi'
 
-import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs }      from './proof'
-import BaseHandler                                                                                                  from '../../chains/BaseHandler'
-import { handleSign }                                                                                               from '../../chains/signatures';
+import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
+import BaseHandler from '../../chains/BaseHandler'
+import { handleSign } from '../../chains/signatures';
 import { getValidatorHistory } from '../../server/poa'
 
 const clientConf = require('in3/js/src/client/defaultConfig.json')
@@ -33,9 +33,6 @@ const toNumber = in3Util.toNumber
  * handles EVM-Calls
  */
 export default class EthHandler extends BaseHandler {
-
-  // list of addresses allowed to sign for finality
-  authorities: Buffer[]
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     super(config, transport, nodeList)
@@ -143,19 +140,18 @@ export default class EthHandler extends BaseHandler {
     return null
   }
 
-  async getAuthorities(blockNumber:number):Promise<Buffer[]> {
-    if (this.authorities) return this.authorities
+  async getAuthorities(blockNumber: number): Promise<Buffer[]> {
     const spec = this.getChainSpec()
 
     //get all the states from validatorHistory from the specified blocknumber
-    const validatorStates = (await getValidatorHistory(this)).states
+    const validatorStates = spec && (await getValidatorHistory(this)).states
+    if (!validatorStates || !validatorStates.length) return []
 
-    let pos = 0;
-    for(let i=0; i<validatorStates.length; i++)
-      if(validatorStates[i].block <= blockNumber)
-        pos = i;
+    let pos = validatorStates.length - 1;
+    for (let i = pos; i; i--)
+      if (validatorStates[i].block < blockNumber) break
 
-    return spec ? this.authorities = validatorStates[pos].validators.map(v => in3Util.toBuffer(v,20)): (this.authorities=[])
+    return validatorStates[pos].validators.map(serialize.address)
   }
 
 
