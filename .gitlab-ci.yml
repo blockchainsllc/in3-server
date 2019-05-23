@@ -30,7 +30,7 @@ compile-contracts:
     - docker:dind
   image: jonaskello/docker-and-compose:latest
   script:
-    - docker run -v $(pwd)/contracts:/contracts ethereum/solc:0.5.7 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/ServerRegistry.sol /contracts/ChainRegistry.sol /contracts/BlockhashRegistry.sol > contracts/contracts.json; docker run -v $(pwd)/test:/test ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /test/contracts/TestContract.sol > test/contracts/contracts.json
+    - docker run -v $(pwd)/contracts:/contracts ethereum/solc:0.5.8 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/ServerRegistry.sol /contracts/ChainRegistry.sol /contracts/BlockhashRegistry.sol > contracts/contracts.json; docker run -v $(pwd)/test:/test ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /test/contracts/TestContract.sol > test/contracts/contracts.json
   artifacts:
     paths:
       - contracts/contracts.json
