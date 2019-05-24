@@ -154,26 +154,28 @@ contract ServerRegistry {
             if(_currentSet[i]==_new) return true;
         }
     }
-    
+
+  
     function getValidVoters(uint _blockNumber, address _voted) public view returns (address[] memory){
 
         bytes32 evm_blockhash = blockhash(_blockNumber);
         require(evm_blockhash != 0x0, "block not found");
 
         // capping the number of required signatures
-        uint requiredSignatures = servers.length > 40? 20: servers.length/2;
+        uint requiredSignatures = servers.length > 21? 20: servers.length-1;
 
         address[] memory validVoters = new address[](requiredSignatures);
 
+     
         uint uniqueSignatures = 0;
         uint i=0;
         while(uniqueSignatures<requiredSignatures){
             
             uint8 tempByteOne = uint8(byte(evm_blockhash[(i+uniqueSignatures)%32]));
+     
             uint8 tempByteTwo = uint8(byte(evm_blockhash[(i*2+uniqueSignatures)%32]));
-            uint8 tempByteThree = uint8(byte(evm_blockhash[(i*3+uniqueSignatures)%32]));
 
-            uint position = (tempByteOne+tempByteTwo+tempByteThree) % servers.length;
+            uint position = requiredSignatures > 20 ? (tempByteOne+tempByteTwo) % servers.length : i;
 
             if(!checkUnique(servers[position].owner,validVoters) && _voted!=servers[position].owner ){
                 validVoters[uniqueSignatures] = servers[position].owner;
