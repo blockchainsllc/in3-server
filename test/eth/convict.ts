@@ -48,13 +48,18 @@ const sign = (b: BlockData, pk: string, blockHash?: string) => {
   return sig
 }
 
-const signVote = (blockhash: string, index: number, owner: string, pk: string) => {
+const signVote = (blockhash: string, owner: string, pk: string) => {
   //const msgHash = sha3(bytes32(blockhash), (index), address(owner)) // ethUtil.sha3(Buffer.concat([bytes32(blockhash), bytes32(toHex(index)), bytes32(owner)]))
   //console.log(blockhash + padStart(toHex(index).substr(2), 64, "0") + owner.substr(2))
 
-  const msgHash = (ethUtil.sha3(blockhash + padStart(toHex(index).substr(2), 64, "0") + owner.substr(2)))
+  const msgHash = (ethUtil.sha3(blockhash + owner.substr(2)))
+
+  console.log("msgHash")
+  console.log(msgHash)
 
   const msgHash2 = ethUtil.sha3(toHex("\x19Ethereum Signed Message:\n32") + toHex(msgHash).substr(2))
+  console.log("msgHash2")
+  console.log(msgHash2)
 
   // console.log(soliditySha3(toBN(a)))
   //  console.log("pk:" + pk)
@@ -116,7 +121,7 @@ describe('Convict', () => {
       confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
-    let rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
+    let rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
@@ -138,7 +143,7 @@ describe('Convict', () => {
       confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
-    rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
+    rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
@@ -146,9 +151,7 @@ describe('Convict', () => {
     }).catch(_ => false)
     assert.isFalse(rc, 'Transaction must fail, because the block is too old')
 
-
     const serverContract = await test.getServerFromContract(0)
-    const unregisterDeposit = serverContract.deposit / 50
 
     block = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumberInSnapshot), false) as BlockData
     s = sign(block, test.getHandlerConfig(0).privateKey)
@@ -161,7 +164,7 @@ describe('Convict', () => {
       confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
-    rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
+    rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
@@ -189,7 +192,7 @@ describe('Convict', () => {
       confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
-    rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
+    rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
@@ -209,7 +212,7 @@ describe('Convict', () => {
       confirm: true
     })
 
-    let b = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
+    let b = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(0), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
@@ -290,73 +293,65 @@ describe('Convict', () => {
   })
 
   it('voteUnregisterServer', async () => {
-    const test = await TestTransport.createWithRegisteredServers(2)
-    const privateKeys = [
-      '0x7337e373e5520f5ab4b1cbb1e90127fd0c880c697a03b21c9c8351c370ae3914',
-      '0x9e889f38893b22f42fa18648a2e91587ca3288492018a15bc972f2d0c7f760f6',
-      '0xeb367ce8275eedc798bcf1fd7bd420775919f5631b5ba242ec4213d99420b80c',
-      '0xf6d410e31a81583f0044d7b8561b80462239b9737e31db11ae89da31f9aa4b73',
-      '0xe8cc9372cfeb05ebaf215403b325e410a29b28ff5a024bcfdb03464632917ccb',
-      '0x72248c9e198096676fb2e1f85e814c4b71e82bfdd9df0a790c9b76a60b3f66fa',
-      '0xa5a775a8e5aead78876327ccd0206c3e411527af2760d5731c90d3f932034417',
-      '0x6ebc23630da4eafa2d57aceda4c82a567a4ba11c90dbf3235534ae5790850f82',
-      '0x7585dfc0dcd5bec25c87e515c3cb7cfb4e61c910ac60d2a68aa4f195c24a18f6',
-      '0xcb2e14716fc2f3edc4fb2a6e73c249df4b507e81d34324ebe192c37f07d8241d',
-      '0xf9b287dcb6809e2e541526f6eb861dc1b71b1038f28b9edeb348b8402b3f1dc4',
-      '0x42a0e8de59eaf1b95899e46b041ea6dc8f010ec2a5c4553fda354afd9ce97974',
-      '0xb99657d313f0ea22d22441fc726eee9a6ed82296fbf4480dbbac7c75e2806122',
-      '0xe1c06b839ca2b67a81f84365303be122fbd8de532c55f3f20c0c13c2a34ea021',
-      '0xfc8c4fa8c1fd8503b5c74fe18bd95009614ad3e7f9868b154e8c9b4534595113',
-      '0xa6e127bec3681ab8af27a3b3e0c9cd7a542b6b965c864774cd5aa5a69f3eab33',
-      '0xaf32ca2d663afcb43e7e9811d767ec87e5bf603e286974bbcbc09b5305cc754d',
-      '0x604eb6355288fc10bdb8d83136d946d66d9ccba5c18d6055e1235eed0b17488a',
-      '0x5fb845628b501bdd90d79d2e35701234c2f94be880e1038b64fe0d4e8498c8cc',
-      '0x5dcba4651b58964c90134eaa39301477cd2599be6bd0fba966b7096c5724d7f2',
-    ];
+    const test = await TestTransport.createWithRegisteredServers(1)
+
+
     const accounts = []
     for (let i = 0; i < 20; i++) {
 
-      const user = await test.createAccount(privateKeys[i])
+      const user = await test.createAccount()
 
       accounts.push({
         privateKey: user,
         address: util.getAddress(user)
 
       })
-      //   console.log(user)
+
 
       await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['abc' + i, 1000, 10000], { privateKey: user, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
+      const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
+      const blockNumber = toNumber(block.number) - 1
+      console.log(block.hash)
+
+      const validVoters = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
+      console.log(validVoters.length)
     }
 
-    assert.equal(await test.getServerCountFromContract(), 22)
+
+    // assert.equal(await test.getServerCountFromContract(), 21)
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
     const blockNumber = toNumber(block.number) - 1
 
-    const validators = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
+    const validVoters = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
+    console.log(validVoters.length)
 
-    assert.equal(validators.length, 11)
+    //assert.equal(validVoters.length, 51)
     // console.log(validators)
 
     const blockSign = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber), false) as BlockData
 
 
-    const abc = []
+    const addressValidVoters = []
 
-    for (const a of validators) {
-      abc.push("0x" + a.toLowerCase())
+    for (const a of validVoters) {
+      addressValidVoters.push("0x" + a.toLowerCase())
     }
 
 
     const txSig = []
     for (const a of accounts) {
-      const s = signVote(blockSign.hash, 0, util.getAddress(test.getHandlerConfig(0).privateKey), a.privateKey)
-      txSig.push(s.signature)
+
+      if (addressValidVoters.includes(a.address.toLowerCase())) {
+        const s = signVote(blockSign.hash, util.getAddress(test.getHandlerConfig(0).privateKey), a.privateKey)
+        txSig.push(s.signature)
+      }
     }
 
-    await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,uint,address,bytes[])', [blockNumber, 0, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 })
-    assert.equal(await test.getServerCountFromContract(), 21)
+
+    await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 })
+    //  assert.equal(await test.getServerCountFromContract(), 20)
 
 
   }).timeout(50000)
@@ -365,7 +360,7 @@ describe('Convict', () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint,uint64)', [0, 0, 0], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0, 0], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
 
 
     const blockHashRegistry = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
@@ -598,11 +593,11 @@ describe('Convict', () => {
 
     const unregisterDeposit = serverContract.deposit / 50
     // the user regquests to unregister this server
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because the wrong value was sent')
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer()', [], { privateKey: user, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because the wrong value was sent')
 
     // the user regquests to unregister this server
 
-    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: 0, confirm: true, gas: 300000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer()', [], { privateKey: user, value: 0, confirm: true, gas: 300000 })
 
     const balanceOwnerBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
 
@@ -640,9 +635,7 @@ describe('Convict', () => {
     assert.equal(serverBefore.timeout.toNumber(), 3600)
     assert.equal(serverBefore.unregisterTime.toNumber(), 0)
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because not the owner of the server')
-
-    const receipt = await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+    const receipt = await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer()', [], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
 
 
     let block = await test.getFromServer('eth_getBlockByNumber', receipt.blockNumber, false) as BlockData
@@ -652,8 +645,8 @@ describe('Convict', () => {
     assert.equal(serverAfter.timeout.toNumber(), 3600)
     assert.equal(serverAfter.unregisterTime - Number(block.timestamp), 3600)
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because not the owner of the server')
-    await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringServer()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because not the owner of the server')
+    await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringServer()', [], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
 
     const serverAfterCancel = await test.getServerFromContract(0)
 
@@ -671,9 +664,7 @@ describe('Convict', () => {
     assert.equal(serverBefore.timeout.toNumber(), 3600)
     assert.equal(serverBefore.unregisterTime.toNumber(), 0)
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because not the owner of the server')
-
-    const receipt = await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+    const receipt = await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer()', [], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
 
 
     let block = await test.getFromServer('eth_getBlockByNumber', receipt.blockNumber, false) as BlockData
@@ -685,7 +676,7 @@ describe('Convict', () => {
 
     const balanceOwnerBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer()', [], {
       privateKey: test.getHandlerConfig(0).privateKey,
       gas: 300000,
       value: 0,
@@ -695,14 +686,7 @@ describe('Convict', () => {
     // wait 2h 
     await test.increaseTime(7201)
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
-      privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
-      value: 0,
-      confirm: true
-    }).catch(_ => false), 'Must fail because the sender is not the owner')
-
-    await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer(uint)', [0], {
+    await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer()', [], {
       privateKey: test.getHandlerConfig(0).privateKey,
       gas: 300000,
       value: 0,
@@ -801,18 +785,18 @@ describe('Convict', () => {
     assert.equal(toHex(serverBefore.props), "0xff")
 
     // changing props
-    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint,uint64)', [2, 0x0fff, 0], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0x0fff, 0], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     let serverAfter = await test.getServerFromContract(2)
 
     assert.equal(toNumber(serverAfter.timeout), 7200)
     assert.equal(toHex(serverAfter.props), "0x0fff")
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint,uint64)', [2, 0x0fff, 14400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0x0fff, 14400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     serverAfter = await test.getServerFromContract(2)
     assert.equal(toHex(serverAfter.props), "0x0fff")
     assert.equal(toNumber(serverAfter.timeout), 14400)
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint,uint64)', [2, 0xffff, 16400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0xffff, 16400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     serverAfter = await test.getServerFromContract(2)
     assert.equal(toHex(serverAfter.props), "0xffff")
     assert.equal(toNumber(serverAfter.timeout), 16400)

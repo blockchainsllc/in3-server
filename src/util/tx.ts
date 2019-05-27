@@ -60,7 +60,7 @@ export async function callContract(url: string, contract: string, signature: str
 
   let data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
 
-  if (signature === 'recoverAddress(bytes,bytes32,uint,address):(address)') {
+  if (signature === 'recoverAddress(bytes,bytes32,address):(address)') {
 
 
     console.log("_____")
@@ -76,8 +76,8 @@ export async function callContract(url: string, contract: string, signature: str
 
   if (signature === 'calculateBlockheaders(bytes[],bytes32):(bytes32)'
     || signature === 'recreateBlockheaders(uint,bytes[])'
-    || signature === 'recoverAddress(bytes,bytes32,uint,address):(address)'
-    || signature === 'voteUnregisterServer(uint,uint,address,bytes[])'
+    || signature === 'recoverAddress(bytes,bytes32,address):(address)'
+    || signature === 'voteUnregisterServer(uint,address,bytes[])'
   ) {
 
     const signaturesplit = signature.split(':')[0]

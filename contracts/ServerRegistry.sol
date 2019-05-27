@@ -65,19 +65,49 @@ contract ServerRegistry {
     uint public blockDeployment;
 
     // index for unique url and owner
-    mapping (address => bool) ownerIndex;
-    mapping (bytes32 => bool) urlIndex;
+    mapping (address => OwnerInformation) ownerIndex;
+    mapping (bytes32 => UrlInformation) urlIndex;
 
     struct ConvictInformation {
         bytes32 convictHash;
         bytes32 blockHash;
     }
 
+    struct OwnerInformation {
+        bool used;
+        uint128 index;
+    }
+
+    struct UrlInformation {
+        bool used;
+        address owner;
+    }
+
+    address owner;
+     
+
     mapping (uint => mapping(address => ConvictInformation)) convictMapping;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+
+    modifier onlyBeginning(){
+        require(block.timestamp < (blockDeployment + 2*86400));
+        _;
+    }
+
+    modifier onlyBalanceStartPhase(){ 
+        if (now < (blockDeployment + 1*86400))
+           require(address(this).balance < 50 ether, "Limit of 50 ETH reached");
+        _;
+    }
 
     constructor(address _blockRegistry) public {
         blockRegistry = BlockhashRegistry(_blockRegistry);
         blockDeployment = block.timestamp;
+        owner = msg.sender;
     }
 
     /// length of the serverlist
@@ -92,7 +122,13 @@ contract ServerRegistry {
         bytes32 urlHash = keccak256(bytes(_url));
 
         // make sure this url and also this owner was not registered before.
-        require (!urlIndex[urlHash] && !ownerIndex[msg.sender], "a Server with the same url or owner is already registered");
+        require (!urlIndex[urlHash].used && !ownerIndex[msg.sender].used, "a Server with the same url or owner is already registered");
+
+        OwnerInformation memory oi;
+        oi.used = true;
+        oi.index = uint128(servers.length);
+
+        ownerIndex[msg.sender] = oi;
 
         // add new In3Server
         In3Server memory m;
@@ -101,23 +137,26 @@ contract ServerRegistry {
         m.owner = msg.sender;
         m.deposit = msg.value;
         m.timeout = _timeout > 3600 ? _timeout : 1 hours;
-        m.registerTime = uint128(block.timestamp); 
+        m.registerTime = uint128(block.timestamp);
         servers.push(m);
 
-        // make sure they are used
-        urlIndex[urlHash] = true;
-        ownerIndex[msg.sender] = true;
+        UrlInformation memory ui;
+        ui.used = true;
+        ui.owner = msg.sender;
 
+        urlIndex[urlHash] = ui;
+    
         // emit event
         emit LogServerRegistered(_url, _props, msg.sender,msg.value);
     }
 
     /// updates a Server by adding the msg.value to the deposit and setting the props    
-    function updateServer(uint _serverIndex, uint _props, uint64 _timeout) external payable {
-        checkLimits();
+    function updateServer(uint _props, uint64 _timeout) external payable onlyBalanceStartPhase {
 
-        In3Server storage server = servers[_serverIndex];
-        require(server.owner == msg.sender, "only the owner may update the server");
+        OwnerInformation memory oi = ownerIndex[msg.sender];
+        require(oi.used, "sender does not own a server");
+
+        In3Server storage server = servers[oi.index];
 
         if (msg.value>0) 
           server.deposit += msg.value;
@@ -130,7 +169,7 @@ contract ServerRegistry {
         emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
     }
     
-    function recoverAddress(bytes memory _sig, bytes32 _evm_blockhash, uint _index, address _owner) public pure returns (address){
+    function recoverAddress(bytes memory _sig, bytes32 _evm_blockhash, address _owner) public pure returns (address){
 
         uint8 v;
         bytes32 r;
@@ -143,7 +182,7 @@ contract ServerRegistry {
         }
 
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 tempHash =  keccak256(abi.encodePacked(_evm_blockhash, _index, _owner));
+        bytes32 tempHash = keccak256(abi.encodePacked(_evm_blockhash, _owner));
         bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, tempHash));
         return ecrecover(prefixedHash, v, r, s);
     }
@@ -189,12 +228,14 @@ contract ServerRegistry {
 
     }
 
-    function voteUnregisterServer(uint _blockNumber, uint _index, address _owner, bytes[] calldata _signatures) external {
+    function voteUnregisterServer(uint _blockNumber, address _owner, bytes[] calldata _signatures) external {
        
         bytes32 evm_blockhash = blockhash(_blockNumber);
         require(evm_blockhash != 0x0, "block not found");
-        require(servers[_index].owner == _owner, "wrong owner for server provided");
-
+       
+        OwnerInformation memory oi = ownerIndex[_owner];
+        require(oi.used, "owner does not have a server");
+       
         address[] memory validSigners = getValidVoters(_blockNumber,_owner );
         
         require(_signatures.length >= validSigners.length,"provided not enough signatures");
@@ -203,7 +244,7 @@ contract ServerRegistry {
  
         for(uint i=0; i<_signatures.length; i++){
 
-            address signedAddress =  recoverAddress(_signatures[i], evm_blockhash, _index, _owner);
+            address signedAddress = recoverAddress(_signatures[i], evm_blockhash, _owner);
 
             for(uint j=0; j<validSigners.length;j++){
 
@@ -213,7 +254,7 @@ contract ServerRegistry {
 
                     if(successfullSigns > validSigners.length/2){
 
-                        removeServer(_index);
+                     //   removeServer(oi.index);
                         return;
                     }
                    break;
@@ -234,10 +275,12 @@ contract ServerRegistry {
     ///    in this case he needs to pay a small deposit, which he will lose 
     //       if the owner become active again 
     //       or the caller will receive 20% of the deposit in case the owner does not react.
-    function requestUnregisteringServer(uint _serverIndex) external {
+    function requestUnregisteringServer() external {
 
-        In3Server storage server = servers[_serverIndex];
-        require(server.owner == msg.sender,"not the owner");
+        OwnerInformation memory oi = ownerIndex[msg.sender];
+        require(oi.used, "sender does not own a server");
+
+        In3Server storage server = servers[oi.index];
 
         // this can only be called if nobody requested it before
         require(server.unregisterTime == 0, "Server is already unregistering");
@@ -250,10 +293,12 @@ contract ServerRegistry {
     /// this function must be called by the caller of the requestUnregisteringServer-function after 28 days
     /// if the owner did not cancel, the caller will receive 20% of the server deposit + his own deposit.
     /// the owner will receive 80% of the server deposit before the server will be removed.
-    function confirmUnregisteringServer(uint _serverIndex) external {
-        In3Server storage server = servers[_serverIndex];
-        
-        require(server.owner == msg.sender, "Only the owner is allowed to confirm");
+    function confirmUnregisteringServer() external {
+
+        OwnerInformation memory oi = ownerIndex[msg.sender];
+        require(oi.used, "sender does not own a server");
+
+        In3Server storage server = servers[oi.index];
 
         require(server.unregisterTime < now, "Only confirm after the timeout allowed");
 
@@ -262,17 +307,19 @@ contract ServerRegistry {
         if (payBackOwner > 0)
             server.owner.transfer(payBackOwner);
 
-        removeServer(_serverIndex);
+        removeServer(oi.index);
     }
 
     /// this function must be called by the owner to cancel the unregister-process.
     /// if the caller is not the owner, then he will also get the deposit paid by the caller.
-    function cancelUnregisteringServer(uint _serverIndex) external {
-        In3Server storage server = servers[_serverIndex];
+    function cancelUnregisteringServer() external {
+        
+        OwnerInformation memory oi = ownerIndex[msg.sender];
+        require(oi.used, "sender does not own a server");
 
-        // this can only be called by the owner and if somebody requested it before
-        require(server.owner == msg.sender, "only the owner is allowed to cancel unregister");
-    
+        In3Server storage server = servers[oi.index];
+        require(server.unregisterTime>0,"server is not unregistering");
+
         server.unregisterTime = 0;
 
         /// emit event
@@ -298,22 +345,23 @@ contract ServerRegistry {
     
     }
 
-    function revealConvict(uint _serverIndex, bytes32 _blockhash, uint _blockNumber, uint8 _v, bytes32 _r, bytes32 _s) external {
-
+    function revealConvict(address _owner, bytes32 _blockhash, uint _blockNumber, uint8 _v, bytes32 _r, bytes32 _s) external {
+        
+        OwnerInformation memory oi = ownerIndex[_owner];
         ConvictInformation storage ci = convictMapping[_blockNumber][msg.sender];
 
         // if the blockhash is correct you cannot convict the server
         require(ci.blockHash != _blockhash, "the block is too old or you try to convict with a correct hash");
 
         require(
-            ecrecover(keccak256(abi.encodePacked(_blockhash, _blockNumber)), _v, _r, _s) == servers[_serverIndex].owner, 
+            ecrecover(keccak256(abi.encodePacked(_blockhash, _blockNumber)), _v, _r, _s) == servers[oi.index].owner, 
             "the block was not signed by the owner of the server");
 
         require(
             keccak256(abi.encodePacked(_blockhash, msg.sender, _v, _r, _s)) == ci.convictHash, 
             "wrong convict hash");
         
-        In3Server storage s = servers[_serverIndex];
+        In3Server storage s = servers[oi.index];
 
         // remove the deposit
         if (s.deposit > 0) {
@@ -330,13 +378,13 @@ contract ServerRegistry {
 
    
         // emit event
-        emit LogServerConvicted(servers[_serverIndex].url, servers[_serverIndex].owner );
+        emit LogServerConvicted(servers[oi.index].url, servers[oi.index].owner );
         
         /// for some reason currently deleting the ci storage would cost more gas, so we comment this out for now
         //delete ci.convictHash;
         //delete ci.blockHash;
 
-        removeServer(_serverIndex);
+        removeServer(oi.index);
     }
 
 
@@ -346,18 +394,24 @@ contract ServerRegistry {
         emit LogServerRemoved(servers[_serverIndex].url, servers[_serverIndex].owner);
 
         // remove from unique index
-        urlIndex[keccak256(bytes(servers[_serverIndex].url))] = false;
-        ownerIndex[servers[_serverIndex].owner] = false;
+        urlIndex[keccak256(bytes(servers[_serverIndex].url))].used = false;
+        ownerIndex[servers[_serverIndex].owner].used = false;
 
         uint length = servers.length;
         if (length>0) {
             // move the last entry to the removed one.
             In3Server memory m = servers[length - 1];
             servers[_serverIndex] = m;
+        
+            OwnerInformation storage oi = ownerIndex[m.owner];
+            oi.index = uint128(_serverIndex);
         }
         servers.length--;
     }
-
+    
+    function update(address payable _newContract) external onlyOwner onlyBeginning {
+        selfdestruct(_newContract);
+    }
     function checkLimits() internal view {
         // within the 6 months this contract may never hold more than 50 ETH
         if (now < 1560808800)
