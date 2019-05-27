@@ -101,10 +101,42 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
 
     if (engine == 'authorityRound') {
         if (!history.states.length) {
-            if (spec.validatorList)
+            //if the chain is transistioned then check for lists and contracts seperately
+            if (spec.multi) {
+                const specTransitions = Object.keys(spec.multi)
+
+                for (let i=0; i<specTransitions.length; i++) {
+                    if (spec.multi[specTransitions[i]].list) {
+                        history.states.push({ block: parseInt(specTransitions[i]), validators: spec.multi[specTransitions[i]].list, proof:[]})
+                        history.lastCheckedBlock = parseInt(specTransitions[i])
+                    }
+                    // if transition is contract based and there has been another transition on top of it
+                    // then pull in all the validator changes for this transition segment
+                    else if (spec.multi[specTransitions[i]].safeContract && (specTransitions.length - 1) > i) {
+                        console.log("Check")
+                        await updateAuraHistory(spec.multi[specTransitions[i]].safeContract, handler, history, parseInt(specTransitions[i + 1]))
+                    }
+                }
+            }
+            else if (spec.validatorList)
                 history.states.push({ block: 0, validators: spec.validatorList, proof: [] })
             else
                 history.states.push({ block: 0, validators: [], proof: [] })
+        }
+
+        //If the chain is a transitioned one then find out to which transition the currentBlock belongs
+        if (spec.multi) {
+
+            let activeTransition: string
+
+            for (const transition of Object.keys(spec.multi)) {
+                if(currentBlock > parseInt(transition)){
+                    activeTransition = transition
+                }
+            }
+
+            if(spec.multi[activeTransition].safeContract)
+                await updateAuraHistory(spec.multi[activeTransition].safeContract, handler, history, currentBlock)
         }
 
         if (spec.validatorContract)
