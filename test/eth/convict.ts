@@ -49,43 +49,18 @@ const sign = (b: BlockData, pk: string, blockHash?: string) => {
 }
 
 const signVote = (blockhash: string, owner: string, pk: string) => {
-  //const msgHash = sha3(bytes32(blockhash), (index), address(owner)) // ethUtil.sha3(Buffer.concat([bytes32(blockhash), bytes32(toHex(index)), bytes32(owner)]))
-  //console.log(blockhash + padStart(toHex(index).substr(2), 64, "0") + owner.substr(2))
 
   const msgHash = (ethUtil.sha3(blockhash + owner.substr(2)))
-
-  console.log("msgHash")
-  console.log(msgHash)
-
   const msgHash2 = ethUtil.sha3(toHex("\x19Ethereum Signed Message:\n32") + toHex(msgHash).substr(2))
-  console.log("msgHash2")
-  console.log(msgHash2)
-
-  // console.log(soliditySha3(toBN(a)))
-  //  console.log("pk:" + pk)
   const sig = ethUtil.ecsign((msgHash2), bytes32(pk))
-  /*
-  console.log("message: " + toHex(msgHash, 32))
-  console.log("v: " + toHex(sig.v))
-  console.log("r: " + toHex(sig.r))
-  console.log("s: " + toHex(sig.s))
 
-  console.log(util.getAddress(pk))
-  //console.log(sig)
-  console.log("--")
-  */
   sig.address = util.getAddress(pk)
   sig.msgHash = toHex(msgHash, 32)
   sig.signature = toHex(sig.r) + toHex(sig.s).substr(2) + toHex(sig.v).substr(2)
   return sig
 }
 
-
-
-
 describe('Convict', () => {
-
-
 
   it('convict on contracts', async () => {
 
@@ -229,7 +204,6 @@ describe('Convict', () => {
     assert.equal(events.length, 2)
     assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
 
-
   }).timeout(500000)
 
   it('verify and convict (block within 256 blocks)', async () => {
@@ -312,10 +286,6 @@ describe('Convict', () => {
       const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
       const blockNumber = toNumber(block.number) - 1
-      console.log(block.hash)
-
-      const validVoters = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
-      console.log(validVoters.length)
     }
 
 
@@ -325,9 +295,9 @@ describe('Convict', () => {
     const blockNumber = toNumber(block.number) - 1
 
     const validVoters = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
-    console.log(validVoters.length)
 
-    //assert.equal(validVoters.length, 51)
+    assert.equal(validVoters.length, 20)
+    assert.equal(await test.getServerCountFromContract(), 21)
     // console.log(validators)
 
     const blockSign = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber), false) as BlockData
@@ -339,7 +309,6 @@ describe('Convict', () => {
       addressValidVoters.push("0x" + a.toLowerCase())
     }
 
-
     const txSig = []
     for (const a of accounts) {
 
@@ -349,9 +318,9 @@ describe('Convict', () => {
       }
     }
 
-
     await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 })
-    //  assert.equal(await test.getServerCountFromContract(), 20)
+
+    assert.equal(await test.getServerCountFromContract(), 20)
 
 
   }).timeout(50000)
@@ -375,7 +344,6 @@ describe('Convict', () => {
 
     const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
 
-    //console.log((toNumber(txReceipt.blockNumber) - toNumber(block.number)))
     assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 300)
 
     const client = await test.createClient()

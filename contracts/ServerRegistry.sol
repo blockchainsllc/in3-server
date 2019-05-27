@@ -205,7 +205,6 @@ contract ServerRegistry {
 
         address[] memory validVoters = new address[](requiredSignatures);
 
-     
         uint uniqueSignatures = 0;
         uint i=0;
         while(uniqueSignatures<requiredSignatures){
@@ -219,13 +218,10 @@ contract ServerRegistry {
             if(!checkUnique(servers[position].owner,validVoters) && _voted!=servers[position].owner ){
                 validVoters[uniqueSignatures] = servers[position].owner;
                 uniqueSignatures++;
-            }
-            
+            } 
             i++;
         }
-
         return validVoters;
-
     }
 
     function voteUnregisterServer(uint _blockNumber, address _owner, bytes[] calldata _signatures) external {
@@ -252,9 +248,9 @@ contract ServerRegistry {
 
                     successfullSigns++;
 
-                    if(successfullSigns > validSigners.length/2){
+                    if(successfullSigns >= validSigners.length/2){
 
-                     //   removeServer(oi.index);
+                        removeServer(oi.index);
                         return;
                     }
                    break;
@@ -262,7 +258,7 @@ contract ServerRegistry {
             }
         }
 
-        require(false,"not enough signatures");
+       revert("not enough signatures");
    }
 
     
