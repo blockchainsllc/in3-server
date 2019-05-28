@@ -113,7 +113,6 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
                     // if transition is contract based and there has been another transition on top of it
                     // then pull in all the validator changes for this transition segment
                     else if (spec.multi[specTransitions[i]].safeContract && (specTransitions.length - 1) > i) {
-                        console.log("Check")
                         await updateAuraHistory(spec.multi[specTransitions[i]].safeContract, handler, history, parseInt(specTransitions[i + 1]))
                     }
                 }
@@ -145,9 +144,9 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
     }
     else if (engine == 'clique') {
         if (!history.states.length) {
-            if (spec.genesisValidatorList) {
-                history.states.push({ block: 0, validators: spec.genesisValidatorList, proof: [] })
-                history.lastEpoch = { block: 0, epochValidators: spec.genesisValidatorList, validators: [...spec.genesisValidatorList], header: null, pendingVotes: {} }
+            if (spec.validatorList) {
+                history.states.push({ block: 0, validators: spec.validatorList, proof: [] })
+                history.lastEpoch = { block: 0, epochValidators: spec.validatorList, validators: [...spec.validatorList], header: null, pendingVotes: {} }
             }
         }
 
