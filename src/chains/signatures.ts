@@ -21,6 +21,7 @@ import BaseHandler from './BaseHandler'
 import { BlockData, RPCRequest, RPCResponse, Signature, util, serialize } from 'in3'
 import { keccak, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
+import { LRUCache } from '../util/cache'
 
 const toHex = util.toHex
 const toMinHex = util.toMinHex
@@ -29,12 +30,15 @@ const bytes32 = serialize.bytes32
 const address = serialize.address
 const bytes = serialize.bytes
 
+// orlyn:caching
+const signatureCaches: LRUCache = new LRUCache(500);
+
 export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
   // nothing to do?
   if (!addresses || !addresses.length || !requestedBlocks || !requestedBlocks.length) return []
 
   // make sure the 
-  const blocks = await Promise.all(requestedBlocks.map(async b => ({
+  let blocks = await Promise.all(requestedBlocks.map(async b => ({
     blockNumber: toNumber(b.blockNumber),
     hash: toHex(b.hash || await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })
       .then(_ => _.result && _.result.hash), 32)
@@ -42,6 +46,18 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
   if (!blocks.length) return []
 
+  // orlyn:caching get cache signatures and remaining blocks that have no signatures
+  const cacheSignatures:Signature[] = [];
+  const blocksWithOutSignature: any = []; 
+  for(let a=0, b=blocks.length; a<b; a++){
+    if(signatureCaches.has(blocks[a].hash))
+      cacheSignatures.push(signatureCaches.get(blocks[a].hash))
+    else
+      blocksWithOutSignature.push(blocks[a])
+  }
+  blocks = blocksWithOutSignature
+  
+  
   // get our own nodeList
   const nodes = await handler.getNodeList(false)
   return Promise.all(addresses.map(async adr => {
@@ -51,13 +67,14 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
     if (!config) // TODO do we need to throw here or is it ok to simply not deliver the signature?
       throw new Error('The requested signature ' + adr + ' does not exist within the current nodeList!')
 
+
     // send the sign-request
     const response = await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: [...blocks] }) as RPCResponse
     if (response.error)
       throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
 
     const signatures = response.result as Signature[]
-
+    
     // if there are signature, we only return the valid ones
     if (signatures && signatures.length)
       return Promise.all(signatures.map(async s => {
@@ -84,8 +101,14 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
 
         // is the blockhash correct all is fine
-        if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash)))
+        if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash))){
+          // orlyn:caching add new entry in cache
+          if (!signatureCaches.has(s.blockHash))
+            signatureCaches.set(s.blockHash, s)
+
           return s
+        }
+
 
         // so he signed the wrong blockhash and we have all data to convict him!
         const txHash = await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
@@ -100,7 +123,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
     return signatures
 
     // merge all signatures
-  })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c], []))
+    // orlyn:caching merge cachesignature also
+  })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c, ...cacheSignatures], []))
 }
 
 export function sign(pk: string, blocks: { blockNumber: number, hash: string }[]): Signature[] {

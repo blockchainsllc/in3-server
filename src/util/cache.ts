@@ -109,3 +109,49 @@ function getKey(request: RPCRequest) {
     [request.in3.chainId, request.in3.includeCode, request.in3.verification, request.in3.verifiedHashes].map(_ => _ || '').join('|')
     : '')
 }
+
+
+// orlyn:caching
+export class LRUCache{
+  entryLimit: number;
+  container: Map<string, any>
+  keys:string[]
+
+  constructor(limit:number){
+      this.entryLimit = limit
+  }
+
+  has(key:string):boolean{
+      return this.container.has(key)
+  }
+
+  get(key:string):any{
+      if (!this.container.has(key))
+          return null
+
+      const keyIndex = this.keys.indexOf(key)   
+      if(keyIndex > 0){
+          // move recent use at first element
+          this.keys.splice(keyIndex, 1)
+          this.keys.unshift(key)
+      }
+
+      return this.container.get(key);
+  }
+
+  set(key:string, value:any){
+      if (!this.container.has(key)){
+          // remove least use entry
+          if(this.keys.length == this.entryLimit){
+              this.container.delete(this.keys[this.keys.length-1])
+              this.keys.slice(this.keys.length-1)
+          }
+
+          // add new entry at first
+          this.keys.unshift(key)
+          this.container.set(key, value)
+      }
+
+  }
+
+}
