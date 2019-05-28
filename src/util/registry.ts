@@ -61,7 +61,7 @@ export async function deployServerRegistry(pk: string, url = 'http://localhost:8
 
   return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('ServerRegistry') >= 0)].bin + padStart(blockHashAddress, 64, "0"), {
     privateKey: pk,
-    gas: 3000000,
+    gas: 5000000,
     confirm: true
   }, transport).then(_ => toChecksumAddress(_.contractAddress) as string)
 

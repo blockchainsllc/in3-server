@@ -83,7 +83,7 @@ contract ServerRegistry {
         address owner;
     }
 
-    address owner;
+    address public owner;
      
 
     mapping (uint => mapping(address => ConvictInformation)) convictMapping;
@@ -94,12 +94,12 @@ contract ServerRegistry {
     }
 
     modifier onlyBeginning(){
-        require(block.timestamp < (blockDeployment + 2*86400));
+        require(block.timestamp < (blockDeployment + 2*86400*365));
         _;
     }
 
-    modifier onlyBalanceStartPhase(){ 
-        if (now < (blockDeployment + 1*86400))
+    modifier startBalanceLimits(){ 
+        if (now < (blockDeployment + 1*86400*365))
            require(address(this).balance < 50 ether, "Limit of 50 ETH reached");
         _;
     }
@@ -116,8 +116,7 @@ contract ServerRegistry {
     }
   
     /// register a new Server with the sender as owner    
-    function registerServer(string calldata _url, uint _props, uint64 _timeout) external payable {
-        checkLimits();
+    function registerServer(string calldata _url, uint _props, uint64 _timeout) external payable startBalanceLimits {
 
         bytes32 urlHash = keccak256(bytes(_url));
 
@@ -151,7 +150,7 @@ contract ServerRegistry {
     }
 
     /// updates a Server by adding the msg.value to the deposit and setting the props    
-    function updateServer(uint _props, uint64 _timeout) external payable onlyBalanceStartPhase {
+    function updateServer(uint _props, uint64 _timeout) external payable startBalanceLimits {
 
         OwnerInformation memory oi = ownerIndex[msg.sender];
         require(oi.used, "sender does not own a server");
@@ -195,7 +194,7 @@ contract ServerRegistry {
     }
 
   
-    function getValidVoters(uint _blockNumber, address _voted) public view returns (address[] memory){
+    function getValidVoters(uint _blockNumber, address _voted) public view returns (address[] memory, uint totalVoteTime){
 
         bytes32 evm_blockhash = blockhash(_blockNumber);
         require(evm_blockhash != 0x0, "block not found");
@@ -206,8 +205,8 @@ contract ServerRegistry {
         address[] memory validVoters = new address[](requiredSignatures);
 
         uint uniqueSignatures = 0;
-        uint i=0;
-        while(uniqueSignatures<requiredSignatures){
+        uint i = 0;
+        while(uniqueSignatures < requiredSignatures){
             
             uint8 tempByteOne = uint8(byte(evm_blockhash[(i+uniqueSignatures)%32]));
      
@@ -218,10 +217,11 @@ contract ServerRegistry {
             if(!checkUnique(servers[position].owner,validVoters) && _voted!=servers[position].owner ){
                 validVoters[uniqueSignatures] = servers[position].owner;
                 uniqueSignatures++;
-            } 
+                totalVoteTime += (block.timestamp - servers[position].registerTime) > 365*86400 ? 365*86400 : (block.timestamp - servers[position].registerTime);
+            }
             i++;
         }
-        return validVoters;
+        return (validVoters, totalVoteTime);
     }
 
     function voteUnregisterServer(uint _blockNumber, address _owner, bytes[] calldata _signatures) external {
@@ -232,12 +232,16 @@ contract ServerRegistry {
         OwnerInformation memory oi = ownerIndex[_owner];
         require(oi.used, "owner does not have a server");
        
-        address[] memory validSigners = getValidVoters(_blockNumber,_owner );
+        (address[] memory validSigners, uint totalVotingTime) = getValidVoters(_blockNumber,_owner );
         
         require(_signatures.length >= validSigners.length,"provided not enough signatures");
 
-        uint successfullSigns = 0;
- 
+        In3Server memory server = servers[oi.index];
+
+        uint activeTime = block.timestamp - server.registerTime; 
+        
+        uint votedTime = 0;
+
         for(uint i=0; i<_signatures.length; i++){
 
             address signedAddress = recoverAddress(_signatures[i], evm_blockhash, _owner);
@@ -245,10 +249,9 @@ contract ServerRegistry {
             for(uint j=0; j<validSigners.length;j++){
 
                 if(signedAddress == validSigners[j]){
+                    votedTime += (now - servers[ownerIndex[signedAddress].index].registerTime) > 365*86400 ? 365*86400: (now - servers[ownerIndex[signedAddress].index].registerTime);
 
-                    successfullSigns++;
-
-                    if(successfullSigns >= validSigners.length/2){
+                    if(votedTime > totalVotingTime/2 && votedTime > activeTime){
 
                         removeServer(oi.index);
                         return;
@@ -407,11 +410,6 @@ contract ServerRegistry {
     
     function update(address payable _newContract) external onlyOwner onlyBeginning {
         selfdestruct(_newContract);
-    }
-    function checkLimits() internal view {
-        // within the 6 months this contract may never hold more than 50 ETH
-        if (now < 1560808800)
-           require(address(this).balance < 50 ether, "Limit of 50 ETH reached");
     }
     
 }

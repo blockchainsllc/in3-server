@@ -60,20 +60,6 @@ export async function callContract(url: string, contract: string, signature: str
 
   let data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
 
-  if (signature === 'recoverAddress(bytes,bytes32,address):(address)') {
-
-
-    console.log("_____")
-    console.log("falsch")
-    console.log("arg")
-    console.log(args[0])
-    console.log("")
-    console.log(data)
-    console.log("_____")
-
-    //0x86373bf4000000000000000000000000000000000000000000000000000000000000008057d6f59a4961e257eb5ddcc0123f57a98ffafed770b8f2940103f48c0e9fcd140000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c4d0682d29142399cc3dec1c7006ae3e8be5e92d00000000000000000000000000000000000000000000000000000000000000413dbec3ef43c563f49b92f71498ddbd20c2f60f97c1d8ac6753f6f02ed6e81b36675b5db22b594a6ac209464efce033f7740b787679fd07598a72eb89a21ed2341c00000000000000000000000000000000000000000000000000000000000000
-  }
-
   if (signature === 'calculateBlockheaders(bytes[],bytes32):(bytes32)'
     || signature === 'recreateBlockheaders(uint,bytes[])'
     || signature === 'recoverAddress(bytes,bytes32,address):(address)'
@@ -90,21 +76,6 @@ export async function callContract(url: string, contract: string, signature: str
     data = methodHash + ethers.utils.defaultAbiCoder.encode(typeArray, args).substr(2)
 
   }
-
-  if (signature === 'recoverAddress(bytes,bytes32,uint,address):(address)') {
-
-
-    console.log("_____")
-    console.log("richtig")
-    console.log("arg")
-    console.log(args[0])
-    console.log("")
-    console.log(data)
-    console.log("_____")
-
-    //0x86373bf4000000000000000000000000000000000000000000000000000000000000008057d6f59a4961e257eb5ddcc0123f57a98ffafed770b8f2940103f48c0e9fcd140000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c4d0682d29142399cc3dec1c7006ae3e8be5e92d00000000000000000000000000000000000000000000000000000000000000413dbec3ef43c563f49b92f71498ddbd20c2f60f97c1d8ac6753f6f02ed6e81b36675b5db22b594a6ac209464efce033f7740b787679fd07598a72eb89a21ed2341c00000000000000000000000000000000000000000000000000000000000000
-  }
-
 
   if (txargs)
     return sendTransaction(url, { ...txargs, to: contract, data }, transport)

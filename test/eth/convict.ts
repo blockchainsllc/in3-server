@@ -31,6 +31,7 @@ import { BigNumber, toUtf8Bytes } from 'ethers/utils';
 import { sha3 } from 'ethereumjs-util'
 import { IN3ConfigDefinition } from 'in3/js/src/types/types';
 import { soliditySha3 } from 'in3/js/src/modules/eth/api'
+import { utils } from 'ethers';
 
 const address = serialize.address
 const bytes32 = serialize.bytes32
@@ -771,4 +772,62 @@ describe('Convict', () => {
 
 
   })
+
+  it('update', async () => {
+
+    const test = await TestTransport.createWithRegisteredServers(2)
+
+    const pk1 = await test.createAccount()
+    const targetAddress = util.getAddress(pk1)
+
+    let balanceNewOwnerBefore = toBN(await test.getFromServer('eth_getBalance', targetAddress, 'latest'))
+    let balanceContract = toBN(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'update(address)', [targetAddress], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false), 'Must fail because caller is not the owner')
+
+    await tx.callContract(test.url, test.nodeList.contract, 'update(address)', [targetAddress], {
+      privateKey: test.getHandlerConfig(0).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    })
+
+
+    let balanceAfter = toBN(await test.getFromServer('eth_getBalance', targetAddress, 'latest'))
+
+    assert.equal(balanceAfter.toString(), balanceNewOwnerBefore.add(balanceContract).toString())
+
+  })
+
+  it('update -time over', async () => {
+
+    const test = await TestTransport.createWithRegisteredServers(2)
+
+    const pk1 = await test.createAccount()
+    const targetAddress = util.getAddress(pk1)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'update(address)', [targetAddress], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false), 'Must fail because caller is not the owner')
+
+    await test.increaseTime(86400 * 3 * 365)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'update(address)', [targetAddress], {
+      privateKey: test.getHandlerConfig(0).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false), 'Must fail because update time is over')
+  })
+
+
+
 })
