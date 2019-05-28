@@ -270,9 +270,9 @@ describe('Convict', () => {
   it('voteUnregisterServer', async () => {
     const test = await TestTransport.createWithRegisteredServers(1)
 
-
+    await test.increaseTime(86400 * 365 * 2)
     const accounts = []
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 24; i++) {
 
       const user = await test.createAccount()
 
@@ -282,27 +282,25 @@ describe('Convict', () => {
 
       })
 
-
       await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['abc' + i, 1000, 10000], { privateKey: user, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
-      const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
-
-      const blockNumber = toNumber(block.number) - 1
     }
 
-
-    // assert.equal(await test.getServerCountFromContract(), 21)
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
     const blockNumber = toNumber(block.number) - 1
 
     const validVoters = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
 
-    assert.equal(validVoters.length, 20)
-    assert.equal(await test.getServerCountFromContract(), 21)
-    // console.log(validators)
+    assert.equal(validVoters.length, 24)
+    assert.equal(await test.getServerCountFromContract(), 25)
 
     const blockSign = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber), false) as BlockData
+    const [usedBefore, indexBefore, lockedTimeBefore, depositAmountBefore] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
+    assert.isTrue(usedBefore)
+    assert.equal(indexBefore.toString(), '0')
+    assert.equal(lockedTimeBefore.toString(), '0')
+    assert.equal(depositAmountBefore.toString(), '0')
 
     const addressValidVoters = []
 
@@ -319,9 +317,38 @@ describe('Convict', () => {
       }
     }
 
-    await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), []], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because no signatures provided')
 
-    assert.equal(await test.getServerCountFromContract(), 20)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because not enough voting power')
+
+    await test.increaseTime(86400 * 31)
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig.slice(1, txSig.length)], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because not enough voting power')
+
+    const voteTx = await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 })
+
+    assert.equal(await test.getServerCountFromContract(), 24)
+
+    const [usedAfter, indexAfter, lockedTimeAfter, depositAmountAfter] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
+
+    assert.isFalse(usedAfter)
+    assert.equal(indexAfter.toString(), '0')
+    const blockVote = await test.getFromServer('eth_getBlockByNumber', voteTx.blockNumber, false) as BlockData
+
+    assert.equal(lockedTimeAfter.toString(), util.toBN(blockVote.timestamp).add(util.toBN(3600)).toString())
+    assert.equal(depositAmountAfter.toString(), '10000')
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit()', [], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because deposit is still locked')
+
+
+    await test.increaseTime(3601)
+    await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit()', [], {
+      privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 5000000
+    })
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit()', [], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because deposit is still locked')
+
+    //  await test.increaseTime(86400 * 365 * 10000)
 
 
   }).timeout(50000)

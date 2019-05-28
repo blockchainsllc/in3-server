@@ -65,8 +65,8 @@ contract ServerRegistry {
     uint public blockDeployment;
 
     // index for unique url and owner
-    mapping (address => OwnerInformation) ownerIndex;
-    mapping (bytes32 => UrlInformation) urlIndex;
+    mapping (address => OwnerInformation) public ownerIndex;
+    mapping (bytes32 => UrlInformation) public urlIndex;
 
     struct ConvictInformation {
         bytes32 convictHash;
@@ -76,6 +76,8 @@ contract ServerRegistry {
     struct OwnerInformation {
         bool used;
         uint128 index;
+        uint lockedTime;
+        uint depositAmount;
     }
 
     struct UrlInformation {
@@ -200,7 +202,7 @@ contract ServerRegistry {
         require(evm_blockhash != 0x0, "block not found");
 
         // capping the number of required signatures
-        uint requiredSignatures = servers.length > 21? 20: servers.length-1;
+        uint requiredSignatures = servers.length > 25? 24: servers.length-1;
 
         address[] memory validVoters = new address[](requiredSignatures);
 
@@ -212,7 +214,7 @@ contract ServerRegistry {
      
             uint8 tempByteTwo = uint8(byte(evm_blockhash[(i*2+uniqueSignatures)%32]));
 
-            uint position = requiredSignatures > 20 ? (tempByteOne+tempByteTwo) % servers.length : i;
+            uint position = requiredSignatures > 24 ? (tempByteOne+tempByteTwo) % servers.length : i;
 
             if(!checkUnique(servers[position].owner,validVoters) && _voted!=servers[position].owner ){
                 validVoters[uniqueSignatures] = servers[position].owner;
@@ -229,7 +231,7 @@ contract ServerRegistry {
         bytes32 evm_blockhash = blockhash(_blockNumber);
         require(evm_blockhash != 0x0, "block not found");
        
-        OwnerInformation memory oi = ownerIndex[_owner];
+        OwnerInformation storage oi = ownerIndex[_owner];
         require(oi.used, "owner does not have a server");
        
         (address[] memory validSigners, uint totalVotingTime) = getValidVoters(_blockNumber,_owner );
@@ -238,7 +240,7 @@ contract ServerRegistry {
 
         In3Server memory server = servers[oi.index];
 
-        uint activeTime = block.timestamp - server.registerTime; 
+        uint activeTime = (now - server.registerTime) > 365*86400*2 ? 365*86400*2 : (now - server.registerTime); 
         
         uint votedTime = 0;
 
@@ -246,34 +248,41 @@ contract ServerRegistry {
 
             address signedAddress = recoverAddress(_signatures[i], evm_blockhash, _owner);
 
-            for(uint j=0; j<validSigners.length;j++){
+            for(uint j=0; j<validSigners.length; j++){
 
                 if(signedAddress == validSigners[j]){
-                    votedTime += (now - servers[ownerIndex[signedAddress].index].registerTime) > 365*86400 ? 365*86400: (now - servers[ownerIndex[signedAddress].index].registerTime);
+                    votedTime += (now - servers[ownerIndex[signedAddress].index].registerTime) > 365*86400 ? 365*86400 : (now - servers[ownerIndex[signedAddress].index].registerTime);
 
                     if(votedTime > totalVotingTime/2 && votedTime > activeTime){
+                        
+                        oi.lockedTime = now + server.timeout;
+                        oi.depositAmount = server.deposit;
+                        oi.used = false;
 
                         removeServer(oi.index);
                         return;
                     }
                    break;
-                }               
+                }
             }
         }
 
        revert("not enough signatures");
    }
 
-    
-    /// this should be called before unregistering a server.
-    /// there are 2 use cases:
-    /// a) the owner wants to stop offering the service and remove the server.
-    ///    in this case he has to wait for one hour before actually removing the server. 
-    ///    This is needed in order to give others a chance to convict it in case this server signs wrong hashes
-    /// b) anybody can request to remove a server because it has been inactive.
-    ///    in this case he needs to pay a small deposit, which he will lose 
-    //       if the owner become active again 
-    //       or the caller will receive 20% of the deposit in case the owner does not react.
+   function returnDeposit() external {
+        OwnerInformation storage oi = ownerIndex[msg.sender];
+
+        require(!(oi.used),"owner is currenttly active");
+
+        require(now > oi.lockedTime, "deposit still locked");
+
+        uint payout = oi.depositAmount;
+        oi.depositAmount = 0;
+
+        msg.sender.transfer(payout);
+   }
+
     function requestUnregisteringServer() external {
 
         OwnerInformation memory oi = ownerIndex[msg.sender];
@@ -294,7 +303,7 @@ contract ServerRegistry {
     /// the owner will receive 80% of the server deposit before the server will be removed.
     function confirmUnregisteringServer() external {
 
-        OwnerInformation memory oi = ownerIndex[msg.sender];
+        OwnerInformation storage oi = ownerIndex[msg.sender];
         require(oi.used, "sender does not own a server");
 
         In3Server storage server = servers[oi.index];
@@ -305,7 +314,7 @@ contract ServerRegistry {
   
         if (payBackOwner > 0)
             server.owner.transfer(payBackOwner);
-
+        oi.used = false;
         removeServer(oi.index);
     }
 
