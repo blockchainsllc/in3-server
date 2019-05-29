@@ -119,6 +119,8 @@ export class LRUCache{
 
   constructor(limit:number){
       this.entryLimit = limit
+      this.container = new Map<string, any>()
+      this.keys = []
   }
 
   has(key:string):boolean{
