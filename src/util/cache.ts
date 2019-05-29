@@ -111,13 +111,13 @@ function getKey(request: RPCRequest) {
 }
 
 
-// orlyn:caching
+// LRU Cache
 export class LRUCache{
   entryLimit: number;
   container: Map<string, any>
   keys:string[]
 
-  constructor(limit:number){
+  constructor(limit:number = 500){
       this.entryLimit = limit
       this.container = new Map<string, any>()
       this.keys = []
@@ -153,7 +153,10 @@ export class LRUCache{
           this.keys.unshift(key)
           this.container.set(key, value)
       }
+  }
 
+  toString(){
+    return `limit entries: ${this.entryLimit}\nsize: ${this.container.size}\nentries:\n${this.keys.reduce((t,c)=> `${t}` + `${c} = ${JSON.stringify(this.container.get(c))}\n`, '')}`
   }
 
 }
