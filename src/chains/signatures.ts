@@ -30,8 +30,7 @@ const bytes32 = serialize.bytes32
 const address = serialize.address
 const bytes = serialize.bytes
 
-// orlyn:caching
-const signatureCaches: LRUCache = new LRUCache(500);
+const signatureCaches: LRUCache = new LRUCache();
 
 export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
   // nothing to do?
@@ -44,9 +43,10 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       .then(_ => _.result && _.result.hash), 32)
   }))).then(allBlocks => !verifiedHashes ? allBlocks : allBlocks.filter(_ => verifiedHashes.indexOf(_.hash) < 0))
 
+  
   if (!blocks.length) return []
 
-  // orlyn:caching get cache signatures and remaining blocks that have no signatures
+  // get cache signatures and remaining blocks that have no signatures
   const cacheSignatures:Signature[] = [];
   const blocksWithOutSignature: any = []; 
   for(let a=0, b=blocks.length; a<b; a++){
@@ -56,8 +56,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       blocksWithOutSignature.push(blocks[a])
   }
   blocks = blocksWithOutSignature
-  
-  
+
   // get our own nodeList
   const nodes = await handler.getNodeList(false)
   return Promise.all(addresses.map(async adr => {
@@ -102,7 +101,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         // is the blockhash correct all is fine
         if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash))){
-          // orlyn:caching add new entry in cache
+          // add signature entry in cache
           if (!signatureCaches.has(s.blockHash))
             signatureCaches.set(s.blockHash, s)
 
@@ -122,8 +121,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
     return signatures
 
-    // merge all signatures
-    // orlyn:caching merge cachesignature also
+    // merge all signatures including cache signature
   })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c, ...cacheSignatures], []))
 }
 
