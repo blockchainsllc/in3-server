@@ -477,7 +477,7 @@ describe('Convict', () => {
     let s = sign({ number: blockNumber } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
     const convictSignature = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(accounts[0].privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 65000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 6500000 })
     const [usedBeforeConvict, indexBeforeConvict, lockedTimeBeforeConvict, depositBeforeConvict] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
     //console.log(await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)]))
 
