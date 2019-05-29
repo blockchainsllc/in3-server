@@ -110,7 +110,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
           })
 
           // so he signed the wrong blockhash and we have all data to convict him!
-          const txHash = await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
+          const txHash = await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [singingNode.address, s.blockHash, s.block, s.v, s.r, s.s], {
             privateKey: handler.config.privateKey,
             gas: 300000,
             value: 0,
@@ -233,7 +233,7 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
       confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
-    await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [toNumber(singingNode.index), s.blockHash, s.block, s.v, s.r, s.s], {
+    await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [singingNode.address, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: handler.config.privateKey,
       gas: 300000,
       value: 0,

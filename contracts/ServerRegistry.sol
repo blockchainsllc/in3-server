@@ -196,11 +196,11 @@ contract ServerRegistry {
         require (!urlIndex[urlHash].used && !ownerIndex[msg.sender].used, "a Server with the same url or owner is already registered");
 
         // sets the information of the owner
-        OwnerInformation memory oi;
-        oi.used = true;
-        oi.index = uint128(servers.length);
-        ownerIndex[msg.sender] = oi;
-
+       // OwnerInformation memory oi;
+      //  oi.used = true;
+     //   oi.index = uint128(servers.length);
+        ownerIndex[msg.sender].used = true;
+        ownerIndex[msg.sender].index = uint128(servers.length);
         // add new In3Server
         In3Server memory m;
         m.url = _url;
@@ -243,15 +243,7 @@ contract ServerRegistry {
     function returnDeposit() external {
         OwnerInformation storage oi = ownerIndex[msg.sender];
 
-        /**
-        TODO: edge case: 
-            SO gets kicked -> deposit is locked
-            SO onboards new server -> cannot access its old deposit
-
-            next edge case:
-            convict and deposit in mapping 
-         */ 
-        require(!(oi.used),"owner is currenttly active");
+        require(oi.depositAmount > 0, "nothing to transfer");
         require(now > oi.lockedTime, "deposit still locked");
 
         uint payout = oi.depositAmount;
@@ -269,8 +261,8 @@ contract ServerRegistry {
     /// @param _s s of the signature
     function revealConvict(address _owner, bytes32 _blockhash, uint _blockNumber, uint8 _v, bytes32 _r, bytes32 _s) external {
         
-        OwnerInformation memory oi = ownerIndex[_owner];
-        ConvictInformation storage ci = convictMapping[_blockNumber][msg.sender];
+        OwnerInformation storage oi = ownerIndex[_owner];
+        ConvictInformation memory ci = convictMapping[_blockNumber][msg.sender];
 
         // if the blockhash is correct you cannot convict the server
         require(ci.blockHash != _blockhash, "the block is too old or you try to convict with a correct hash");
@@ -283,32 +275,34 @@ contract ServerRegistry {
             keccak256(abi.encodePacked(_blockhash, msg.sender, _v, _r, _s)) == ci.convictHash, 
             "wrong convict hash");
         
-        In3Server storage s = servers[oi.index];
+        emit LogServerConvicted(servers[oi.index].url, _owner);
+
+        uint deposit;
+        // the owner has still an in3-server
+        if(servers[oi.index].owner == _owner){
+            deposit = servers[oi.index].deposit;
+            removeServer(oi.index);
+        }
+        else {
+            deposit = oi.depositAmount;
+            oi.depositAmount = 0;
+            oi.lockedTime = 0;
+        }
 
         // remove the deposit
-        if (s.deposit > 0) {
-            uint payout =s.deposit / 2;
+        if (deposit > 0) {
+            uint payout = deposit / 2;
             // send 50% to the caller of this function
             msg.sender.transfer(payout);
-
             // and burn the rest by sending it to the 0x0-address
             // this is done in order to make it useless trying to convict your own server with a second account
             // and this getting all the deposit back after signing a wrong hash.
-            address(0).transfer(s.deposit-payout);
-
+            address(0).transfer(deposit-payout);
         }
-
-        // emit event
-        emit LogServerConvicted(servers[oi.index].url, servers[oi.index].owner );
-        
         /// for some reason currently deleting the ci storage would cost more gas, so we comment this out for now
         //delete ci.convictHash;
-        //delete ci.blockHash;
-
-        removeServer(oi.index);
+        //delete ci.blockHash;        
     }
-
-    
 
     /// updates a Server by adding the msg.value to the deposit and setting the props or timeout
     /// @param _props the new properties
@@ -342,7 +336,7 @@ contract ServerRegistry {
         bytes32 evm_blockhash = blockhash(_blockNumber);
         require(evm_blockhash != 0x0, "block not found");
        
-        OwnerInformation storage oi = ownerIndex[_owner];
+        OwnerInformation storage oi = ownerIndex[_serverOwner];
         require(oi.used, "owner does not have a server");
        
         // gets the valid voters and the total voting time / power
@@ -394,7 +388,7 @@ contract ServerRegistry {
         return servers.length;
     }
    
-    /// @param gets the list of allowed voters for a certain blocknumber and address
+    /// gets the list of allowed voters for a certain blocknumber and address
     /// @param _blockNumber the blocknumber (used to generate "random" index positions)
     /// @param _voted the address/server owner for the vote to be kicked
     /// @return array with addresses of the voters and the accumulated voting power of all valid voters
