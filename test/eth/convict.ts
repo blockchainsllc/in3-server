@@ -269,7 +269,7 @@ describe('Convict', () => {
 
   })
 
-  it('voteUnregisterServer', async () => {
+  it('voteUnregisterServer - votingPower', async () => {
     const test = await TestTransport.createWithRegisteredServers(1)
 
     await test.increaseTime(86400 * 365 * 2)
@@ -340,9 +340,7 @@ describe('Convict', () => {
     assert.equal(lockedTimeAfter.toString(), util.toBN(blockVote.timestamp).add(util.toBN(3600)).toString())
     assert.equal(depositAmountAfter.toString(), '10000')
 
-    console.log("reg server")
     await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', [test.url, 1000, 10000], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
-    console.log("reg server done")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit()', [], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because deposit is still locked')
 
@@ -428,92 +426,90 @@ describe('Convict', () => {
 
   })
 
-  it.skip('verify and convict (block older then 256 blocks) - request unregister', async () => {
+  it('verify and convict - vote kick', async () => {
+    const test = await TestTransport.createWithRegisteredServers(1)
+    const accounts = []
+    for (let i = 0; i < 24; i++) {
 
-    const test = await TestTransport.createWithRegisteredServers(2)
+      const user = await test.createAccount()
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint,uint64)', [0, 0, 0], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
+      accounts.push({
+        privateKey: user,
+        address: util.getAddress(user)
 
-    const serverContract = await test.getServerFromContract(0)
+      })
 
-    const unregisterDeposit = serverContract.deposit / 50
+      await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['abc' + i, 1000, 10000], { privateKey: user, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
+    }
 
+    const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
+    const blockNumber = toNumber(block.number) - 1
 
-    const blockHashRegistry = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
+    const validVoters = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
 
-    const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 }))
+    //  assert.equal(validVoters.length, 24)
+    //  assert.equal(await test.getServerCountFromContract(), 26)
 
-    const wrongBlock = txReceipt.blockNumber - 0x12C
-    const watcher = test.getHandler(0).watcher
+    const blockSign = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber), false) as BlockData
+    const [usedBefore, indexBefore, lockedTimeBefore, depositAmountBefore] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
-    const pk1 = test.getHandlerConfig(0).privateKey
-    const pk2 = test.getHandlerConfig(1).privateKey
+    assert.isTrue(usedBefore)
+    assert.equal(indexBefore.toString(), '0')
+    assert.equal(lockedTimeBefore.toString(), '0')
+    assert.equal(depositAmountBefore.toString(), '0')
 
-    const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
+    const addressValidVoters = []
 
-    //console.log((toNumber(txReceipt.blockNumber) - toNumber(block.number)))
-    assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 300)
+    for (const a of validVoters) {
+      addressValidVoters.push("0x" + a.toLowerCase())
+    }
 
-    const client = await test.createClient()
+    const txSig = []
+    for (const a of accounts) {
 
-    // this is a correct signature and should not fail.
-    const res = await client.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
-      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
-    })
-
-    assert.isDefined(res.in3.proof.signatures[0])
-    test.injectRandom([0.01, 0.9])
-    test.injectRandom([0.02, 0.8])
-
-    let manipulated = false
-    test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
-      const index = parseInt(url.substr(1)) - 1
-      // we change it to a wrong signature
-      if (!manipulated) {
-        re.result = [sign(block, test.getHandlerConfig(index).privateKey, pk1)]
-        manipulated = true
+      if (addressValidVoters.includes(a.address.toLowerCase())) {
+        const s = signVote(blockSign.hash, util.getAddress(test.getHandlerConfig(0).privateKey), a.privateKey)
+        txSig.push(s.signature)
       }
-      return re
+    }
+
+    let s = sign({ number: blockNumber } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
+    const convictSignature = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(accounts[0].privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+
+    await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 65000000 })
+    const [usedBeforeConvict, indexBeforeConvict, lockedTimeBeforeConvict, depositBeforeConvict] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
+    //console.log(await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)]))
+
+    const balanceBeforeConvict = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[0].privateKey), 'latest'))
+
+
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+      privateKey: accounts[0].privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
     })
 
-
-    assert.equal(await test.getServerCountFromContract(), 2)
-
-    // we create a new client because the old one may have different weights now
-    const client2 = await test.createClient()
-
-    const unregisterAccount = await test.createAccount()
-
-    // just read all events
-    await watcher.update()
-
-    const balanceBeforeUnregister = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(unregisterAccount), 'latest'))
-
-    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: unregisterAccount, value: unregisterDeposit, confirm: true, gas: 300000 })
-
-    const balanceAfterUnregister = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(unregisterAccount), 'latest'))
-
-    assert.equal(balanceBeforeUnregister.sub(balanceAfterUnregister).toString(), (serverContract.deposit / 50).toString())
-
-    // this is a correct signature and should not fail.
-    const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
-      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
+    await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [util.getAddress(test.getHandlerConfig(0).privateKey), s.blockHash, s.block, s.v, s.r, s.s], {
+      privateKey: accounts[0].privateKey,
+      gas: 660000,
+      value: 0,
+      confirm: true
     })
+    const balanceAfterConvict = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[0].privateKey), 'latest'))
 
-    // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
-    assert.equal(await test.getServerCountFromContract(), 1)
 
-    // just read all events
-    const events = await watcher.update()
 
-    assert.equal(events.length, 3)
+    const [usedAfterConvict, indexAfterConvict, lockedTimeAfterConvict, depositAfterConvict] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
-    assert.equal(events.map(_ => _.event).join(), 'LogServerUnregisterRequested,LogServerConvicted,LogServerRemoved')
+    assert.equal(depositBeforeConvict.toString(), 10000)
+    assert.equal(depositAfterConvict.toString(), 0)
 
-    const balanceAfterConvict = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(unregisterAccount), 'latest'))
+    assert.equal(lockedTimeAfterConvict.toString(), 0)
+    assert.equal(balanceAfterConvict.sub(balanceBeforeConvict).toString(), '5000')
 
-    assert.equal(balanceAfterConvict.toString(), balanceBeforeUnregister.toString())
+
 
   })
 

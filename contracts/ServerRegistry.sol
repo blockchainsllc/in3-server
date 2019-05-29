@@ -268,7 +268,7 @@ contract ServerRegistry {
         require(ci.blockHash != _blockhash, "the block is too old or you try to convict with a correct hash");
 
         require(
-            ecrecover(keccak256(abi.encodePacked(_blockhash, _blockNumber)), _v, _r, _s) == servers[oi.index].owner, 
+            ecrecover(keccak256(abi.encodePacked(_blockhash, _blockNumber)), _v, _r, _s) == _owner, 
             "the block was not signed by the owner of the server");
 
         require(
