@@ -35,7 +35,7 @@ contract ServerRegistry {
     event LogServerUnregisterCanceled(string url, address owner);
 
     /// a Server was convicted
-    event LogServerConvicted(string url, address owner);
+    event LogServerConvicted(address owner);
 
     /// a Server is removed
     event LogServerRemoved(string url, address owner);
@@ -270,7 +270,7 @@ contract ServerRegistry {
             keccak256(abi.encodePacked(_blockhash, msg.sender, _v, _r, _s)) == ci.convictHash, 
             "wrong convict hash");
         
-        emit LogServerConvicted(servers[oi.index].url, _owner);
+        emit LogServerConvicted(_owner);
 
         uint deposit;
         // the owner has still an in3-server
