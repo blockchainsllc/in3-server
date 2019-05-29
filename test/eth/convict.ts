@@ -227,7 +227,6 @@ describe('Convict', () => {
     const res = await client.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
-    //  await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: pk2, value: unregisterDeposit, confirm: true, gas: 300000 })
 
     assert.isDefined(res.in3.proof.signatures[0])
     test.injectRandom([0.01, 0.9])
@@ -251,8 +250,6 @@ describe('Convict', () => {
 
     // just read all events
     await watcher.update()
-    //console.log(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: pk2, value: unregisterDeposit, confirm: true, gas: 300000 }))
-
 
     // this is a correct signature and should not fail.
     const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
@@ -268,6 +265,34 @@ describe('Convict', () => {
     assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
 
   })
+
+  it('getValidVoters', async () => {
+    const test = await TestTransport.createWithRegisteredServers(1)
+
+    const accounts = []
+    for (let i = 0; i < 60; i++) {
+
+      const user = await test.createAccount()
+
+      accounts.push({
+        privateKey: user,
+        address: util.getAddress(user)
+
+      })
+
+      await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['abc' + i, 1000, 10000], { privateKey: user, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
+      const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+      const blockNumber = toNumber(block.number) - 1
+
+      const [validVoters, votingTime] = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[],uint)', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))
+
+      const correctNumber = i < 24 ? i + 1 : 24
+
+      assert.equal(validVoters.length, correctNumber)
+
+    }
+  }).timeout(50000)
+
 
   it('voteUnregisterServer - votingPower', async () => {
     const test = await TestTransport.createWithRegisteredServers(1)
@@ -351,8 +376,6 @@ describe('Convict', () => {
     })
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit()', [], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because deposit is still locked')
-
-    //  await test.increaseTime(86400 * 365 * 10000)
 
 
   }).timeout(50000)
@@ -448,9 +471,6 @@ describe('Convict', () => {
 
     const validVoters = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
 
-    //  assert.equal(validVoters.length, 24)
-    //  assert.equal(await test.getServerCountFromContract(), 26)
-
     const blockSign = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber), false) as BlockData
     const [usedBefore, indexBefore, lockedTimeBefore, depositAmountBefore] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
@@ -479,10 +499,8 @@ describe('Convict', () => {
 
     await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 6500000 })
     const [usedBeforeConvict, indexBeforeConvict, lockedTimeBeforeConvict, depositBeforeConvict] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
-    //console.log(await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)]))
 
     const balanceBeforeConvict = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[0].privateKey), 'latest'))
-
 
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: accounts[0].privateKey,
@@ -577,53 +595,6 @@ describe('Convict', () => {
     const events = await watcher.update()
   })
 
-
-  it.skip('requestUnregisteringServer - cancel', async () => {
-
-    const test = await TestTransport.createWithRegisteredServers(2)
-    const watcher = test.handlers['#1'].getHandler().watcher
-    // read all events (should be only the 2 register-events
-    assert.equal((await watcher.update()).length, 2)
-    //  const unregisterDeposit = 10000 / 50
-
-    const user = await test.createAccount("30000000000000000")
-    const serverContract = await test.getServerFromContract(0)
-
-    const unregisterDeposit = serverContract.deposit / 50
-    // the user regquests to unregister this server
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer()', [], { privateKey: user, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because the wrong value was sent')
-
-    // the user regquests to unregister this server
-
-    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer()', [], { privateKey: user, value: 0, confirm: true, gas: 300000 })
-
-    const balanceOwnerBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
-
-    // this should have picked up the first event, but als executing a transaction and reacting to it.
-    let events = await watcher.update()
-    assert.equal(events.length, 1)
-    assert.equal(events[0].event, 'LogServerUnregisterRequested')
-    assert.equal(events[0].caller, util.getAddress(user))
-    assert.equal(events[0].url, '#1')
-    assert.equal(events[0].owner, test.nodeList.nodes[0].address)
-
-    // now we should see the reaction of the server
-    events = await watcher.update()
-    if (!events) {
-      await new Promise(_ => setTimeout(_, 100))
-      events = await watcher.update()
-    }
-    assert.equal(events.length, 1)
-    assert.equal(events[0].event, 'LogServerUnregisterCanceled')
-    assert.equal(events[0].url, '#1')
-    assert.equal(events[0].owner, test.nodeList.nodes[0].address)
-
-    const balanceOwnerAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
-    // the owner now got the deposit from the
-    assert.equal(balanceOwnerAfter.sub(balanceOwnerBefore).toString(), unregisterDeposit.toString())
-  })
-
-
   it('requestUnregisteringServer - cancel', async () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
@@ -680,6 +651,13 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     }).catch(_ => false), 'Must fail because the owner is not allowed to confirm yet')
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer()', [], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false), 'Must fail because the owner did not call requestUnregister before')
 
     // wait 2h 
     await test.increaseTime(7201)
@@ -798,6 +776,18 @@ describe('Convict', () => {
     serverAfter = await test.getServerFromContract(2)
     assert.equal(toHex(serverAfter.props), "0xffff")
     assert.equal(toNumber(serverAfter.timeout), 16400)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0xffff, 16400],
+      { privateKey: pk1, value: new BigNumber('51000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false), 'Must fail because the owner does not have a server yet')
+
+    const randomAccount = await test.createAccount()
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0xffff, 16400], {
+      privateKey: randomAccount,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false), 'Must fail because the owner does not have a server yet')
 
 
   })

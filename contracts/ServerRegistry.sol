@@ -110,7 +110,6 @@ contract ServerRegistry {
 
     /// in the 1st year we are limiting the ether in the contract
     modifier startBalanceLimits(){ 
-        /// TODO: test this
         if (now < (blockDeployment + 1*86400*365))
            require(address(this).balance < 50 ether, "Limit of 50 ETH reached");
         _;
@@ -149,7 +148,6 @@ contract ServerRegistry {
 
         In3Server storage server = servers[oi.index];
 
-        // TODO: test unregister on an active server
         require(server.unregisterTime != 0, "Cannot unregister an active server");
         require(server.unregisterTime < now, "Only confirm after the timeout allowed");
 
@@ -196,9 +194,6 @@ contract ServerRegistry {
         require (!urlIndex[urlHash].used && !ownerIndex[msg.sender].used, "a Server with the same url or owner is already registered");
 
         // sets the information of the owner
-       // OwnerInformation memory oi;
-      //  oi.used = true;
-     //   oi.index = uint128(servers.length);
         ownerIndex[msg.sender].used = true;
         ownerIndex[msg.sender].index = uint128(servers.length);
         // add new In3Server
@@ -310,7 +305,6 @@ contract ServerRegistry {
     function updateServer(uint _props, uint64 _timeout) external payable startBalanceLimits {
 
         OwnerInformation memory oi = ownerIndex[msg.sender];
-        /// TODO: test this
         require(oi.used, "sender does not own a server");
 
         In3Server storage server = servers[oi.index];
