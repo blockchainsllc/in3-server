@@ -144,7 +144,7 @@ export class LRUCache{
           // remove least use entry
           if(this.keys.length == this.entryLimit){
               this.container.delete(this.keys[this.keys.length-1])
-              this.keys.slice(this.keys.length-1)
+              this.keys.splice(this.keys.length-1, 1)
           }
 
           // add new entry at first
