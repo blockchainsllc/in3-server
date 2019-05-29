@@ -777,9 +777,6 @@ describe('Convict', () => {
     assert.equal(toHex(serverAfter.props), "0xffff")
     assert.equal(toNumber(serverAfter.timeout), 16400)
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0xffff, 16400],
-      { privateKey: pk1, value: new BigNumber('51000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false), 'Must fail because the owner does not have a server yet')
-
     const randomAccount = await test.createAccount()
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0xffff, 16400], {
