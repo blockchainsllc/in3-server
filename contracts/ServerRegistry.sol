@@ -108,14 +108,7 @@ contract ServerRegistry {
         _;
     }
 
-    /// in the 1st year we are limiting the ether in the contract
-    modifier startBalanceLimits(){ 
-        if (now < (blockDeployment + 1*86400*365))
-           require(address(this).balance < 50 ether, "Limit of 50 ETH reached");
-        _;
-    }
-
-    /// constructir
+    /// constructor
     /// @param _blockRegistry address of a BlockhashRegistry
     constructor(address _blockRegistry) public {
         blockRegistry = BlockhashRegistry(_blockRegistry);
@@ -186,7 +179,10 @@ contract ServerRegistry {
     /// @param _url the url of the server, has to be unique
     /// @param _props properties of the server
     /// @param _timeout timespan of how long the server of a deposit will be locked. Will be at least for 1h
-    function registerServer(string calldata _url, uint _props, uint64 _timeout) external payable startBalanceLimits {
+    function registerServer(string calldata _url, uint _props, uint64 _timeout) external payable {
+
+        if (now < (blockDeployment + 1*86400*365))
+           require(msg.value < 50 ether, "Limit of 50 ETH reached");
 
         bytes32 urlHash = keccak256(bytes(_url));
 
@@ -196,6 +192,9 @@ contract ServerRegistry {
         // sets the information of the owner
         ownerIndex[msg.sender].used = true;
         ownerIndex[msg.sender].index = uint128(servers.length);
+
+     
+
         // add new In3Server
         In3Server memory m;
         m.url = _url;
@@ -302,15 +301,19 @@ contract ServerRegistry {
     /// updates a Server by adding the msg.value to the deposit and setting the props or timeout
     /// @param _props the new properties
     /// @param _timeout the new timeout of the server, cannot be decreased
-    function updateServer(uint _props, uint64 _timeout) external payable startBalanceLimits {
+    function updateServer(uint _props, uint64 _timeout) external payable {
 
         OwnerInformation memory oi = ownerIndex[msg.sender];
         require(oi.used, "sender does not own a server");
 
         In3Server storage server = servers[oi.index];
 
-        if (msg.value>0) 
+        if (msg.value>0) {
           server.deposit += msg.value;
+        
+            if (now < (blockDeployment + 1*86400*365))
+                require( server.deposit < 50 ether, "Limit of 50 ETH reached");
+        }
 
         if (_props!=server.props)
           server.props = _props;
