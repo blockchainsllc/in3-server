@@ -57,10 +57,10 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
   }
   blocks = blocksWithOutSignature
 
+
   // get our own nodeList
   const nodes = await handler.getNodeList(false)
   return Promise.all(addresses.map(async adr => {
-
     // find the requested address in our list
     const config = nodes.nodes.find(_ => _.address.toLowerCase() === adr.toLowerCase())
     if (!config) // TODO do we need to throw here or is it ok to simply not deliver the signature?
@@ -120,9 +120,11 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       }))
 
     return signatures
-
-    // merge all signatures including cache signature
-  })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c, ...cacheSignatures], []))
+  })
+  .map(a=>a.catch(e => e))).
+  then(a => a.filter(_ => _ && !(_ instanceof Error)) //remove throw and null
+  .reduce((p, c) => [...p, ...c], []))
+  .then(b => [...b, ...cacheSignatures]) // merge all signatures including cache signature
 }
 
 export function sign(pk: string, blocks: { blockNumber: number, hash: string }[]): Signature[] {
