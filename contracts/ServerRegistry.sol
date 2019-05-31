@@ -181,6 +181,9 @@ contract ServerRegistry {
     /// @param _timeout timespan of how long the server of a deposit will be locked. Will be at least for 1h
     function registerServer(string calldata _url, uint _props, uint64 _timeout) external payable {
 
+        // we lock 0.01 ether (as possible transaction costs for vote kicking)
+        require(msg.value >= 10 finney, "not enough deposit");
+
         if (now < (blockDeployment + 1*86400*365))
            require(msg.value < 50 ether, "Limit of 50 ETH reached");
 
@@ -364,11 +367,15 @@ contract ServerRegistry {
                         
                         // we update the owner information
                         oi.lockedTime = now + server.timeout;
-                        oi.depositAmount = server.deposit;
+                        oi.depositAmount = server.deposit-10 finney;
                         oi.used = false;
 
                         // removing the server
                         removeServer(oi.index);
+
+                        // TODO: test with higher deposit amount
+                        msg.sender.transfer(10 finney);
+
                         return;
                     }
                    break;

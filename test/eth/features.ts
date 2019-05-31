@@ -28,6 +28,7 @@ import Watcher from '../../src/chains/watch'
 import EventWatcher from '../utils/EventWatcher';
 import * as tx from '../../src/util/tx'
 import { RPC } from '../../src/server/rpc';
+import { toBN } from 'in3/js/src/util/util';
 
 const toNumber = util.toNumber
 const getAddress = util.getAddress
@@ -75,7 +76,7 @@ describe('Features', () => {
       url: '#3',
       pk,
       props: '0xffff',
-      deposit: 20000,
+      deposit: toBN('10000000000000000'),
       timeout: 7200,
     }], test.chainRegistry, test.chainRegistry, test.url)
     lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 1
@@ -145,7 +146,7 @@ describe('Features', () => {
     await watcher.update()
 
     const client = await test.createClient({ requestCount: 1 })
-    const pk = await test.createAccount()
+    const pk = await test.createAccount(null, toBN('20000000000000000'))
     const rpc = new RPC({
       port: 1,
       chains: {
@@ -154,7 +155,7 @@ describe('Features', () => {
           minBlockHeight: 0,
           autoRegistry: {
             url: 'dummy',
-            deposit: 100,
+            deposit: toBN('10000000000000000'),
             depositUnit: 'wei',
             capabilities: {
               proof: true,
@@ -176,7 +177,7 @@ describe('Features', () => {
     assert.equal(events[0].owner, getAddress(pk))
     assert.equal(events[0].url, 'dummy')
     assert.equal(events[0].props, 3)
-    assert.equal(events[0].deposit, 100)
+    assert.equal(events[0].deposit, toBN('10000000000000000'))
 
     const nl = await rpc.getHandler().getNodeList(false)
     assert.equal(nl.totalServers, 3)
