@@ -108,14 +108,27 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
 
                 for (let i=0; i<specTransitions.length; i++) {
                     if (spec.validatorInfo[specTransitions[i]].list) {
-                        history.states.push({ block: parseInt(specTransitions[i]), validators: spec.validatorInfo[specTransitions[i]].list, proof:[]})
+                        history.states.push(
+                          {
+                            block: parseInt(specTransitions[i]),
+                            validators: spec.validatorInfo[specTransitions[i]].list,
+                            proof:[]
+                          })
                         history.lastCheckedBlock = parseInt(specTransitions[i])
                     }
 
-                    // if transition is contract based and there has been another transition on top of it
-                    // then pull in all the validator changes for this transition segment
-                    if (spec.validatorInfo[specTransitions[i]].contract && (specTransitions.length - 1) > i) {
-                        await updateAuraHistory(spec.validatorInfo[specTransitions[i]].contract, handler, history, parseInt(specTransitions[i + 1]))
+                    // if transition is contract based and there has been another
+                    // transition on top of it then pull in all the validator
+                    // changes for this transition segment
+                    if ( spec.validatorInfo[specTransitions[i]].contract
+                      && spec.validatorInfo[specTransitions[i]].list
+                      && (specTransitions.length - 1) > i) {
+                        await updateAuraHistory(
+                          spec.validatorInfo[specTransitions[i]].contract,
+                          handler,
+                          history,
+                          parseInt(specTransitions[i + 1])
+                        )
                     }
                 }
             }
