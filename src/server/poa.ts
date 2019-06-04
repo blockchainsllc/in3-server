@@ -18,17 +18,50 @@
 ***********************************************************/
 
 
-import { RPCRequest, serialize, BlockData } from 'in3'
+import { RPCRequest, header, serialize, BlockData, Proof, LogData, util } from 'in3'
 import { RPCHandler } from './rpc'
+import EthHandler from '../modules/eth/EthHandler'
 import { recover } from 'secp256k1'
-import { rlp } from 'ethereumjs-util'
-import { publicToAddress } from 'ethereumjs-util'
+import { rawDecode } from 'ethereumjs-abi'
+import { publicToAddress, rlp } from 'ethereumjs-util'
+import { handleLogs } from '../modules/eth/proof'
 const chains = require('in3/js/src/client/defaultConfig.json').servers
+/**
+ * a Object holding proofs for validator logs. The key is the blockNumber as hex
+ */
+export interface AuraValidatoryProof {
+    /**
+     * the transaction log index
+     */
+    logIndex: number
+    /**
+     * the serialized blockheader
+     * example: 0x72804cfa0179d648ccbe6a65b01a6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b86d8f42c92bbda6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b
+     */
+    block: string
+    /**
+     * the transactionIndex within the block
+     */
+    txIndex: number
+    /**
+     * the merkleProof
+     */
+    proof: string /* ^0x[0-9a-fA-F]+$ */[]
+    /**
+     * the serialized blockheader as hex, required in case of finality asked
+     * example: 0x72804cfa0179d648ccbe6a65b01a6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b86d8f42c92bbda6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b
+     */
+    finalityBlocks?: any[]
+}
+
+const toHex = util.toHex
+const toMinHex = util.toMinHex
+const toNumber = util.toNumber
 
 export interface HistoryEntry {
     validators: string[]
     block: number
-    proof: string[]
+    proof: AuraValidatoryProof | string[]
 }
 export interface ValidatorHistory {
     states: HistoryEntry[]
@@ -133,7 +166,7 @@ function updateVotes(blocks: BlockData[], history: ValidatorHistory) {
         if (newValidator == '0x' || newValidator == '0x0000000000000000000000000000000000000000') continue
         const votes = history.lastEpoch.pendingVotes[newValidator] || (history.lastEpoch.pendingVotes[newValidator] = {})
 
-        const nonce = b.nonce || '0x' + rlp.decode(b.sealFields[1]).toString('hex')
+        const nonce = b.nonce || '0x' + (rlp.decode(b.sealFields[1]) as any).toString('hex')
         const validator = '0x' + getSigner(b).toString('hex')
         let add = false
         if (nonce == '0xffffffffffffffff')  // add a validator
@@ -199,7 +232,78 @@ async function updateCliqueHistory(epoch: number, handler: RPCHandler, history: 
 
 
 async function updateAuraHistory(validatorContract: string, handler: RPCHandler, history: ValidatorHistory, currentBlock: number) {
-    history.lastCheckedBlock = currentBlock
-    //TODO update history
 
+    //do nothing until the current block is hgiher than the last checked block
+    if (history.lastCheckedBlock >= currentBlock) return
+
+    //handle logs expects a EthHandler type so the handler is passed as any
+    const logs = await handleLogs(handler as EthHandler, {
+        jsonrpc: "2.0",
+        method: "eth_getLogs",
+        params: [{
+            fromBlock: toMinHex((history.lastCheckedBlock || 0) + 1),
+            toBlock: toMinHex(currentBlock),
+            address: validatorContract,
+            topics: ["0x55252fa6eee4741b4e24a74a70e9c11fd2c2281df8d6ea13126ff845f7825c89"]
+        }],
+        in3: {
+            chainId: handler.chainId,
+            verification: "proof"
+        }
+    })
+
+    for (const log of logs.result) {
+        const validatorList = rawDecode(['address[]'], util.toBuffer(log.data))[0]
+        const receipts = logs.in3.proof.logProof[toHex(log.blockNumber)].receipts
+
+        /*
+        * Fetch the finality blocks
+        */
+        let bn = parseInt(log.blockNumber)
+        const numValidators = history.states[history.states.length - 1].validators.length
+        const maxNumber = bn + 2 * numValidators //The maximum number of blocks it will check is curBlock + 2 times the number of validators
+        const signers = [header.getSigner(serialize.blockFromHex(logs.in3.proof.logProof[toHex(log.blockNumber)].block))]
+        const minSigners = 1 || Math.ceil((numValidators + 1) / 2) //Hardcoded 51% finality // TODO for now we do not use finality yet, but we must fix it!
+        const finalityBlocks = []
+
+        while (signers.length < minSigners && bn < maxNumber) {
+            bn = bn + 1
+            if (currentBlock < bn) break
+            const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), false] })
+
+            if (!b || b.error || !b.result) break
+            const currentSigner = header.getSigner(new serialize.Block(b.result))
+            if (!signers.find(_ => _.equals(currentSigner)))
+                signers.push(currentSigner)
+            finalityBlocks.push(serialize.blockToHex(b.result))
+        }
+
+        /*
+        * Stitch the proof
+        */
+        let validatorProof = {
+            /* IMPORTANT:
+            * only the first receipt is taken to  simplify the proofs. There is always a
+            * possibility that there might be two validator change transactions in the same
+            * block but we assume it to be highly unlikely.
+            */
+            txIndex: receipts[Object.keys(receipts)[0]].txIndex,
+            proof: receipts[Object.keys(receipts)[0]].proof,
+            block: logs.in3.proof.logProof[toHex(log.blockNumber)].block,
+            logIndex: toNumber(log.transactionLogIndex),
+            finalityBlocks
+        }
+
+        //update the history states
+        history.states.push({
+            validators: validatorList,
+            block: parseInt(log.blockNumber),
+            proof: validatorProof as AuraValidatoryProof
+        })
+
+    }
+
+    //update history "last" fields
+    history.lastCheckedBlock = currentBlock
+    history.lastValidatorChange = history.states[history.states.length - 1].block
 }

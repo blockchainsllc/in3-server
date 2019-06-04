@@ -28,7 +28,6 @@ import Watcher from '../../src/chains/watch'
 import { registerServers } from '../../src/util/registry'
 import { toBN, toBuffer } from 'in3/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
-import { sha3 } from 'ethereumjs-util'
 
 
 const address = serialize.address
@@ -36,27 +35,45 @@ const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 const toHex = util.toHex
 
+
 const sign = (b: BlockData, pk: string, blockHash?: string) => {
-  const msgHash = ethUtil.sha3(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number)]))
-  const sig = ethUtil.ecsign(msgHash, bytes32(pk)) as Signature
-  //console.log("sig", sig)
-  sig.block = toNumber(b.number)
-  sig.blockHash = blockHash || b.hash
-  sig.address = util.getAddress(pk)
-  sig.msgHash = toHex(msgHash, 32)
-  return sig
+  const msgHash = ethUtil.keccak(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number)]))
+  const s = ethUtil.ecsign(msgHash, bytes32(pk))
+  return {
+    ...s,
+    block: toNumber(b.number),
+    blockHash: blockHash || b.hash,
+    address: util.getAddress(pk),
+    msgHash: toHex(msgHash, 32),
+    r: toHex(s.r),
+    s: toHex(s.s),
+    v: s.v
+  } as Signature
 }
+
 
 const signVote = (blockhash: string, owner: string, pk: string) => {
 
-  const msgHash = (ethUtil.sha3(blockhash + owner.substr(2)))
-  const msgHash2 = ethUtil.sha3(toHex("\x19Ethereum Signed Message:\n32") + toHex(msgHash).substr(2))
-  const sig = ethUtil.ecsign((msgHash2), bytes32(pk))
+  const msgHash = (ethUtil.keccak(blockhash + owner.substr(2)))
+  const msgHash2 = ethUtil.keccak(toHex("\x19Ethereum Signed Message:\n32") + toHex(msgHash).substr(2))
+  const s = ethUtil.ecsign((msgHash2), bytes32(pk))
 
+  /*
   sig.address = util.getAddress(pk)
   sig.msgHash = toHex(msgHash, 32)
   sig.signature = toHex(sig.r) + toHex(sig.s).substr(2) + toHex(sig.v).substr(2)
   return sig
+  */
+
+  return {
+    ...s,
+    address: util.getAddress(pk),
+    msgHash: toHex(msgHash, 32),
+    signature: toHex(s.r) + toHex(s.s).substr(2) + toHex(s.v).substr(2),
+    r: toHex(s.r),
+    s: toHex(s.s),
+    v: s.v
+  }
 }
 
 describe('Convict', () => {
@@ -88,7 +105,7 @@ describe('Convict', () => {
     // sign the correct blockhash 
     let s = sign(block, test.getHandlerConfig(0).privateKey)
 
-    let convictSignature: Buffer = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+    let convictSignature: Buffer = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
@@ -105,13 +122,11 @@ describe('Convict', () => {
     }).catch(_ => false)
     assert.isFalse(rc, 'Transaction must fail, because we sent the correct hash')
 
-
-
     // now test if we can send a wrong blockhash, but the block is older than 256 blocks:
     // wrong blockhash signed by first node
     s = sign({ number: 1 } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
 
-    convictSignature = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+    convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [0, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
@@ -132,7 +147,7 @@ describe('Convict', () => {
     block = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumberInSnapshot), false) as BlockData
     s = sign(block, test.getHandlerConfig(0).privateKey)
 
-    convictSignature = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+    convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
@@ -159,7 +174,7 @@ describe('Convict', () => {
     const balanceSenderBefore = new BigNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
     const balanceRegistryBefore = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
 
-    const convictSignatureWrong: Buffer = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.s), bytes32(s.s)]))
+    const convictSignatureWrong: Buffer = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.s), bytes32(s.s)]))
 
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureWrong], {
       privateKey: test.getHandlerConfig(1).privateKey,
@@ -179,7 +194,7 @@ describe('Convict', () => {
 
 
     // send the transactions to convict with the wrong hash
-    convictSignature = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+    convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
     let a = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
@@ -519,7 +534,7 @@ describe('Convict', () => {
     }
 
     let s = sign({ number: blockNumber } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
-    const convictSignature = sha3(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(accounts[0].privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+    const convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(accounts[0].privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 6500000 })
     const [usedBeforeConvict, indexBeforeConvict, lockedTimeBeforeConvict, depositBeforeConvict] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 

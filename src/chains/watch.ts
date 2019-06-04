@@ -20,7 +20,7 @@
 import * as fs from 'fs'
 import { EventEmitter } from 'events'
 import { util, LogData } from 'in3'
-import { sha3, toChecksumAddress } from 'ethereumjs-util'
+import { keccak, toChecksumAddress } from 'ethereumjs-util'
 import { rawDecode } from 'ethereumjs-abi'
 
 import { RPCHandler } from '../server/rpc';
@@ -206,7 +206,7 @@ const abi = getABI('ServerRegistry').filter(_ => _.type === 'event') as {
   inputs: any[]
   hash: string
 }[]
-abi.forEach(_ => _.hash = toHex(sha3(_.name + '(' + _.inputs.map(i => i.type).join(',') + ')'), 32))
+abi.forEach(_ => _.hash = toHex(keccak(_.name + '(' + _.inputs.map(i => i.type).join(',') + ')'), 32))
 
 
 function handleUnregister(ev, handler: RPCHandler) {

@@ -21,7 +21,7 @@ import { RPCHandler } from '../server/rpc'
 import * as tx from '../util/tx'
 import * as abi from 'ethereumjs-abi'
 import { createRandomIndexes, Proof, ServerList, BlockData, AccountProof, RPCRequest, IN3NodeConfig, util, storage, serialize } from 'in3'
-import { toChecksumAddress, keccak256, toBuffer } from 'ethereumjs-util'
+import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 
 const toHex = util.toHex
 const toBuffer = util.toBuffer
@@ -179,7 +179,6 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
     return {
       url,
       address: toChecksumAddress(owner),
-      timeout: parseInt(timeout.toString()),
       index: i,
       deposit: parseInt(deposit.toString()),
       props: props.toNumber(),

@@ -25,15 +25,21 @@ import * as Router from 'koa-router'
 import * as winston from 'winston'
 import { RPC } from './rpc'
 import { cbor, RPCRequest, chainAliases } from 'in3'
-import config from './config'
+import { readCargs } from './config'
 import { initConfig } from '../util/db'
 import { encodeObject } from '../util/binjson'
+
+const config = readCargs()
+let AUTO_REGISTER_FLAG: boolean
+
+if (config.chains[Object.keys(config.chains)[0]].autoRegistry)
+  AUTO_REGISTER_FLAG = true
 
 // Setup logger
 const nodeEnv: string = process.env.NODE_ENV || 'production';
 const logger = winston.createLogger({
   levels: winston.config.syslog.levels,
-  format: nodeEnv === 'production' ? winston.format.json() : winston.format.simple(),
+  format: nodeEnv === 'production' ? winston.format.json() : winston.format.combine(winston.format.colorize(),winston.format.simple()),
   transports: [
     new winston.transports.Console(nodeEnv === 'production' ? { level: 'info' } : { level: 'debug' })
   ],
@@ -43,6 +49,7 @@ const logger = winston.createLogger({
   exitOnError: false, // <--- set this to false
 });
 
+let INIT_ERROR = false;
 
 export const app = new Koa()
 const router = new Router()
@@ -87,6 +94,9 @@ app.use(async (ctx, next) => {
 app.use(bodyParser())
 
 router.post(/.*/, async ctx => {
+
+  if (INIT_ERROR) return initError(ctx)
+
   try {
     const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
     const result = await rpc.handle(requests)
@@ -111,7 +121,10 @@ router.post(/.*/, async ctx => {
 router.get(/.*/, async ctx => {
   //  '/:chain/:method/:args'
   const path = ctx.path.split('/')
+
   if (path[path.length - 1] === 'health') return checkHealth(ctx)
+  else if (path[path.length - 1] === 'version') return getVersion(ctx)
+  else if (INIT_ERROR) return initError(ctx)
   try {
     if (path.length < 2) throw new Error('invalid path')
     let start = path.indexOf('api')
@@ -154,16 +167,21 @@ initConfig().then(() => {
     .use(router.allowedMethods())
     .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
 
-  const doInit = () => {
+  const doInit = (retryCount: number) => {
+    if(retryCount <= 0){
+      logger.error('Error initializing the server : Maxed out retries')
+      INIT_ERROR = true
+      return;
+    }
     rpc.init().catch(err => {
       //console.error('Error initializing the server : ' + err.message)
       logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
-      setTimeout(doInit, 20000)
+      setTimeout(() => {doInit(retryCount-1)}, 20000)
     })
   }
 
   // after starting the server, we should make sure our nodelist is up-to-date.
-  setTimeout(doInit)
+  doInit(3)
 }).catch(err => {
   //console.error('Error starting the server : ' + err.message, config)
   logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
@@ -172,14 +190,43 @@ initConfig().then(() => {
 
 async function checkHealth(ctx: Router.IRouterContext) {
 
-  await Promise.all(
-    Object.keys(rpc.handlers).map(c => rpc.handlers[c].getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })))
-    .then(_ => {
-      ctx.body = { status: 'healthy' }
-      ctx.status = 200
-    }, _ => {
-      ctx.body = { status: 'unhealthy', message: _.message }
-      ctx.status = 500
-    })
+  //lies to the rancher that it is healthy to avoid restart loop
+  if (INIT_ERROR && AUTO_REGISTER_FLAG) {
+    ctx.body = { status: 'healthy' }
+    ctx.status = 200
+  }
+  else if(INIT_ERROR) {
+    ctx.body = { status: 'unhealthy', message: "server initialization error"}
+    ctx.status = 500
+  }
+  else{
+    await Promise.all(
+      Object.keys(rpc.handlers).map(c => rpc.handlers[c].getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })))
+      .then(_ => {
+        ctx.body = { status: 'healthy' }
+        ctx.status = 200
+      }, _ => {
+        ctx.body = { status: 'unhealthy', message: _.message }
+        ctx.status = 500
+      })
+  }
 
+}
+
+async function initError(ctx: Router.IRouterContext) {
+  //lies to the rancher that it is healthy to avoid restart loop
+  ctx.body = "Server uninitialized"
+  ctx.status = 200
+}
+
+async function getVersion(ctx: Router.IRouterContext) {
+
+  if (process.env.VERSION_SHA) {
+    ctx.body = process.env.VERSION_SHA
+    ctx.status = 200
+  }
+  else {
+    ctx.body = "Unknown Version"
+    ctx.status = 500
+  }
 }

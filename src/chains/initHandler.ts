@@ -59,7 +59,7 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
       throw new Error('Unsupported key derivation scheme')
 
     const ciphertext = new Buffer(json.crypto.ciphertext, 'hex');
-    const mac = ethUtil.sha3(Buffer.concat([derivedKey.slice(16, 32), ciphertext])).replace('0x', '')
+    const mac = ethUtil.keccak(Buffer.concat([derivedKey.slice(16, 32), ciphertext])).toString('hex')
     if (mac !== json.crypto.mac)
       throw new Error('Key derivation failed - possibly wrong password');
 
@@ -75,7 +75,7 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
 export async function checkRegistry(handler: BaseHandler): Promise<any> {
   if (!handler.config.registry || !handler.config.autoRegistry) {
     // TODO get it from the chainRegistry?
-    // we will get the registry from the 
+    // we will get the registry from the
     return
   }
 
@@ -104,6 +104,15 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
   const deposit = '0x' + util.toBN(autoReg.deposit || 0).mul(util.toBN(units[unit])).toString(16)
   const props = util.toHex((caps.proof ? 1 : 0) + (caps.multiChain ? 2 : 0))
 
+  //check balance
+  const balance = parseInt((await handler.getFromServer({ method: 'eth_getBalance', params: [util.getAddress(handler.config.privateKey)] })).result as any)
+  const txGasPrice = parseInt((await handler.getFromServer({ method: 'eth_gasPrice', params: [] })).result as any)
+
+  const registrationCost = txGasPrice * 1000000
+
+  if (balance < (autoReg.deposit + registrationCost))
+    throw new Error("Insufficient funds to register a server, need: " + autoReg.deposit + " ether, have: " + balance + " wei")
+
   await registerServers(handler.config.privateKey, handler.config.registry, [{
     url: autoReg.url,
     pk: handler.config.privateKey,
@@ -112,4 +121,3 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
     timeout: 3600
   }], handler.chainId, undefined, handler.config.registryRPC || handler.config.rpcUrl, undefined, false)
 }
-

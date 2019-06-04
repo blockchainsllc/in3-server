@@ -59,8 +59,10 @@ export default abstract class BaseHandler implements RPCHandler {
     // start the watcher in the background
     if (interval > 0) {
       this.watcher.check()
-      this.cache = new SimpleCache()
-      this.watcher.on('newBlock', () => this.cache.clear())
+      if ((this.config as any).useCache) {
+        this.cache = new SimpleCache()
+        this.watcher.on('newBlock', () => this.cache.clear())
+      }
     }
   }
 
@@ -161,6 +163,3 @@ export default abstract class BaseHandler implements RPCHandler {
     }
   }
 }
-
-
-

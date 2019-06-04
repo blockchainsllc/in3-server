@@ -65,37 +65,28 @@ export async function addFinality(request: RPCRequest, response: RPCResponse, bl
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionProof(block: BlockData, txHash: string, signatures: Signature[], verifiedHashes: string[]): Promise<Proof> {
+export async function createTransactionProof(block: BlockData, txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler): Promise<Proof> {
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
   if (txIndex < 0) throw new Error('tx not found')
 
-  // create trie
-  const trie = new Trie()
-  // fill in all transactions
-  await Promise.all(block.transactions.map(tx => new Promise((resolve, reject) =>
-    trie.put(
-      rlp.encode(parseInt(tx.transactionIndex)), // path as txIndex
-      serialize.createTx(tx).serialize(),  // raw transactions
-      error => error ? reject(error) : resolve(true)
-    )
-  )))
-
-  // check roothash
-  if (block.transactionsRoot !== '0x' + trie.root.toString('hex'))
-    throw new Error('The transactionHash is wrong! : ' + block.transactionsRoot + '!==0x' + trie.root.toString('hex'))
+  const txProof = (await createMerkleProof(
+      block.transactions.map((t, i) => ({
+        key: rlp.encode(i),
+        value: serialize.serialize(serialize.toTransaction(t))
+      })),
+      rlp.encode(txIndex),
+      bytes32(block.transactionsRoot),
+      handler
+    )).map(toHex)
 
   // create prove
-  return new Promise<Proof>((resolve, reject) =>
-    Trie.prove(trie, rlp.encode(txIndex), (err, prove) => {
-      if (err) return reject(err)
-      resolve({
-        type: 'transactionProof',
-        block: createBlock(block, verifiedHashes),
-        merkleProof: prove.map(toHex),
-        txIndex, signatures
-      })
-    }))
+  return {
+    type: 'transactionProof',
+    block: createBlock(block, verifiedHashes),
+    merkleProof: txProof,
+    txIndex, signatures
+  }
 }
 
 /** creates the merkle-proof for a transation */
@@ -103,12 +94,8 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
   // create trie
   const trie = new In3Trie()
   // fill in all transactions
-  await Promise.all(block.transactions.map(tx =>
-    trie.setValue(
-      rlp.encode(parseInt(tx.transactionIndex)), // path as txIndex
-      serialize.createTx(tx).serialize()  // raw transactions
-    )
-  ))
+  for(const tx of block.transactions)
+    await trie.setValue(rlp.encode(parseInt(tx.transactionIndex)), serialize.serialize(serialize.toTransaction(tx)))
 
   // check roothash
   if (block.transactionsRoot !== '0x' + trie.root.toString('hex'))
@@ -129,7 +116,7 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], useFull = false): Promise<Proof> {
+export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler, useFull = false): Promise<Proof> {
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
   if (txIndex < 0)
@@ -142,7 +129,8 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
         value: serialize.serialize(serialize.toTransaction(t))
       })),
       rlp.encode(txIndex),
-      bytes32(block.transactionsRoot)
+      bytes32(block.transactionsRoot),
+      handler
     ),
     createMerkleProof(
       receipts.map(r => ({
@@ -150,7 +138,8 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
         value: serialize.serialize(serialize.toReceipt(r))
       })),
       rlp.encode(txIndex),
-      bytes32(block.receiptsRoot)
+      bytes32(block.receiptsRoot),
+      handler
     ),
     // TOCDO performancewise this could be optimized, since we build the merkltree twice.
     useFull && txIndex > 0 && createMerkleProof(
@@ -159,7 +148,8 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
         value: serialize.serialize(serialize.toReceipt(r))
       })),
       rlp.encode(txIndex - 1),
-      bytes32(block.receiptsRoot)
+      bytes32(block.receiptsRoot),
+      handler
     ),
 
   ]).then(a => a.map(_ => _ && _.map(toHex)))
@@ -175,22 +165,29 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
 
 
 
-export async function createMerkleProof(values: { key: Buffer, value: Buffer }[], key: Buffer, expectedRoot?: Buffer) {
-  const trie = new Trie()
-  // fill in all values
-  await Promise.all(values.map(val => new Promise((resolve, reject) =>
-    trie.put(val.key, val.value, error => error ? reject(error) : resolve(true))
-  )))
+export async function createMerkleProof(values: { key: Buffer, value: Buffer }[], key: Buffer, expectedRoot: Buffer, handler: EthHandler) {
+  let trie = (handler.cache && expectedRoot)? handler.cache.getTrie(toMinHex(expectedRoot)): undefined
 
-  if (expectedRoot && !expectedRoot.equals(trie.root))
-    throw new Error('The rootHash is wrong! : ' + toHex(expectedRoot) + '!==' + toHex(trie.root))
+  if(!trie) {
+    trie = new Trie()
+    // fill in all values
+    await Promise.all(values.map(val => new Promise((resolve, reject) =>
+      trie.put(val.key, val.value, error => error ? reject(error) : resolve(true))
+    )))
+
+    if (expectedRoot && !expectedRoot.equals(trie.root))
+      throw new Error('The rootHash is wrong! : ' + toHex(expectedRoot) + '!==' + toHex(trie.root))
+    else if(handler.cache)
+      handler.cache.putTrie(toMinHex(trie.root), trie)
+  }
 
   // create prove
   return new Promise<Buffer[]>((resolve, reject) =>
     Trie.prove(trie, key, (err, prove) => {
       if (err) return reject(err)
       resolve(prove as Buffer[])
-    }))
+    })
+  )
 }
 
 
@@ -253,7 +250,7 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
       response.in3 = {
         proof: await createTransactionProof(block, request.params[0] as string,
           await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
-          request.in3.verifiedHashes) as any
+          request.in3.verifiedHashes, handler) as any
       }
     return addFinality(request, response, block, handler)
   }
@@ -326,7 +323,9 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
           receipts,
           request.params[0] as string,
           signatures,
-          request.in3.verifiedHashes)
+          request.in3.verifiedHashes,
+          handler
+        )
       }
 
       return addFinality(request, response, block, handler)
@@ -380,7 +379,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
 
       // create receipt-proofs for all these transactions
       return Promise.all(toProof.map(th =>
-        createTransactionReceiptProof(b, allReceipts, th, [], request.in3.verifiedHashes)
+        createTransactionReceiptProof(b, allReceipts, th, [], request.in3.verifiedHashes, handler)
           .then(p => blockProof.receipts[th] = {
             txHash: th,
             txIndex: parseInt(allReceipts.find(_ => _.transactionHash == th).transactionIndex),

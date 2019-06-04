@@ -146,7 +146,7 @@ describe('Features', () => {
     await watcher.update()
 
     const client = await test.createClient({ requestCount: 1 })
-    const pk = await test.createAccount(null, toBN('20000000000000000'))
+    const pk = await test.createAccount(null, toBN('100000000000000000'))
     const rpc = new RPC({
       port: 1,
       chains: {
