@@ -46,7 +46,7 @@ export async function addFinality(request: RPCRequest, response: RPCResponse, bl
       let bn = parseInt(block.number as any)
       const blocks = response.in3.proof.finalityBlocks = []
       const signers = [header.getSigner(new serialize.Block(block))]
-      const minNumber = Math.round(request.in3.finality * validators.length / 100)
+      const minNumber = Math.ceil(Math.min(Math.max(request.in3.finality, 0), 100) * validators.length / 100)
       while (signers.length < minNumber) {
         bn = bn + 1
         if (curBlock && curBlock.number < bn) break
