@@ -47,6 +47,7 @@ contract ServerRegistry {
         uint64 timeout; // timeout after which the owner is allowed to receive his stored deposit
 
         uint deposit; // stored deposit
+        
         uint props; // a list of properties-flags representing the capabilities of the server
 
         uint128 unregisterTime; // earliest timestamp in to to call unregister
@@ -195,8 +196,6 @@ contract ServerRegistry {
         // sets the information of the owner
         ownerIndex[msg.sender].used = true;
         ownerIndex[msg.sender].index = uint128(servers.length);
-
-     
 
         // add new In3Server
         In3Server memory m;
@@ -372,8 +371,6 @@ contract ServerRegistry {
 
                         // removing the server
                         removeServer(oi.index);
-
-                        // TODO: test with higher deposit amount
                         msg.sender.transfer(10 finney);
 
                         return;

@@ -84,7 +84,7 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
 
   for (const n of list) {
     for (let i = 0; i < 4; i++)
-      keys.push(storage.getStorageArrayKey(0, n.index, 6, i))
+      keys.push(storage.getStorageArrayKey(0, n.index, 5, i))
     const urlKey = util.toBN(keccak256(keys[keys.length - 4]))
     if (n.url.length > 31) {
       for (let i = 0; i < n.url.length / 32; i++)
