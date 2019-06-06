@@ -381,14 +381,16 @@ contract ServerRegistry {
                     // if we have more then 50% of the total voting time and have at least as much voting power as the server to be kicked
                     if(votedTime > totalVotingTime/2 && votedTime > activeTime){
                         
+                        uint transferAmount = server.deposit / 100 < 10 finney ? 10 finney : server.deposit / 100;
+
                         // we update the owner information
                         oi.lockedTime = now + server.timeout;
-                        oi.depositAmount = server.deposit-10 finney;
+                        oi.depositAmount = server.deposit-transferAmount;
                         oi.used = false;
 
                         // removing the server
                         removeServer(oi.index);
-                        msg.sender.transfer(10 finney);
+                        msg.sender.transfer(transferAmount);
 
                         return;
                     }

@@ -366,8 +366,13 @@ describe('Convict', () => {
 
     await test.increaseTime(86400 * 31)
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig.slice(1, txSig.length)], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because not enough voting power')
+    let balanceVoterBefore = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[0].privateKey), 'latest'))
 
     const voteTx = await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 })
+    let balanceVoterAfter = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[0].privateKey), 'latest'))
+
+    //test for min (10 finney)
+    assert.equal(balanceVoterAfter.sub(balanceVoterBefore).toString(), '10000000000000000')
 
     assert.equal(await test.getServerCountFromContract(), 24)
 
@@ -392,16 +397,16 @@ describe('Convict', () => {
       txSigNew.push(s.signature)
 
     }
-    const balanceVoterBefore = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[1].privateKey), 'latest'))
+    balanceVoterBefore = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[1].privateKey), 'latest'))
 
     await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(accounts[0].privateKey), txSigNew], { privateKey: accounts[1].privateKey, value: 0, confirm: true, gas: 5000000 })
     const [usedAfter2, indexAfter2, lockedTimeAfter2, depositAmountAfter2] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(accounts[0].privateKey)])
+    assert.equal(depositAmountAfter2.toString(), '4276800000000000000000000')
 
-    // assert.equal(depositAmountAfter2.toString(), '480000000000000000')
+    balanceVoterAfter = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[1].privateKey), 'latest'))
 
-    const balanceVoterAfter = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[1].privateKey), 'latest'))
-
-    //  assert.equal(balanceVoterAfter.sub(balanceVoterBefore).toString(), '10000000000000000')
+    // test for 10% of the deposit
+    assert.equal(balanceVoterAfter.sub(balanceVoterBefore).toString(), '43200000000000000000000')
 
     /*
     await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', [test.url, 1000, 10000], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
@@ -860,11 +865,11 @@ describe('Convict', () => {
 
     await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['server1', 1000, 10000], { privateKey: pk1, value: toBN('10000000000000000'), confirm: true, gas: 5000000 })
 
-    console.log((await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0])).toString())
+    assert.equal((await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0])).toString(), '864000000000000000000')
 
     await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['server2', 1000, 10000], { privateKey: pk2, value: toBN('86400000000000000000000'), confirm: true, gas: 6000000 })
+    assert.equal((await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0])).toString(), '4320000000000000000000000')
 
-    console.log((await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0])).toString())
 
 
   })
