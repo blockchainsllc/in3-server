@@ -98,10 +98,6 @@ contract ServerRegistry {
     /// mapping for convicts: blockhash => address => convictInformation
     mapping (uint => mapping(address => ConvictInformation)) convictMapping;
 
-    modifier onlyOwner() {
-        require(msg.sender == owner);
-        _;
-    }
 
     /// modifier only active in the 1st 2 years
     modifier onlyBeginning(){
@@ -183,10 +179,11 @@ contract ServerRegistry {
     function registerServer(string calldata _url, uint _props, uint64 _timeout) external payable {
 
         // we lock 0.01 ether (as possible transaction costs for vote kicking)
-        require(msg.value >= 10 finney, "not enough deposit");
+        require(msg.value >= calculateMinDeposit(msg.value), "not enough deposit");
 
-        if (now < (blockDeployment + 1*86400*365))
+        if(block.timestamp < (blockDeployment + 86400*365)){
            require(msg.value < 50 ether, "Limit of 50 ETH reached");
+        }
 
         bytes32 urlHash = keccak256(bytes(_url));
 
@@ -448,6 +445,25 @@ contract ServerRegistry {
         return (validVoters, totalVoteTime);
     }
 
+    // calculated the minumum deposit for registering 
+    function calculateMinDeposit(uint _value) public view returns (uint) {
+
+        // for the first 2 weeks we do not enable spam protection
+        if(block.timestamp < (blockDeployment + 86400*14) || servers.length == 0) return 10 finney;
+
+        // we cap the averageDeposit at 50 ether
+        uint averageDeposit = (address(this).balance - _value)/ servers.length;
+        averageDeposit = averageDeposit > 50 ether ? 50 ether : averageDeposit;
+
+        // accessing the last server of the array and its registerTime
+        // it does not necessarily has to be the latest registered server, as server positions can get swapped when an older server gets removed
+        // but in that occassion we allow a potential lower minimum deposit for a new server
+        uint passedTime = (block.timestamp - servers[servers.length - 1].registerTime);
+
+        uint minDeposit = (86400 * averageDeposit) / (passedTime == 0 ? 1 : passedTime);
+        return (minDeposit < 10 finney )? 10 finney : minDeposit;
+    }
+
     /// recovers the address from a provided signature
     /// @param _sig signature as 65 bytes
     /// @param _evmBlockhash blockhash
@@ -503,10 +519,6 @@ contract ServerRegistry {
             oi.index = uint128(_serverIndex);
         }
         servers.length--;
-    }
-    
-    function update(address payable _newContract) external onlyOwner onlyBeginning {
-        selfdestruct(_newContract);
     }
     
 }
