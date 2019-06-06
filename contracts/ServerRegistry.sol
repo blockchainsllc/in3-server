@@ -50,7 +50,7 @@ contract ServerRegistry {
         
         uint props; // a list of properties-flags representing the capabilities of the server
 
-        uint128 unregisterTime; // earliest timestamp in to to call unregister
+        uint128 unregisterTime; // earliest timestamp in to call unregister
         uint128 registerTime; // timestamp when the server was registered
     }
 
@@ -303,12 +303,29 @@ contract ServerRegistry {
     /// updates a Server by adding the msg.value to the deposit and setting the props or timeout
     /// @param _props the new properties
     /// @param _timeout the new timeout of the server, cannot be decreased
-    function updateServer(uint _props, uint64 _timeout) external payable {
-
+    function updateServer(string calldata _url, uint _props, uint64 _timeout) external payable {
+       
         OwnerInformation memory oi = ownerIndex[msg.sender];
+        In3Server storage server = servers[oi.index];
+        
+        bytes32 newURl = keccak256(bytes(_url));
+
         require(oi.used, "sender does not own a server");
 
-        In3Server storage server = servers[oi.index];
+        // the url got changed
+        if(newURl != keccak256(bytes(server.url))){
+
+            // deleting the old entry
+            delete urlIndex[keccak256(bytes(server.url))];
+            
+            // make sure the new url is not already in use
+            require(!urlIndex[newURl].used, "url is already in use");
+
+            UrlInformation memory ui;
+            ui.used = true;
+            ui.owner = msg.sender;
+            urlIndex[newURl] = ui;
+        }
 
         if (msg.value>0) {
           server.deposit += msg.value;
@@ -317,11 +334,14 @@ contract ServerRegistry {
                 require( server.deposit < 50 ether, "Limit of 50 ETH reached");
         }
 
-        if (_props!=server.props)
+        if (_props != server.props)
           server.props = _props;
 
         if(_timeout > server.timeout)
             server.timeout = _timeout;
+
+   
+
         emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
     }
 

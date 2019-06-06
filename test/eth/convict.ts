@@ -422,9 +422,7 @@ describe('Convict', () => {
   it('verify and convict (block older then 256 blocks) - worth it', async () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
-
-    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0, 0], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
-
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(string,uint,uint64)', [test.getHandlerConfig(0).rpcUrl, 0, 0], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
 
     const blockHashRegistry = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
 
@@ -801,25 +799,25 @@ describe('Convict', () => {
     assert.equal(toHex(serverBefore.props), "0xff")
 
     // changing props
-    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0x0fff, 0], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(string,uint,uint64)', ["test3.com", 0x0fff, 0], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     let serverAfter = await test.getServerFromContract(2)
 
     assert.equal(toNumber(serverAfter.timeout), 7200)
     assert.equal(toHex(serverAfter.props), "0x0fff")
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0x0fff, 14400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(string,uint,uint64)', ["test3.com", 0x0fff, 14400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     serverAfter = await test.getServerFromContract(2)
     assert.equal(toHex(serverAfter.props), "0x0fff")
     assert.equal(toNumber(serverAfter.timeout), 14400)
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0xffff, 16400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(string,uint,uint64)', ["test3.com", 0xffff, 16400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     serverAfter = await test.getServerFromContract(2)
     assert.equal(toHex(serverAfter.props), "0xffff")
     assert.equal(toNumber(serverAfter.timeout), 16400)
 
     const randomAccount = await test.createAccount(null, '0x27147114878000')
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0xffff, 16400], {
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateServer(string,uint,uint64)', ["test3.com", 0xffff, 16400], {
       privateKey: randomAccount,
       gas: 300000,
       value: 0,
@@ -833,8 +831,8 @@ describe('Convict', () => {
 
     await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['abc', 1000, 10000], { privateKey: richUser, value: toBN('5000000000000000000'), confirm: true, gas: 5000000 })
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0xffff, 16400], { privateKey: richUser, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail because the owner does not have a server yet')
-    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(uint,uint64)', [0xffff, 16400], { privateKey: richUser, value: toBN('5000000000000000000'), confirm: true, gas: 5000000 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateServer(string,uint,uint64)', ['abc', 0xffff, 16400], { privateKey: richUser, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail because the owner does not have a server yet')
+    await tx.callContract(test.url, test.nodeList.contract, 'updateServer(string,uint,uint64)', ['abc', 0xffff, 16400], { privateKey: richUser, value: toBN('5000000000000000000'), confirm: true, gas: 5000000 })
 
   })
 
