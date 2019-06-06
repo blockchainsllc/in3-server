@@ -93,69 +93,48 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
 
     const chain = chains[handler.chainId]
     const spec = chain && chain.chainSpec
-    const engine = spec && spec.engine as string
+    //    const engine = spec && spec.engine as string
     const history: ValidatorHistory = !chain ? null : (chain.history || (chain.history = { states: [], lastCheckedBlock: 0, lastValidatorChange: 0 }))
     const currentBlock = handler.watcher ? handler.watcher.block.number : parseInt((await handler.getFromServer({ method: 'eth_blockNumber', params: [] })).result)
 
     if (!history || history.lastCheckedBlock >= currentBlock) return history || {} as any
 
-    if (engine == 'authorityRound') {
-        const specTransitions = spec.validatorInfo? Object.keys(spec.validatorInfo): null
+    if (!history.states.length) {
+        // initial fill
+        if (spec && spec.length)
+            for (const s of spec) {
+                if (s.list) {
+                    history.states.push({
+                        block: s.block,
+                        validators: s.list,
+                        proof: []
+                    })
+                    history.lastCheckedBlock = s.block
+                }
+                const nextBlock = (spec[spec.indexOf(s) + 1] || { block: currentBlock }).block
 
-        if (!history.states.length) {
-            //if the chain is transistioned then check for lists and contracts seperately
-            if (specTransitions) {
-
-                for (let i=0; i<specTransitions.length; i++) {
-                    if (spec.validatorInfo[specTransitions[i]].list) {
-                        history.states.push(
-                          {
-                            block: parseInt(specTransitions[i]),
-                            validators: spec.validatorInfo[specTransitions[i]].list,
-                            proof:[]
-                          })
-                        history.lastCheckedBlock = parseInt(specTransitions[i])
-                    }
-
-                    // if transition is contract based and there has been another
-                    // transition on top of it then pull in all the validator
-                    // changes for this transition segment
-                    if ( spec.validatorInfo[specTransitions[i]].contract
-                      && spec.validatorInfo[specTransitions[i]].list
-                      && (specTransitions.length - 1) > i) {
-                        await updateAuraHistory(
-                          spec.validatorInfo[specTransitions[i]].contract,
-                          handler,
-                          history,
-                          parseInt(specTransitions[i + 1])
-                        )
-                    }
+                // if transition is contract based and there has been another
+                // transition on top of it then pull in all the validator
+                // changes for this transition segment
+                if (s.contract && s.engine === 'authorityRound')
+                    await updateAuraHistory(s.contract, handler, history, nextBlock)
+                else if (s.engine === 'clique') {
+                    if (!history.lastEpoch) history.lastEpoch = { block: s.block, epochValidators: s.list, validators: [...s.list], header: null, pendingVotes: {} }
+                    await updateCliqueHistory(s.epoch || 30000, handler, history, nextBlock)
                 }
             }
-            else
-                history.states.push({ block: 0, validators: [], proof: [] })
-        }
-
-        //If the chain is a transitioned one then update the validators for the
-        //last transition, but only if the transition was contract based
-        if (specTransitions) {
-            const latestTransition = specTransitions[specTransitions.length - 1]
-
-            //update only if the trnasition is contract based
-            if(spec.validatorInfo[latestTransition].contract)
-                await updateAuraHistory(spec.validatorInfo[latestTransition].contract, handler, history, currentBlock)
-        }
-
+        else
+            history.states.push({ block: 0, validators: [], proof: [] })
     }
-    else if (engine == 'clique') {
-        if (!history.states.length) {
-            if (spec.validatorList) {
-                history.states.push({ block: 0, validators: spec.validatorList, proof: [] })
-                history.lastEpoch = { block: 0, epochValidators: spec.validatorList, validators: [...spec.validatorList], header: null, pendingVotes: {} }
-            }
-        }
+    else if (spec && spec.length) {
+        // just update the history
+        const latestTransition = spec[spec.length - 1]
 
-        await updateCliqueHistory(spec.epoch || 30000, handler, history, currentBlock)
+        //update only if the trnasition is contract based
+        if (latestTransition.contract && latestTransition.engine === 'authorityRound')
+            await updateAuraHistory(latestTransition.contract, handler, history, currentBlock)
+        else if (latestTransition.engine === 'clique')
+            await updateCliqueHistory(latestTransition.epoch || 30000, handler, history, currentBlock)
     }
 
     return history
