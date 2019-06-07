@@ -241,6 +241,7 @@ contract ServerRegistry {
 
         uint payout = oi.depositAmount;
         oi.depositAmount = 0;
+        oi.lockedTime = 0;
 
         msg.sender.transfer(payout);
    }

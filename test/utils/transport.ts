@@ -254,9 +254,10 @@ export class TestTransport implements Transport {
     return this.handlers['#' + (index + 1)].getHandler()
   }
 
-  async getErrorReason(): Promise<string> {
-    const block = await this.getFromServer('eth_getBlockByNumber', 'latest', true)
-    const trace = await this.getFromServer('trace_replayTransaction', block.transactions[0].hash, ['trace'])
+  async getErrorReason(txHash?: string): Promise<string> {
+    if (!txHash)
+      txHash = (await this.getFromServer('eth_getBlockByNumber', 'latest', false)).transactions[0]
+    const trace = await this.getFromServer('trace_replayTransaction', txHash, ['trace'])
     return toUtf8(trace.output)
   }
 

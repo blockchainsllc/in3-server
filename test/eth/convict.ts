@@ -58,13 +58,6 @@ const signVote = (blockhash: string, owner: string, pk: string) => {
   const msgHash2 = ethUtil.keccak(toHex("\x19Ethereum Signed Message:\n32") + toHex(msgHash).substr(2))
   const s = ethUtil.ecsign((msgHash2), bytes32(pk))
 
-  /*
-  sig.address = util.getAddress(pk)
-  sig.msgHash = toHex(msgHash, 32)
-  sig.signature = toHex(sig.r) + toHex(sig.s).substr(2) + toHex(sig.v).substr(2)
-  return sig
-  */
-
   return {
     ...s,
     address: util.getAddress(pk),
@@ -419,19 +412,33 @@ describe('Convict', () => {
     // test for 10% of the deposit
     assert.equal(balanceVoterAfter.sub(balanceVoterBefore).toString(), '43200000000000000000000')
 
-    /*
-    await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', [test.url, 1000, 10000], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
-
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit()', [], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because deposit is still locked')
-
-
-    await test.increaseTime(3601)
-    await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit()', [], {
-      privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 5000000
-    })
+    assert.include(await test.getErrorReason(), "nothing to transfer")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit()', [], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because deposit is still locked')
-    */
+    assert.include(await test.getErrorReason(), "deposit still locked")
+
+    await test.increaseTime(10000)
+
+    await test.createAccount(accounts[0].privateKey, toBN('4320000000000000000000000'))
+
+    await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['abc0', 1000, 3600], { privateKey: accounts[0].privateKey, value: toBN('3320000000000000000000000'), confirm: true, gas: 5000000 })
+    balanceVoterBefore = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[0].privateKey), 'latest'))
+
+    await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit()', [], {
+      privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000
+    })
+    balanceVoterAfter = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[0].privateKey), 'latest'))
+    assert.equal(balanceVoterAfter.sub(balanceVoterBefore).toString(), '4276800000000000000000000')
+    assert.equal(balanceVoterAfter.sub(balanceVoterBefore).toString(), depositAmountAfter2)
+    const [usedAfter3, indexAfter3, lockedTimeAfter3, depositAmountAfter3] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(accounts[0].privateKey)])
+
+    assert.isTrue(usedAfter3)
+    assert.equal(indexAfter3.toString(), '23')
+    assert.equal(lockedTimeAfter3.toString(), 0)
+    assert.equal(depositAmountAfter3.toString(), 0)
+
+
 
   }).timeout(50000)
 
@@ -667,7 +674,11 @@ describe('Convict', () => {
     assert.equal(serverAfter.timeout.toNumber(), 3600)
     assert.equal(serverAfter.unregisterTime - Number(block.timestamp), 3600)
 
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer()', [], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false), 'Must fail, because not the owner of the server')
+    assert.include(await test.getErrorReason(), "Server is already unregistering")
+
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringServer()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because not the owner of the server')
+    assert.include(await test.getErrorReason(), "server is not unregistering")
     await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringServer()', [], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
 
     const serverAfterCancel = await test.getServerFromContract(0)
@@ -882,7 +893,8 @@ describe('Convict', () => {
     const pk2 = await test.createAccount(null, toBN('86400000000000000000000'))
 
     await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['server1', 1000, 10000], { privateKey: pk1, value: toBN('10000000000000000'), confirm: true, gas: 5000000 })
-
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['server1', 1000, 10000], { privateKey: pk1, value: toBN('10000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "not enough deposit")
     assert.equal((await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0])).toString(), '864000000000000000000')
 
     await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['server2', 1000, 10000], { privateKey: pk2, value: toBN('86400000000000000000000'), confirm: true, gas: 6000000 })
