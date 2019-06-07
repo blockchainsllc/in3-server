@@ -54,4 +54,4 @@ RUN apk add --no-cache --virtual .gyp \
 
 # setup ENTRYPOINT
 EXPOSE 8500
-ENTRYPOINT ["node", "js/server/server.js", "--experimental-worker"]
+ENTRYPOINT ["node", "js/server/server.js"]
