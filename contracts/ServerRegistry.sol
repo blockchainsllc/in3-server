@@ -120,7 +120,7 @@ contract ServerRegistry {
         require(oi.used, "sender does not own a server");
 
         In3Server storage server = servers[oi.index];
-        require(server.unregisterTime>0,"server is not unregistering");
+        require(server.unregisterTime>0, "server is not unregistering");
 
         server.unregisterTime = 0;
 
@@ -357,7 +357,7 @@ contract ServerRegistry {
        
         // gets the valid voters and the total voting time / power
         (address[] memory validSigners, uint totalVotingTime) = getValidVoters(_blockNumber,_serverOwner);
-        require(_signatures.length >= validSigners.length,"provided not enough signatures");
+        require(_signatures.length >0,"provided no signatures");
 
         In3Server memory server = servers[oi.index];
 
@@ -398,7 +398,7 @@ contract ServerRegistry {
                 }
             }
         }
-       revert("not enough signatures");
+       revert("not enough voting power");
    }
       
    

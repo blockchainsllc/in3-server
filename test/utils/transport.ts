@@ -25,7 +25,7 @@ import { sendTransaction, callContract } from '../../src/util/tx'
 import axios from 'axios'
 import { registerServers } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
-import { toBN } from 'in3/js/src/util/util';
+import { toBN, toUtf8 } from 'in3/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
 logger.setLogger('memory')
 
@@ -252,6 +252,12 @@ export class TestTransport implements Transport {
 
   getHandler(index: number): RPCHandler {
     return this.handlers['#' + (index + 1)].getHandler()
+  }
+
+  async getErrorReason(): Promise<string> {
+    const block = await this.getFromServer('eth_getBlockByNumber', 'latest', true)
+    const trace = await this.getFromServer('trace_replayTransaction', block.transactions[0].hash, ['trace'])
+    return toUtf8(trace.output)
   }
 
   static async createWithRegisteredServers(count: number) {

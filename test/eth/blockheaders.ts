@@ -57,7 +57,6 @@ describe('Blockheader contract', () => {
         const b = new Block(block)
         const serializedHeader = b.serializeHeader()
 
-
         const contractResult = await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [serializedHeader])
 
         const parentHash = "0x" + contractResult[0].toString('hex')
@@ -151,16 +150,9 @@ describe('Blockheader contract', () => {
 
         assert.equal(blockHashBefore, '0x0000000000000000000000000000000000000000000000000000000000000000')
 
-        let failed = false
-        try {
-            await tx.callContract(test.url, blockHashRegAddress, 'saveBlockNumber(uint)', [blockNumberToSave], { privateKey: user1, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
-        } catch (e) {
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'saveBlockNumber(uint)', [blockNumberToSave], { privateKey: user1, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), "must fail becaue ")
+        assert.include(await test.getErrorReason(), "block not available")
 
-            failed = true
-            assert.equal(e.message, "The Transaction failed because it returned status=0")
-        }
-
-        assert.isTrue(failed)
     })
 
 
@@ -193,7 +185,6 @@ describe('Blockheader contract', () => {
             const result = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash]))[0].toString('hex')
 
             assert.equal(result, firstBlock.hash)
-            //  console.log(result)
         }
     })
 
@@ -319,15 +310,11 @@ describe('Blockheader contract', () => {
 
         const blockHashBefore = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength]))[0].toString('hex')
 
-        let failed = false
-        try {
-            const result = await tx.callContract(test.url, blockHashRegAddress, 'recreateBlockheaders(uint,bytes[])', [blockNumber, blockheaderArray], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 8000000 })
-        } catch (e) {
-            failed = true
-            assert.equal(e.message, "The Transaction failed because it returned status=0")
-        }
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'recreateBlockheaders(uint,bytes[])', [blockNumber - 5, blockheaderArray], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 8000000 }).catch(_ => false))
+        assert.include(await test.getErrorReason(), "parentBlock is not available")
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'recreateBlockheaders(uint,bytes[])', [blockNumber, blockheaderArray], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 8000000 }).catch(_ => false))
+        assert.include(await test.getErrorReason(), "invalid headers")
 
-        assert.isTrue(failed)
         const blockHashAfter = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength]))[0].toString('hex')
 
         assert.equal(blockHashBefore, "0x0000000000000000000000000000000000000000000000000000000000000000")

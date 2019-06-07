@@ -121,18 +121,19 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false)
     assert.isFalse(rc, 'Transaction must fail, because we sent the correct hash')
-
+    assert.include(await test.getErrorReason(), "the block is too old or you try to convict with a correct hash")
     // now test if we can send a wrong blockhash, but the block is older than 256 blocks:
     // wrong blockhash signed by first node
     s = sign({ number: 1 } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
 
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [0, convictSignature], {
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [0, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
-      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-    })
+      confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+    }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "block not found")
 
     rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
@@ -141,6 +142,7 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false)
     assert.isFalse(rc, 'Transaction must fail, because the block is too old')
+    assert.include(await test.getErrorReason(), "wrong convict hash")
 
     const serverContract = await test.getServerFromContract(0)
 
@@ -152,7 +154,7 @@ describe('Convict', () => {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
-      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+      confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
     rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
@@ -163,6 +165,7 @@ describe('Convict', () => {
     }).catch(_ => false)
 
     assert.isFalse(rc, 'Transaction must fail, because block is correct')
+    assert.include(await test.getErrorReason(), "the block is too old or you try to convict with a correct hash")
 
     // wrong blockhash signed by first node
     s = sign({ number: blockNumberInSnapshot } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
@@ -180,7 +183,7 @@ describe('Convict', () => {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
-      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+      confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
     rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
@@ -189,6 +192,7 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     }).catch(_ => false)
+    assert.include(await test.getErrorReason(), "wrong convict hash")
 
     assert.isFalse(rc, 'Transaction must fail, convict signature is wrong')
 
@@ -196,14 +200,14 @@ describe('Convict', () => {
     // send the transactions to convict with the wrong hash
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    let a = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
       confirm: true
     })
 
-    let b = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
+    await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
@@ -227,11 +231,7 @@ describe('Convict', () => {
     const test = await TestTransport.createWithRegisteredServers(2)
     const watcher = test.getHandler(0).watcher
 
-    const serverContract = await test.getServerFromContract(0)
-    const unregisterDeposit = serverContract.deposit / 50
-
     const pk1 = test.getHandlerConfig(0).privateKey
-    const pk2 = test.getHandlerConfig(1).privateKey
 
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
     const client = await test.createClient()
@@ -265,7 +265,7 @@ describe('Convict', () => {
     await watcher.update()
 
     // this is a correct signature and should not fail.
-    const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
+    await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
@@ -359,13 +359,24 @@ describe('Convict', () => {
       }
     }
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), []], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because no signatures provided')
+    const nonexistingUser = await test.createAccount(null)
 
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [1, util.getAddress(test.getHandlerConfig(0).privateKey), []], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because no signatures provided')
+    assert.include(await test.getErrorReason(), "block not found")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(nonexistingUser), []], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because no signatures provided')
+    assert.include(await test.getErrorReason(), "owner does not have a server")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), []], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because no signatures provided')
+    assert.include(await test.getErrorReason(), "provided no signatures")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because not enough voting power')
+    assert.include(await test.getErrorReason(), "not enough voting power")
 
     await test.increaseTime(86400 * 31)
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig.slice(1, txSig.length)], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because not enough voting power')
+    assert.include(await test.getErrorReason(), "not enough voting power")
+
     let balanceVoterBefore = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[0].privateKey), 'latest'))
 
     const voteTx = await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 })
@@ -693,6 +704,7 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     }).catch(_ => false), 'Must fail because the owner is not allowed to confirm yet')
+    assert.include(await test.getErrorReason(), "Only confirm after the timeout allowed")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer()', [], {
       privateKey: test.getHandlerConfig(1).privateKey,
@@ -700,6 +712,7 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     }).catch(_ => false), 'Must fail because the owner did not call requestUnregister before')
+    assert.include(await test.getErrorReason(), "Cannot unregister an active server")
 
     // wait 2h 
     await test.increaseTime(7201)
@@ -828,15 +841,18 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     }).catch(_ => false), 'Must fail because the owner does not have a server yet')
-
+    assert.include(await test.getErrorReason(), "sender does not own a server")
 
     const richUser = await test.createAccount(null, toBN("100000000000000000000"))
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['abc', 1000, 10000], { privateKey: richUser, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail because the owner does not have a server yet')
+    assert.include(await test.getErrorReason(), "Limit of 50 ETH reached")
 
     await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['abc', 1000, 10000], { privateKey: richUser, value: toBN('5000000000000000000'), confirm: true, gas: 5000000 })
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateServer(string,uint,uint64)', ['abc', 0xffff, 16400], { privateKey: richUser, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail because the owner does not have a server yet')
+    assert.include(await test.getErrorReason(), "Limit of 50 ETH reached")
+
     await tx.callContract(test.url, test.nodeList.contract, 'updateServer(string,uint,uint64)', ['abc', 0xffff, 16400], { privateKey: richUser, value: toBN('5000000000000000000'), confirm: true, gas: 5000000 })
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateServer(string,uint,uint64)', ["test3.com", 0xffff, 16400], {
@@ -845,6 +861,8 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     }).catch(_ => false), 'Must fail because the url is already taken')
+    assert.include(await test.getErrorReason(), "url is already in use")
+
   })
 
   it('calculate min deposit', async () => {
