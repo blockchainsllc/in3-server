@@ -271,28 +271,24 @@ contract ServerRegistry {
         
         emit LogServerConvicted(_owner);
 
-        uint deposit;
+        uint deposit = servers[oi.index].owner == _owner ? servers[oi.index].deposit : oi.depositAmount;
         // the owner has still an in3-server
         if(servers[oi.index].owner == _owner){
-            deposit = servers[oi.index].deposit;
             removeServer(oi.index);
         }
         else {
-            deposit = oi.depositAmount;
             oi.depositAmount = 0;
             oi.lockedTime = 0;
         }
 
         // remove the deposit
-        if (deposit > 0) {
-            uint payout = deposit / 2;
-            // send 50% to the caller of this function
-            msg.sender.transfer(payout);
-            // and burn the rest by sending it to the 0x0-address
-            // this is done in order to make it useless trying to convict your own server with a second account
-            // and this getting all the deposit back after signing a wrong hash.
-            address(0).transfer(deposit-payout);
-        }
+        uint payout = deposit / 2;
+        // send 50% to the caller of this function
+        msg.sender.transfer(payout);
+        // and burn the rest by sending it to the 0x0-address
+        // this is done in order to make it useless trying to convict your own server with a second account
+        // and this getting all the deposit back after signing a wrong hash.
+        address(0).transfer(deposit-payout);
         /// for some reason currently deleting the ci storage would cost more gas, so we comment this out for now
         //delete ci.convictHash;
         //delete ci.blockHash;        
@@ -358,7 +354,7 @@ contract ServerRegistry {
        
         // gets the valid voters and the total voting time / power
         (address[] memory validSigners, uint totalVotingTime) = getValidVoters(_blockNumber,_serverOwner);
-        require(_signatures.length >0,"provided no signatures");
+        require(_signatures.length > 0,"provided no signatures");
 
         In3Server memory server = servers[oi.index];
 
@@ -381,17 +377,22 @@ contract ServerRegistry {
 
                     // if we have more then 50% of the total voting time and have at least as much voting power as the server to be kicked
                     if(votedTime > totalVotingTime/2 && votedTime > activeTime){
-                        
-                        uint transferAmount = server.deposit / 100 < 10 finney ? 10 finney : server.deposit / 100;
+                                                
+                        // sending back the transfer-costs, capping at 1% of the deposit
+                        uint transferAmount = 590000 * tx.gasprice > server.deposit/100 ? server.deposit/100 : 590000 * tx.gasprice;
+                        msg.sender.transfer(transferAmount);
+
+                        // burning the rest of 1%
+                        uint burnAmount = server.deposit/100 > transferAmount ? server.deposit/100 - transferAmount : 0; 
+                        address(0).transfer(burnAmount);
 
                         // we update the owner information
                         oi.lockedTime = now + server.timeout;
-                        oi.depositAmount = server.deposit-transferAmount;
+                        oi.depositAmount = server.deposit - burnAmount - transferAmount;
                         oi.used = false;
 
                         // removing the server
                         removeServer(oi.index);
-                        msg.sender.transfer(transferAmount);
 
                         return;
                     }
