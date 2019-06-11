@@ -1,4 +1,5 @@
 import { Worker } from 'worker_threads'
+const fs = require('fs').promises;
 
 let workers = []
 let firstTime = true
@@ -42,7 +43,7 @@ class ThreadPool {
         if (this.hasWorkers()) {
             return await workers.shift()
         } else {
-            workers.push({ "worker": new Worker('./merkle.js'), "lastInteraction": Date.now() })
+            workers.push({ "worker": new Worker(process.cwd() + '/js/src/modules/eth/merkle.js'), "lastInteraction": Date.now() })
             return await workers.shift()
         }
     }
