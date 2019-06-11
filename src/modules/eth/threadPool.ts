@@ -42,7 +42,7 @@ class ThreadPool {
         if (this.hasWorkers()) {
             return await workers.shift()
         } else {
-            workers.push({ "worker": new Worker(process.cwd() + './merkle.js'), "lastInteraction": Date.now() })
+            workers.push({ "worker": new Worker('./merkle.js'), "lastInteraction": Date.now() })
             return await workers.shift()
         }
     }
