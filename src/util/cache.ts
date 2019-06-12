@@ -37,15 +37,15 @@ export class SimpleCache {
   }
 
   //put Trie
-  putTrie(key: string, trie: Trie){
+  putTrie(key: string, trie: Trie) {
     this.trieData.set(key, trie)
   }
 
   //get Trie
-  getTrie(key: string): Trie{
+  getTrie(key: string): Trie {
     //delete and re insert to maintain a LRU cache
     let readTrie: Trie
-    if(this.trieData.has(key)){
+    if (this.trieData.has(key)) {
       readTrie = this.trieData.get(key)
       this.trieData.delete(key)
       this.trieData.set(key, readTrie)
@@ -60,8 +60,8 @@ export class SimpleCache {
     this.data.clear()
 
     const trieMapSize = this.trieData.size
-    if(trieMapSize > 511) {
-      for(let i = 512; i < trieMapSize; i++){
+    if (trieMapSize > 511) {
+      for (let i = 512; i < trieMapSize; i++) {
         this.trieData.delete(this.trieData.keys().next().value)
       }
     }
@@ -112,51 +112,55 @@ function getKey(request: RPCRequest) {
 
 
 // LRU Cache
-export class LRUCache{
+export class LRUCache {
   entryLimit: number;
   container: Map<string, any>
-  keys:string[]
+  keys: string[]
 
-  constructor(limit:number = 500){
-      this.entryLimit = limit
-      this.container = new Map<string, any>()
-      this.keys = []
+  constructor(limit: number = 500) {
+    this.entryLimit = limit
+    this.clear()
   }
 
-  has(key:string):boolean{
-      return this.container.has(key)
+  has(key: string): boolean {
+    return this.container.has(key)
   }
 
-  get(key:string):any{
-      if (!this.container.has(key))
-          return null
+  get(key: string): any {
+    if (!this.container.has(key))
+      return null
 
-      const keyIndex = this.keys.indexOf(key)   
-      if(keyIndex > 0){
-          // move recent use at first element
-          this.keys.splice(keyIndex, 1)
-          this.keys.unshift(key)
+    const keyIndex = this.keys.indexOf(key)
+    if (keyIndex > 0) {
+      // move recent use at first element
+      this.keys.splice(keyIndex, 1)
+      this.keys.unshift(key)
+    }
+
+    return { ...this.container.get(key) }
+  }
+
+  set(key: string, value: any) {
+    if (!this.container.has(key)) {
+      // remove least use entry
+      if (this.keys.length == this.entryLimit) {
+        this.container.delete(this.keys[this.keys.length - 1])
+        this.keys.splice(this.keys.length - 1, 1)
       }
 
-      return this.container.get(key);
+      // add new entry at first
+      this.keys.unshift(key)
+      this.container.set(key, value)
+    }
   }
 
-  set(key:string, value:any){
-      if (!this.container.has(key)){
-          // remove least use entry
-          if(this.keys.length == this.entryLimit){
-              this.container.delete(this.keys[this.keys.length-1])
-              this.keys.splice(this.keys.length-1, 1)
-          }
-
-          // add new entry at first
-          this.keys.unshift(key)
-          this.container.set(key, value)
-      }
+  toString() {
+    return `limit entries: ${this.entryLimit}\nsize: ${this.container.size}\nentries:\n${this.keys.reduce((t, c) => `${t}` + `${c} = ${JSON.stringify(this.container.get(c))}\n`, '')}`
   }
 
-  toString(){
-    return `limit entries: ${this.entryLimit}\nsize: ${this.container.size}\nentries:\n${this.keys.reduce((t,c)=> `${t}` + `${c} = ${JSON.stringify(this.container.get(c))}\n`, '')}`
+  clear() {
+    this.keys = []
+    this.container = new Map<string, any>()
   }
 
 }

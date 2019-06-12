@@ -30,7 +30,7 @@ const bytes32 = serialize.bytes32
 const address = serialize.address
 const bytes = serialize.bytes
 
-const signatureCaches: LRUCache = new LRUCache();
+export const signatureCaches: LRUCache = new LRUCache();
 
 export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
   // nothing to do?
@@ -43,20 +43,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       .then(_ => _.result && _.result.hash), 32)
   }))).then(allBlocks => !verifiedHashes ? allBlocks : allBlocks.filter(_ => verifiedHashes.indexOf(_.hash) < 0))
 
-  
+
   if (!blocks.length) return []
-
-  // get cache signatures and remaining blocks that have no signatures
-  const cacheSignatures:Signature[] = [];
-  const blocksWithOutSignature: any = []; 
-  for(let a=0, b=blocks.length; a<b; a++){
-    if(signatureCaches.has(blocks[a].hash))
-      cacheSignatures.push(signatureCaches.get(blocks[a].hash))
-    else
-      blocksWithOutSignature.push(blocks[a])
-  }
-  blocks = blocksWithOutSignature
-
 
   // get our own nodeList
   const nodes = await handler.getNodeList(false)
@@ -67,13 +55,20 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       throw new Error('The requested signature ' + adr + ' does not exist within the current nodeList!')
 
 
+    // get cache signatures and remaining blocks that have no signatures
+    const cachedSignatures: Signature[] = []
+    const blocksToRequest = blocks.filter(b => {
+      const s = signatureCaches.get(b.hash) && false
+      return s ? cachedSignatures.push(s) * 0 : true
+    })
+
     // send the sign-request
-    const response = await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: [...blocks] }) as RPCResponse
+    const response = (blocksToRequest.length ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest }) : { result: [] }) as RPCResponse
     if (response.error)
       throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
 
-    const signatures = response.result as Signature[]
-    
+    const signatures = [...cachedSignatures, ...response.result] as Signature[]
+
     // if there are signature, we only return the valid ones
     if (signatures && signatures.length)
       return Promise.all(signatures.map(async s => {
@@ -100,10 +95,10 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
 
         // is the blockhash correct all is fine
-        if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash))){
+        if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash))) {
           // add signature entry in cache
-          if (!signatureCaches.has(s.blockHash))
-            signatureCaches.set(s.blockHash, s)
+          if (!signatureCaches.has(expectedBlock.hash))
+            signatureCaches.set(expectedBlock.hash, { ...s })
 
           return s
         }
@@ -120,11 +115,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       }))
 
     return signatures
-  })
-  .map(a=>a.catch(e => e))).
-  then(a => a.filter(_ => _ && !(_ instanceof Error)) //remove throw and null
-  .reduce((p, c) => [...p, ...c], []))
-  .then(b => [...b, ...cacheSignatures]) // merge all signatures including cache signature
+  })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c], []))
+
 }
 
 export function sign(pk: string, blocks: { blockNumber: number, hash: string }[]): Signature[] {
