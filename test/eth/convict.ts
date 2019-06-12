@@ -26,6 +26,7 @@ import * as ethUtil from 'ethereumjs-util'
 import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
 import Watcher from '../../src/chains/watch'
 import { registerServers } from '../../src/util/registry'
+import { signatureCaches } from '../../src/chains/signatures'
 
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
@@ -146,7 +147,7 @@ describe('Convict', () => {
     assert.isDefined(res.in3.proof.signatures[0])
     test.injectRandom([0.01, 0.9])
     test.injectRandom([0.02, 0.8])
-
+    signatureCaches.clear()
     let manipulated = false
     test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
       const index = parseInt(url.substr(1)) - 1
