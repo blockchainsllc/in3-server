@@ -714,7 +714,7 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     }).catch(_ => false), 'Must fail because the owner is not allowed to confirm yet')
-    assert.include(await test.getErrorReason(), "Only confirm after the timeout allowed")
+    assert.include(await test.getErrorReason(), "only confirm after the timeout allowed")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringServer()', [], {
       privateKey: test.getHandlerConfig(1).privateKey,
@@ -722,7 +722,7 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     }).catch(_ => false), 'Must fail because the owner did not call requestUnregister before')
-    assert.include(await test.getErrorReason(), "Cannot unregister an active server")
+    assert.include(await test.getErrorReason(), "cannot unregister an active server")
 
     // wait 2h 
     await test.increaseTime(7201)
