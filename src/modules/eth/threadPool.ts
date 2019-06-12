@@ -44,6 +44,7 @@ class ThreadPool {
             return await workers.shift()
         } else {
             const filepath = process.env.SRC_PATH || './js/src'
+            console.log(filepath + '/modules/eth/merkle.js')
             workers.push({ "worker": new Worker(filepath + '/modules/eth/merkle.js'), "lastInteraction": Date.now() })
             return await workers.shift()
         }
