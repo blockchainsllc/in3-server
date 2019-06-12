@@ -26,7 +26,7 @@ ARG NPM_REGISTRY_TOKEN
 ARG CI_COMMIT_SHA
 
 ENV VERSION_SHA=$CI_COMMIT_SHA
-ENV SRC_PATH='./js'
+ENV IN3_SRC_PATH='./js'
 
 COPY tsconfig.json  ./
 COPY src  ./src/
@@ -35,23 +35,23 @@ COPY package.json ./
 
 # temporarily install dependencies for building packages
 RUN apk add --no-cache --virtual .gyp \
-        python \
-        make \
-        g++ \
+    python \
+    make \
+    g++ \
 
-        # allowing docker to access the private repo
-        && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
-        && npm set registry https://npm.slock.it \
-        && npm install \
+    # allowing docker to access the private repo
+    && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
+    && npm set registry https://npm.slock.it \
+    && npm install \
 
-        # compile src
-        && npm run build \
+    # compile src
+    && npm run build \
 
-        # clean up
-        # pruning does not work with git-modules, so we can use it when the repo is public
-        && apk del .gyp \
-        && npm prune --production \
-        && rm -rf src tsconfig.json ~/.npmrc
+    # clean up
+    # pruning does not work with git-modules, so we can use it when the repo is public
+    && apk del .gyp \
+    && npm prune --production \
+    && rm -rf src tsconfig.json ~/.npmrc
 
 # setup ENTRYPOINT
 EXPOSE 8500
