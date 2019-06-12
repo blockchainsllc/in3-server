@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-pragma solidity ^0.5.7;
+pragma solidity ^0.5.9;
 pragma experimental ABIEncoderV2;
 
 import "./BlockhashRegistry.sol";
@@ -60,9 +60,11 @@ contract ServerRegistry {
     /// add your additional storage here. If you add information before this line you will break in3 nodelist
 
     BlockhashRegistry public blockRegistry;
+    
     /// version: major minor fork(000) date(yyyy/mm/dd)
     uint constant public version = 12300020190328;
 
+    /// the timestamp of the deployment
     uint public blockDeployment;
 
     /// mapping for information of the owner
@@ -74,43 +76,32 @@ contract ServerRegistry {
 
     /// information of a (future) convict (used to prevent frontrunning)
     struct ConvictInformation {
-        bytes32 convictHash; /// keccak256(blockhash, msg.sender)
-        bytes32 blockHash;  /// blockhash of the block to be convicted
+        bytes32 convictHash;    /// keccak256(wrong blockhash, msg.sender, v, r, s)
+        bytes32 blockHash;      /// blockhash of the block to be convicted
     }
 
     /// information of a in3-server owner 
     struct OwnerInformation {
-        bool used; /// flag whether account is currently owner of a server
-        uint128 index; /// current index-position of the server in the servers-array
-        uint lockedTime; /// time for the deposit to be locked, used only after vote-kick 
-        uint depositAmount; /// amount of deposit to be locked, used only after vote-kick
+        bool used;              /// flag whether account is currently owner of a server
+        uint128 index;          /// current index-position of the server in the servers-array
+        uint lockedTime;        /// time for the deposit to be locked, used only after vote-kick 
+        uint depositAmount;     /// amount of deposit to be locked, used only after vote-kick
     }
 
     /// information of an url
     struct UrlInformation {
-        bool used; /// flag whether the url is currently used
-        address owner; /// address of the owner of the url
+        bool used;              /// flag whether the url is currently used
+        address owner;          /// address of the owner of the url
     }
-
-    /// owner of the in3-contracts (only needed in the first 2 years)
-    address public owner;
      
     /// mapping for convicts: blockhash => address => convictInformation
     mapping (uint => mapping(address => ConvictInformation)) convictMapping;
-
-
-    /// modifier only active in the 1st 2 years
-    modifier onlyBeginning(){
-        require(block.timestamp < (blockDeployment + 2*86400*365));
-        _;
-    }
 
     /// constructor
     /// @param _blockRegistry address of a BlockhashRegistry
     constructor(address _blockRegistry) public {
         blockRegistry = BlockhashRegistry(_blockRegistry);
         blockDeployment = block.timestamp;
-        owner = msg.sender;
     }
 
     /// this function must be called by the owner to cancel the unregister-process.
@@ -138,14 +129,11 @@ contract ServerRegistry {
 
         In3Server storage server = servers[oi.index];
 
-        require(server.unregisterTime != 0, "Cannot unregister an active server");
-        require(server.unregisterTime < now, "Only confirm after the timeout allowed");
+        require(server.unregisterTime != 0, "cannot unregister an active server");
+        require(server.unregisterTime < now, "only confirm after the timeout allowed");
 
-        uint payBackOwner = server.deposit;
-  
-        if (payBackOwner > 0)
-            server.owner.transfer(payBackOwner);
-       
+        msg.sender.transfer(server.deposit);
+
         oi.used = false;
         removeServer(oi.index);
     }
@@ -153,7 +141,7 @@ contract ServerRegistry {
     /// commits a blocknumber and a hash
     /// must be called before revealConvict
     /// @param _blockNumber the blocknumber of the wrong blockhash
-    /// @param _hash  keccak256(wrong blockhash, msg.sender), used to prevent frontrunning
+    /// @param _hash keccak256(wrong blockhash, msg.sender, v, r, s), used to prevent frontrunning
     function convict(uint _blockNumber, bytes32 _hash) external {
         bytes32 evm_blockhash = blockhash(_blockNumber);
 
@@ -178,10 +166,10 @@ contract ServerRegistry {
     /// @param _timeout timespan of how long the server of a deposit will be locked. Will be at least for 1h
     function registerServer(string calldata _url, uint _props, uint64 _timeout) external payable {
 
-        // we lock 0.01 ether (as possible transaction costs for vote kicking)
+        // enforcing a minimum deposit
         require(msg.value >= calculateMinDeposit(msg.value), "not enough deposit");
 
-        if(block.timestamp < (blockDeployment + 86400*365)){
+        if(block.timestamp < (blockDeployment + 52 weeks)){
            require(msg.value < 50 ether, "Limit of 50 ETH reached");
         }
 
@@ -223,9 +211,7 @@ contract ServerRegistry {
 
         In3Server storage server = servers[oi.index];
 
-        // this can only be called if nobody requested it before
-        require(server.unregisterTime == 0, "Server is already unregistering");
-       
+        require(server.unregisterTime == 0, "Server is already unregistering");       
         server.unregisterTime = uint128(now + server.timeout);
 
         emit LogServerUnregisterRequested(server.url, server.owner, msg.sender);
@@ -295,7 +281,8 @@ contract ServerRegistry {
     }
 
     /// updates a Server by adding the msg.value to the deposit and setting the props or timeout
-    /// @param _props the new properties
+    /// @param _url the url, will be changed if different from the current one
+    /// @param _props the new properties, will be changed if different from the current onec
     /// @param _timeout the new timeout of the server, cannot be decreased
     function updateServer(string calldata _url, uint _props, uint64 _timeout) external payable {
        
@@ -322,9 +309,9 @@ contract ServerRegistry {
         }
 
         if (msg.value>0) {
-          server.deposit += msg.value;
+            server.deposit += msg.value;
         
-            if (now < (blockDeployment + 1*86400*365))
+            if (now < (blockDeployment + 52 weeks))
                 require( server.deposit < 50 ether, "Limit of 50 ETH reached");
         }
 
@@ -333,8 +320,6 @@ contract ServerRegistry {
 
         if(_timeout > server.timeout)
             server.timeout = _timeout;
-
-   
 
         emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
     }
@@ -359,7 +344,7 @@ contract ServerRegistry {
         In3Server memory server = servers[oi.index];
 
         // capping the active time at 2 years at most
-        uint activeTime = (now - server.registerTime) > 365*86400*2 ? 365*86400*2 : (now - server.registerTime); 
+        uint activeTime = (now - server.registerTime) > 52 weeks *2 ? 52 weeks * 2 : (now - server.registerTime); 
         
         uint votedTime = 0;
 
@@ -373,7 +358,7 @@ contract ServerRegistry {
 
                 if(signedAddress == validSigners[j]){
 
-                    votedTime += (now - servers[ownerIndex[signedAddress].index].registerTime) > 365*86400 ? 365*86400 : (now - servers[ownerIndex[signedAddress].index].registerTime);
+                    votedTime += (now - servers[ownerIndex[signedAddress].index].registerTime) > 52 weeks ? 52 weeks : (now - servers[ownerIndex[signedAddress].index].registerTime);
 
                     // if we have more then 50% of the total voting time and have at least as much voting power as the server to be kicked
                     if(votedTime > totalVotingTime/2 && votedTime > activeTime){
@@ -403,8 +388,6 @@ contract ServerRegistry {
        revert("not enough voting power");
    }
       
-   
-
     /// length of the serverlist
     function totalServers() external view returns (uint)  {
         return servers.length;
@@ -442,18 +425,20 @@ contract ServerRegistry {
                 validVoters[uniqueSignatures] = servers[position].owner;
                 uniqueSignatures++;
                 // capping the voting-power at 1 year
-                totalVoteTime += (block.timestamp - servers[position].registerTime) > 365*86400 ? 365*86400 : (block.timestamp - servers[position].registerTime);
+                totalVoteTime += (block.timestamp - servers[position].registerTime) > 52 weeks ? 52 weeks : (block.timestamp - servers[position].registerTime);
             }
             i++;
         }
         return (validVoters, totalVoteTime);
     }
 
-    // calculated the minumum deposit for registering 
+    /// calculated the minumum deposit for registering 
+    /// @param _value the value of ether send to it with a transaction, for calls it's adviced to use 0
+    /// @return returns the current minumum deposit for registering a new in3-server
     function calculateMinDeposit(uint _value) public view returns (uint) {
 
         // for the first 2 weeks we do not enable spam protection
-        if(block.timestamp < (blockDeployment + 86400*14) || servers.length == 0) return 10 finney;
+        if(block.timestamp < (blockDeployment + 2 weeks) || servers.length == 0) return 10 finney;
 
         // we cap the averageDeposit at 50 ether
         uint averageDeposit = (address(this).balance - _value)/ servers.length;
@@ -505,6 +490,7 @@ contract ServerRegistry {
     }
 
     /// removes a server from the server-array
+    /// @param _serverIndex the serverIndex to be removed
     function removeServer(uint _serverIndex) internal {
         // trigger event
         emit LogServerRemoved(servers[_serverIndex].url, servers[_serverIndex].owner);
