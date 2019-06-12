@@ -25,10 +25,10 @@ class ThreadPool {
                 thread.lastInteraction = Date.now()
                 worker.on('message', resolve)
                 worker.on('error', reject)
-                worker.on('exit', (code) => {
+                worker.on('exit', code => {
                     if (code !== 0)
-                        reject(new Error(`Worker stopped with exit code ${code}`));
-                });
+                        reject(new Error(`Worker stopped with exit code ${code}`))
+                })
             })
         } catch (error) {
             throw new Error(error)
@@ -49,7 +49,7 @@ class ThreadPool {
     }
 
     private hasWorkers() {
-        return workers.length > 0;
+        return workers.length > 0
     }
 
     private clearThread() {
@@ -69,4 +69,4 @@ class ThreadPool {
     }
 }
 
-module.exports = ThreadPool;
+module.exports = ThreadPool
