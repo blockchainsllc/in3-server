@@ -1,5 +1,4 @@
 import { Worker } from 'worker_threads'
-const fs = require('fs').promises;
 
 let workers = []
 let firstTime = true
