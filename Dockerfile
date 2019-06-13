@@ -25,23 +25,19 @@ ARG NPM_REGISTRY_TOKEN
 ARG CI_COMMIT_SHA
 
 ENV VERSION_SHA=$CI_COMMIT_SHA
-ENV IN3_SRC_PATH='./js'
+#ENV IN3_SRC_PATH='./js'
 
-COPY tsconfig.json  ./
-COPY src  ./src/
-COPY contracts  ./contracts/
-COPY package.json ./
-COPY package-lock.json ./
-
+#COPY tsconfig.json  ./
+#COPY src  ./src/
+#COPY contracts  ./contracts/
+#COPY package.json ./
+#COPY package-lock.json ./
+ADD . .
 # temporarily install dependencies for building packages
 RUN apt-get update && apt-get install -y build-essential python g++ cmake && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
     && npm set registry https://npm.slock.it \
     && npm install \
-    && npm install \
-    && npm run build \
-    && npm prune --production \
-    && rm -rf src tsconfig.json ~/.npmrc
-
+    && npm run build
 # setup ENTRYPOINT
 EXPOSE 8500
-ENTRYPOINT ["node", "js/server/server.js"]
+ENTRYPOINT ["node", "js/src/server/server.js"]
