@@ -45,10 +45,12 @@ class ThreadPool {
 
     private async getMerkleProofWorker() {
         if (this.hasWorkers()) {
+            console.log("Re-used worker.");
             return await workers.shift()
         } else {
             const filepath = process.env.IN3_SRC_PATH || './js/src'
             workers.push({ "worker": new Worker(filepath + '/modules/eth/merkle.js'), "lastInteraction": Date.now() })
+            console.log("Added new worker. Total workers = " + workers.length);
             return await workers.shift()
         }
     }
@@ -66,6 +68,7 @@ class ThreadPool {
                             workers.splice(workers.indexOf(thread), 1)
                             thread.worker.unref()
                             thread.worker.terminate()
+                            console.log("Temrinated worker. Total workers = " + workers.length);
                         }
                     }
                 })
