@@ -16,7 +16,6 @@ class ThreadPool {
 
         let thread = await this.getMerkleProofWorker()
         let worker = thread.worker
-        worker.setMaxListeners(0)
 
         try {
             return await new Promise<Buffer[]>(async (resolve, reject) => {
@@ -33,6 +32,9 @@ class ThreadPool {
         } catch (error) {
             throw new Error(error)
         } finally {
+            worker.removeAllListeners('message')
+            worker.removeAllListeners('error')
+            worker.removeAllListeners('exit')
             workers.unshift(thread)
         }
 
