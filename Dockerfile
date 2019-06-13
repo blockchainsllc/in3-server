@@ -33,9 +33,12 @@ COPY contracts  ./contracts/
 COPY package.json ./
 
 # temporarily install dependencies for building packages
-RUN
+RUN apk add --no-cache --virtual .gyp \
+    python \
+
+
     # allowing docker to access the private repo
-    echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
+    && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
     && npm set registry https://npm.slock.it \
     && npm install \
 
