@@ -18,6 +18,7 @@ class ThreadPool {
         let worker = thread.worker
 
         try {
+            console.log("New worker created, listener too")
             return await new Promise<Buffer[]>(async (resolve, reject) => {
                 let params = { values, key, expectedRoot }
                 worker.postMessage(params)
@@ -32,6 +33,8 @@ class ThreadPool {
         } catch (error) {
             throw new Error(error)
         } finally {
+            console.log("Worker listener removed")
+
             worker.removeAllListeners('message')
             worker.removeAllListeners('error')
             worker.removeAllListeners('exit')
