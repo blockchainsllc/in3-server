@@ -50,7 +50,7 @@ class ThreadPool {
         } else {
             const filepath = process.env.IN3_SRC_PATH || './js/src'
             workers.push({ "worker": new Worker(filepath + '/modules/eth/merkle.js'), "lastInteraction": Date.now() })
-            console.log("Added new worker. Total workers = " + workers.length);
+            console.log("Added new worker.");
             return await workers.shift()
         }
     }

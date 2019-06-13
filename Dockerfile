@@ -17,7 +17,7 @@
 # For questions, please contact info@slock.it              *
 #**********************************************************/
 
-FROM node:11
+FROM node:12
 
 WORKDIR /app
 

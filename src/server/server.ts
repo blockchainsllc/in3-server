@@ -18,7 +18,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-var njstrace = require('njstrace').inject();
+//var njstrace = require('njstrace').inject();
 
 // tslint:disable-next-line:missing-jsdoc
 import * as Koa from 'koa'
