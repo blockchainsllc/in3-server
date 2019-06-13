@@ -17,7 +17,7 @@
 # For questions, please contact info@slock.it              *
 #**********************************************************/
 
-
+FROM node:11
 
 WORKDIR /app
 
@@ -31,23 +31,14 @@ COPY tsconfig.json  ./
 COPY src  ./src/
 COPY contracts  ./contracts/
 COPY package.json ./
+COPY package-lock.json ./
 
 # temporarily install dependencies for building packages
-RUN apk add --no-cache --virtual .gyp \
-    python \
-
-
-    # allowing docker to access the private repo
-    && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
+RUN apt-get update && apt-get install -y build-essential python g++ cmake && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
     && npm set registry https://npm.slock.it \
     && npm install \
-
-    # compile src
+    && npm install \
     && npm run build \
-
-    # clean up
-    # pruning does not work with git-modules, so we can use it when the repo is public
-    && apk del .gyp \
     && npm prune --production \
     && rm -rf src tsconfig.json ~/.npmrc
 
