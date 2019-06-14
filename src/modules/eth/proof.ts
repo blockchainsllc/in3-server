@@ -172,34 +172,49 @@ export async function createMerkleProof(values: { key: Buffer, value: Buffer }[]
   let trie = (handler.cache && expectedRoot) ? handler.cache.getTrie(toMinHex(expectedRoot)) : undefined
 
   if (!trie) {
-    try {
-      const threadPool = new ThreadPool()
-      const merkleProof = threadPool.getMerkleProof(values, key, expectedRoot)
 
-      return await merkleProof.then(data => {
-        let proof = new Array
-        data.forEach(element => {
-          let buffer = Buffer.alloc(element.length)
-          let view = new Uint8Array(element)
-          for (let i = 0; i < buffer.length; i++) {
-            buffer[i] = view[i]
-          }
-          proof.push(buffer)
-        });
-        return proof
-      })
+    if (handler.config.maxThreads) {
+      try {
+        const threadPool = new ThreadPool()
+        const merkleProof = threadPool.getMerkleProof(values, key, expectedRoot)
 
-    } catch (error) {
-      throw new Error(error)
+        return await merkleProof.then(data => {
+          let proof = new Array
+          data.forEach(element => {
+            let buffer = Buffer.alloc(element.length)
+            let view = new Uint8Array(element)
+            for (let i = 0; i < buffer.length; i++) {
+              buffer[i] = view[i]
+            }
+            proof.push(buffer)
+          });
+          return proof
+        })
+
+      } catch (error) {
+        throw new Error(error)
+      }
     }
-  } else {
-    return new Promise<Buffer[]>((resolve, reject) =>
-      Trie.prove(trie, key, (err, prove) => {
-        if (err) return reject(err)
-        resolve(prove as Buffer[])
-      })
-    )
+    else {
+      trie = new Trie()
+      await Promise.all(values.map(val => new Promise((resolve, reject) =>
+        trie.put(Buffer.from(val.key), Buffer.from(val.value), error => error ? reject(error) : resolve(true))
+      )))
+
+      if (expectedRoot && !expectedRoot.equals(trie.root))
+        throw new Error('The rootHash is wrong! : ' + toHex(expectedRoot) + '!==' + toHex(trie.root))
+
+      if (handler.cache)
+        handler.cache.putTrie(toMinHex(expectedRoot), trie)
+    }
   }
+
+  return new Promise<Buffer[]>((resolve, reject) =>
+    Trie.prove(trie, key, (err, prove) => {
+      if (err) return reject(err)
+      resolve(prove as Buffer[])
+    })
+  )
 
 }
 
