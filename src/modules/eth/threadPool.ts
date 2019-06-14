@@ -19,19 +19,21 @@ class ThreadPool {
 
         let thread = await this.getMerkleProofWorker()
         let worker = thread.worker
+        // worker.setMaxListeners(0)
 
         try {
             console.log("New worker created, listener too")
+
             return await new Promise<Buffer[]>(async (resolve, reject) => {
                 let params = { values, key, expectedRoot }
                 worker.postMessage(params)
                 thread.lastInteraction = Date.now()
                 worker.on('message', resolve)
                 worker.on('error', reject)
-                worker.on('exit', code => {
+                worker.on('exit', (code) => {
                     if (code !== 0)
-                        reject(new Error(`Worker stopped with exit code ${code}`))
-                })
+                        reject(new Error(`Worker stopped with exit code ${code}`));
+                });
             })
         } catch (error) {
             throw new Error(error)
@@ -91,7 +93,7 @@ class ThreadPool {
     }
 
     private hasWorkers() {
-        return workers.length > 0
+        return workers.length > 0;
     }
 
     private clearThread() {
@@ -103,7 +105,6 @@ class ThreadPool {
                             workers.splice(workers.indexOf(thread), 1)
                             thread.worker.unref()
                             thread.worker.terminate()
-
                             openThreads--
                             console.log("Thread was deleted")
                         }
@@ -114,4 +115,4 @@ class ThreadPool {
     }
 }
 
-module.exports = ThreadPool
+module.exports = ThreadPool;
