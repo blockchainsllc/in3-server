@@ -1,7 +1,9 @@
 import { Worker } from 'worker_threads'
+import { cpus } from 'os';
 
 let workers = []
 let firstTime = true
+let openThreads = 0
 
 class ThreadPool {
 
@@ -9,6 +11,7 @@ class ThreadPool {
         if (firstTime) {
             this.clearThread()
             firstTime = false
+            console.log("First time thread created")
         }
     }
 
@@ -33,8 +36,7 @@ class ThreadPool {
         } catch (error) {
             throw new Error(error)
         } finally {
-            console.log("Worker listener removed")
-
+            console.log("Worker removed, listener too")
             worker.removeAllListeners('message')
             worker.removeAllListeners('error')
             worker.removeAllListeners('exit')
@@ -44,14 +46,47 @@ class ThreadPool {
     }
 
     private async getMerkleProofWorker() {
+        console.log("Number of free threads: " + workers.length)
+        console.log("Total number of open threads: " + openThreads)
         if (this.hasWorkers()) {
-            console.log("Re-used worker.");
+            console.log("Used a free thread")
             return await workers.shift()
         } else {
-            const filepath = process.env.IN3_SRC_PATH || './js/src'
-            workers.push({ "worker": new Worker(filepath + '/modules/eth/merkle.js'), "lastInteraction": Date.now() })
-            console.log("Added new worker.");
-            return await workers.shift()
+            console.log(openThreads + "*************" + cpus().length)
+
+            if (openThreads < cpus().length - 1) {
+                console.log("No free threads, Allowed to open a new one")
+                const filepath = process.env.SRC_PATH || './js/src'
+                workers.push({"worker": new Worker(filepath + '/modules/eth/merkle.js'), "lastInteraction": Date.now()})
+                openThreads++
+                return await workers.shift()
+            } else {
+                console.log("CPU thread limit hit")
+                await this.waitForThreads()
+                console.log("thread was freed, assigned to new process")
+
+                return await workers.shift()
+            }
+
+        }
+    }
+    private async waitForThreads() {
+        let checkThreads;
+        try {
+            console.log("Waiting for thread")
+
+            checkThreads = new Promise(async (resolve) => {
+                setInterval(async function () {
+                    if (workers.length > 0) {
+                        await clearInterval(checkThreads)
+                        // console.log("Thread freed, assigned to new process")
+                        resolve
+                    }
+                }, 200)
+            })
+            return await checkThreads
+        } catch (error) {
+            throw new Error(error)
         }
     }
 
@@ -68,12 +103,14 @@ class ThreadPool {
                             workers.splice(workers.indexOf(thread), 1)
                             thread.worker.unref()
                             thread.worker.terminate()
-                            console.log("Temrinated worker. Total workers = " + workers.length);
+
+                            openThreads--
+                            console.log("Thread was deleted")
                         }
                     }
                 })
             }
-        }, 60000)
+        }, 30000)
     }
 }
 
