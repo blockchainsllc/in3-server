@@ -1,5 +1,5 @@
 import { Worker } from 'worker_threads'
-import { cpus } from 'os';
+import { cpus } from 'os'
 
 let workers = []
 let firstTime = true
