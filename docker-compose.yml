@@ -169,7 +169,7 @@ services:
       
 
   incubed-tobalaba-3:
-    image: docker.slock.it/in3/ts/in3-server:60-threading-creation-of-the-merkle-proof-without-cache
+    image: docker.slock.it/in3/ts/in3-server:develop
     stdin_open: true
     tty: true
     command:
