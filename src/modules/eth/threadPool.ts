@@ -1,10 +1,11 @@
 import { Worker } from 'worker_threads'
+import { cpus } from 'os'
 
 let workers = []
 let firstTime = true
+let openThreads = 0
 
 class ThreadPool {
-
     constructor() {
         if (firstTime) {
             this.clearThread()
@@ -18,23 +19,20 @@ class ThreadPool {
         let worker = thread.worker
 
         try {
-            console.log("New worker created, listener too")
             return await new Promise<Buffer[]>(async (resolve, reject) => {
                 let params = { values, key, expectedRoot }
                 worker.postMessage(params)
                 thread.lastInteraction = Date.now()
                 worker.on('message', resolve)
                 worker.on('error', reject)
-                worker.on('exit', code => {
+                worker.on('exit', (code) => {
                     if (code !== 0)
-                        reject(new Error(`Worker stopped with exit code ${code}`))
-                })
+                        reject(new Error(`Worker stopped with exit code ${code}`));
+                });
             })
         } catch (error) {
             throw new Error(error)
         } finally {
-            console.log("Worker listener removed")
-
             worker.removeAllListeners('message')
             worker.removeAllListeners('error')
             worker.removeAllListeners('exit')
@@ -45,18 +43,41 @@ class ThreadPool {
 
     private async getMerkleProofWorker() {
         if (this.hasWorkers()) {
-            console.log("Re-used worker.");
             return await workers.shift()
         } else {
-            const filepath = process.env.IN3_SRC_PATH || './js/src'
-            workers.push({ "worker": new Worker(filepath + '/modules/eth/merkle.js'), "lastInteraction": Date.now() })
-            console.log("Added new worker.");
-            return await workers.shift()
+
+            if (openThreads < cpus().length - 1) {
+                const filepath = process.env.SRC_PATH || './js/src'
+                workers.push({"worker": new Worker(filepath + '/modules/eth/merkle.js'), "lastInteraction": Date.now()})
+                openThreads++
+                return await workers.shift()
+            } else {
+                await this.waitForThreads()
+
+                return await workers.shift()
+            }
+
+        }
+    }
+    private async waitForThreads() {
+        let checkThreads;
+        try {
+            checkThreads = new Promise(async (resolve) => {
+                setInterval(async function () {
+                    if (workers.length > 0) {
+                        await clearInterval(checkThreads)
+                        resolve
+                    }
+                }, 200)
+            })
+            return await checkThreads
+        } catch (error) {
+            throw new Error(error)
         }
     }
 
     private hasWorkers() {
-        return workers.length > 0
+        return workers.length > 0;
     }
 
     private clearThread() {
@@ -68,13 +89,13 @@ class ThreadPool {
                             workers.splice(workers.indexOf(thread), 1)
                             thread.worker.unref()
                             thread.worker.terminate()
-                            console.log("Temrinated worker. Total workers = " + workers.length);
+                            openThreads--
                         }
                     }
                 })
             }
-        }, 60000)
+        }, 30000)
     }
 }
 
-module.exports = ThreadPool
+module.exports = ThreadPool;
