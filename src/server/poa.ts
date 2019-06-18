@@ -311,7 +311,7 @@ async function addFinalityForTransition(
 
     //Hardcoded 51% finality // TODO for now we do not use finality yet, but we
     //must fix it!
-    const minSigners = Math.ceil((numValidators + 1) / 2)
+    const minSigners = 1 || Math.ceil((numValidators + 1) / 2)
 
     const finalityBlocks = []
 
