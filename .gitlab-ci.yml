@@ -217,7 +217,6 @@ deploy-production-goerli:
     CHAIN_ID: 0x5
     RPC_ENDPOINT: http://lb.parity-rpc/goerli
 
-
 deploy-production-tobalaba:
   extends: .deploy-template-production
   variables:
