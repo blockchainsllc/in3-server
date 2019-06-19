@@ -152,7 +152,7 @@ package-docker:
     name: stage
   variables:
     TARGET: stage
-    REGISTRY_CONTRACT_ADDR: 0x2736D225f85740f42D17987100dc8d58e9e16252
+    REGISTRY_CONTRACT_ADDR: "0x2736D225f85740f42D17987100dc8d58e9e16252"
 
 .deploy-template-production:
   extends: .deploy-template
@@ -162,7 +162,7 @@ package-docker:
     name: production
   variables:
     TARGET: production
-    REGISTRY_CONTRACT_ADDR: 0x845E484b505443814B992Bf0319A5e8F5e407879
+    REGISTRY_CONTRACT_ADDR: "0x845E484b505443814B992Bf0319A5e8F5e407879"
   when: manual
   allow_failure: false
 
@@ -171,21 +171,21 @@ deploy-stage-kovan:
   extends: .deploy-template-stage
   variables:
     CHAIN: kovan
-    CHAIN_ID: 0x2a
+    CHAIN_ID: "0x2a"
     RPC_ENDPOINT: http://lb.parity-rpc/kovan
 
 deploy-stage-goerli:
   extends: .deploy-template-stage
   variables:
     CHAIN: goerli
-    CHAIN_ID: 0x5
+    CHAIN_ID: "0x5"
     RPC_ENDPOINT: http://lb.parity-rpc/goerli
 
 deploy-stage-mainnet:
   extends: .deploy-template-stage
   variables:
     CHAIN: mainnet
-    CHAIN_ID: 0x1
+    CHAIN_ID: "0x1"
     RPC_ENDPOINT: http://lb.parity-rpc/mainnet
 
 # Production deployments
@@ -193,33 +193,33 @@ deploy-production-mainnet:
   extends: .deploy-template-production
   variables:
     CHAIN: mainnet
-    CHAIN_ID: 0x1
+    CHAIN_ID: "0x1"
     RPC_ENDPOINT: http://lb.parity-rpc/mainnet
 
 deploy-production-evan:
   extends: .deploy-template-production
   variables:
     CHAIN: evan
-    CHAIN_ID: 0x4b1
+    CHAIN_ID: "0x4b1"
     RPC_ENDPOINT: http://lb.parity-rpc/evan
 
 deploy-production-kovan:
   extends: .deploy-template-production
   variables:
     CHAIN: kovan
-    CHAIN_ID: 0x2a
+    CHAIN_ID: "0x2a"
     RPC_ENDPOINT: http://lb.parity-rpc/kovan
 
 deploy-production-goerli:
   extends: .deploy-template-production
   variables:
     CHAIN: goerli
-    CHAIN_ID: 0x5
+    CHAIN_ID: "0x5"
     RPC_ENDPOINT: http://lb.parity-rpc/goerli
 
 deploy-production-tobalaba:
   extends: .deploy-template-production
   variables:
     CHAIN: tobalaba
-    CHAIN_ID: 0x44d
+    CHAIN_ID: "0x44d"
     RPC_ENDPOINT: http://lb.parity-rpc/tobalaba
