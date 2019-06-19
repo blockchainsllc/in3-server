@@ -115,17 +115,17 @@ contract BlockhashRegistry {
 
         /// calculates the offset
         /// by using the 1st byte (usually f9) and substracting f7 to get the start point of the parentHash information
-        /// er also have to add "2" = 1 byte to it to skip the length-information 
+        /// we also have to add "2" = 1 byte to it to skip the length-information
         uint8 offset = first-0xf7+2;
         
         assembly {
 
-            // mstore to get the memory pointer of the blockheader to 0x20 
+            // mstore to get the memory pointer of the blockheader to 0x20
             mstore(0x20, _blockheader)
 
-            // we load the pointer we just stored 
+            // we load the pointer we just stored
             // then we add 0x20 (32 bytes) to get to the start of the blockheader
-            // then we add the offset we calculated 
+            // then we add the offset we calculated
             // and load it to the parentHash variable
             parentHash :=mload(
                 add(

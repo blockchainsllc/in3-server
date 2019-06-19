@@ -258,6 +258,7 @@ contract ServerRegistry {
         emit LogServerConvicted(_owner);
 
         uint deposit = servers[oi.index].owner == _owner ? servers[oi.index].deposit : oi.depositAmount;
+        
         // the owner has still an in3-server
         if(servers[oi.index].owner == _owner){
             removeServer(oi.index);
@@ -277,7 +278,7 @@ contract ServerRegistry {
         address(0).transfer(deposit-payout);
         /// for some reason currently deleting the ci storage would cost more gas, so we comment this out for now
         //delete ci.convictHash;
-        //delete ci.blockHash;        
+        //delete ci.blockHash;
     }
 
     /// updates a Server by adding the msg.value to the deposit and setting the props or timeout
