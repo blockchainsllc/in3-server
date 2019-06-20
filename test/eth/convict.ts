@@ -32,13 +32,9 @@ import { BigNumber } from 'ethers/utils';
 
 const address = serialize.address
 const bytes32 = serialize.bytes32
-const bytes8 = serialize.bytes8
 const toNumber = util.toNumber
 const toHex = util.toHex
-const uint128 = serialize.uint128
 const uint64 = serialize.uint64
-const uint = serialize.uint
-const bytes = serialize.bytes
 
 const sign = (b: BlockData, pk: string, blockHash?: string) => {
   const msgHash = ethUtil.keccak(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number)]))
@@ -131,8 +127,8 @@ describe('Convict', () => {
         uint64(server[2]),
         bytes32(server[3]),
         bytes32(server[4]),
-        uint128(server[5]),
-        uint128(server[6]),
+        toBuffer(server[5], 16),
+        toBuffer(server[6], 16),
         serialize.bytes(server[0])
       ])
     )
@@ -145,8 +141,8 @@ describe('Convict', () => {
         uint64(10000),
         bytes32(toBN('490000000000000000')),
         bytes32(1000),
-        uint128(0),
-        uint128(currentBlock.timestamp),
+        toBuffer(0, 16),
+        toBuffer(currentBlock.timestamp, 16),
         serialize.bytes('abc')
       ])
     )
