@@ -71,10 +71,6 @@ const signVote = (blockhash: string, owner: string, pk: string) => {
 
 describe('Convict', () => {
 
-  /**
-   * TODO;
-   *    gasPrice > 1%
-   */
   it("static variables and deployment", async () => {
     const test = await TestTransport.createWithRegisteredServers(2)
 
@@ -99,7 +95,7 @@ describe('Convict', () => {
     assert.isTrue(urlIndex[0])
     assert.equal(util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase(), "0x" + urlIndex[1].toLowerCase())
 
-    const newServerReg = await deployServerRegistry(test.getHandlerConfig(0).privateKey)
+    const newServerReg = await deployServerRegistry(test.getHandlerConfig(0).privateKey, test.url)
     let currentBlock = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
     const tsDeployment = await tx.callContract(test.url, newServerReg, 'blockDeployment():(uint)', [0])
     assert.equal(tsDeployment.toString(), Number(currentBlock.timestamp).toString())
