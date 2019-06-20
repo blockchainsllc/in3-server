@@ -237,8 +237,8 @@ export class TestTransport implements Transport {
   }
 
   async getServerFromContract(index: number) {
-    const [url, owner, timeout, deposit, props, unregisterTime, registerTime] = await callContract(this.url, this.nodeList.contract, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128,address)', [index])
-    return { url, owner, timeout, deposit, props, unregisterTime, registerTime }
+    const [url, owner, timeout, deposit, props, unregisterTime, registerTime, proofHash] = await callContract(this.url, this.nodeList.contract, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128,bytes32)', [index])
+    return { url, owner, timeout, deposit, props, unregisterTime, registerTime, proofHash }
   }
 
   async getServerCountFromContract() {

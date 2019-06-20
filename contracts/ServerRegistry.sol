@@ -52,6 +52,8 @@ contract ServerRegistry {
 
         uint128 unregisterTime; // earliest timestamp in to call unregister
         uint128 registerTime; // timestamp when the server was registered
+
+        bytes32 proofHash;
     }
 
     /// server list of incubed nodes    
@@ -115,11 +117,11 @@ contract ServerRegistry {
 
         server.unregisterTime = 0;
 
+        server.proofHash = calcProofHash(msg.sender);
+
         /// emit event
         emit LogServerUnregisterCanceled(server.url, server.owner);
     }
-    
-
     
     /// confirms the unregistering of a server by its owner
     function confirmUnregisteringServer() external {
@@ -136,6 +138,8 @@ contract ServerRegistry {
 
         oi.used = false;
         removeServer(oi.index);
+        oi.index = 0;
+
     }
 
     /// commits a blocknumber and a hash
@@ -190,6 +194,17 @@ contract ServerRegistry {
         m.deposit = msg.value;
         m.timeout = _timeout > 3600 ? _timeout : 1 hours;
         m.registerTime = uint128(block.timestamp);
+
+        m.proofHash = keccak256(abi.encodePacked(
+            m.owner,
+            m.timeout,
+            m.deposit,
+            m.props,
+            m.unregisterTime,
+            m.registerTime,
+            m.url
+            )
+        );
         servers.push(m);
 
         // sets the information of the url
@@ -213,6 +228,7 @@ contract ServerRegistry {
 
         require(server.unregisterTime == 0, "Server is already unregistering");       
         server.unregisterTime = uint128(now + server.timeout);
+        server.proofHash = calcProofHash(msg.sender);
 
         emit LogServerUnregisterRequested(server.url, server.owner, msg.sender);
     }
@@ -258,10 +274,12 @@ contract ServerRegistry {
         emit LogServerConvicted(_owner);
 
         uint deposit = servers[oi.index].owner == _owner ? servers[oi.index].deposit : oi.depositAmount;
-        
+       
         // the owner has still an in3-server
         if(servers[oi.index].owner == _owner){
+            
             removeServer(oi.index);
+            oi.index=0;
         }
         else {
             oi.depositAmount = 0;
@@ -279,6 +297,7 @@ contract ServerRegistry {
         /// for some reason currently deleting the ci storage would cost more gas, so we comment this out for now
         //delete ci.convictHash;
         //delete ci.blockHash;
+        
     }
 
     /// updates a Server by adding the msg.value to the deposit and setting the props or timeout
@@ -321,6 +340,8 @@ contract ServerRegistry {
 
         if(_timeout > server.timeout)
             server.timeout = _timeout;
+        
+        server.proofHash = calcProofHash(msg.sender);
 
         emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
     }
@@ -345,7 +366,7 @@ contract ServerRegistry {
         In3Server memory server = servers[oi.index];
 
         // capping the active time at 2 years at most
-        uint activeTime = (now - server.registerTime) > 52 weeks *2 ? 52 weeks * 2 : (now - server.registerTime); 
+        uint activeTime = (now - server.registerTime) > 52 weeks *2 ? 52 weeks * 2 : (now - server.registerTime);
         
         uint votedTime = 0;
 
@@ -365,7 +386,10 @@ contract ServerRegistry {
                     if(votedTime > totalVotingTime/2 && votedTime > activeTime){
                                                 
                         // sending back the transfer-costs, capping at 1% of the deposit
-                        uint transferAmount = 590000 * tx.gasprice > server.deposit/100 ? server.deposit/100 : 590000 * tx.gasprice;
+                        uint transferAmount = (590000 * tx.gasprice > server.deposit/100 ? server.deposit/100 : 590000 * tx.gasprice);
+
+                        transferAmount = transferAmount > 10 finney ? transferAmount : 10 finney;
+                        
                         msg.sender.transfer(transferAmount);
 
                         // burning the rest of 1%
@@ -376,9 +400,11 @@ contract ServerRegistry {
                         oi.lockedTime = now + server.timeout;
                         oi.depositAmount = server.deposit - burnAmount - transferAmount;
                         oi.used = false;
+                        
 
                         // removing the server
                         removeServer(oi.index);
+                        oi.index = 0;
 
                         return;
                     }
@@ -454,6 +480,21 @@ contract ServerRegistry {
         return (minDeposit < 10 finney )? 10 finney : minDeposit;
     }
 
+    function calcProofHash(address _serverOwner) public view returns (bytes32){
+        OwnerInformation memory oi = ownerIndex[_serverOwner];
+        In3Server memory server = servers[oi.index];
+
+        return keccak256(abi.encodePacked(
+            server.owner,
+            server.timeout,
+            server.deposit,
+            server.props,
+            server.unregisterTime,
+            server.registerTime,
+            server.url)
+        );
+    }
+
     /// recovers the address from a provided signature
     /// @param _sig signature as 65 bytes
     /// @param _evmBlockhash blockhash
@@ -498,7 +539,6 @@ contract ServerRegistry {
 
         // remove from mappings
         urlIndex[keccak256(bytes(servers[_serverIndex].url))].used = false;
-        ownerIndex[servers[_serverIndex].owner].used = false;
 
         uint length = servers.length;
         if (length>0) {

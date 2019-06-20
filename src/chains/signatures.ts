@@ -101,20 +101,19 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         if (diffBlocks < 255) {
 
-
           await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
             privateKey: handler.config.privateKey,
             gas: 300000,
             value: 0,
-            confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+            confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
           })
 
           // so he signed the wrong blockhash and we have all data to convict him!
-          const txHash = await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [singingNode.address, s.blockHash, s.block, s.v, s.r, s.s], {
+          await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [singingNode.address, s.blockHash, s.block, s.v, s.r, s.s], {
             privateKey: handler.config.privateKey,
-            gas: 300000,
+            gas: 600000,
             value: 0,
-            confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+            confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
           })
         }
         else {
@@ -173,17 +172,19 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
   const blockHashRegistry = "0x" + (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0].toString("hex")
 
   // we have to calculate whether it's worth convicting a server
-  const [url, owner, timeout, deposit, props, unregisterTime, unregisterDeposit, unregisterCaller] = await callContract(handler.config.rpcUrl, nodes.contract, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128,address)', [toNumber(singingNode.index)])
+  const [, , , deposit, , , ,] = await callContract(handler.config.rpcUrl, nodes.contract, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128,bytes32)', [toNumber(singingNode.index)])
   const latestSS = toNumber((await callContract(handler.config.rpcUrl, blockHashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [s.block, diffBlocks]))[0])
   const costPerBlock = 86412400000000
   const blocksMissing = latestSS - s.block
   const costs = blocksMissing * costPerBlock * 1.25
 
   if (costs > (deposit / 2)) {
+
     //it's not worth it
-    return null
+    return
   }
   else {
+
     // it's worth convicting the server
     const blockrequest = []
     for (let i = 0; i < blocksMissing; i++) {
@@ -214,31 +215,43 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
 
 
     for (const txArray of transactionArrays) {
-
-      await callContract(handler.config.rpcUrl, blockHashRegistry, 'recreateBlockheaders(uint,bytes[])', [latestSS - diffBlock, txArray], {
-        privateKey: handler.config.privateKey,
-        gas: 8000000,
-        value: 0,
-        confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-      })
-      diffBlock += txArray.length
+      try {
+        await callContract(handler.config.rpcUrl, blockHashRegistry, 'recreateBlockheaders(uint,bytes[])', [latestSS - diffBlock, txArray], {
+          privateKey: handler.config.privateKey,
+          gas: 8000000,
+          value: 0,
+          confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+        })
+        diffBlock += txArray.length
+      } catch (e) {
+        console.log(e)
+      }
     }
 
     const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
-      privateKey: handler.config.privateKey,
-      gas: 300000,
-      value: 0,
-      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-    })
+    try {
+      await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+        privateKey: handler.config.privateKey,
+        gas: 500000,
+        value: 0,
+        confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+      })
+    } catch (e) {
+      console.log(e)
+    }
 
-    await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [singingNode.address, s.blockHash, s.block, s.v, s.r, s.s], {
-      privateKey: handler.config.privateKey,
-      gas: 300000,
-      value: 0,
-      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-    })
+    try {
+      await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [singingNode.address, s.blockHash, s.block, s.v, s.r, s.s], {
+        privateKey: handler.config.privateKey,
+        gas: 800000,
+        value: 0,
+        confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+      })
+    } catch (e) {
+      console.log(e)
+
+    }
 
   }
 }
