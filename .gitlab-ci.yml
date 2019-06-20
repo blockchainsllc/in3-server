@@ -149,7 +149,7 @@ package-docker:
   only:
     - test-develop
   environment:
-    name: stage
+    name: stage-{CHAIN}
   variables:
     TARGET: stage
     REGISTRY_CONTRACT_ADDR: "0x2736D225f85740f42D17987100dc8d58e9e16252"
@@ -159,7 +159,7 @@ package-docker:
   only:
     - test-master
   environment:
-    name: production
+    name: production-{CHAIN}
   variables:
     TARGET: production
     REGISTRY_CONTRACT_ADDR: "0x845E484b505443814B992Bf0319A5e8F5e407879"
