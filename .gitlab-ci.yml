@@ -172,21 +172,21 @@ deploy-stage-kovan:
   variables:
     CHAIN: kovan
     CHAIN_ID: "0x2a"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan/pruned
 
 deploy-stage-goerli:
   extends: .deploy-template-stage
   variables:
     CHAIN: goerli
     CHAIN_ID: "0x5"
-    RPC_ENDPOINT: http://lb.parity-rpc/goerli
+    RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
 
 deploy-stage-mainnet:
   extends: .deploy-template-stage
   variables:
     CHAIN: mainnet
     CHAIN_ID: "0x1"
-    RPC_ENDPOINT: http://lb.parity-rpc/mainnet
+    RPC_ENDPOINT: http://lb.parity-rpc/mainnet/parity-pruned
 
 # Production deployments
 deploy-production-mainnet:
@@ -194,7 +194,7 @@ deploy-production-mainnet:
   variables:
     CHAIN: mainnet
     CHAIN_ID: "0x1"
-    RPC_ENDPOINT: http://lb.parity-rpc/mainnet
+    RPC_ENDPOINT: http://lb.parity-rpc/mainnet/parity-pruned
 
 deploy-production-evan:
   extends: .deploy-template-production
@@ -208,18 +208,18 @@ deploy-production-kovan:
   variables:
     CHAIN: kovan
     CHAIN_ID: "0x2a"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan/pruned
 
 deploy-production-goerli:
   extends: .deploy-template-production
   variables:
     CHAIN: goerli
     CHAIN_ID: "0x5"
-    RPC_ENDPOINT: http://lb.parity-rpc/goerli
+    RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
 
 deploy-production-tobalaba:
   extends: .deploy-template-production
   variables:
     CHAIN: tobalaba
     CHAIN_ID: "0x44d"
-    RPC_ENDPOINT: http://lb.parity-rpc/tobalaba
+    RPC_ENDPOINT: http://lb.parity-rpc/tobalaba/archive-one
