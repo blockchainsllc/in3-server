@@ -43,12 +43,12 @@ describe('Blockheader contract', () => {
         const blockNumber = toNumber(block.number)
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
         const contractBlockHash = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber]))[0].toString('hex')
-        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
 
         assert.equal(block.hash, contractBlockHash)
 
-        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, '()', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
-        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, '()', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 }).catch(_ => false))
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, '()', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, '()', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
 
     })
 
@@ -63,8 +63,8 @@ describe('Blockheader contract', () => {
         const serializedHeader = b.serializeHeader()
 
         const contractResult = await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [serializedHeader])
-        await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [serializedHeader], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
-        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [serializedHeader], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
+        await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [serializedHeader], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [serializedHeader], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 10 }).catch(_ => false))
 
         const parentHash = "0x" + contractResult[0].toString('hex')
         const blockHash = "0x" + contractResult[1].toString('hex')
@@ -86,14 +86,12 @@ describe('Blockheader contract', () => {
             const allBlocks = blockHeaderFile[chains[j]];
 
             const numberBlocks = process.env.GITLAB_CI ? allBlocks.length : 10
-
             for (let i = 0; i < numberBlocks; i++) {
-
                 const b = new Block(allBlocks[i])
                 const s = new serialize.Block(allBlocks[i] as any).serializeHeader()
 
                 const contractResult = await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [s])
-                await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [s], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+                await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [s], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: false, gas: 300000000 - 1 })
 
                 const parentHash = "0x" + contractResult[0].toString('hex')
                 const blockHash = "0x" + contractResult[1].toString('hex')
@@ -102,7 +100,7 @@ describe('Blockheader contract', () => {
                 assert.equal(blockHash, allBlocks[i].hash)
             }
         }
-    })
+    }).timeout(300000)
 
     it('snapshot', async () => {
 
@@ -113,14 +111,14 @@ describe('Blockheader contract', () => {
         const user1 = await test.createAccount()
 
 
-        const txReceipt = (await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: user1, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 }))
+        const txReceipt = (await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: user1, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 }))
         const blockNumber = (toHex(txReceipt.blockNumber) as any) - 1
 
         const blockhashRPC = ((await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber), false)) as BlockData).hash
         const blockHashContract = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber]))[0].toString('hex')
-        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
-        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
-        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
+        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 10 }).catch(_ => false))
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 10 }).catch(_ => false))
 
 
         assert.equal(blockhashRPC, blockHashContract)
@@ -141,15 +139,15 @@ describe('Blockheader contract', () => {
         const blockHashBefore = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumberToSave]))[0].toString('hex')
 
         assert.equal(blockHashBefore, '0x0000000000000000000000000000000000000000000000000000000000000000')
-        await tx.callContract(test.url, blockHashRegAddress, 'saveBlockNumber(uint)', [blockNumberToSave], { privateKey: user1, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'saveBlockNumber(uint)', [blockNumberToSave], { privateKey: user1, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
         const blockhashRPC = ((await test.getFromServer('eth_getBlockByNumber', toHex(blockNumberToSave), false)) as BlockData).hash
         const blockHashContract = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumberToSave]))[0].toString('hex')
-        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumberToSave], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumberToSave], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
         assert.equal(blockhashRPC, blockHashContract)
 
-        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'saveBlockNumber(uint)', [blockNumberToSave], { privateKey: user1, to: blockHashRegAddress, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'saveBlockNumber(uint)', [blockNumberToSave], { privateKey: user1, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 10 }).catch(_ => false))
 
     })
 
@@ -165,11 +163,11 @@ describe('Blockheader contract', () => {
         const blockNumberToSave = toNumber(block.number) + 300
 
         const blockHashBefore = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumberToSave]))[0].toString('hex')
-        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumberToSave], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumberToSave], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
         assert.equal(blockHashBefore, '0x0000000000000000000000000000000000000000000000000000000000000000')
 
-        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'saveBlockNumber(uint)', [blockNumberToSave], { privateKey: user1, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), "must fail becaue ")
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'saveBlockNumber(uint)', [blockNumberToSave], { privateKey: user1, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 }).catch(_ => false), "must fail becaue ")
         assert.include(await test.getErrorReason(), "block not available")
 
     })
@@ -202,11 +200,11 @@ describe('Blockheader contract', () => {
             serialzedBlocks = serialzedBlocks.reverse()
 
             const result = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash]))[0].toString('hex')
-            await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+            await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
 
             assert.equal(result, firstBlock.hash)
 
-            assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
+            assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
 
         }
     })
@@ -240,7 +238,7 @@ describe('Blockheader contract', () => {
             const result = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash]))[0].toString('hex')
 
             //   if (process.env.GITLAB_CI) {
-            await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+            await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
             //   }
 
             assert.equal(result, "0x0000000000000000000000000000000000000000000000000000000000000000")
@@ -266,7 +264,7 @@ describe('Blockheader contract', () => {
 
         const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
-        await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
         const blockNumber = toNumber(block.number)
 
@@ -284,16 +282,16 @@ describe('Blockheader contract', () => {
 
         }
         const targetBlock = ("0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash]))[0].toString('hex'))
-        await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: false, gas: 300000000 - 1 })
 
         const blockHashBefore = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength]))[0].toString('hex')
-        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
         const result = await tx.callContract(test.url, blockHashRegAddress, 'recreateBlockheaders(uint,bytes[])', [blockNumber, blockheaderArray], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 8000000 })
 
         const blockResult = await test.getFromServer('eth_getBlockByHash', targetBlock, false) as BlockData
         const blockHashAfter = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength]))[0].toString('hex')
-        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
         const blockByNumber = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber - headerLength), false)
 
@@ -316,7 +314,7 @@ describe('Blockheader contract', () => {
 
         const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
-        await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
         const blockNumber = toNumber(block.number)
 
@@ -337,18 +335,18 @@ describe('Blockheader contract', () => {
         blockheaderArray[3] = temp
 
         const targetBlock = ("0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash]))[0].toString('hex'))
-        await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
 
         const blockHashBefore = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength]))[0].toString('hex')
-        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
-        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'recreateBlockheaders(uint,bytes[])', [blockNumber - 5, blockheaderArray], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 8000000 }).catch(_ => false))
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'recreateBlockheaders(uint,bytes[])', [blockNumber - 5, blockheaderArray], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
         assert.include(await test.getErrorReason(), "parentBlock is not available")
-        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'recreateBlockheaders(uint,bytes[])', [blockNumber, blockheaderArray], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 8000000 }).catch(_ => false))
+        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'recreateBlockheaders(uint,bytes[])', [blockNumber, blockheaderArray], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
         assert.include(await test.getErrorReason(), "invalid headers")
 
         const blockHashAfter = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength]))[0].toString('hex')
-        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
         assert.equal(blockHashBefore, "0x0000000000000000000000000000000000000000000000000000000000000000")
         assert.equal(blockHashAfter, "0x0000000000000000000000000000000000000000000000000000000000000000")
@@ -365,17 +363,17 @@ describe('Blockheader contract', () => {
 
         const blockNumber = toNumber(block.number) - 1
 
-        await tx.callContract(test.url, blockHashRegAddress, 'searchForAvailableBlock(uint,uint):(uint)', [0, 100], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'searchForAvailableBlock(uint,uint):(uint)', [0, 100], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
 
         assert.equal(toNumber(snapshot1[0]), 0)
         const snapshot2 = await tx.callContract(test.url, blockHashRegAddress, 'searchForAvailableBlock(uint,uint):(uint)', [blockNumber - 20, 25])
-        await tx.callContract(test.url, blockHashRegAddress, 'searchForAvailableBlock(uint,uint):(uint)', [blockNumber - 20, 25], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'searchForAvailableBlock(uint,uint):(uint)', [blockNumber - 20, 25], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
         assert.equal(toNumber(snapshot2[0]), blockNumber)
 
         const snapshot3 = await tx.callContract(test.url, blockHashRegAddress, 'searchForAvailableBlock(uint,uint):(uint)', [blockNumber - 20, 20])
-        await tx.callContract(test.url, blockHashRegAddress, 'searchForAvailableBlock(uint,uint):(uint)', [blockNumber - 20, 20], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+        await tx.callContract(test.url, blockHashRegAddress, 'searchForAvailableBlock(uint,uint):(uint)', [blockNumber - 20, 20], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
         assert.equal(toNumber(snapshot3[0]), blockNumber)
 
@@ -395,7 +393,7 @@ describe('Blockheader contract', () => {
 
             const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
-            await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
+            await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
 
             const blockNumber = toNumber(block.number)
 

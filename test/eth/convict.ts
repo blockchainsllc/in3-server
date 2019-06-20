@@ -79,22 +79,22 @@ describe('Convict', () => {
     const test = await TestTransport.createWithRegisteredServers(2)
 
     const version = (await tx.callContract(test.url, test.nodeList.contract, 'version():(uint)', []))[0]
-    await tx.callContract(test.url, test.nodeList.contract, 'version():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'version():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
+    await tx.callContract(test.url, test.nodeList.contract, 'version():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'version():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
 
     assert.equal(toNumber(version).toString(), "12300020190328")
 
     const numServers = (await tx.callContract(test.url, test.nodeList.contract, 'totalServers():(uint)', []))[0]
-    await tx.callContract(test.url, test.nodeList.contract, 'totalServers():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'totalServers():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
+    await tx.callContract(test.url, test.nodeList.contract, 'totalServers():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'totalServers():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
 
     assert.equal(toNumber(numServers), 2)
 
     const hashurl = ethUtil.keccak("#1")
 
     const urlIndex = (await tx.callContract(test.url, test.nodeList.contract, 'urlIndex(bytes32):(bool,address)', [hashurl]))
-    await tx.callContract(test.url, test.nodeList.contract, 'urlIndex(bytes32):(bool,address)', [hashurl], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'urlIndex(bytes32):(bool,address)', [hashurl], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
+    await tx.callContract(test.url, test.nodeList.contract, 'urlIndex(bytes32):(bool,address)', [hashurl], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'urlIndex(bytes32):(bool,address)', [hashurl], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
 
     assert.isTrue(urlIndex[0])
     assert.equal(util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase(), "0x" + urlIndex[1].toLowerCase())
@@ -102,8 +102,11 @@ describe('Convict', () => {
     const newServerReg = await deployServerRegistry(test.getHandlerConfig(0).privateKey)
     let currentBlock = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
     const tsDeployment = await tx.callContract(test.url, newServerReg, 'blockDeployment():(uint)', [0])
-
     assert.equal(tsDeployment.toString(), Number(currentBlock.timestamp).toString())
+
+    await tx.callContract(test.url, newServerReg, 'blockDeployment():(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
+    assert.isFalse(await tx.callContract(test.url, newServerReg, 'blockDeployment():(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
+
 
     await tx.callContract(test.url, newServerReg, 'registerServer(string,uint,uint64)', ['abc', 1000, 10000], {
       privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000
@@ -111,8 +114,8 @@ describe('Convict', () => {
     currentBlock = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
     const server = (await tx.callContract(test.url, newServerReg, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128)', [0]))
-    await tx.callContract(test.url, newServerReg, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
-    assert.isFalse(await tx.callContract(test.url, newServerReg, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
+    await tx.callContract(test.url, newServerReg, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
+    assert.isFalse(await tx.callContract(test.url, newServerReg, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
 
     assert.equal(server[0], "abc")
     assert.equal("0x" + server[1].toLowerCase(), util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase())
@@ -128,8 +131,8 @@ describe('Convict', () => {
     const test = await TestTransport.createWithRegisteredServers(2)
 
     const blockHashRegAddress = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString('hex')
-    await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
+    await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 50000000 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
 
     // creating a snaphsot
     const snapshotreceipt = await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 5000000 })
@@ -361,9 +364,10 @@ describe('Convict', () => {
       const blockNumber = toNumber(block.number) - 1
 
       const [validVoters, votingTime] = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[],uint)', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))
-      await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[],uint)', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
-      assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[],uint)', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 5000000 }).catch(_ => false))
+      await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[],uint)', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 300000000 - 1 })
+      assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[],uint)', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
 
+      assert.equal(await test.getServerCountFromContract(), i + 2)
       for (const v of validVoters) {
         assert.notEqual("0x" + v, util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase())
       }
@@ -394,7 +398,7 @@ describe('Convict', () => {
       await tx.callContract(test.url, test.nodeList.contract, 'registerServer(string,uint,uint64)', ['abc' + i, 1000, 10000], { privateKey: user, value: toBN('4320000000000000000000000'), confirm: true, gas: 5000000 })
       let blockTemp = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
-      await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[],uint)', [toNumber(blockTemp.number) - 1, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 30000000 })
+      await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[],uint)', [toNumber(blockTemp.number) - 1, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 300000000 - 1 })
     }
 
     let block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
@@ -402,15 +406,15 @@ describe('Convict', () => {
     let blockNumber = toNumber(block.number) - 1
 
     const validVoters = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
-    await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[],uint)', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 30000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[],uint)', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 300000000 - 1 })
 
     assert.equal(validVoters.length, 24)
     assert.equal(await test.getServerCountFromContract(), 25)
 
     let blockSign = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber), false) as BlockData
     const [usedBefore, indexBefore, lockedTimeBefore, depositAmountBefore] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
-    await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 30000000 })
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 30000000 }).catch(_ => false))
+    await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 300000000 - 1 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
 
     assert.isTrue(usedBefore)
     assert.equal(indexBefore.toString(), '0')
@@ -432,9 +436,9 @@ describe('Convict', () => {
 
 
         const rec = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'recoverAddress(bytes,bytes32,address):(address)', [s.signature, blockSign.hash, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
-        await tx.callContract(test.url, test.nodeList.contract, 'recoverAddress(bytes,bytes32,address):(address)', [s.signature, blockSign.hash, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, gas: 500000, value: 0, to: test.nodeList.contract })
+        await tx.callContract(test.url, test.nodeList.contract, 'recoverAddress(bytes,bytes32,address):(address)', [s.signature, blockSign.hash, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, gas: 300000000 - 1, value: 0, to: test.nodeList.contract })
         assert.equal(a.address.toLowerCase(), rec)
-        assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'recoverAddress(bytes,bytes32,address):(address)', [s.signature, blockSign.hash, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, gas: 500000, value: 10, to: test.nodeList.contract, confirm: true }).catch(_ => false))
+        assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'recoverAddress(bytes,bytes32,address):(address)', [s.signature, blockSign.hash, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, gas: 300000000 - 1, value: 10, to: test.nodeList.contract, confirm: true }).catch(_ => false))
 
       }
     }
@@ -672,11 +676,11 @@ describe('Convict', () => {
     const blockNumber = toNumber(block.number) - 1
 
     const validVoters = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)]))[0]
-    await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 300000000 - 1 })
 
     const blockSign = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber), false) as BlockData
     const [usedBefore, indexBefore, lockedTimeBefore, depositAmountBefore] = await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
-    await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'ownerIndex(address):(bool,uint128,uint256,uint256)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 300000000 - 1 })
 
     assert.isTrue(usedBefore)
     assert.equal(indexBefore.toString(), '0')
@@ -1037,7 +1041,7 @@ describe('Convict', () => {
   it('calculate min deposit', async () => {
     const test = await TestTransport.createWithRegisteredServers(2)
     let minDeposit = await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0])
-    await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 300000000 - 1 })
 
     // in the 1st 2 weeks we use 10 finney
     assert.equal(minDeposit.toString(), "10000000000000000")
@@ -1046,7 +1050,7 @@ describe('Convict', () => {
 
     // should not have changed
     minDeposit = await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0])
-    await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 300000000 - 1 })
     assert.equal(minDeposit.toString(), "10000000000000000")
 
     const pk1 = await test.createAccount(null, toBN('51000000000000000000'))
