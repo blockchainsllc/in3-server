@@ -117,7 +117,7 @@ contract ServerRegistry {
 
         server.unregisterTime = 0;
 
-        server.proofHash = calcProofHash(msg.sender);
+        server.proofHash = calcProofHash(server);
 
         /// emit event
         emit LogServerUnregisterCanceled(server.url, server.owner);
@@ -195,16 +195,7 @@ contract ServerRegistry {
         m.timeout = _timeout > 3600 ? _timeout : 1 hours;
         m.registerTime = uint128(block.timestamp);
 
-        m.proofHash = keccak256(abi.encodePacked(
-            m.owner,
-            m.timeout,
-            m.deposit,
-            m.props,
-            m.unregisterTime,
-            m.registerTime,
-            m.url
-            )
-        );
+        m.proofHash = calcProofHash(m);
         servers.push(m);
 
         // sets the information of the url
@@ -228,7 +219,7 @@ contract ServerRegistry {
 
         require(server.unregisterTime == 0, "Server is already unregistering");       
         server.unregisterTime = uint128(now + server.timeout);
-        server.proofHash = calcProofHash(msg.sender);
+        server.proofHash = calcProofHash(server);
 
         emit LogServerUnregisterRequested(server.url, server.owner, msg.sender);
     }
@@ -341,7 +332,7 @@ contract ServerRegistry {
         if(_timeout > server.timeout)
             server.timeout = _timeout;
         
-        server.proofHash = calcProofHash(msg.sender);
+        server.proofHash = calcProofHash(server);
 
         emit LogServerRegistered(server.url, _props, msg.sender,server.deposit);
     }
@@ -480,18 +471,16 @@ contract ServerRegistry {
         return (minDeposit < 10 finney )? 10 finney : minDeposit;
     }
 
-    function calcProofHash(address _serverOwner) public view returns (bytes32){
-        OwnerInformation memory oi = ownerIndex[_serverOwner];
-        In3Server memory server = servers[oi.index];
+    function calcProofHash(In3Server memory _server) internal view returns (bytes32){
 
         return keccak256(abi.encodePacked(
-            server.owner,
-            server.timeout,
-            server.deposit,
-            server.props,
-            server.unregisterTime,
-            server.registerTime,
-            server.url)
+            _server.owner,
+            _server.timeout,
+            _server.deposit,
+            _server.props,
+            _server.unregisterTime,
+            _server.registerTime,
+            _server.url)
         );
     }
 
