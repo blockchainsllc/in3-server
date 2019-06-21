@@ -34,18 +34,18 @@ contract BlockhashRegistry {
         snapshot();
     }
 
-    /// searches for an already existing snapshot 
+    /// searches for an already existing snapshot
     /// @param _startNumber the blocknumber to start searching
     /// @param _numBlocks the number of blocks to search for
     /// @return the closes snapshot of found within the given range, 0 else
     function searchForAvailableBlock(uint _startNumber, uint _numBlocks) external view returns (uint) {
 
         for(uint i = _startNumber; i <= (_numBlocks + _startNumber); i++){
-           if(blockhashMapping[i] != 0x0) return i; 
+           if(blockhashMapping[i] != 0x0) return i;
         }
     }
 
-    /// starts with a given blocknumber and its header and tries to recreate a (reverse) chain of blocks 
+    /// starts with a given blocknumber and its header and tries to recreate a (reverse) chain of blocks
     /// only usable when the given blocknumber is already in the smart contract
     /// it will be checked whether the provided chain is correct by using the calculateBlockheaders function
     /// if successfull the last blockhash of the header will be added to the smart contract
@@ -116,7 +116,7 @@ contract BlockhashRegistry {
         /// calculates the offset
         /// by using the 1st byte (usually f9) and substracting f7 to get the start point of the parentHash information
         /// we also have to add "2" = 1 byte to it to skip the length-information
-        uint8 offset = first-0xf7+2;
+        uint8 offset = first - 0xf7 + 2;
         
         assembly {
 

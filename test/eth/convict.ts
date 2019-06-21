@@ -186,12 +186,12 @@ describe('Convict', () => {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
-      confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+      confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
     let rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 0,
       confirm: true
     }).catch(_ => false)
@@ -204,7 +204,7 @@ describe('Convict', () => {
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [0, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 0,
       confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     }).catch(_ => false))
@@ -212,7 +212,7 @@ describe('Convict', () => {
 
     rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 0,
       confirm: true
     }).catch(_ => false)
@@ -227,14 +227,14 @@ describe('Convict', () => {
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 0,
       confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
     rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 0,
       confirm: true
     }).catch(_ => false)
@@ -256,21 +256,21 @@ describe('Convict', () => {
 
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureWrong], {
       privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 0,
       confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureWrong], {
       privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 10,
       confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     }).catch(_ => false))
 
     rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 0,
       confirm: true
     }).catch(_ => false)
@@ -284,21 +284,21 @@ describe('Convict', () => {
 
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 0,
       confirm: true
     })
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 10,
       confirm: true
     }).catch(_ => false))
 
     await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 0,
       confirm: true
     })
@@ -470,13 +470,13 @@ describe('Convict', () => {
 
     const nonexistingUser = await test.createAccount(null)
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [1, util.getAddress(test.getHandlerConfig(0).privateKey), []], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because no signatures provided')
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [1, util.getAddress(test.getHandlerConfig(0).privateKey), []], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false), 'Must fail, because no signatures provided')
     assert.include(await test.getErrorReason(), "block not found")
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(nonexistingUser), []], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because no signatures provided')
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(nonexistingUser), []], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false), 'Must fail, because no signatures provided')
     assert.include(await test.getErrorReason(), "owner does not have a server")
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), []], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because no signatures provided')
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), []], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false), 'Must fail, because no signatures provided')
     assert.include(await test.getErrorReason(), "provided no signatures")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterServer(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because not enough voting power')
@@ -778,7 +778,7 @@ describe('Convict', () => {
 
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: accounts[0].privateKey,
-      gas: 300000,
+      gas: 3000000,
       value: 0,
       confirm: true
     })
@@ -892,7 +892,7 @@ describe('Convict', () => {
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer()', [], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false), 'Must fail, because not the owner of the server')
     assert.include(await test.getErrorReason(), "Server is already unregistering")
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringServer()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because not the owner of the server')
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringServer()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false), 'Must fail, because not the owner of the server')
     assert.include(await test.getErrorReason(), "server is not unregistering")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringServer()', [], { privateKey: test.getHandlerConfig(0).privateKey, value: 10, confirm: true, gas: 3000000 }).catch(_ => false))

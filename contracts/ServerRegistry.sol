@@ -73,7 +73,7 @@ contract ServerRegistry {
     mapping (address => OwnerInformation) public ownerIndex;
 
     /// mapping for the information of the url
-    /// can be used to access the OwnerInformation-struct 
+    /// can be used to access the OwnerInformation-struct
     mapping (bytes32 => UrlInformation) public urlIndex;
 
     /// information of a (future) convict (used to prevent frontrunning)
@@ -82,11 +82,11 @@ contract ServerRegistry {
         bytes32 blockHash;      /// blockhash of the block to be convicted
     }
 
-    /// information of a in3-server owner 
+    /// information of a in3-server owner
     struct OwnerInformation {
         bool used;              /// flag whether account is currently owner of a server
         uint128 index;          /// current index-position of the server in the servers-array
-        uint lockedTime;        /// time for the deposit to be locked, used only after vote-kick 
+        uint lockedTime;        /// time for the deposit to be locked, used only after vote-kick
         uint depositAmount;     /// amount of deposit to be locked, used only after vote-kick
     }
 
@@ -103,7 +103,7 @@ contract ServerRegistry {
     /// @param _blockRegistry address of a BlockhashRegistry
     constructor(address _blockRegistry) public {
         blockRegistry = BlockhashRegistry(_blockRegistry);
-        blockDeployment = block.timestamp;
+        blockDeployment = now;
     }
 
     /// this function must be called by the owner to cancel the unregister-process.
@@ -173,7 +173,7 @@ contract ServerRegistry {
         // enforcing a minimum deposit
         require(msg.value >= calculateMinDeposit(msg.value), "not enough deposit");
 
-        if(block.timestamp < (blockDeployment + 52 weeks)){
+        if(now < (blockDeployment + 52 weeks)){
            require(msg.value < 50 ether, "Limit of 50 ETH reached");
         }
 
@@ -192,8 +192,8 @@ contract ServerRegistry {
         m.props = _props;
         m.owner = msg.sender;
         m.deposit = msg.value;
-        m.timeout = _timeout > 3600 ? _timeout : 1 hours;
-        m.registerTime = uint128(block.timestamp);
+        m.timeout = _timeout > 1 hours ? _timeout : 1 hours;
+        m.registerTime = uint128(now);
 
         m.proofHash = calcProofHash(m);
         servers.push(m);
@@ -270,7 +270,7 @@ contract ServerRegistry {
         if(servers[oi.index].owner == _owner){
             
             removeServer(oi.index);
-            oi.index=0;
+            oi.index = 0;
         }
         else {
             oi.depositAmount = 0;
@@ -367,7 +367,7 @@ contract ServerRegistry {
             address signedAddress = recoverAddress(_signatures[i], evm_blockhash, _serverOwner);
 
             // iterate through all valid voters
-            for(uint j=0; j<validSigners.length; j++){
+            for(uint j = 0; j < validSigners.length; j++){
 
                 if(signedAddress == validSigners[j]){
 
@@ -384,14 +384,13 @@ contract ServerRegistry {
                         msg.sender.transfer(transferAmount);
 
                         // burning the rest of 1%
-                        uint burnAmount = server.deposit/100 > transferAmount ? server.deposit/100 - transferAmount : 0; 
+                        uint burnAmount = server.deposit/100 > transferAmount ? server.deposit/100 - transferAmount : 0;
                         address(0).transfer(burnAmount);
 
                         // we update the owner information
                         oi.lockedTime = now + server.timeout;
                         oi.depositAmount = server.deposit - burnAmount - transferAmount;
                         oi.used = false;
-                        
 
                         // removing the server
                         removeServer(oi.index);
@@ -422,7 +421,7 @@ contract ServerRegistry {
         require(evm_blockhash != 0x0, "block not found");
 
         // capping the number of required signatures at 24 
-        uint requiredSignatures = servers.length > 25? 24: servers.length-1;
+        uint requiredSignatures = servers.length > 25 ? 24: servers.length-1;
 
         address[] memory validVoters = new address[](requiredSignatures);
 
@@ -439,11 +438,11 @@ contract ServerRegistry {
             uint position = requiredSignatures > 24 ? (tempByteOne+tempByteTwo) % servers.length : i;
 
             // add to the voting set when the owner is not yet in the array
-            if(!checkUnique(servers[position].owner,validVoters) && _voted!=servers[position].owner ){
+            if(!checkUnique(servers[position].owner,validVoters) && _voted != servers[position].owner ){
                 validVoters[uniqueSignatures] = servers[position].owner;
                 uniqueSignatures++;
                 // capping the voting-power at 1 year
-                totalVoteTime += (block.timestamp - servers[position].registerTime) > 52 weeks ? 52 weeks : (block.timestamp - servers[position].registerTime);
+                totalVoteTime += (now - servers[position].registerTime) > 52 weeks ? 52 weeks : (now - servers[position].registerTime);
             }
             i++;
         }
@@ -456,21 +455,23 @@ contract ServerRegistry {
     function calculateMinDeposit(uint _value) public view returns (uint) {
 
         // for the first 2 weeks we do not enable spam protection
-        if(block.timestamp < (blockDeployment + 2 weeks) || servers.length == 0) return 10 finney;
+        if(now < (blockDeployment + 2 weeks) || servers.length == 0) return 10 finney;
 
         // we cap the averageDeposit at 50 ether
-        uint averageDeposit = (address(this).balance - _value)/ servers.length;
+        uint averageDeposit = (address(this).balance - _value) / servers.length;
         averageDeposit = averageDeposit > 50 ether ? 50 ether : averageDeposit;
 
         // accessing the last server of the array and its registerTime
         // it does not necessarily has to be the latest registered server, as server positions can get swapped when an older server gets removed
         // but in that occassion we allow a potential lower minimum deposit for a new server
-        uint passedTime = (block.timestamp - servers[servers.length - 1].registerTime);
+        uint passedTime = (now - servers[servers.length - 1].registerTime);
 
-        uint minDeposit = (86400 * averageDeposit) / (passedTime == 0 ? 1 : passedTime);
+        uint minDeposit = (1 days * averageDeposit) / (passedTime == 0 ? 1 : passedTime);
         return (minDeposit < 10 finney )? 10 finney : minDeposit;
     }
 
+    /// calculates the sha3 hash of the most important properties
+    /// @param _server the in3 server to calculate the hash from
     function calcProofHash(In3Server memory _server) internal view returns (bytes32){
 
         return keccak256(abi.encodePacked(
@@ -515,8 +516,8 @@ contract ServerRegistry {
     /// @param _currentSet the array to be iterated
     /// @return true when the address was found inside of the array
     function checkUnique(address _new, address[] memory _currentSet) internal pure returns (bool){
-        for(uint i=0;i<_currentSet.length;i++){
-            if(_currentSet[i]==_new) return true;
+        for(uint i = 0; i < _currentSet.length; i++){
+            if(_currentSet[i] == _new) return true;
         }
     }
 
@@ -530,7 +531,7 @@ contract ServerRegistry {
         urlIndex[keccak256(bytes(servers[_serverIndex].url))].used = false;
 
         uint length = servers.length;
-        if (length>0) {
+        if (length > 0) {
             // move the last entry to the removed one.
             In3Server memory m = servers[length - 1];
             servers[_serverIndex] = m;

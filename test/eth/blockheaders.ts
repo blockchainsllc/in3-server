@@ -91,7 +91,7 @@ describe('Blockheader contract', () => {
                 const s = new serialize.Block(allBlocks[i] as any).serializeHeader()
 
                 const contractResult = await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [s])
-                await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [s], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: false, gas: 300000000 - 1 })
+                await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [s], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
 
                 const parentHash = "0x" + contractResult[0].toString('hex')
                 const blockHash = "0x" + contractResult[1].toString('hex')
@@ -282,7 +282,7 @@ describe('Blockheader contract', () => {
 
         }
         const targetBlock = ("0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash]))[0].toString('hex'))
-        await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: false, gas: 300000000 - 1 })
+        await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
 
         const blockHashBefore = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength]))[0].toString('hex')
         await tx.callContract(test.url, blockHashRegAddress, 'blockhashMapping(uint256):(bytes32)', [blockNumber - headerLength], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
