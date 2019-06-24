@@ -133,7 +133,7 @@ package-docker:
     - docker push $COMMIT_IMAGE_TAG
 
 # Deployment Section
-.deploy-template:
+.deploy-tmpl:
   stage: deploy
   tags:
     - short-jobs
@@ -144,20 +144,23 @@ package-docker:
     - cd deployment
     - rancher -w up -d --prune -p -s in3-server-${TARGET}-${CHAIN} -c --force-upgrade
 
-.deploy-template-stage:
-  extends: .deploy-template
+## Environments 
+.deploy-tmpl-stage:
+  extends: .deploy-tmpl
   only:
-    - test-develop
+    - tags
+    - /^v[0-9]+.[0-9]+.[0-9]+-(alpha|beta|rc)\.[0-9]+$/
   environment:
     name: stage-${CHAIN}
   variables:
     TARGET: stage
     REGISTRY_CONTRACT_ADDR: "0x2736D225f85740f42D17987100dc8d58e9e16252"
 
-.deploy-template-production:
-  extends: .deploy-template
+.deploy-tmpl-production:
+  extends: .deploy-tmpl
   only:
-    - test-master
+    - tags
+    - /^v[0-9]+.[0-9]+.[0-9]+$/
   environment:
     name: production-${CHAIN}
   variables:
@@ -166,60 +169,76 @@ package-docker:
   when: manual
   allow_failure: false
 
-# Stage deployments
-deploy-stage-kovan:
-  extends: .deploy-template-stage
-  variables:
-    CHAIN: kovan
-    CHAIN_ID: "0x2a"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan/pruned
-
-deploy-stage-goerli:
-  extends: .deploy-template-stage
+## Chains
+.chain-tmpl-goerli:
   variables:
     CHAIN: goerli
     CHAIN_ID: "0x5"
     RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
 
-deploy-stage-mainnet:
-  extends: .deploy-template-stage
+.chain-tmpl-kovan:
+  variables:
+    CHAIN: kovan
+    CHAIN_ID: "0x2a"
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan/pruned
+
+.chain-tmpl-mainnet:
   variables:
     CHAIN: mainnet
     CHAIN_ID: "0x1"
     RPC_ENDPOINT: http://lb.parity-rpc/mainnet/parity-pruned
 
-# Production deployments
-deploy-production-mainnet:
-  extends: .deploy-template-production
-  variables:
-    CHAIN: mainnet
-    CHAIN_ID: "0x1"
-    RPC_ENDPOINT: http://lb.parity-rpc/mainnet/parity-pruned
-
-deploy-production-evan:
-  extends: .deploy-template-production
+.chain-tmpl-evan:
   variables:
     CHAIN: evan
     CHAIN_ID: "0x4b1"
     RPC_ENDPOINT: http://lb.parity-rpc/evan
 
-deploy-production-kovan:
-  extends: .deploy-template-production
-  variables:
-    CHAIN: kovan
-    CHAIN_ID: "0x2a"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan/pruned
-
-deploy-production-goerli:
-  extends: .deploy-template-production
-  variables:
-    CHAIN: goerli
-    CHAIN_ID: "0x5"
-    RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
-
-deploy-production-tobalaba:
-  extends: .deploy-template-production
+.chain-tmpl-tobalaba:
   variables:
     CHAIN: tobalaba
     CHAIN_ID: "0x44d"
     RPC_ENDPOINT: http://lb.parity-rpc/tobalaba/archive-one
+
+# Stage deployments
+deploy-stage-kovan:
+  extends: 
+    - .deploy-tmpl-stage 
+    - .chain-tmpl-kovan
+
+deploy-stage-goerli:
+  extends: 
+    - .deploy-tmpl-stage 
+    - .chain-tmpl-goerli
+
+deploy-stage-mainnet:
+  extends: 
+    - .deploy-tmpl-stage
+    - .chain-tmpl-mainnet
+
+# Production deployments
+deploy-production-mainnet:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-mainnet
+
+deploy-production-evan:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-evan
+
+deploy-production-kovan:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-kovan
+
+deploy-production-goerli:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-goerli
+
+deploy-production-tobalaba:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-tobalaba
+  
