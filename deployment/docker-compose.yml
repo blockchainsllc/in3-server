@@ -1,0 +1,121 @@
+version: '2'
+services:
+  lb:
+    image: rancher/lb-service-haproxy:v0.9.6
+    expose:
+    - 80:80/tcp
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.container.agent.role: environmentAdmin,agent
+      io.rancher.container.agent_service.drain_provider: 'true'
+      io.rancher.container.create_agent: 'true'
+  
+  lb-monitor:
+    image: docker.slock.it/it/rancher-lb-monitor:master
+    environment:
+      TG_HOST: in3-lb-${TARGET}-${CHAIN}
+      TG_INFLUXURL: http://10.142.1.1:8086
+      TG_LBNAME: lb.in3-server-${TARGET}-${CHAIN}
+    stdin_open: true
+    tty: true
+    labels:
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+
+  nd-1:
+    image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=${SRV_PK1}
+    - --registry=${REGISTRY_CONTRACT_ADDR}
+    - --registryRPC=${RPC_ENDPOINT}
+    - --rpcUrl=${RPC_ENDPOINT}
+    - --chain=${CHAIN_ID}
+    - --minBlockHeight=0
+    - --profile-name=Slockit1
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+  nd-2:
+    image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=${SRV_PK2}
+    - --registry=${REGISTRY_CONTRACT_ADDR}
+    - --registryRPC=${RPC_ENDPOINT}
+    - --rpcUrl=${RPC_ENDPOINT}
+    - --chain=${CHAIN_ID}
+    - --minBlockHeight=0
+    - --profile-name=Slockit2
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+  nd-3:
+    image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=${SRV_PK3}
+    - --registry=${REGISTRY_CONTRACT_ADDR}
+    - --registryRPC=${RPC_ENDPOINT}
+    - --rpcUrl=${RPC_ENDPOINT}
+    - --chain=${CHAIN_ID}
+    - --minBlockHeight=0
+    - --profile-name=Slockit3
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+  nd-4:
+    image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=${SRV_PK4}
+    - --registry=${REGISTRY_CONTRACT_ADDR}
+    - --registryRPC=${RPC_ENDPOINT}
+    - --rpcUrl=${RPC_ENDPOINT}
+    - --chain=${CHAIN_ID}
+    - --minBlockHeight=0
+    - --profile-name=Slockit4
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+
+  nd-5:
+    image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    stdin_open: true
+    tty: true
+    command:
+    - --privateKey=${SRV_PK5}
+    - --registry=${REGISTRY_CONTRACT_ADDR}
+    - --registryRPC=${RPC_ENDPOINT}
+    - --rpcUrl=${RPC_ENDPOINT}
+    - --chain=${CHAIN_ID}
+    - --minBlockHeight=0
+    - --profile-name=Slockit5
+    - --profile-icon=https://slock.it/assets/slock_logo.png
+    - --profile-url=https://slock.it
+    - --persistentFile=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+      

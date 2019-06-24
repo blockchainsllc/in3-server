@@ -17,7 +17,7 @@
 # For questions, please contact info@slock.it              *
 #**********************************************************/
 
-FROM node:12
+FROM node:12 AS build
 
 WORKDIR /app
 
@@ -38,6 +38,12 @@ RUN apt-get update && apt-get install -y build-essential python g++ cmake && ech
     && npm set registry https://npm.slock.it \
     && npm install \
     && npm run build
+
+FROM node:12
+WORKDIR /app
+COPY --from=build /app/js /app/js
+COPY --from=build /app/contracts /app/contracts
+COPY --from=build /app/node_modules /app/node_modules
 # setup ENTRYPOINT
 EXPOSE 8500
 ENTRYPOINT ["node", "js/src/server/server.js"]
