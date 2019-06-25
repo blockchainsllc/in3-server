@@ -28,8 +28,6 @@ import Watcher from '../../src/chains/watch'
 import { registerNodes, deployNodeRegistry } from '../../src/util/registry'
 import { toBN, toBuffer } from 'in3/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
-import { utils } from 'ethers';
-
 
 const address = serialize.address
 const bytes32 = serialize.bytes32
@@ -51,7 +49,6 @@ const sign = (b: BlockData, pk: string, blockHash?: string) => {
     v: s.v
   } as Signature
 }
-
 
 const signVote = (blockhash: string, owner: string, pk: string) => {
 
@@ -501,6 +498,15 @@ describe('Convict', () => {
     await test.increaseTime(86400 * 31)
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterNode(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), txSig.slice(1, txSig.length)], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because not enough voting power')
+    assert.include(await test.getErrorReason(), "not enough voting power")
+
+    const singleSignArray = []
+
+    for (let i = 0; i < 24; i++) {
+      singleSignArray[i] = txSig[0]
+    }
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterNode(uint,address,bytes[])', [blockNumber, util.getAddress(test.getHandlerConfig(0).privateKey), singleSignArray], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail, because not enough voting power')
     assert.include(await test.getErrorReason(), "not enough voting power")
 
     let balanceVoterBefore = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[0].privateKey), 'latest'))

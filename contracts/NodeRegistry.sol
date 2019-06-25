@@ -273,8 +273,7 @@ contract NodeRegistry {
         // and this getting all the deposit back after signing a wrong hash.
         address(0).transfer(deposit-payout);
         /// for some reason currently deleting the ci storage would cost more gas, so we comment this out for now
-        //delete ci.convictHash;
-        //delete ci.blockHash;
+        delete convictMapping[_blockNumber][msg.sender];
         
     }
 
@@ -361,8 +360,8 @@ contract NodeRegistry {
                 
                 if(signedAddress == validSigners[j]){
 
+                    validSigners[j] = address(0x0);
                     votedTime += (now - nodes[signerIndex[signedAddress].index].registerTime) > 52 weeks ? 52 weeks : (now - nodes[signerIndex[signedAddress].index].registerTime);
-                  //  validSigners[j] = address(0x0);
                     // if we have more then 50% of the total voting time and have at least as much voting power as the node to be kicked
                     if(votedTime > totalVotingTime/2 && votedTime > activeTime){
                                                 
