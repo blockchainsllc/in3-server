@@ -228,7 +228,7 @@ contract ServerRegistry {
     }
 
     function checkLimits() internal view {
-        // within the 6 months this contract may never hold more than 500 ETH
+        // within the 6 months this contract may never hold more than 50 ETH
         if (now < 1560808800)
            require(address(this).balance < 50 ether, "Limit of 50 ETH reached");
     }

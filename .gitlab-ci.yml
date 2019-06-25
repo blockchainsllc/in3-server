@@ -1,0 +1,244 @@
+image: docker.slock.it/build-images/node:11-alpine
+variables:
+  COMMIT_IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+  RELEASE_IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
+
+stages:
+  - build
+  - test
+  - package
+  - deploy
+
+build-server:
+  stage: build
+  tags:
+    - short-jobs
+  script:
+    - sh /prepare.sh
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - node_modules/
+      - js/
+
+compile-contracts:
+  stage: build
+  tags:
+    - short-jobs
+  services:
+    - docker:dind
+  image: jonaskello/docker-and-compose:latest
+  script:
+    - docker run --rm -v $(pwd)/contracts:/contracts ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/ServerRegistry.sol /contracts/ChainRegistry.sol > contracts/contracts.json
+  artifacts:
+    paths:
+      - contracts/contracts.json
+
+test-parity:
+  stage: test
+  tags:
+    - short-jobs
+  variables:
+    RPCURL: http://parity:8545
+    IPFS_URL: http://ipfs:5001
+  services:
+    - name: jbenet/go-ipfs:latest
+      command:
+        - daemon
+        - --offline
+      alias: ipfs
+    - name: slockit/parity-in3:v2.3
+      command:
+        - --jsonrpc-experimental
+        - --jsonrpc-apis=all
+        - --logging=3
+        - --jsonrpc-interface=all
+        - --ws-interface=all
+        - --chain=dev
+        - --gas-cap=8000000
+        - --gasprice=0
+        - --reseal-min-period=0
+        - --gas-floor-target=8700000
+        - --tracing=on
+      alias: parity
+  script:
+    - sh /prepare.sh
+    - npm install
+    - npm run testCoverage
+  dependencies:
+    - build-server
+    - compile-contracts
+  artifacts:
+    name: "test-reports-$CI_JOB_NAME"
+    paths:
+      - test/report
+
+test-geth:
+  stage: test
+  tags:
+    - short-jobs
+  variables:
+    RPCURL: http://geth:8545
+    IPFS_URL: http://ipfs:5001
+  services:
+    - name: jbenet/go-ipfs:latest
+      command:
+        - daemon
+        - --offline
+      alias: ipfs
+    - name: docker.slock.it/build-images/geth:v1.8.18
+      alias: geth
+  script:
+    - sh /prepare.sh
+    - npm install
+  #        - npm run testCoverage             just for now geth seems to have some issues
+  dependencies:
+    - build-server
+    - compile-contracts
+  artifacts:
+    name: "test-reports-$CI_JOB_NAME"
+    paths:
+      - test/report
+
+pages:
+  stage: deploy
+  tags:
+    - short-jobs
+  environment:
+    name: test-results
+    url: http://in3.git-pages.slock.it/in3-server
+  dependencies:
+    - test-parity
+    - test-geth
+  script:
+    - mkdir -p public/
+    - cp -r test/report/* public/
+  artifacts:
+    paths:
+      - public
+
+package-docker:
+  stage: package
+  tags:
+    - short-jobs
+  services:
+    - docker:dind
+  image: jonaskello/docker-and-compose:latest
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build --build-arg NPM_REGISTRY_TOKEN=${NPM_REGISTRY_TOKEN} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} -t $COMMIT_IMAGE_TAG .
+    - docker tag $COMMIT_IMAGE_TAG $RELEASE_IMAGE_TAG
+    - docker push $RELEASE_IMAGE_TAG
+    - docker push $COMMIT_IMAGE_TAG
+
+# Deployment Section
+.deploy-tmpl:
+  stage: deploy
+  tags:
+    - short-jobs
+  image: markuskeil/docker-and-rancher
+  services:
+    - docker:dind
+  script:
+    - cd deployment
+    - rancher -w up -d --prune -p -s in3-server-${TARGET}-${CHAIN} -c --force-upgrade
+
+## Environments 
+.deploy-tmpl-stage:
+  extends: .deploy-tmpl
+  only:
+    - tags
+    - /^v[0-9]+.[0-9]+.[0-9]+-(alpha|beta|rc)\.[0-9]+$/
+  environment:
+    name: stage-${CHAIN}
+  variables:
+    TARGET: stage
+    REGISTRY_CONTRACT_ADDR: "0x2736D225f85740f42D17987100dc8d58e9e16252"
+
+.deploy-tmpl-production:
+  extends: .deploy-tmpl
+  only:
+    - tags
+    - /^v[0-9]+.[0-9]+.[0-9]+$/
+  environment:
+    name: production-${CHAIN}
+  variables:
+    TARGET: production
+    REGISTRY_CONTRACT_ADDR: "0x845E484b505443814B992Bf0319A5e8F5e407879"
+  when: manual
+  allow_failure: false
+
+## Chains
+.chain-tmpl-goerli:
+  variables:
+    CHAIN: goerli
+    CHAIN_ID: "0x5"
+    RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
+
+.chain-tmpl-kovan:
+  variables:
+    CHAIN: kovan
+    CHAIN_ID: "0x2a"
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan/pruned
+
+.chain-tmpl-mainnet:
+  variables:
+    CHAIN: mainnet
+    CHAIN_ID: "0x1"
+    RPC_ENDPOINT: http://lb.parity-rpc/mainnet/parity-pruned
+
+.chain-tmpl-evan:
+  variables:
+    CHAIN: evan
+    CHAIN_ID: "0x4b1"
+    RPC_ENDPOINT: http://lb.parity-rpc/evan
+
+.chain-tmpl-tobalaba:
+  variables:
+    CHAIN: tobalaba
+    CHAIN_ID: "0x44d"
+    RPC_ENDPOINT: http://lb.parity-rpc/tobalaba/archive-one
+
+# Stage deployments
+deploy-stage-kovan:
+  extends: 
+    - .deploy-tmpl-stage 
+    - .chain-tmpl-kovan
+
+deploy-stage-goerli:
+  extends: 
+    - .deploy-tmpl-stage 
+    - .chain-tmpl-goerli
+
+deploy-stage-mainnet:
+  extends: 
+    - .deploy-tmpl-stage
+    - .chain-tmpl-mainnet
+
+# Production deployments
+deploy-production-mainnet:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-mainnet
+
+deploy-production-evan:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-evan
+
+deploy-production-kovan:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-kovan
+
+deploy-production-goerli:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-goerli
+
+deploy-production-tobalaba:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-tobalaba
+  

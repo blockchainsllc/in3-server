@@ -17,24 +17,21 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util } from 'in3'
+import { RPCRequest, RPCResponse, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util }
+  from 'in3'
 import axios from 'axios'
-import { getNodeList, updateNodeList } from '../util/nodeListUpdater'
+import { getNodeList, updateNodeList } from './nodeListUpdater'
 import Watcher from './watch'
 import { checkPrivateKey, checkRegistry } from './initHandler'
 import { collectSignatures, handleSign } from './signatures'
 import { RPCHandler } from '../server/rpc'
 import { SimpleCache } from '../util/cache'
 
-const toHex = in3Util.toHex
-const toNumber = in3Util.toNumber
-const bytes32 = serialize.bytes32
-const address = serialize.address
-
 /**
  * handles eth_sign and eth_nodelist
  */
 export default abstract class BaseHandler implements RPCHandler {
+  openRequests: number
   counter: number
   config: IN3RPCHandlerConfig
   nodeList: ServerList
@@ -48,6 +45,8 @@ export default abstract class BaseHandler implements RPCHandler {
     this.transport = transport || new AxiosTransport()
     this.nodeList = nodeList || { nodes: undefined }
     this.counter = 1
+    this.openRequests = 0
+
     const interval = config.watchInterval || 5
 
     // check that we have a valid private key and if needed decode it
@@ -55,13 +54,15 @@ export default abstract class BaseHandler implements RPCHandler {
 
 
     // create watcher checking the registry-contract for events
-    this.watcher = new Watcher(this, interval, config.persistentFile || 'lastBlock.json', config.startBlock)
+    this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock)
 
     // start the watcher in the background
     if (interval > 0) {
       this.watcher.check()
-      this.cache = new SimpleCache()
-      this.watcher.on('newBlock', () => this.cache.clear())
+      if ((this.config as any).useCache) {
+        this.cache = new SimpleCache()
+        this.watcher.on('newBlock', () => this.cache.clear())
+      }
     }
   }
 
@@ -84,16 +85,34 @@ export default abstract class BaseHandler implements RPCHandler {
 
 
   /** returns the result directly from the server */
-  getFromServer(request: Partial<RPCRequest>): Promise<RPCResponse> {
+  getFromServer(request: Partial<RPCRequest>, r?: any): Promise<RPCResponse> {
+    const startTime = Date.now()
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
-    return axios.post(this.config.rpcUrl, this.toCleanRequest(request),{ headers:{'Content-Type':'application/json'}}).then(_ => _.data)
+    return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
+      throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
+    }).then(res => {
+      if (r) {
+        r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
+        r.rpcCount = (r.rpcCount || 0) + 1
+      }
+      return res
+    })
   }
 
   /** returns a array of requests from the server */
-  getAllFromServer(request: Partial<RPCRequest>[]): Promise<RPCResponse[]> {
+  getAllFromServer(request: Partial<RPCRequest>[], r?: any): Promise<RPCResponse[]> {
+    const startTime = Date.now()
     return request.length
-      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })),{ headers:{'Content-Type':'application/json'}}).then(_ => _.data)
+      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
+        throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
+      }).then(res => {
+        if (r) {
+          r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
+          r.rpcCount = (r.rpcCount || 0) + 1
+        }
+        return res
+      })
       : Promise.resolve([])
   }
 
@@ -106,10 +125,10 @@ export default abstract class BaseHandler implements RPCHandler {
   async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[]): Promise<ServerList> {
     const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
     if (nl.proof && signers && signers.length) {
-      let blockNumber= nl.lastBlockNumber
+      let blockNumber = nl.lastBlockNumber
 
-      if (nl.proof.block) 
-        blockNumber = in3Util.toNumber( serialize.blockFromHex(nl.proof.block).number )
+      if (nl.proof.block)
+        blockNumber = in3Util.toNumber(serialize.blockFromHex(nl.proof.block).number)
       nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes)
     }
     return nl
@@ -144,6 +163,3 @@ export default abstract class BaseHandler implements RPCHandler {
     }
   }
 }
-
-
-

@@ -26,31 +26,40 @@ import * as ethUtil from 'ethereumjs-util'
 import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
 import Watcher from '../../src/chains/watch'
 import { registerServers } from '../../src/util/registry'
+import { signatureCaches } from '../../src/chains/signatures'
 
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 const toHex = util.toHex
 
 const sign = (b: BlockData, pk: string, blockHash?: string) => {
-  const msgHash = ethUtil.sha3(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number)]))
-  const sig = ethUtil.ecsign(msgHash, bytes32(pk)) as Signature
-  sig.block = toNumber(b.number)
-  sig.blockHash = blockHash || b.hash
-  sig.address = util.getAddress(pk)
-  sig.msgHash = toHex(msgHash, 32)
-  return sig
+  const msgHash = ethUtil.keccak(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number)]))
+  const s = ethUtil.ecsign(msgHash, bytes32(pk))
+  return {
+    ...s,
+    block: toNumber(b.number),
+    blockHash: blockHash || b.hash,
+    address: util.getAddress(pk),
+    msgHash: toHex(msgHash, 32),
+    r: toHex(s.r),
+    s: toHex(s.s),
+    v: s.v
+  } as Signature
 }
 
 
 describe('Convict', () => {
+
+
+
   it('convict on contracts', async () => {
 
     const test = await TestTransport.createWithRegisteredServers(2)
 
     // make sure we have more than 256 blocks in order to test older blocks
     const currentBlock = parseInt(await test.getFromServer('eth_blockNumber'))
-    for (let b = 0; b<256-currentBlock;b++)
-       await test.createAccount()
+    for (let b = 0; b < 256 - currentBlock; b++)
+      await test.createAccount()
 
     // read current Block
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
@@ -73,7 +82,7 @@ describe('Convict', () => {
     // now test if we can send a wrong blockhash, but the block is older than 256 blocks:
 
     // wrong blockhash signed by first node
-    s = sign({number:1} as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
+    s = sign({ number: 1 } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
     // must fail, since we cannot convict with a correct blockhash
     rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
@@ -115,7 +124,7 @@ describe('Convict', () => {
     assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
 
 
-  })
+  }).timeout(50000)
 
 
 
@@ -138,7 +147,7 @@ describe('Convict', () => {
     assert.isDefined(res.in3.proof.signatures[0])
     test.injectRandom([0.01, 0.9])
     test.injectRandom([0.02, 0.8])
-
+    signatureCaches.clear()
     let manipulated = false
     test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
       const index = parseInt(url.substr(1)) - 1
@@ -181,7 +190,7 @@ describe('Convict', () => {
     const watcher = test.handlers['#1'].getHandler().watcher
     // read all events (should be only the 2 register-events
     assert.equal((await watcher.update()).length, 2)
-    const unregisterDeposit = 10000/50
+    const unregisterDeposit = 10000 / 50
 
     const user = await test.createAccount()
 
@@ -228,44 +237,44 @@ describe('Convict', () => {
 
     // register 2 different servers should work
     let registers = await registerServers(pk1, null, [{
-      url:'test1.com',
-      deposit:0,
-      pk:pk1,
-      props:'0xff'
-    },{
-      url:'test2.com',
-      deposit:0,
-      pk:pk2,
-      props:'0xff'
+      url: 'test1.com',
+      deposit: 0,
+      pk: pk1,
+      props: '0xff'
+    }, {
+      url: 'test2.com',
+      deposit: 0,
+      pk: pk2,
+      props: '0xff'
     }], test.chainId, null, test.url, transport, false)
 
     // register same url servers should not work
     await test.mustFail(
       registerServers(pk1, null, [{
-        url:'test1.com',
-        deposit:0,
-        pk:pk1,
-        props:'0xff'
-      },{
-        url:'test1.com',
-        deposit:0,
-        pk:pk2,
-        props:'0xff'
+        url: 'test1.com',
+        deposit: 0,
+        pk: pk1,
+        props: '0xff'
+      }, {
+        url: 'test1.com',
+        deposit: 0,
+        pk: pk2,
+        props: '0xff'
       }], test.chainId, null, test.url, transport, false)
     )
 
     // register same pk servers should not work
     await test.mustFail(
       registerServers(pk1, null, [{
-        url:'test1.com',
-        deposit:0,
-        pk:pk1,
-        props:'0xff'
-      },{
-        url:'test2.com',
-        deposit:0,
-        pk:pk1,
-        props:'0xff'
+        url: 'test1.com',
+        deposit: 0,
+        pk: pk1,
+        props: '0xff'
+      }, {
+        url: 'test2.com',
+        deposit: 0,
+        pk: pk1,
+        props: '0xff'
       }], test.chainId, null, test.url, transport, false)
     )
   })

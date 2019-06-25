@@ -17,10 +17,10 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util } from 'in3'
-import axios from 'axios'
-import BaseHandler from './BaseHandler'
-import * as FormData from 'form-data'
+import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig } from 'in3'
+import axios                                                                   from 'axios'
+import BaseHandler                                                             from '../../chains/BaseHandler'
+import * as FormData                                                           from 'form-data'
 
 
 /**
@@ -28,15 +28,15 @@ import * as FormData from 'form-data'
  */
 export default class IPFSHandler extends BaseHandler {
 
-  ipfsCache: Map<string, Buffer>
-  maxCacheSize: number
+  ipfsCache           : Map<string, Buffer>
+  maxCacheSize        : number
   maxCacheBufferLength: number
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     super(config, transport, nodeList)
-    this.ipfsCache = new Map()
+    this.ipfsCache            = new Map()
     this.maxCacheBufferLength = 5000
-    this.maxCacheSize = 100
+    this.maxCacheSize         = 100
   }
 
 
@@ -55,11 +55,11 @@ export default class IPFSHandler extends BaseHandler {
         const formData = new FormData()
         formData.append('file', Buffer.from(request.params[0], request.params[1] || 'base64') as any)
         return axios.post(this.config.ipfsUrl + '/api/v0/add', formData, {
-          headers: formData.getHeaders(),
-          timeout: this.config.timeout || 30000,
+          headers         : formData.getHeaders(),
+          timeout         : this.config.timeout || 30000,
           maxContentLength: 3000000,
         }).then(
-          r => this.toResult(request.id, r.data.Hash),
+          r   => this.toResult(request.id, r.data.Hash),
           err => this.toError(request.id, err.message))
 
       default:
@@ -76,7 +76,7 @@ export default class IPFSHandler extends BaseHandler {
     const result: Buffer = await axios.get(
       this.config.ipfsUrl + '/api/v0/cat?arg=' + hash,
       {
-        timeout: this.config.timeout || 30000,
+        timeout     : this.config.timeout || 30000,
         responseType: 'arraybuffer'
       })
       .then(r => r.data)
@@ -96,7 +96,6 @@ export default class IPFSHandler extends BaseHandler {
 
 function encode(data: string | Buffer, inEncoding: string, outEncoding: string) {
   if (inEncoding === outEncoding) return data
-  const b = Buffer.isBuffer(data) ? data : Buffer.from(data, inEncoding)
+  const b = Buffer.isBuffer(data) ? data : Buffer.from(data, inEncoding as any) // dirty, but needed
   return b.toString(outEncoding)
 }
-

@@ -17,21 +17,23 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { util, LogData } from 'in3'
-import { sha3, toChecksumAddress } from 'ethereumjs-util'
-import { rawDecode } from 'ethereumjs-abi'
-import { RPCHandler } from '../server/rpc';
 import * as fs from 'fs'
 import { EventEmitter } from 'events'
+import { util, LogData } from 'in3'
+import { keccak, toChecksumAddress } from 'ethereumjs-util'
+import { rawDecode } from 'ethereumjs-abi'
+
+import { RPCHandler } from '../server/rpc';
 import { getABI } from '../util/registry'
 import * as logger from '../util/logger'
 import * as tx from '../util/tx'
-import config from '../server/config'
-
-import { isFunction } from 'util';
 import { useDB, exec } from '../util/db'
+import config from '../server/config'
+import { updateValidatorHistory } from '../server/poa';
+
 const toNumber = util.toNumber
 const toHex = util.toHex
+const toMinHex = util.toMinHex
 const toBuffer = util.toBuffer
 
 export default class Watcher extends EventEmitter {
@@ -48,8 +50,7 @@ export default class Watcher extends EventEmitter {
   running: boolean
 
 
-
-  constructor(handler: RPCHandler, interval = 5, persistFile: string = 'lastBlock.json', startBlock?: number) {
+  constructor(handler: RPCHandler, interval = 5, persistFile = 'false', startBlock?: number) {
     super()
     this.handler = handler
     this.interval = interval
@@ -134,10 +135,10 @@ export default class Watcher extends EventEmitter {
     this.emit('newBlock', currentBlock)
 
     const [blockResponse, logResponse] = await this.handler.getAllFromServer([{
-      method: 'eth_getBlockByNumber', params: [toHex(currentBlock), false]
+      method: 'eth_getBlockByNumber', params: [toMinHex(currentBlock), false]
     },
     ... (nodeList && nodeList.contract ? [{
-      method: 'eth_getLogs', params: [{ fromBlock: toHex(this.block.number + 1), toBlock: toHex(currentBlock), address: nodeList.contract }]
+      method: 'eth_getLogs', params: [{ fromBlock: toMinHex(this.block.number + 1), toBlock: toMinHex(currentBlock), address: nodeList.contract }]
     }] : [])
     ])
 
@@ -162,6 +163,9 @@ export default class Watcher extends EventEmitter {
 
     // save block
     this.block = { number: currentBlock, hash: toHex(blockResponse.result.hash, 32) }
+
+    // update validators
+    await updateValidatorHistory(this.handler)
 
     return res
   }
@@ -202,7 +206,7 @@ const abi = getABI('ServerRegistry').filter(_ => _.type === 'event') as {
   inputs: any[]
   hash: string
 }[]
-abi.forEach(_ => _.hash = toHex(sha3(_.name + '(' + _.inputs.map(i => i.type).join(',') + ')'), 32))
+abi.forEach(_ => _.hash = toHex(keccak(_.name + '(' + _.inputs.map(i => i.type).join(',') + ')'), 32))
 
 
 function handleUnregister(ev, handler: RPCHandler) {

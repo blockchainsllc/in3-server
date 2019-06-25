@@ -30,6 +30,7 @@ const codes = {
   '09': 'MULMOD 3 1 Modulo',
   '0a': 'EXP 2 1 Exponential operation',
   '0b': 'SIGNEXTEND 2 1 Extend length of twos complement signed integer',
+
   '10': 'LT 2 1  Lesser-than comparison',
   '11': 'GT 2 1  Greater-than comparison',
   '12': 'SLT 2 1 Signed less-than comparison',
@@ -41,7 +42,13 @@ const codes = {
   '18': 'XOR 2 1 Bitwise XOR operation',
   '19': 'NOT 1 1 Bitwise NOT operation',
   '1a': 'BYTE 2 1 Retrieve single byte from word',
+
+  '1b': 'SHL 2 1 shift left operation',
+  '1c': 'SHR 2 1 logical shift right operation',
+  '1d': 'SAR 2 1 arithmetic shift right operation',
+
   '20': 'SHA3 2 1 Compute Keccak-256 hash',
+
   '30': 'ADDRESS 0 1 Get address of currently executing account',
   '31': 'BALANCE 1 1 Get balance of the given account',
   '32': 'ORIGIN 0 1 Get execution origination address',
@@ -55,6 +62,10 @@ const codes = {
   '3a': 'GASPRICE 0 1 Get price of gas in current environment',
   '3b': 'EXTCODESIZE 1 1 Get size of an accounts code',
   '3c': 'EXTCODECOPY 4 0  Copy an accounts code to memory',
+  '3d': 'RETURNDATASIZE 0 1 get the size of the return data buffer for the last call',
+  '3e': 'RETURNDATACOPY 3 0 copy return data buffer to memory',
+  '3f': 'EXTCODEHASH 1 1 return the keccak256 hash of contract code',
+  
   '40': 'BLOCKHASH 1 1 Get the hash of one of the 256 most recent complete blocks',
   '41': 'COINBASE 0 1 Get the blocks beneficiary address',
   '42': 'TIMESTAMP 0 1   Get the blocks timestamp',
@@ -155,10 +166,10 @@ const codes = {
 
 
 export function analyse(trace, storageAccount: string, result?: any, level = ''): {
-  blocks: string[],
+  blocks  : string[],
   accounts: {
     [name: string]: {
-      code?: boolean | string,
+      code?   : boolean | string,
       balance?: string,
       storage?: {
         [key: string]: string
@@ -167,10 +178,10 @@ export function analyse(trace, storageAccount: string, result?: any, level = '')
   }
 } {
   //  console.error('anaylse ' + storageAccount)
-  const code = trace.code.substr(2)
-  const stack = []
-  if (!result) result = { blocks: [], accounts: { [storageAccount]: { storage: {}, code: trace.code } } }
-  const getAccount = (a?: string) => result.accounts[a || storageAccount] || (result.accounts[a || storageAccount] = { storage: {} })
+  const code             = trace.code.substr(2)
+  const stack            = []
+  if (!result)    result = { blocks: [], accounts: { [storageAccount]: { storage: {}, code: trace.code } } }
+  const getAccount       = (a?: string) => result.accounts[a || storageAccount] || (result.accounts[a || storageAccount] = { storage: {} })
 
   trace.ops.forEach((s, count) => {
     const c = codes[code.substr(s.pc * 2, 2)] as string
@@ -204,7 +215,7 @@ export function analyse(trace, storageAccount: string, result?: any, level = '')
       getAccount().storage[stack[stack.length - 1]] = s.ex.push[0]
     else if (op === 'BALANCE')
       getAccount(stack[stack.length - 1]).balance = s.ex.push[0]
-    else if (op === 'EXTCODECOPY' || op === 'EXTCODESIZE')
+    else if (op === 'EXTCODECOPY' || op === 'EXTCODESIZE' || op === 'EXTCODEHASH')
       getAccount(stack[stack.length - 1]).code = true
 
     while (sdel) {
@@ -222,13 +233,3 @@ export function analyse(trace, storageAccount: string, result?: any, level = '')
   return result
 
 }
-
-
-
-
-/*
-60 {"cost":3,"ex":{"mem":null,"push":["'1':'"],"store":null,"used":4676704},"pc":507,"sub":null}
-54 {"cost":200,"ex":{"mem":null,"push":["'d34abc7edf64f507a0f939cfea6a799e9526e3ae':'"],"store":null,"used":4676504},"pc":509,"sub":null}
-60 {"cost":3,"ex":{"mem":null,"push":["'2':'"],"store":null,"used":4676501},"pc":510,"sub":null}
-54 {"cost":200,"ex":{"mem":null,"push":["'422ed4cf8c08eabe86d516dcfc578fe9a9d70e2fb2fa3db669e7613cd026b7b5':'"],"store":null,"used":4676301},"pc":512,"sub":null}
-*/

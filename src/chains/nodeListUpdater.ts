@@ -18,10 +18,10 @@
 ***********************************************************/
 
 import { RPCHandler } from '../server/rpc'
-import * as tx from './tx'
+import * as tx from '../util/tx'
 import * as abi from 'ethereumjs-abi'
 import { createRandomIndexes, Proof, ServerList, BlockData, AccountProof, RPCRequest, IN3NodeConfig, util, storage, serialize } from 'in3'
-import { toChecksumAddress, keccak256, toBuffer } from 'ethereumjs-util'
+import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 
 const toHex = util.toHex
 const toBuffer = util.toBuffer
@@ -106,10 +106,10 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
   // create the keys with the serverCount
   const keys: Buffer[] = getStorageKeys(nodeList.nodes)
 
-  const address = nodeList.contract
   // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
-  const lastBlock  =  await handler.getFromServer({ method:'eth_blockNumber', params:[] }).then(_=>parseInt(_.result))
-  const blockNr =  lastBlock ? '0x'+Math.max(nodeList.lastBlockNumber,lastBlock -  (handler.config.minBlockHeight || 0)).toString(16) : 'latest'
+  const address = nodeList.contract
+  const lastBlock = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result))
+  const blockNr = lastBlock ? '0x' + Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0)).toString(16) : 'latest'
 
   // read the response,blockheader and trace from server
   const [blockResponse, proof] = await handler.getAllFromServer([
@@ -120,6 +120,12 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
   // error checking
   if (blockResponse.error) throw new Error('Could not get the block for ' + blockNr + ':' + blockResponse.error)
   if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), keys.map(toHex), blockNr] }, null, 2))
+
+
+  // make sure we use minHex for the proof-keys
+  if (proof.result && proof.result.storageProof)
+    proof.result.storageProof.forEach(p => p.key = util.toMinHex(p.key))
+
 
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as BlockData
@@ -170,8 +176,8 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
     const [url, owner, deposit, props, unregisterTime] = abi.simpleDecode('servers(uint):(string,address,uint,uint,uint,address)', toBuffer(n.result))
 
     return {
-      address: toChecksumAddress(owner),
       url,
+      address: toChecksumAddress(owner),
       index: i,
       deposit: parseInt(deposit.toString()),
       props: props.toNumber(),
