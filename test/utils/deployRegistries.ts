@@ -48,7 +48,7 @@ export async function deployAll() {
 
 
   // register kovan-servers
-  const registers = await reg.registerServers(ownerPK, kovanRegistry, [{
+  const registers = await reg.registerNodes(ownerPK, kovanRegistry, [{
     url: 'https://in3-kovan1.slock.it',
     pk: ownerPK,
     props: '0xFFFF',
