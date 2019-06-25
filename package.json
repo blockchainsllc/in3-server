@@ -67,7 +67,7 @@
     "@types/koa-bodyparser": "^4.2.2",
     "@types/koa-router": "^7.0.40",
     "@types/mocha": "^5.2.6",
-    "@types/winston": "^2.3.8",
+    "@types/winston": "^2.4.4",
     "chai": "^4.1.2",
     "dtsgenerator": "^0.9.9",
     "mocha": "^5.1.1",
@@ -99,7 +99,6 @@
     "merkle-patricia-tree": "^2.3.1",
     "njstrace": "^1.1.0",
     "pg-promise": "^8.6.4",
-    "winston": "^3.2.1",
-    "winston-papertrail": "^1.0.5"
+    "winston": "^3.2.1"
   }
 }

@@ -106,6 +106,10 @@ export default class Watcher extends EventEmitter {
   }
 
   check() {
+    if (!this.running)
+      logger.info('start watching for registry events ...')
+
+    logger.debug('check ...' + this.block.number)
     this.running = true
     const next = err => {
       if (err && err instanceof Error) console.error(err)
