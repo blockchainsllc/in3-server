@@ -154,7 +154,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   }
 
   // number of registered servers
-  const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalServers():(uint)', [])
+  const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [])
   list.lastBlockNumber = lastBlockNumber || parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
   list.totalServers = serverCount.toNumber()
 
@@ -166,7 +166,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
       id: i + 1,
       method: 'eth_call', params: [{
         to: list.contract,
-        data: '0x' + abi.simpleEncode('servers(uint)', toHex(i, 32)).toString('hex')
+        data: '0x' + abi.simpleEncode('nodes(uint)', toHex(i, 32)).toString('hex')
       },
         'latest']
     })
@@ -174,11 +174,11 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   list.nodes = await handler.getAllFromServer(nodeRequests).then(all => all.map((n, i) => {
     // invalid requests must be filtered out
     if (n.error) return null
-    const [url, owner, timeout, deposit, props, unregisterTime] = abi.simpleDecode('servers(uint):(string,address,uint64,uint,uint,uint,address)', toBuffer(n.result))
+    const [url, deposit, timeout, registerTime, unregisterTime, props, weight, signer, proofHash] = abi.simpleDecode('nodes(uint):(string,uint,uint64,uint64,uint64,uint64,uint64,address,bytes32)', toBuffer(n.result))
 
     return {
       url,
-      address: toChecksumAddress(owner),
+      address: toChecksumAddress(signer),
       index: i,
       deposit: parseInt(deposit.toString()),
       props: props.toNumber(),

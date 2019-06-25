@@ -63,7 +63,7 @@ export async function callContract(url: string, contract: string, signature: str
   if (signature === 'calculateBlockheaders(bytes[],bytes32):(bytes32)'
     || signature === 'recreateBlockheaders(uint,bytes[])'
     || signature === 'recoverAddress(bytes,bytes32,address):(address)'
-    || signature === 'voteUnregisterServer(uint,address,bytes[])'
+    || signature === 'voteUnregisterNode(uint,address,bytes[])'
   ) {
 
     const signaturesplit = signature.split(':')[0]

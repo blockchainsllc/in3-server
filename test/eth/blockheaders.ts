@@ -36,7 +36,7 @@ describe('Blockheader contract', () => {
 
 
     it('deploy blockheader contract', async () => {
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
         const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
@@ -53,7 +53,7 @@ describe('Blockheader contract', () => {
     })
 
     it('getParentAndBlockhash on privateChain', async () => {
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
         const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
@@ -76,7 +76,7 @@ describe('Blockheader contract', () => {
     })
 
     it('getParentAndBlockhash with real blocks', async () => {
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
 
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
@@ -104,7 +104,7 @@ describe('Blockheader contract', () => {
 
     it('snapshot', async () => {
 
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
 
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
@@ -126,7 +126,7 @@ describe('Blockheader contract', () => {
 
     it('saveBlockNumber', async () => {
 
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
 
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
@@ -152,7 +152,7 @@ describe('Blockheader contract', () => {
     })
 
     it('saveBlockNumber fail', async () => {
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
 
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
@@ -175,7 +175,7 @@ describe('Blockheader contract', () => {
 
 
     it('calculateBlockheaders', async () => {
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
 
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
@@ -210,7 +210,7 @@ describe('Blockheader contract', () => {
     })
 
     it('calculateBlockheaders fail', async () => {
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
 
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
@@ -249,7 +249,7 @@ describe('Blockheader contract', () => {
 
 
     it(`create ${headerLength} blocks`, async () => {
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
 
         for (let i = 0; i < headerLength; i++) {
             await test.createAccount()
@@ -257,7 +257,7 @@ describe('Blockheader contract', () => {
     }).timeout(90000)
 
     it('recreateBlockheaders', async () => {
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
 
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
@@ -307,7 +307,7 @@ describe('Blockheader contract', () => {
     })
 
     it('recreateBlockheaders fail', async () => {
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
 
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
@@ -354,7 +354,7 @@ describe('Blockheader contract', () => {
     })
 
     it('searchForAvailableBlock', async () => {
-        const test = await TestTransport.createWithRegisteredServers(2)
+        const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
 
@@ -386,7 +386,7 @@ describe('Blockheader contract', () => {
     if (process.env.GITLAB_CI) {
         it('recreateBlockheaders gas costs', async () => {
 
-            const test = await TestTransport.createWithRegisteredServers(2)
+            const test = await TestTransport.createWithRegisteredNodes(2)
             const pk1 = test.getHandlerConfig(0).privateKey
 
             const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)

@@ -23,7 +23,7 @@ import * as fs from 'fs'
 import * as scryptsy from 'scrypt.js'
 import * as cryp from 'crypto'
 import * as ethUtil from 'ethereumjs-util'
-import { registerServers } from '../util/registry'
+import { registerNodes } from '../util/registry'
 
 
 
@@ -113,7 +113,7 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
   if (balance < (autoReg.deposit + registrationCost))
     throw new Error("Insufficient funds to register a server, need: " + autoReg.deposit + " ether, have: " + balance + " wei")
 
-  await registerServers(handler.config.privateKey, handler.config.registry, [{
+  await registerNodes(handler.config.privateKey, handler.config.registry, [{
     url: autoReg.url,
     pk: handler.config.privateKey,
     props,

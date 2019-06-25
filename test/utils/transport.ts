@@ -23,7 +23,7 @@ import * as logger from '../../src/util/logger'
 import * as crypto from 'crypto'
 import { sendTransaction, callContract } from '../../src/util/tx'
 import axios from 'axios'
-import { registerServers } from '../../src/util/registry'
+import { registerNodes } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
 import { toBN, toUtf8 } from 'in3/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
@@ -236,13 +236,13 @@ export class TestTransport implements Transport {
     return pk
   }
 
-  async getServerFromContract(index: number) {
-    const [url, owner, timeout, deposit, props, unregisterTime, registerTime, proofHash] = await callContract(this.url, this.nodeList.contract, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128,bytes32)', [index])
-    return { url, owner, timeout, deposit, props, unregisterTime, registerTime, proofHash }
+  async getNodeFromContract(index: number) {
+    const [url, deposit, timeout, registerTime, unregisterTime, props, weight, signer, proofHash] = await callContract(this.url, this.nodeList.contract, 'nodes(uint):(string,uint,uint64,uint64,uint64,uint64,uint64,address,bytes32)', [index])
+    return { url, deposit, timeout, registerTime, unregisterTime, props, weight, signer, proofHash }
   }
 
-  async getServerCountFromContract() {
-    const [count] = await callContract(this.url, this.nodeList.contract, 'totalServers():(uint)', [])
+  async getNodeCountFromContract() {
+    const [count] = await callContract(this.url, this.nodeList.contract, 'totalNodes():(uint)', [])
     return util.toNumber(count)
   }
 
@@ -261,7 +261,7 @@ export class TestTransport implements Transport {
     return toUtf8(trace.output)
   }
 
-  static async createWithRegisteredServers(count: number) {
+  static async createWithRegisteredNodes(count: number) {
     const test = new TestTransport(1)
 
     const pks: string[] = []
@@ -281,8 +281,7 @@ export class TestTransport implements Transport {
     }
 
     //  register 1 server
-    const registers = await registerServers(pks[0], null, servers, test.chainId, null, test.url, new LoggingAxiosTransport())
-
+    const registers = await registerNodes(pks[0], null, servers, test.chainId, null, test.url, new LoggingAxiosTransport())
     const res = new TestTransport(count, registers.registry, pks)
     res.chainRegistry = registers.chainRegistry
     return res

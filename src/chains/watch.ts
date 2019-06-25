@@ -59,7 +59,7 @@ export default class Watcher extends EventEmitter {
       this._lastBlock = { number: startBlock, hash: toHex(0, 32) }
 
     // regsiter Cancel-Handler for 
-    this.on('LogServerUnregisterRequested', handleUnregister)
+    this.on('LogNodeUnregisterRequested', handleUnregister)
 
   }
 
@@ -201,7 +201,7 @@ function decodeData(data: any, inputs: { type: string, name: string }[]) {
   }, {})
 }
 
-const abi = getABI('ServerRegistry').filter(_ => _.type === 'event') as {
+const abi = getABI('NodeRegistry').filter(_ => _.type === 'event') as {
   name: string
   inputs: any[]
   hash: string

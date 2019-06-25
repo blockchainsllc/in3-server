@@ -172,7 +172,7 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
   const blockHashRegistry = "0x" + (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0].toString("hex")
 
   // we have to calculate whether it's worth convicting a server
-  const [, , , deposit, , , ,] = await callContract(handler.config.rpcUrl, nodes.contract, 'servers(uint):(string,address,uint64,uint,uint,uint128,uint128,bytes32)', [toNumber(singingNode.index)])
+  const [url, deposit, timeout, registerTime, unregisterTime, props, weight, signer, proofHash] = await callContract(handler.config.rpcUrl, nodes.contract, 'nodes(uint):(string,uint,uint64,uint64,uint64,uint64,uint64,address,bytes32)', [toNumber(singingNode.index)])
   const latestSS = toNumber((await callContract(handler.config.rpcUrl, blockHashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [s.block, diffBlocks]))[0])
   const costPerBlock = 86412400000000
   const blocksMissing = latestSS - s.block
