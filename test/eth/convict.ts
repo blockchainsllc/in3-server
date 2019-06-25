@@ -559,7 +559,6 @@ describe('Convict', () => {
     const userVoteOne = await test.createAccount(null, toBN('10000000000000000000'))
     await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['kickOne', 1000, 10000, 2000], { privateKey: userVoteOne, value: toBN('10000000000000000000'), confirm: true, gas: 50000000 })
 
-
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
     const blockNumber = toNumber(block.number) - 1
 
@@ -573,7 +572,7 @@ describe('Convict', () => {
 
     let balanceVoterBefore = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(accounts[1].privateKey), 'latest'))
 
-    const voteTx2 = await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterNode(uint,address,bytes[])', [blockNumber, util.getAddress(userVoteOne), txSigNew], { privateKey: accounts[1].privateKey, value: 0, confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterNode(uint,address,bytes[])', [blockNumber, util.getAddress(userVoteOne), txSigNew], { privateKey: accounts[1].privateKey, value: 0, confirm: true, gas: 5000000 })
 
     const [, , , , depositAmountAfter2] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,bool,address,uint,uint)', [util.getAddress(userVoteOne)])
     await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,bool,address,uint,uint)', [util.getAddress(userVoteOne)], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
@@ -595,7 +594,11 @@ describe('Convict', () => {
 
     await test.createAccount(userVoteOne, toBN('10000000000000000000'))
 
-    await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['kickOne', 1000, 3600, 2000], { privateKey: userVoteOne, value: toBN('10000000000000000000'), confirm: true, gas: 5000000 })
+    try {
+      await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['ToKickOne', 1000, 3600, 2000], { privateKey: userVoteOne, value: toBN('10000000000000000000'), confirm: true, gas: 5000000 })
+    } catch (e) {
+      console.log("error: " + await test.getErrorReason())
+    }
     balanceVoterBefore = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(userVoteOne), 'latest'))
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit(address)', [util.getAddress(accounts[0].privateKey)], {
@@ -656,8 +659,8 @@ describe('Convict', () => {
 
     await test.createAccount(userVoteOne, toBN('50000000000000000000'))
     const balanceVoterThreeBefore = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(userVoteOne), 'latest'))
-
     const unregisterTx = await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterNode(uint,address,bytes[])', [blockNumber, util.getAddress(userVoteThree), txSigNew], { privateKey: userVoteOne, value: 0, confirm: true, gas: 5000000, gasPrice: toBN('10000000000000') })
+
     const balanceVoterThreeAfter = new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(userVoteOne), 'latest'))
 
     const [, , , , depositAmountAfter5] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,bool,address,uint,uint)', [util.getAddress(userVoteThree)])

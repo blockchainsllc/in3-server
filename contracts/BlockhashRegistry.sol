@@ -109,7 +109,7 @@ contract BlockhashRegistry {
     /// @param _blockheader a serialized (rlp-encoded) blockheader
     /// @return the parent blockhash and the keccak256 of the provided blockheader (= the corresponding blockhash)
     function getParentAndBlockhash(bytes memory _blockheader) public pure returns (bytes32 parentHash, bytes32 bhash) {
-        
+
         /// we need the 1st byte of the blockheader to calculate the position of the parentHash
         uint8 first = uint8(_blockheader[0]);
 
@@ -117,7 +117,7 @@ contract BlockhashRegistry {
         /// by using the 1st byte (usually f9) and substracting f7 to get the start point of the parentHash information
         /// we also have to add "2" = 1 byte to it to skip the length-information
         uint8 offset = first - 0xf7 + 2;
-        
+
         assembly {
 
             // mstore to get the memory pointer of the blockheader to 0x20
@@ -132,7 +132,7 @@ contract BlockhashRegistry {
                     add(
                         mload(0x20),0x20
                     ),offset)
-            )            
+            )
         }
         bhash = keccak256(_blockheader);
     }
