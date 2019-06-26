@@ -194,7 +194,6 @@ function updateVotes(blocks: BlockData[], history: ValidatorHistory) {
                 validators: vals,
                 proof
             })
-            console.log("found VOTE for " + newValidator)
             history.lastValidatorChange = history.states[history.states.length - 1].block
 
             delete history.lastEpoch.pendingVotes[newValidator]
