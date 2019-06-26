@@ -17,11 +17,12 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCHandler } from '../server/rpc'
+import { RPCHandler, HandlerTransport } from '../server/rpc'
 import * as tx from '../util/tx'
 import * as abi from 'ethereumjs-abi'
-import { createRandomIndexes, Proof, ServerList, BlockData, AccountProof, RPCRequest, IN3NodeConfig, util, storage, serialize } from 'in3'
+import { createRandomIndexes, Proof, ServerList, Transport, BlockData, AccountProof, RPCRequest, IN3NodeConfig, util, storage, serialize } from 'in3'
 import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
+import * as logger from '../util/logger'
 
 const toHex = util.toHex
 const toBuffer = util.toBuffer
@@ -144,6 +145,16 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
  * updates the given nodelist from the registry contract.
  */
 export async function updateNodeList(handler: RPCHandler, list: ServerList, lastBlockNumber?: number) {
+  //  let isUpdating: any[] = (handler as any).isUpdating
+  //  if (isUpdating)
+  //    return new Promise((res, rej) => { isUpdating.push({ res, rej }) });
+  //  (handler as any).isUpdating = isUpdating = []
+
+  //  try {
+
+
+  const start = Date.now()
+  logger.info('updating nodelist ....')
 
   // first get the registry
   if (!list.contract) {
@@ -153,7 +164,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   }
 
   // number of registered servers
-  const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalServers():(uint)', [])
+  const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalServers():(uint)', [], undefined, new HandlerTransport(handler))
   list.lastBlockNumber = lastBlockNumber || parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
   list.totalServers = serverCount.toNumber()
 
@@ -189,7 +200,16 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
   // create the proof
   list.proof = await createNodeListProof(handler, list)
+  logger.info('... finish updating nodelist execTime: ' + (Date.now() - start) + 'ms')
+  //    delete (handler as any).isUpdating
+  //    isUpdating.forEach(_ => _.res())
 
+  //}
+  //  catch (x) {
+  //    delete (handler as any).isUpdating
+  //    isUpdating.forEach(_ => _.rej(x))
+  //  throw x
+  //}
 
 }
 
