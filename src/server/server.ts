@@ -18,6 +18,25 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
+import * as logger from '../util/logger'
+// Hook to nodeJs events
+function handleExit(signal) {
+  logger.info("Stopping in3-server gracefully...");
+  process.exit(0);
+}
+
+process.on('SIGINT', handleExit);
+process.on('SIGTERM', handleExit);
+
+process.on("uncaughtException", (err) => {
+  logger.error("Unhandled error: " + err,{ error: err});
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error("Unhandled promise rejection at " + promise,{ reason: reason, promise: promise});
+});
+
+
 //var njstrace = require('njstrace').inject();
 
 // tslint:disable-next-line:missing-jsdoc
@@ -30,7 +49,7 @@ import { RPC } from './rpc'
 import { cbor, RPCRequest, chainAliases } from 'in3'
 import { initConfig } from '../util/db'
 import { encodeObject } from '../util/binjson'
-import * as logger from '../util/logger'
+
 
 let AUTO_REGISTER_FLAG: boolean
 
