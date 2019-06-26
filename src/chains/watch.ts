@@ -106,9 +106,13 @@ export default class Watcher extends EventEmitter {
   }
 
   check() {
+    if (!this.running)
+      logger.info('start watching for registry events ...')
+
+    logger.debug('check ...' + this.block.number)
     this.running = true
     const next = err => {
-      if (err && err instanceof Error) console.error(err)
+      if (err && err instanceof Error) logger.error('Error trying to update within the watcher: ' + err.message + '\n' + err.stack)
       if (this.interval && this.running)
         this._interval = setTimeout(() => this.check(), this.interval * 1000)
       else

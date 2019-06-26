@@ -19,16 +19,33 @@
 
 import { } from 'in3'
 import { keccak } from 'ethereumjs-util'
-
-import * as logger from 'in3/js/test/util/memoryLogger'
+// Setup logger
 import * as winston from 'winston'
+import * as memoryLogger from 'in3/js/test/util/memoryLogger'
 import config from '../server/config'
 import * as color from 'cli-color'
 
-let impl = winston
+const nodeEnv: string = process.env.NODE_ENV || 'production'
+const logLevel = config.logging && config.logging.level
+const winstonLogger = winston.createLogger({
+  levels: winston.config.syslog.levels,
+  format: nodeEnv === 'production'
+    ? winston.format.json()
+    : winston.format.combine(winston.format.colorize(), winston.format.simple()),
+  transports: [
+    new winston.transports.Console({ level: logLevel || (nodeEnv === 'production' ? 'info' : 'debug') })
+  ],
+  exceptionHandlers: [
+    new winston.transports.Console({ handleExceptions: true })
+  ],
+  exitOnError: false, // <--- set this to false
+})
+
+
+let impl = winstonLogger
 
 export function setLogger(val: 'winston' | 'memory') {
-  impl = ((val === 'winston') ? winston : logger) as any
+  impl = ((val === 'winston') ? winstonLogger : memoryLogger) as any
 }
 
 export function log(level: string, message: string, ...data: any[]) {
@@ -41,41 +58,9 @@ export function info(message: string, ...data: any[]): void {
 export function debug(message: string, ...data: any[]) {
   log('debug', message, ...data)
 }
+export function trace(message: string, ...data: any[]) {
+  log('debug', message, ...data)
+}
 export function error(message: string, ...data: any[]) {
   log('error', message, ...data)
-}
-
-if (!config.logging) config.logging = { colors: true }
-color.grey = color.blackBright
-function colorize(level, msg) {
-  if (!config.logging.colors) return msg
-  if (level === 'debug') return color.grey(msg)
-  if (level === 'error') return color.red(msg)
-  if (level === 'silly') return color.grey(msg)
-  if (level === 'warn') return color.cyan(msg)
-  return msg
-}
-
-if (config.logging.file || config.logging.type)
-  winston.remove(winston.transports.Console)
-
-
-if (config.logging.file)
-  winston.add(new winston.transports.File({
-    filename: config.logging.file,
-    level: config.logging.level,
-    /* timestamp: () => new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
-    formatter: options =>
-      color.grey(options.timestamp() + ' ' + options.level.toUpperCase()) + ' ' +
-      (options.message ? colorize(options.level, options.message) : '') +
-      (options.meta && Object.keys(options.meta).length ? '\n' +
-        color.grey(options.meta.stack ? options.meta.stack : JSON.stringify(options.meta, null, 2)) : '') */
-  }))
-
-if (config.logging.type) {
-  const firstChain = config.chains[Object.keys(config.chains)[0]]
-  const id = config.id || (firstChain && keccak(firstChain.privateKey).toString('hex').replace('0x', '').substr(0, 4)) || 'in3-server'
-  // tslint:disable-next-line:non-literal-require
-  const lt = require(config.logging.type)
-  winston.add(config.logging.name ? new lt[config.logging.name]({ programm: id, ...config.logging }) : new lt({ programm: id, ...config.logging }))
 }

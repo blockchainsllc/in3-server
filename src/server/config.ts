@@ -68,7 +68,7 @@ function parseDef(def: { properties: any, type: string }, targetPath = [], targe
   }
 }
 
-export function readCargs(): IN3RPCConfig{
+export function readCargs(): IN3RPCConfig {
 
   // take the config from config.json and overwrite it
   try {

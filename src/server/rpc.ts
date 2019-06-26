@@ -18,7 +18,8 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, Transport, IN3ResponseConfig, IN3RPCRequestConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
+import { RPCRequest, RPCResponse, Transport, AxiosTransport, IN3ResponseConfig, IN3RPCRequestConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
+import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour } from './stats'
 
@@ -153,7 +154,11 @@ export class RPC {
         this.handlers[c].getNodeList(true)
           .then(() => this.handlers[c].checkRegistry()),
         updateValidatorHistory(this.handlers[c])
-      ])
+      ]).then(() => {
+        const watcher = this.handlers[c].watcher
+        // start the watcher
+        if (watcher && watcher.interval > 0) watcher.check()
+      })
     ))
   }
 
@@ -187,4 +192,40 @@ export interface RPCHandler {
   checkRegistry(): Promise<any>
   config: IN3RPCHandlerConfig
   watcher?: Watcher
+}
+
+/**
+ * helper class creating a Transport which uses the rpc handler.
+ */
+export class HandlerTransport extends AxiosTransport {
+
+  handler: RPCHandler
+
+  constructor(h: RPCHandler) {
+    super()
+    this.handler = h
+  }
+
+  async handle(url: string, data: RPCRequest | RPCRequest[], timeout?: number): Promise<RPCResponse | RPCResponse[]> {
+    // convertto array
+    const requests = Array.isArray(data) ? data : [data]
+    if (url === this.handler.config.rpcUrl) return this.handler.getAllFromServer(requests).then(_ => Array.isArray(data) ? _ : _[0])
+
+    // add cbor-config
+    const conf = { headers: { 'Content-Type': 'application/json' } }
+    // execute request
+    try {
+      const res = await axios.post(url, requests, { headers: { 'Content-Type': 'application/json' } })
+
+      // throw if the status is an error
+      if (res.status > 200) throw new Error('Invalid status')
+
+      // if this was not given as array, we need to convert it back to a single object
+      return Array.isArray(data) ? res.data : res.data[0]
+    } catch (err) {
+      throw new Error('Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
+    }
+  }
+
+
 }
