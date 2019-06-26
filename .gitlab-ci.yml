@@ -148,8 +148,9 @@ package-docker:
 .deploy-tmpl-stage:
   extends: .deploy-tmpl
   only:
-    - tags
     - /^v[0-9]+.[0-9]+.[0-9]+-(alpha|beta|rc)\.[0-9]+$/
+  except:
+    - branches
   environment:
     name: stage-${CHAIN}
   variables:
@@ -159,8 +160,9 @@ package-docker:
 .deploy-tmpl-production:
   extends: .deploy-tmpl
   only:
-    - tags
     - /^v[0-9]+.[0-9]+.[0-9]+$/
+  except:
+    - branches
   environment:
     name: production-${CHAIN}
   variables:
