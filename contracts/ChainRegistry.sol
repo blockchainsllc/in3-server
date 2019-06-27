@@ -19,6 +19,7 @@
 
 pragma solidity ^0.5.7;
 
+
 contract ChainRegistry {
 
     struct Chain {
@@ -33,9 +34,16 @@ contract ChainRegistry {
 
     event LogChainRegistered(bytes32 indexed chain);
 
-    function registerChain(bytes32 chain, string calldata bootNodes, string calldata meta, address registryContract, bytes32 contractChain) external {
+    function registerChain(
+        bytes32 chain,
+        string calldata bootNodes,
+        string calldata meta,
+        address registryContract,
+        bytes32 contractChain
+    ) external
+    {
         Chain storage data = chains[chain];
-        require(data.owner==address(0x0) || data.owner==msg.sender);
+        require(data.owner == address(0x0) || data.owner == msg.sender, "0x0 owner not allowed");
         data.bootNodes = bootNodes;
         data.owner = msg.sender;
         data.registryContract = registryContract;
@@ -43,6 +51,4 @@ contract ChainRegistry {
         data.meta = meta;
         emit LogChainRegistered(chain);
     }
-    
-
 }

@@ -20,6 +20,7 @@
 pragma solidity ^0.5.9;
 pragma experimental ABIEncoderV2;
 
+
 /// @title Registry for blockhashes
 contract BlockhashRegistry {
 
@@ -40,8 +41,10 @@ contract BlockhashRegistry {
     /// @return the closes snapshot of found within the given range, 0 else
     function searchForAvailableBlock(uint _startNumber, uint _numBlocks) external view returns (uint) {
 
-        for(uint i = _startNumber; i <= (_numBlocks + _startNumber); i++){
-           if(blockhashMapping[i] != 0x0) return i;
+        for (uint i = _startNumber; i <= (_numBlocks + _startNumber); i++) {
+            if (blockhashMapping[i] != 0x0) {
+                return i;
+            }
         }
     }
 
@@ -96,10 +99,11 @@ contract BlockhashRegistry {
         bytes32 calcBlockhash = 0x0;
 
         /// save to use for up to 200 blocks, exponential increase of gas-usage afterwards
-        for(uint i = 0; i < _blockheaders.length; i++) {
+        for (uint i = 0; i < _blockheaders.length; i++) {
             (calcParent, calcBlockhash) = getParentAndBlockhash(_blockheaders[i]);
-            if(calcBlockhash != currentBlockhash)
+            if (calcBlockhash != currentBlockhash) {
                 return 0x0;
+            }
             currentBlockhash = calcParent;
         }
 
@@ -119,6 +123,7 @@ contract BlockhashRegistry {
         /// we also have to add "2" = 1 byte to it to skip the length-information
         uint8 offset = first - 0xf7 + 2;
 
+        /* solium-disable-next-line */
         assembly {
             // mstore to get the memory pointer of the blockheader to 0x20
             mstore(0x20, _blockheader)
