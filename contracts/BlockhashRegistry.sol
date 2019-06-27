@@ -98,7 +98,8 @@ contract BlockhashRegistry {
         /// save to use for up to 200 blocks, exponential increase of gas-usage afterwards
         for(uint i = 0; i < _blockheaders.length; i++) {
             (calcParent, calcBlockhash) = getParentAndBlockhash(_blockheaders[i]);
-            if(calcBlockhash != currentBlockhash) return 0x0;
+            if(calcBlockhash != currentBlockhash)
+                return 0x0;
             currentBlockhash = calcParent;
         }
 
@@ -119,7 +120,6 @@ contract BlockhashRegistry {
         uint8 offset = first - 0xf7 + 2;
 
         assembly {
-
             // mstore to get the memory pointer of the blockheader to 0x20
             mstore(0x20, _blockheader)
 

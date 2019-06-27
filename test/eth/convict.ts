@@ -35,8 +35,8 @@ const toNumber = util.toNumber
 const toHex = util.toHex
 const uint64 = serialize.uint64
 
-const sign = (b: BlockData, pk: string, blockHash?: string) => {
-  const msgHash = ethUtil.keccak(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number)]))
+const sign = (b: BlockData, registryId: string, pk: string, blockHash?: string) => {
+  const msgHash = ethUtil.keccak(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number), bytes32(registryId)]))
   const s = ethUtil.ecsign(msgHash, bytes32(pk))
   return {
     ...s,
@@ -167,6 +167,8 @@ describe('Convict', () => {
 
     const test = await TestTransport.createWithRegisteredNodes(2)
 
+    const registryId = (await tx.callContract(test.url, test.nodeList.contract, 'registryId():(bytes32)', []))[0]
+
     const blockHashRegAddress = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString('hex')
     await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 50000000 })
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
@@ -190,7 +192,7 @@ describe('Convict', () => {
     const watcher = new Watcher(test.getHandler(0), 0, null, toNumber(block.number))
 
     // sign the correct blockhash 
-    let s = sign(block, test.getHandlerConfig(0).privateKey)
+    let s = sign(block, registryId, test.getHandlerConfig(0).privateKey)
 
     let convictSignature: Buffer = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
@@ -211,7 +213,7 @@ describe('Convict', () => {
     assert.include(await test.getErrorReason(), "the block is too old or you try to convict with a correct hash")
     // now test if we can send a wrong blockhash, but the block is older than 256 blocks:
     // wrong blockhash signed by first node
-    s = sign({ number: 1 } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
+    s = sign({ number: 1 } as any, registryId, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
 
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [0, convictSignature], {
@@ -234,7 +236,7 @@ describe('Convict', () => {
     const serverContract = await test.getNodeFromContract(0)
 
     block = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumberInSnapshot), false) as BlockData
-    s = sign(block, test.getHandlerConfig(0).privateKey)
+    s = sign(block, registryId, test.getHandlerConfig(0).privateKey)
 
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
@@ -255,7 +257,7 @@ describe('Convict', () => {
     assert.include(await test.getErrorReason(), "the block is too old or you try to convict with a correct hash")
 
     // wrong blockhash signed by first node
-    s = sign({ number: blockNumberInSnapshot } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
+    s = sign({ number: blockNumberInSnapshot } as any, registryId, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
 
     // the sender to convit will be second node
     const sender = util.getAddress(test.getHandlerConfig(1).privateKey)
@@ -351,7 +353,7 @@ describe('Convict', () => {
       const index = parseInt(url.substr(1)) - 1
       // we change it to a wrong signature
       if (!manipulated) {
-        re.result = [sign(block, test.getHandlerConfig(index).privateKey, pk1)]
+        re.result = [sign(block, test.registryId, test.getHandlerConfig(index).privateKey, pk1)]
         manipulated = true
       }
       return re
@@ -395,7 +397,6 @@ describe('Convict', () => {
       })
 
       await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['abc' + i, 1000, 10000, 2000], { privateKey: user, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
-
 
       const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
       const blockNumber = toNumber(block.number) - 1
@@ -712,7 +713,7 @@ describe('Convict', () => {
       const index = parseInt(url.substr(1)) - 1
       // we change it to a wrong signature
       if (!manipulated) {
-        re.result = [sign(block, test.getHandlerConfig(index).privateKey, pk1)]
+        re.result = [sign(block, test.registryId, test.getHandlerConfig(index).privateKey, pk1)]
         manipulated = true
       }
       return re
@@ -767,7 +768,7 @@ describe('Convict', () => {
 
     const blockNumber = toNumber(block.number) - 1
 
-    const validVoters = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(evilServer)]))[0]
+    const validVoters = (await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[],uint)', [blockNumber, util.getAddress(evilServer)]))[0]
     await tx.callContract(test.url, test.nodeList.contract, 'getValidVoters(uint,address):(address[])', [blockNumber, util.getAddress(evilServer)], { privateKey: evilServer, to: test.nodeList.contract, value: 0, confirm: true, gas: 300000000 - 1 })
 
     const blockSign = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber), false) as BlockData
@@ -793,8 +794,9 @@ describe('Convict', () => {
         txSig.push(s.signature)
       }
     }
+    const registryId = (await tx.callContract(test.url, test.nodeList.contract, 'registryId():(bytes32)', []))[0]
 
-    let s = sign({ number: blockNumber } as any, evilServer, '0x0000000000000000000000000000000000000000000000000000000000001234')
+    let s = sign({ number: blockNumber } as any, registryId, evilServer, '0x0000000000000000000000000000000000000000000000000000000000001234')
     const convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(accounts[0].privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     await tx.callContract(test.url, test.nodeList.contract, 'voteUnregisterNode(uint,address,bytes[])', [blockNumber, util.getAddress(evilServer), txSig], { privateKey: accounts[0].privateKey, value: 0, confirm: true, gas: 6500000 })
     const [usedBeforeConvict, indexBeforeConvict, lockedTimeBeforeConvict, depositBeforeConvict] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,bool,address,uint,uint)', [util.getAddress(evilServer)])

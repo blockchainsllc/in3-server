@@ -101,14 +101,14 @@ contract NodeRegistry {
     /// can be used to access the SignerInformation-struct
     mapping (bytes32 => UrlInformation) public urlIndex;
 
-    /// mapping for convicts: blockhash => address => convictInformation
+    /// mapping for convicts: blocknumber => address => convictInformation
     mapping (uint => mapping(address => ConvictInformation)) convictMapping;
 
     /// constructor
     /// @param _blockRegistry address of a BlockhashRegistry
     constructor(address _blockRegistry) public {
         blockRegistry = BlockhashRegistry(_blockRegistry);
-        blockDeployment = now;
+        blockDeployment = block.timestamp;
         registryId = keccak256(abi.encodePacked(address(this),blockhash(block.number-1)));
     }
 
@@ -128,7 +128,6 @@ contract NodeRegistry {
 
         node.proofHash = calcProofHash(node);
 
-        /// emit event
         emit LogNodeUnregisterCanceled(node.url, node.signer);
     }
 
@@ -142,7 +141,7 @@ contract NodeRegistry {
 
         In3Node storage node = nodes[si.index];
         require(node.unregisterTime != 0, "cannot unregister an active node");
-        require(node.unregisterTime < now, "only confirm after the timeout allowed");
+        require(node.unregisterTime < block.timestamp, "only confirm after the timeout allowed");
 
         uint tempDeposit = node.deposit;
 
@@ -166,7 +165,6 @@ contract NodeRegistry {
             evm_blockhash = blockRegistry.blockhashMapping(_blockNumber);
         }
 
-        // if the blockhash is correct you cannot convict the node
         require(evm_blockhash != 0x0, "block not found");
 
         ConvictInformation memory ci;
@@ -206,7 +204,7 @@ contract NodeRegistry {
         In3Node storage node = nodes[si.index];
         require(node.unregisterTime == 0, "node is already unregistering");
 
-        node.unregisterTime = uint64(now + node.timeout);
+        node.unregisterTime = uint64(block.timestamp + node.timeout);
         node.proofHash = calcProofHash(node);
 
         emit LogNodeUnregisterRequested(node.url, node.signer);
@@ -219,7 +217,7 @@ contract NodeRegistry {
 
         require(si.owner == msg.sender, "only owner can claim deposit");
         require(si.depositAmount > 0, "nothing to transfer");
-        require(now > si.lockedTime, "deposit still locked");
+        require(block.timestamp > si.lockedTime, "deposit still locked");
 
         uint payout = si.depositAmount;
         si.depositAmount = 0;
@@ -244,7 +242,7 @@ contract NodeRegistry {
         require(ci.blockHash != _blockhash, "the block is too old or you try to convict with a correct hash");
 
         require(
-            ecrecover(keccak256(abi.encodePacked(_blockhash, _blockNumber)), _v, _r, _s) == _signer,
+            ecrecover(keccak256(abi.encodePacked(_blockhash, _blockNumber, registryId)), _v, _r, _s) == _signer,
             "the block was not signed by the signer of the node");
 
         require(
@@ -275,7 +273,7 @@ contract NodeRegistry {
         // this is done in order to make it useless trying to convict your own node with a second account
         // and this getting all the deposit back after signing a wrong hash.
         address(0).transfer(deposit-payout);
-        /// for some reason currently deleting the ci storage would cost more gas, so we comment this out for now
+        /// for some reason currently deleting the ci storage would cost more gas, so we comment this out for block.timestamp
 
     }
 
@@ -313,7 +311,7 @@ contract NodeRegistry {
         if (msg.value>0) {
             node.deposit += msg.value;
 
-            if (now < (blockDeployment + 52 weeks))
+            if (block.timestamp < (blockDeployment + 52 weeks))
                 require(node.deposit < 50 ether, "Limit of 50 ETH reached");
         }
 
@@ -348,7 +346,7 @@ contract NodeRegistry {
         In3Node memory node = nodes[si.index];
 
         // capping the active time at 2 years at most
-        uint activeTime = (now - node.registerTime) > 52 weeks * 2 ? 52 weeks * 2 : (now - node.registerTime);
+        uint activeTime = (block.timestamp - node.registerTime) > 52 weeks * 2 ? 52 weeks * 2 : (block.timestamp - node.registerTime);
 
         uint votedTime = 0;
 
@@ -363,7 +361,7 @@ contract NodeRegistry {
                 if(signedAddress == validSigners[j]){
 
                     validSigners[j] = address(0x0);
-                    votedTime += (now - nodes[signerIndex[signedAddress].index].registerTime) > 52 weeks ? 52 weeks : (now - nodes[signerIndex[signedAddress].index].registerTime);
+                    votedTime += (block.timestamp - nodes[signerIndex[signedAddress].index].registerTime) > 52 weeks ? 52 weeks : (block.timestamp - nodes[signerIndex[signedAddress].index].registerTime);
                     // if we have more then 50% of the total voting time and have at least as much voting power as the node to be kicked
                     if(votedTime > totalVotingTime/2 && votedTime > activeTime){
 
@@ -377,7 +375,7 @@ contract NodeRegistry {
                         uint burnAmount = node.deposit/100 > transferAmount ? node.deposit/100 - transferAmount : 0;
 
                         // we update the owner information
-                        si.lockedTime = now + node.timeout;
+                        si.lockedTime = block.timestamp + node.timeout;
                         si.depositAmount += node.deposit - burnAmount - transferAmount;
                         si.used = false;
 
@@ -432,7 +430,7 @@ contract NodeRegistry {
                 validVoters[uniqueSignatures] = nodes[position].signer;
                 uniqueSignatures++;
                 // capping the voting-power at 1 year
-                totalVoteTime += (now - nodes[position].registerTime) > 52 weeks ? 52 weeks : (now - nodes[position].registerTime);
+                totalVoteTime += (block.timestamp - nodes[position].registerTime) > 52 weeks ? 52 weeks : (block.timestamp - nodes[position].registerTime);
             }
             i++;
         }
@@ -445,7 +443,7 @@ contract NodeRegistry {
     function calculateMinDeposit(uint _value) public view returns (uint) {
 
         // for the first 2 weeks we do not enable spam protection
-        if(now < (blockDeployment + 2 weeks) || nodes.length == 0) return 10 finney;
+        if(block.timestamp < (blockDeployment + 2 weeks) || nodes.length == 0) return 10 finney;
 
         // we cap the averageDeposit at 50 ether
         uint averageDeposit = (address(this).balance - _value) / nodes.length;
@@ -454,7 +452,7 @@ contract NodeRegistry {
         // accessing the last node of the array and its registerTime
         // it does not necessarily has to be the latest registered node, as node positions can get swapped when an older node gets removed
         // but in that occassion we allow a potential lower minimum deposit for a new node
-        uint passedTime = (now - nodes[nodes.length - 1].registerTime);
+        uint passedTime = (block.timestamp - nodes[nodes.length - 1].registerTime);
 
         uint minDeposit = (1 days * averageDeposit) / (passedTime == 0 ? 1 : passedTime);
         return (minDeposit < 10 finney )? 10 finney : minDeposit;
@@ -498,7 +496,6 @@ contract NodeRegistry {
         return ecrecover(prefixedHash, v, r, s);
     }
 
-
     // internal helper functions
 
     function registerNodeInternal(
@@ -515,7 +512,7 @@ contract NodeRegistry {
         // enforcing a minimum deposit
         require(_deposit >= calculateMinDeposit(_deposit), "not enough deposit");
 
-        if(now < (blockDeployment + 52 weeks)){
+        if(block.timestamp < (blockDeployment + 52 weeks)){
            require(_deposit < 50 ether, "Limit of 50 ETH reached");
         }
 
@@ -536,7 +533,7 @@ contract NodeRegistry {
         m.signer = _signer;
         m.deposit = _deposit;
         m.timeout = _timeout > 1 hours ? _timeout : 1 hours;
-        m.registerTime = uint64(now);
+        m.registerTime = uint64(block.timestamp);
         m.weight = _weight;
 
         m.proofHash = calcProofHash(m);
@@ -548,7 +545,6 @@ contract NodeRegistry {
         ui.signer = _signer;
         urlIndex[urlHash] = ui;
 
-        // emit event
         emit LogNodeRegistered(_url, _props, _signer,_deposit);
     }
 
@@ -561,7 +557,6 @@ contract NodeRegistry {
         uint length = nodes.length;
 
         assert(length>0);
-        if (length > 0) {
             // move the last entry to the removed one.
             In3Node memory m = nodes[length - 1];
             nodes[_nodeIndex] = m;
@@ -570,7 +565,6 @@ contract NodeRegistry {
             si.index = uint64(_nodeIndex);
             nodes.length--;
         }
-    }
 
     /// checks whether the provided address is already in the provided array
     /// @param _new the address to be checked

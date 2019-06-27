@@ -40,7 +40,7 @@ contract ChainRegistry {
         data.owner = msg.sender;
         data.registryContract = registryContract;
         data.contractChain = contractChain;
-        data.meta=meta;
+        data.meta = meta;
         emit LogChainRegistered(chain);
     }
     

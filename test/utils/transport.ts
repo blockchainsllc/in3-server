@@ -55,7 +55,7 @@ export class TestTransport implements Transport {
 
   chainRegistry: string
   chainId: string
-
+  registryId: string
 
   nodeList: ServerList
   randomList: number[][]
@@ -76,8 +76,9 @@ export class TestTransport implements Transport {
     this.nodeList = {
       nodes,
       contract: registry,
-      lastBlockNumber: 0
-    }
+      lastBlockNumber: 0,
+      registryId: '0x'
+    } as any
     for (let i = 0; i < count; i++) {
       const privateKey = pks ? pks[i] : '0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i
       const url = '#' + (i + 1)
@@ -203,8 +204,9 @@ export class TestTransport implements Transport {
       servers: {
         [this.chainId]: {
           contract: this.nodeList.contract || 'dummy',
-          nodeList: this.nodeList.nodes
-        }
+          nodeList: this.nodeList.nodes,
+          registryId: this.registryId || '0x'
+        } as any
       },
       ...(conf || {})
     }, this)
@@ -284,6 +286,7 @@ export class TestTransport implements Transport {
     const registers = await registerNodes(pks[0], null, servers, test.chainId, null, test.url, new LoggingAxiosTransport())
     const res = new TestTransport(count, registers.registry, pks)
     res.chainRegistry = registers.chainRegistry
+    res.registryId = registers.regId
     return res
   }
 

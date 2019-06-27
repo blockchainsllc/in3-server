@@ -106,10 +106,13 @@ export async function registerNodes(pk: string, registry: string, data: {
       contractChain: chainId
     }], url, transport)
 
+  const regId = toHex((await tx.callContract(url, registry, "registryId():(bytes32)", []))[0])
+
   return {
     chainRegistry,
     chainId,
-    registry
+    registry,
+    regId
   }
 
 
@@ -125,12 +128,15 @@ export async function registerChains(pk: string, chainRegistry: string, data: {
   if (!chainRegistry)
     chainRegistry = await deployChainRegistry(pk, url, transport)
 
-  for (const c of data)
-    await tx.callContract(url, chainRegistry, 'registerChain(bytes32,string,string,address,bytes32)', [
+  for (const c of data) {
+    //   const regId = await tx.callContract(url, c.registryContract, "registryId():(bytes32)", [])
+
+    const registerTx = await tx.callContract(url, chainRegistry, 'registerChain(bytes32,string,string,address,bytes32)', [
       toHex(c.chainId, 32),
       c.bootNodes.join(','),
       c.meta,
       c.registryContract,
+      //   regId,
       toHex(c.contractChain, 32)
     ], {
         privateKey: pk,
@@ -138,7 +144,7 @@ export async function registerChains(pk: string, chainRegistry: string, data: {
         confirm: true,
         value: 0
       }, transport)
-
+  }
 
 
   return chainRegistry

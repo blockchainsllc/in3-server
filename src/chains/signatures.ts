@@ -64,7 +64,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       return Promise.all(signatures.map(async s => {
 
         // first check the signature
-        const signatureMessageHash: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), bytes32(s.block)]))
+        const signatureMessageHash: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), bytes32(s.block), bytes32((nodes as any).registryId)]))
         if (!bytes32(s.msgHash).equals(signatureMessageHash)) // the message hash is wrong and we don't know what he signed
           return null // can not use it to convict
 
@@ -93,11 +93,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         const diffBlocks = toNumber(latestBlockNumber) - s.block
 
-
-        //            keccak256(abi.encodePacked(_blockhash, msg.sender, _v, _r, _s)) == ci.convictHash, 
-
         const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
-
 
         if (diffBlocks < 255) {
 
@@ -129,10 +125,11 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
   })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c], []))
 }
 
-export function sign(pk: string, blocks: { blockNumber: number, hash: string }[]): Signature[] {
+export function sign(pk: string, blocks: { blockNumber: number, hash: string, registryId: string }[]): Signature[] {
   return blocks.map(b => {
-    const msgHash = keccak('0x' + toHex(b.hash).substr(2).padStart(64, '0') + toHex(b.blockNumber).substr(2).padStart(64, '0'))
+    const msgHash = keccak('0x' + toHex(b.hash).substr(2).padStart(64, '0') + toHex(b.blockNumber).substr(2).padStart(64, '0') + toHex(b.registryId).substr(2).padStart(64, '0'))
     const sig = ecsign(msgHash, bytes32(pk))
+
     return {
       blockHash: toHex(b.hash),
       block: toNumber(b.blockNumber),
@@ -163,7 +160,7 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
   return {
     id: request.id,
     jsonrpc: request.jsonrpc,
-    result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash })))
+    result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
   }
 }
 
@@ -172,14 +169,13 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
   const blockHashRegistry = "0x" + (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0].toString("hex")
 
   // we have to calculate whether it's worth convicting a server
-  const [url, deposit, timeout, registerTime, unregisterTime, props, weight, signer, proofHash] = await callContract(handler.config.rpcUrl, nodes.contract, 'nodes(uint):(string,uint,uint64,uint64,uint64,uint64,uint64,address,bytes32)', [toNumber(singingNode.index)])
+  const [, deposit, , , , , , ,] = await callContract(handler.config.rpcUrl, nodes.contract, 'nodes(uint):(string,uint,uint64,uint64,uint64,uint64,uint64,address,bytes32)', [toNumber(singingNode.index)])
   const latestSS = toNumber((await callContract(handler.config.rpcUrl, blockHashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [s.block, diffBlocks]))[0])
   const costPerBlock = 86412400000000
   const blocksMissing = latestSS - s.block
   const costs = blocksMissing * costPerBlock * 1.25
 
   if (costs > (deposit / 2)) {
-
     //it's not worth it
     return
   }
@@ -212,7 +208,6 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
     }
 
     let diffBlock = 0;
-
 
     for (const txArray of transactionArrays) {
       try {

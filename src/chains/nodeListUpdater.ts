@@ -34,6 +34,23 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
   if (!nodeList.nodes)
     await updateNodeList(handler, nodeList)
 
+
+  if (!(nodeList as any).registryId || (nodeList as any).registryId === '0x') {
+    const registryIdRequest: RPCRequest = {
+      jsonrpc: '2.0',
+      id: 0,
+      method: 'eth_call', params: [{
+        to: nodeList.contract,
+        data: '0x' + abi.simpleEncode('registryId()').toString('hex')
+      },
+        'latest']
+    }
+
+
+    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string);
+    if (registryId != undefined) (nodeList as any).registryId = registryId
+  }
+
   // if the client requires a portion of the list
   if (limit && limit < nodeList.nodes.length) {
     const nodes = nodeList.nodes
@@ -151,6 +168,23 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
     list.contract = handler.config.registry
     //    const [owner, bootNodes, meta, registryContract, contractChain] = await tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'chains(bytes32):(address,string,string,address,bytes32)', [handler.chainId])
     //    list.contract = toChecksumAddress('0x' + registryContract)
+  }
+
+  if (!(list as any).registryId) {
+
+    const registryIdRequest: RPCRequest = {
+      jsonrpc: '2.0',
+      id: 0,
+      method: 'eth_call', params: [{
+        to: list.contract,
+        data: '0x' + abi.simpleEncode('registryId()').toString('hex')
+      },
+        'latest']
+    }
+
+    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string);
+    (list as any).registryId = registryId
+
   }
 
   // number of registered servers
