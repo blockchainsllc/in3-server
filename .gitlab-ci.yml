@@ -29,7 +29,7 @@ lint-contracts-solium:
     - short-jobs
   script: 
     - sh /prepare.sh
-    - npm install
+    - npm i ethlint
     - npm run lint:solium
 
 lint-contracts-solhint:
@@ -38,7 +38,7 @@ lint-contracts-solhint:
     - short-jobs
   script: 
     - sh /prepare.sh
-    - npm install
+    - npm i solhint
     - npm run lint:solhint
 
 compile-contracts:
