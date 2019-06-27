@@ -21,7 +21,10 @@
     "docker-setup": "docker run -p 8500:8500 slockit/in3-server:latest --privateKey=0x3858a0f49ce12df65031ba0eb0b353abc74f93f8ccd43df9682fd2e2293a4db3 --chain=0x2a --rpcUrl=https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX --minBlockHeight=6 --registry=0x013b82355a066A31427df3140C5326cdE9c64e3A --persistentFile=false --autoRegistry-url=https://in3.slock.it/kovan1 --autoRegistry-capabilities-proof=true --autoRegistry-capabilities-multiChain=true --autoRegistry-deposit=1",
     "local": "export NODE_ENV=0 && npm run build && node ./js/src/server/server.js --privateKey=0xD231FCF9349A296F555A060A619235F88650BBA795E5907CFD7F5442876250E4 --chain=0x1 --rpcUrl=https://rpc.slock.it/mainnet --minBlockHeight=6 --registry=0x2736D225f85740f42D17987100dc8d58e9e16252 --persistentFile=false --cache=true",
     "ipfs": "docker run -d -p 5001:5001 jbenet/go-ipfs  daemon --offline",
-    "linkIn3": "cd node_modules; rm -rf in3; ln -s ../../in3 in3; cd .."
+    "linkIn3": "cd node_modules; rm -rf in3; ln -s ../../in3 in3; cd ..",
+    "lint:solium": "node node_modules/ethlint/bin/solium.js -d contracts/",
+    "lint:solium:fix": "node node_modules/ethlint/bin/solium.js -d contracts/ --fix",
+    "lint:solhint": "node node_modules/solhint/solhint.js \"contracts/**/*.sol\" -w 0"
   },
   "nyc": {
     "include": [
@@ -70,9 +73,11 @@
     "@types/winston": "^2.3.8",
     "chai": "^4.1.2",
     "dtsgenerator": "^0.9.9",
+    "ethlint": "^1.2.4",
     "mocha": "^5.1.1",
     "nyc": "^11.8.0",
     "slockit-generator": "^1.0.1",
+    "solhint": "^2.1.0",
     "source-map-support": "^0.5.12",
     "ts-node": "^6.0.3",
     "typedoc": "^0.11.1",
