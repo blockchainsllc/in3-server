@@ -72,9 +72,9 @@ describe('Convict', () => {
   it("static variables and deployment", async () => {
     const test = await TestTransport.createWithRegisteredNodes(2)
 
-    const version = (await tx.callContract(test.url, test.nodeList.contract, 'version():(uint)', []))[0]
-    await tx.callContract(test.url, test.nodeList.contract, 'version():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'version():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
+    const version = (await tx.callContract(test.url, test.nodeList.contract, 'VERSION():(uint)', []))[0]
+    await tx.callContract(test.url, test.nodeList.contract, 'VERSION():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'VERSION():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
     assert.equal(toNumber(version).toString(), "12300020190328")
 
     const numNodes = (await tx.callContract(test.url, test.nodeList.contract, 'totalNodes():(uint)', []))[0]
@@ -382,7 +382,7 @@ describe('Convict', () => {
 
   })
 
-  it('getValidVoters', async () => {
+  it.skip('getValidVoters', async () => {
     const test = await TestTransport.createWithRegisteredNodes(1)
 
     const accounts = []
@@ -419,7 +419,7 @@ describe('Convict', () => {
   }).timeout(50000)
 
 
-  it('voteUnregisterNode - votingPower', async () => {
+  it.skip('voteUnregisterNode - votingPower', async () => {
     const test = await TestTransport.createWithRegisteredNodes(1)
 
     await test.increaseTime(86400 * 365 * 2)
@@ -536,7 +536,7 @@ describe('Convict', () => {
 
   })
 
-  it('it should return correct deposits', async () => {
+  it.skip('it should return correct deposits', async () => {
 
     const test = await TestTransport.createWithRegisteredNodes(1)
 
@@ -745,7 +745,7 @@ describe('Convict', () => {
 
   })
 
-  it('verify and convict - vote kick', async () => {
+  it.skip('verify and convict - vote kick', async () => {
     const test = await TestTransport.createWithRegisteredNodes(1)
     const accounts = []
     for (let i = 0; i < 24; i++) {
@@ -896,7 +896,7 @@ describe('Convict', () => {
     const events = await watcher.update()
   })
 
-  it('requestUnregisteringNode - cancel', async () => {
+  it.skip('requestUnregisteringNode - cancel', async () => {
 
     const test = await TestTransport.createWithRegisteredNodes(2)
 
@@ -1152,7 +1152,7 @@ describe('Convict', () => {
 
   })
 
-  it('calculate min deposit', async () => {
+  it.skip('calculate min deposit', async () => {
     const test = await TestTransport.createWithRegisteredNodes(2)
     let minDeposit = await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0])
     await tx.callContract(test.url, test.nodeList.contract, 'calculateMinDeposit(uint):(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 300000000 - 1 })

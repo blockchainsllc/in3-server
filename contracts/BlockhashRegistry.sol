@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-pragma solidity 0.5.9;
+pragma solidity 0.5.10;
 pragma experimental ABIEncoderV2;
 
 

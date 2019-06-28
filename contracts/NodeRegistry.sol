@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-pragma solidity 0.5.9;
+pragma solidity 0.5.10;
 pragma experimental ABIEncoderV2;
 
 import "./BlockhashRegistry.sol";
@@ -174,7 +174,7 @@ contract NodeRegistry {
 
         ConvictInformation memory ci;
         ci.convictHash = _hash;
-        ci.blockHash = evm_blockhash;
+        ci.blockHash = evmBlockhash;
 
         convictMapping[_blockNumber][msg.sender] = ci;
 
@@ -421,7 +421,7 @@ contract NodeRegistry {
 
         require(nodes.length < 0xFFFFFFFFFFFFFFFF, "maximum amount of nodes reached");
         // enforcing a minimum deposit
-        require(_deposit >= calculateMinDeposit(_deposit), "not enough deposit");
+        require(_deposit >= 10 finney, "not enough deposit");
 
         // solium-disable-next-line security/no-block-members
         if (block.timestamp < (blockDeployment + 52 weeks)) { // solhint-disable-line not-rely-on-time
