@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-pragma solidity ^0.5.9;
+pragma solidity 0.5.9;
 pragma experimental ABIEncoderV2;
 
 import "./BlockhashRegistry.sol";
@@ -103,7 +103,7 @@ contract NodeRegistry {
     mapping (bytes32 => UrlInformation) public urlIndex;
 
     /// mapping for convicts: blocknumber => address => convictInformation
-    mapping (uint => mapping(address => ConvictInformation)) convictMapping;
+    mapping (uint => mapping(address => ConvictInformation)) internal convictMapping;
 
     /// constructor
     /// @param _blockRegistry address of a BlockhashRegistry
@@ -111,8 +111,8 @@ contract NodeRegistry {
         blockRegistry = BlockhashRegistry(_blockRegistry);
 
         // solium-disable-next-line security/no-block-members
-        blockDeployment = block.timestamp;
-        registryId = keccak256(abi.encodePacked(address(this),blockhash(block.number-1)));
+        blockDeployment = block.timestamp;  // solhint-disable-line not-rely-on-time
+        registryId = keccak256(abi.encodePacked(address(this), blockhash(block.number-1)));
     }
 
     /// this function must be called by the owner to cancel the unregister-process.
@@ -144,8 +144,9 @@ contract NodeRegistry {
 
         In3Node storage node = nodes[si.index];
         require(node.unregisterTime != 0, "cannot unregister an active node");
+
         // solium-disable-next-line security/no-block-members
-        require(node.unregisterTime < block.timestamp, "only confirm after the timeout allowed");
+        require(node.unregisterTime < block.timestamp, "only confirm after the timeout allowed"); // solhint-disable-line not-rely-on-time
 
         uint tempDeposit = node.deposit;
 
@@ -240,7 +241,7 @@ contract NodeRegistry {
         require(node.unregisterTime == 0, "node is already unregistering");
 
         // solium-disable-next-line security/no-block-members
-        node.unregisterTime = uint64(block.timestamp + node.timeout);
+        node.unregisterTime = uint64(block.timestamp + node.timeout); // solhint-disable-line not-rely-on-time
         node.proofHash = calcProofHash(node);
 
         emit LogNodeUnregisterRequested(node.url, node.signer);
@@ -358,11 +359,11 @@ contract NodeRegistry {
             urlIndex[newURl] = ui;
         }
 
-        if (msg.value>0) {
+        if (msg.value > 0) {
             node.deposit += msg.value;
 
             // solium-disable-next-line security/no-block-members
-            if (block.timestamp < (blockDeployment + 52 weeks))
+            if (block.timestamp < (blockDeployment + 52 weeks)) // solhint-disable-line not-rely-on-time
                 require(node.deposit < 50 ether, "Limit of 50 ETH reached");
         }
 
@@ -406,7 +407,6 @@ contract NodeRegistry {
     }
 
     // internal helper functions
-
     function registerNodeInternal(
         string memory _url,
         uint64 _props,
@@ -424,14 +424,14 @@ contract NodeRegistry {
         require(_deposit >= calculateMinDeposit(_deposit), "not enough deposit");
 
         // solium-disable-next-line security/no-block-members
-        if (block.timestamp < (blockDeployment + 52 weeks)) {
+        if (block.timestamp < (blockDeployment + 52 weeks)) { // solhint-disable-line not-rely-on-time
             require(_deposit < 50 ether, "Limit of 50 ETH reached");
         }
 
         bytes32 urlHash = keccak256(bytes(_url));
 
         // make sure this url and also this owner was not registered before.
-        require (!urlIndex[urlHash].used && !signerIndex[_owner].used, "a node with the same url or owner is already registered");
+        require(!urlIndex[urlHash].used && !signerIndex[_owner].used, "a node with the same url or owner is already registered");
 
         // sets the information of the owner
         signerIndex[_signer].used = true;
@@ -446,7 +446,7 @@ contract NodeRegistry {
         m.deposit = _deposit;
         m.timeout = _timeout > 1 hours ? _timeout : 1 hours;
         // solium-disable-next-line security/no-block-members
-        m.registerTime = uint64(block.timestamp);
+        m.registerTime = uint64(block.timestamp); // solhint-disable-line not-rely-on-time
         m.weight = _weight;
 
         m.proofHash = calcProofHash(m);
@@ -474,7 +474,7 @@ contract NodeRegistry {
 
         uint length = nodes.length;
 
-        assert(length>0);
+        assert(length > 0);
         // move the last entry to the removed one.
         In3Node memory m = nodes[length - 1];
         nodes[_nodeIndex] = m;

@@ -21,6 +21,8 @@
     "error-reason": "error",
     "operator-whitespace": "error",
     "security/no-inline-assembly": "error",
-    "arg-overflow": "error"
+    "arg-overflow": "error",
+    "no-trailing-whitespace": "error",
+    "security/no-block-members": "error"
   }
 }

@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-pragma solidity ^0.5.9;
+pragma solidity 0.5.9;
 pragma experimental ABIEncoderV2;
 
 
@@ -72,7 +72,7 @@ contract BlockhashRegistry {
     function saveBlockNumber(uint _blockNumber) public {
         bytes32 bHash = blockhash(_blockNumber);
 
-        require(bHash != 0x0,"block not available");
+        require(bHash != 0x0, "block not available");
 
         blockhashMapping[_blockNumber] = bHash;
         emit LogBlockhashAdded(_blockNumber, bHash);
@@ -123,8 +123,8 @@ contract BlockhashRegistry {
         /// we also have to add "2" = 1 byte to it to skip the length-information
         uint8 offset = first - 0xf7 + 2;
 
-        /* solium-disable-next-line */
-        assembly {
+        // solium-disable-next-line security/no-inline-assembly
+        assembly { // solhint-disable-line no-inline-assembly
             // mstore to get the memory pointer of the blockheader to 0x20
             mstore(0x20, _blockheader)
 
@@ -135,8 +135,8 @@ contract BlockhashRegistry {
             parentHash :=mload(
                 add(
                     add(
-                        mload(0x20),0x20
-                    ),offset)
+                        mload(0x20), 0x20
+                    ), offset)
             )
         }
         bhash = keccak256(_blockheader);

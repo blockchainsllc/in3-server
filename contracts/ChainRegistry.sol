@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-pragma solidity ^0.5.7;
+pragma solidity 0.5.9;
 
 
 contract ChainRegistry {
