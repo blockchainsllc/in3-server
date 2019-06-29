@@ -21,7 +21,7 @@ NODE4=`in3 pk2address $PK4`
 NODE5=`in3 pk2address $PK5`
 
 # get the code for the registry
-CODE=0x`cat contracts/contracts.json | jq -r '.contracts."/contracts/ServerRegistry.sol:ServerRegistry".bin'`
+CODE=0x`cat ../contracts/contracts.json | jq -r '.contracts."/contracts/ServerRegistry.sol:ServerRegistry".bin'`
 
 # deploy the registry
 REGISTRY=`in3 send -gas 5000000  -d $CODE -w  | jq -r .contractAddress`
