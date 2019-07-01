@@ -14,8 +14,10 @@
     "mark-callable-contracts": false,
     "function-max-lines": [
       "error",
-      60
+      70
     ],
-    "compiler-fixed": "error"
+    "compiler-fixed": "error",
+    "visibility-modifier-order": "error",
+    "func-order": "error"
   }
 }

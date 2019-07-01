@@ -98,11 +98,11 @@ describe('Convict', () => {
 
     const registryId = (await tx.callContract(test.url, newServerReg, 'registryId():(bytes32)', []))[0]
 
-    const tsDeployment = await tx.callContract(test.url, newServerReg, 'blockDeployment():(uint)', [0])
+    const tsDeployment = await tx.callContract(test.url, newServerReg, 'blockTimeStampDeployment():(uint)', [0])
     assert.equal(tsDeployment.toString(), Number(currentBlock.timestamp).toString())
 
-    await tx.callContract(test.url, newServerReg, 'blockDeployment():(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
-    assert.isFalse(await tx.callContract(test.url, newServerReg, 'blockDeployment():(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
+    await tx.callContract(test.url, newServerReg, 'blockTimeStampDeployment():(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
+    assert.isFalse(await tx.callContract(test.url, newServerReg, 'blockTimeStampDeployment():(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
 
     const blockBefore = await test.getFromServer('eth_getBlockByNumber', toHex(Number(currentBlock.number) - 1), false) as BlockData
 
@@ -196,7 +196,7 @@ describe('Convict', () => {
 
     let convictSignature: Buffer = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    const c1 = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+    const c1 = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignature, convictOwner], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
@@ -210,12 +210,13 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false)
     assert.isFalse(rc, 'Transaction must fail, because we sent the correct hash')
-    assert.include(await test.getErrorReason(), "the block is too old or you try to convict with a correct hash")
+    assert.include(await test.getErrorReason(), "you try to convict with a correct hash")
     // now test if we can send a wrong blockhash, but the block is older than 256 blocks:
     // wrong blockhash signed by first node
     s = sign({ number: 1 } as any, registryId, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
 
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+    /*
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [0, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 3000000,
@@ -223,6 +224,7 @@ describe('Convict', () => {
       confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     }).catch(_ => false))
     assert.include(await test.getErrorReason(), "block not found")
+    */
 
     rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
@@ -231,7 +233,7 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false)
     assert.isFalse(rc, 'Transaction must fail, because the block is too old')
-    assert.include(await test.getErrorReason(), "wrong convict hash")
+    assert.include(await test.getErrorReason(), "block not found")
 
     const serverContract = await test.getNodeFromContract(0)
 
@@ -239,7 +241,7 @@ describe('Convict', () => {
     s = sign(block, registryId, test.getHandlerConfig(0).privateKey)
 
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignature, convictOwner], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 3000000,
       value: 0,
@@ -254,7 +256,7 @@ describe('Convict', () => {
     }).catch(_ => false)
 
     assert.isFalse(rc, 'Transaction must fail, because block is correct')
-    assert.include(await test.getErrorReason(), "the block is too old or you try to convict with a correct hash")
+    assert.include(await test.getErrorReason(), "you try to convict with a correct hash")
 
     // wrong blockhash signed by first node
     s = sign({ number: blockNumberInSnapshot } as any, registryId, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
@@ -268,14 +270,14 @@ describe('Convict', () => {
 
     const convictSignatureWrong: Buffer = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.s), bytes32(s.s)]))
 
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureWrong], {
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignatureWrong, convictOwner], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 3000000,
       value: 0,
       confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureWrong], {
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignatureWrong, convictOwner], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 3000000,
       value: 10,
@@ -296,7 +298,7 @@ describe('Convict', () => {
     // send the transactions to convict with the wrong hash
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignature, convictOwner], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 3000000,
       value: 0,
@@ -682,7 +684,7 @@ describe('Convict', () => {
 
     const test = await TestTransport.createWithRegisteredNodes(2)
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), test.getHandlerConfig(0).rpcUrl, 0, 0], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), test.getHandlerConfig(0).rpcUrl, 0, 0, 0], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
     const blockHashRegistry = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
 
     const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 }))
@@ -969,7 +971,7 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     }).catch(_ => false), 'Must fail because sender does now own a server')
-    assert.include(await test.getErrorReason(), "sender is not an in3-signer")
+    assert.include(await test.getErrorReason(), "address is not an in3-signer")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], {
       privateKey: test.getHandlerConfig(0).privateKey,
@@ -1103,25 +1105,26 @@ describe('Convict', () => {
 
     //updateNode(address _signer, string calldata _url, uint64 _props, uint64 _timeout)
     // changing props
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64)', [util.getAddress(pk1), "test3.com", 0x0fff, 0], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+
+    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(pk1), "test3.com", 0x0fff, 0, 2000], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     let serverAfter = await test.getNodeFromContract(2)
 
     assert.equal(toNumber(serverAfter.timeout), 7200)
     assert.equal(toHex(serverAfter.props), "0x0fff")
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64)', [util.getAddress(pk1), "test3.com", 0x0fff, 14400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(pk1), "test3.com", 0x0fff, 14400, 2000], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     serverAfter = await test.getNodeFromContract(2)
     assert.equal(toHex(serverAfter.props), "0x0fff")
     assert.equal(toNumber(serverAfter.timeout), 14400)
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64)', [util.getAddress(pk1), "test3.com", 0xffff, 16400], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(pk1), "test3.com", 0xffff, 16400, 2000], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     serverAfter = await test.getNodeFromContract(2)
     assert.equal(toHex(serverAfter.props), "0xffff")
     assert.equal(toNumber(serverAfter.timeout), 16400)
 
     const randomAccount = await test.createAccount(null, '0x27147114878000')
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64)', [util.getAddress(randomAccount), "test3.com", 0xffff, 16400], {
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(randomAccount), "test3.com", 0xffff, 16400, 2000], {
       privateKey: randomAccount,
       gas: 300000,
       value: 0,
@@ -1137,12 +1140,12 @@ describe('Convict', () => {
 
     await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['abc', 1000, 10000, 2000], { privateKey: richUser, value: toBN('5000000000000000000'), confirm: true, gas: 5000000 })
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64)', [util.getAddress(richUser), 'abc', 0xffff, 16400], { privateKey: richUser, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail because the owner does not have a server yet')
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(richUser), 'abc', 0xffff, 16400, 2000], { privateKey: richUser, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false), 'Must fail because the owner does not have a server yet')
     assert.include(await test.getErrorReason(), "Limit of 50 ETH reached")
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64)', [util.getAddress(richUser), 'abc', 0xffff, 16400], { privateKey: richUser, value: toBN('5000000000000000000'), confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(richUser), 'abc', 0xffff, 16400, 2000], { privateKey: richUser, value: toBN('5000000000000000000'), confirm: true, gas: 5000000 })
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64)', [util.getAddress(richUser), "test3.com", 0xffff, 16400], {
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(richUser), "test3.com", 0xffff, 16400, 2000], {
       privateKey: richUser,
       gas: 300000,
       value: 0,

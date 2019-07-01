@@ -97,9 +97,9 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         if (diffBlocks < 255) {
 
-          await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+          await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,address)', [s.block, convictSignature, singingNode.address], {
             privateKey: handler.config.privateKey,
-            gas: 300000,
+            gas: 500000,
             value: 0,
             confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
           })
@@ -165,6 +165,7 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
 }
 
 async function handleRecreation(handler: BaseHandler, nodes: ServerList, singingNode: IN3NodeConfig, s: Signature, diffBlocks: number): Promise<any> {
+
   // we have to find the blockHashRegistry
   const blockHashRegistry = "0x" + (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0].toString("hex")
 
@@ -209,6 +210,19 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
 
     let diffBlock = 0;
 
+    const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+
+    try {
+      await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,address)', [s.block, convictSignature, singingNode.address], {
+        privateKey: handler.config.privateKey,
+        gas: 500000,
+        value: 0,
+        confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+      })
+    } catch (e) {
+      console.log(e)
+    }
+
     for (const txArray of transactionArrays) {
       try {
         await callContract(handler.config.rpcUrl, blockHashRegistry, 'recreateBlockheaders(uint,bytes[])', [latestSS - diffBlock, txArray], {
@@ -223,18 +237,7 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
       }
     }
 
-    const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    try {
-      await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
-        privateKey: handler.config.privateKey,
-        gas: 500000,
-        value: 0,
-        confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-      })
-    } catch (e) {
-      console.log(e)
-    }
 
     try {
       await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [singingNode.address, s.blockHash, s.block, s.v, s.r, s.s], {

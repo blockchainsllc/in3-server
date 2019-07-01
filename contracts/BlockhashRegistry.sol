@@ -35,7 +35,7 @@ contract BlockhashRegistry {
         snapshot();
     }
 
-    /// searches for an already existing snapshot
+    /// @notice searches for an already existing snapshot
     /// @param _startNumber the blocknumber to start searching
     /// @param _numBlocks the number of blocks to search for
     /// @return the closes snapshot of found within the given range, 0 else

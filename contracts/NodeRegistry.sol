@@ -42,42 +42,45 @@ contract NodeRegistry {
     event LogNodeRemoved(string url, address signer);
 
     struct In3Node {
-        string url;  // the url of the node
+        string url;                         /// the url of the node
 
-        uint deposit; // stored deposit
+        uint deposit;                       /// stored deposit
 
-        uint64 timeout; // timeout after which the owner is allowed to receive his stored deposit
-        uint64 registerTime; // timestamp when the node was registered
-        uint64 unregisterTime; // earliest timestamp to call unregister
-        uint64 props; // a list of properties-flags representing the capabilities of the node
+        uint64 timeout;                     /// timeout after which the owner is allowed to receive his stored deposit
+        uint64 registerTime;                /// timestamp when the node was registered
+        uint64 unregisterTime;              /// earliest timestamp to call unregister
+        uint64 props;                       /// a list of properties-flags representing the capabilities of the node
 
-        uint64 weight; //  the flag for (future) incentivisation
-        address signer; // the signer for requests
+        uint64 weight;                      ///  the flag for (future) incentivisation
+        address signer;                     /// the signer for requests
 
         bytes32 proofHash;
     }
 
      /// information of a (future) convict (used to prevent frontrunning)
     struct ConvictInformation {
-        bytes32 convictHash;    /// keccak256(wrong blockhash, msg.sender, v, r, s)
-        bytes32 blockHash;      /// blockhash of the block to be convicted
+        bytes32 convictHash;                /// keccak256(wrong blockhash, msg.sender, v, r, s)
+        uint blockNumberConvict;            /// block number when convict had been called
     }
 
     /// information of a in3-node owner
     struct SignerInformation {
-        uint64 index;          /// current index-position of the node in the node-array
-        bool used;              /// flag whether account is currently a signer of a node
-        address payable owner; // the owner of the node
+        uint64 index;                       /// current index-position of the node in the node-array
+        bool used;                          /// flag whether account is currently a signer of a node
+        address owner;              /// the owner of the node
 
-        uint lockedTime;        /// time for the deposit to be locked, used only after vote-kick
+        uint64 lockedTime;                  /// time for the deposit to be locked, used only after vote-kick
+        address payable unregisterCaller;   /// the address that called unregister
 
-        uint depositAmount;     /// amount of deposit to be locked, used only after vote-kick
+        uint depositAmount;                 /// amount of deposit to be locked, used only after vote-kick
+        uint unregisterDeposit;
+        uint unregisterTimeout;
     }
 
     /// information of an url
     struct UrlInformation {
-        bool used;              /// flag whether the url is currently used
-        address signer;          /// address of the owner of the url
+        bool used;                          /// flag whether the url is currently used
+        address signer;                     /// address of the owner of the url
     }
 
     /// node list of incubed nodes
@@ -85,14 +88,16 @@ contract NodeRegistry {
 
     /// add your additional storage here. If you add information before this line you will break in3 nodelist
 
+    /// blockhash registry address
     BlockhashRegistry public blockRegistry;
 
     /// version: major minor fork(000) date(yyyy/mm/dd)
     uint constant public VERSION = 12300020190328;
 
     /// the timestamp of the deployment
-    uint public blockDeployment;
+    uint public blockTimeStampDeployment;
 
+    /// id used for signing
     bytes32 public registryId;
 
     /// mapping for information of the owner
@@ -105,13 +110,15 @@ contract NodeRegistry {
     /// mapping for convicts: blocknumber => address => convictInformation
     mapping (uint => mapping(address => ConvictInformation)) internal convictMapping;
 
+    mapping (bytes32 => address) public senderMapping;
+
     /// constructor
     /// @param _blockRegistry address of a BlockhashRegistry
     constructor(address _blockRegistry) public {
         blockRegistry = BlockhashRegistry(_blockRegistry);
 
         // solium-disable-next-line security/no-block-members
-        blockDeployment = block.timestamp;  // solhint-disable-line not-rely-on-time
+        blockTimeStampDeployment = block.timestamp;  // solhint-disable-line not-rely-on-time
         registryId = keccak256(abi.encodePacked(address(this), blockhash(block.number-1)));
     }
 
@@ -122,6 +129,7 @@ contract NodeRegistry {
         SignerInformation memory si = signerIndex[_signer];
         require(si.used, "sender does not own a node");
         require(si.owner == msg.sender, "only owner can unregister a node");
+        require(si.unregisterCaller == address(0x0), "cancel during challenge not allowed");
 
         In3Node storage node = nodes[si.index];
 
@@ -139,45 +147,52 @@ contract NodeRegistry {
     function confirmUnregisteringNode(address _signer) external {
 
         SignerInformation storage si = signerIndex[_signer];
-        require(si.used, "sender does not own a node");
-        require(si.owner == msg.sender, "only owner can unregister a node");
-
         In3Node storage node = nodes[si.index];
-        require(node.unregisterTime != 0, "cannot unregister an active node");
 
-        // solium-disable-next-line security/no-block-members
-        require(node.unregisterTime < block.timestamp, "only confirm after the timeout allowed"); // solhint-disable-line not-rely-on-time
+        if (si.unregisterCaller == address(0x0)) {
+            require(si.used, "sender does not own a node");
+            require(si.owner == msg.sender, "only owner can unregister a node");
 
-        uint tempDeposit = node.deposit;
+            require(node.unregisterTime != 0, "cannot unregister an active node");
 
-        si.used = false;
+            // solium-disable-next-line security/no-block-members
+            require(node.unregisterTime < block.timestamp, "only confirm after the timeout allowed");//solhint-disable-line not-rely-on-time
+
+            msg.sender.transfer(node.deposit);
+
+        } else {
+            require(msg.sender == si.unregisterCaller, "only unregister caller can confirm");
+            // solium-disable-next-line security/no-block-members
+            require(block.timestamp > si.unregisterTimeout, "only after timeout is over"); //solhint-disable-line not-rely-on-time
+
+            // solium-disable-next-line security/no-block-members
+            si.lockedTime = uint64(block.timestamp + node.timeout); //solhint-disable-line not-rely-on-time
+            si.depositAmount = node.deposit - si.unregisterDeposit;
+
+            msg.sender.transfer(si.unregisterDeposit*2);
+
+            si.unregisterDeposit = 0;
+            si.unregisterCaller = address(0x0);
+        }
+
         removeNode(si.index);
         si.index = 0;
         si.used = false;
-
-        msg.sender.transfer(tempDeposit);
-
     }
 
     /// commits a blocknumber and a hash
     /// must be called before revealConvict
     /// @param _blockNumber the blocknumber of the wrong blockhash
     /// @param _hash keccak256(wrong blockhash, msg.sender, v, r, s), used to prevent frontrunning
-    function convict(uint _blockNumber, bytes32 _hash) external {
-        bytes32 evmBlockhash = blockhash(_blockNumber);
-
-        if (evmBlockhash == 0x0) {
-            evmBlockhash = blockRegistry.blockhashMapping(_blockNumber);
-        }
-
-        require(evmBlockhash != 0x0, "block not found");
+    function convict(uint _blockNumber, bytes32 _hash, address _signer) external {
 
         ConvictInformation memory ci;
         ci.convictHash = _hash;
-        ci.blockHash = evmBlockhash;
+        ci.blockNumberConvict = block.number;
 
         convictMapping[_blockNumber][msg.sender] = ci;
 
+        senderMapping[keccak256(abi.encodePacked(_blockNumber, _signer))] = msg.sender;
     }
 
     /// register a new Node with the sender as owner
@@ -231,18 +246,29 @@ contract NodeRegistry {
     /// a node owner can request to unregister his node
     /// but before he can confirm, he has to wait for his own-set deposit timeout
     /// @param _signer the signer of the in3-node
-    function requestUnregisteringNode(address _signer) external {
+    function requestUnregisteringNode(address _signer) external payable {
 
         SignerInformation memory si = signerIndex[_signer];
-        require(si.used, "sender is not an in3-signer");
-        require(si.owner == msg.sender, "only owner can unregister a node");
+        require(si.used, "address is not an in3-signer");
 
         In3Node storage node = nodes[si.index];
         require(node.unregisterTime == 0, "node is already unregistering");
 
-        // solium-disable-next-line security/no-block-members
-        node.unregisterTime = uint64(block.timestamp + node.timeout); // solhint-disable-line not-rely-on-time
-        node.proofHash = calcProofHash(node);
+        // someone is claiming the node is inactive
+        if (msg.sender != si.owner) {
+            require(msg.value == calcUnregisterDeposit(_signer), "send deposit is not correct");
+            si.unregisterCaller = msg.sender;
+            si.unregisterDeposit = msg.value;
+            // solium-disable-next-line security/no-block-members
+            si.unregisterTimeout = block.timestamp + 28 days; // solhint-disable-line not-rely-on-time
+
+        } else {
+            // the owner is calling this function
+            require(msg.value == 0, "no value transfer allowed");
+             // solium-disable-next-line security/no-block-members
+            node.unregisterTime = uint64(block.timestamp + node.timeout); // solhint-disable-line not-rely-on-time
+            node.proofHash = calcProofHash(node);
+        }
 
         emit LogNodeUnregisterRequested(node.url, node.signer);
     }
@@ -264,12 +290,26 @@ contract NodeRegistry {
     )
     external
     {
+        // solium-disable-next-line security/no-block-members
+        bytes32 evmBlockhash = blockhash(_blockNumber);
 
-        SignerInformation storage si = signerIndex[_signer];
-        ConvictInformation memory ci = convictMapping[_blockNumber][msg.sender];
+        if (evmBlockhash == 0x0) {
+            evmBlockhash = blockRegistry.blockhashMapping(_blockNumber);
+        }
+
+        require(evmBlockhash != 0x0, "block not found");
 
         // if the blockhash is correct you cannot convict the node
-        require(ci.blockHash != _blockhash, "the block is too old or you try to convict with a correct hash");
+        require(evmBlockhash != _blockhash, "you try to convict with a correct hash");
+
+        SignerInformation storage si = signerIndex[_signer];
+        ConvictInformation storage ci = convictMapping[_blockNumber][msg.sender];
+
+        bytes32 convictIdent = keccak256(abi.encodePacked(_blockNumber, _signer));
+
+        if (senderMapping[convictIdent] != msg.sender) {
+            require(block.number >= ci.blockNumberConvict + 10, "revealConvict still locked");
+        }
 
         require(
             ecrecover(
@@ -309,8 +349,6 @@ contract NodeRegistry {
             si.lockedTime = 0;
         }
 
-        delete convictMapping[_blockNumber][msg.sender];
-
         // remove the deposit
         uint payout = deposit / 2;
         // send 50% to the caller of this function
@@ -319,6 +357,18 @@ contract NodeRegistry {
         // this is done in order to make it useless trying to convict your own node with a second account
         // and this getting all the deposit back after signing a wrong hash.
         address(0).transfer(deposit-payout);
+
+        delete convictMapping[_blockNumber][msg.sender];
+        delete senderMapping[convictIdent];
+    }
+
+    function transferOwnership(address _signer, address _newOwner) external {
+        SignerInformation storage si = signerIndex[_signer];
+
+        require(si.owner == msg.sender, "only current owner can transfer ownership");
+        require(si.used, "owner changes only on active nodes");
+
+        si.owner = _newOwner;
 
     }
 
@@ -330,7 +380,8 @@ contract NodeRegistry {
         address _signer,
         string calldata _url,
         uint64 _props,
-        uint64 _timeout
+        uint64 _timeout,
+        uint64 _weight
     )
     external payable
     {
@@ -363,7 +414,7 @@ contract NodeRegistry {
             node.deposit += msg.value;
 
             // solium-disable-next-line security/no-block-members
-            if (block.timestamp < (blockDeployment + 52 weeks)) // solhint-disable-line not-rely-on-time
+            if (block.timestamp < (blockTimeStampDeployment + 52 weeks)) // solhint-disable-line not-rely-on-time
                 require(node.deposit < 50 ether, "Limit of 50 ETH reached");
         }
 
@@ -373,6 +424,10 @@ contract NodeRegistry {
 
         if (_timeout > node.timeout) {
             node.timeout = _timeout;
+        }
+
+        if (_weight != node.weight) {
+            node.weight = _weight;
         }
 
         node.proofHash = calcProofHash(node);
@@ -388,6 +443,10 @@ contract NodeRegistry {
     /// length of the nodelist
     function totalNodes() external view returns (uint) {
         return nodes.length;
+    }
+
+    function calcUnregisterDeposit(address _signer) public view returns (uint) {
+        return (nodes[signerIndex[_signer].index].deposit / 50 + tx.gasprice + 50000);
     }
 
     /// calculates the sha3 hash of the most important properties
@@ -424,7 +483,7 @@ contract NodeRegistry {
         require(_deposit >= 10 finney, "not enough deposit");
 
         // solium-disable-next-line security/no-block-members
-        if (block.timestamp < (blockDeployment + 52 weeks)) { // solhint-disable-line not-rely-on-time
+        if (block.timestamp < (blockTimeStampDeployment + 52 weeks)) { // solhint-disable-line not-rely-on-time
             require(_deposit < 50 ether, "Limit of 50 ETH reached");
         }
 
@@ -482,17 +541,5 @@ contract NodeRegistry {
         SignerInformation storage si = signerIndex[m.signer];
         si.index = uint64(_nodeIndex);
         nodes.length--;
-    }
-
-    /// checks whether the provided address is already in the provided array
-    /// @param _new the address to be checked
-    /// @param _currentSet the array to be iterated
-    /// @return true when the address was found inside of the array
-    function checkUnique(address _new, address[] memory _currentSet) internal pure returns (bool) {
-        for (uint i = 0; i < _currentSet.length; i++) {
-            if (_currentSet[i] == _new) {
-                return true;
-            }
-        }
     }
 }
