@@ -65,16 +65,18 @@ contract NodeRegistry {
 
     /// information of a in3-node owner
     struct SignerInformation {
-        uint64 index;                       /// current index-position of the node in the node-array
+        uint64 unregisterTimeout;           /// unix timestamp until a server can proof activity
         bool used;                          /// flag whether account is currently a signer of a node
-        address owner;              /// the owner of the node
+        address owner;                      /// the owner of the node
 
         uint64 lockedTime;                  /// time for the deposit to be locked, used only after vote-kick
         address payable unregisterCaller;   /// the address that called unregister
 
         uint depositAmount;                 /// amount of deposit to be locked, used only after vote-kick
-        uint unregisterDeposit;
-        uint unregisterTimeout;
+
+        uint unregisterDeposit;             /// the deposit payed to claim inactivite
+
+        uint index;                         /// current index-position of the node in the node-array
     }
 
     /// information of an url
@@ -163,14 +165,14 @@ contract NodeRegistry {
         } else {
             require(msg.sender == si.unregisterCaller, "only unregister caller can confirm");
             // solium-disable-next-line security/no-block-members
-            require(block.timestamp > si.unregisterTimeout, "only after timeout is over"); //solhint-disable-line not-rely-on-time
+            require(block.timestamp > si.unregisterTimeout, "only after challenge time is over"); //solhint-disable-line not-rely-on-time
 
             // solium-disable-next-line security/no-block-members
             si.lockedTime = uint64(block.timestamp + node.timeout); //solhint-disable-line not-rely-on-time
             si.depositAmount = node.deposit - si.unregisterDeposit;
 
             msg.sender.transfer(si.unregisterDeposit*2);
-
+            si.unregisterTimeout = 0;
             si.unregisterDeposit = 0;
             si.unregisterCaller = address(0x0);
         }
@@ -184,6 +186,7 @@ contract NodeRegistry {
     /// must be called before revealConvict
     /// @param _blockNumber the blocknumber of the wrong blockhash
     /// @param _hash keccak256(wrong blockhash, msg.sender, v, r, s), used to prevent frontrunning
+    /// @param _signer in3-signer that send a wrong blockhash
     function convict(uint _blockNumber, bytes32 _hash, address _signer) external {
 
         ConvictInformation memory ci;
@@ -199,6 +202,7 @@ contract NodeRegistry {
     /// @param _url the url of the node, has to be unique
     /// @param _props properties of the node
     /// @param _timeout timespan of how long the node of a deposit will be locked. Will be at least for 1h
+    /// @param _weight how many requests per second the server is able to handle
     function registerNode(
         string calldata _url,
         uint64 _props,
@@ -223,6 +227,7 @@ contract NodeRegistry {
     /// @param _props properties of the node
     /// @param _timeout timespan of how long the node of a deposit will be locked. Will be at least for 1h
     /// @param _signer the signer of the in3-node
+    /// @param _weight how many requests per second the server is able to handle
     function registerNodeFor(
         string calldata _url,
         uint64 _props,
@@ -248,7 +253,7 @@ contract NodeRegistry {
     /// @param _signer the signer of the in3-node
     function requestUnregisteringNode(address _signer) external payable {
 
-        SignerInformation memory si = signerIndex[_signer];
+        SignerInformation storage si = signerIndex[_signer];
         require(si.used, "address is not an in3-signer");
 
         In3Node storage node = nodes[si.index];
@@ -260,7 +265,7 @@ contract NodeRegistry {
             si.unregisterCaller = msg.sender;
             si.unregisterDeposit = msg.value;
             // solium-disable-next-line security/no-block-members
-            si.unregisterTimeout = block.timestamp + 28 days; // solhint-disable-line not-rely-on-time
+            si.unregisterTimeout = uint64(block.timestamp + 28 days); // solhint-disable-line not-rely-on-time
 
         } else {
             // the owner is calling this function
@@ -362,20 +367,27 @@ contract NodeRegistry {
         delete senderMapping[convictIdent];
     }
 
+    /// changes the ownership of an in3-node
+    /// @param _signer the signer-address of the in3-node, used as an identifier
+    /// @param _newOwner the new owner
     function transferOwnership(address _signer, address _newOwner) external {
         SignerInformation storage si = signerIndex[_signer];
 
-        require(si.owner == msg.sender, "only current owner can transfer ownership");
         require(si.used, "owner changes only on active nodes");
+        require(_newOwner != address(0x0), "0x0 address is invalid");
+        require(si.owner == msg.sender, "only current owner can transfer ownership");
+        require(si.unregisterCaller == address(0x0), "no ownership transfer during claimed inactivity");
 
         si.owner = _newOwner;
 
     }
 
     /// updates a Node by adding the msg.value to the deposit and setting the props or timeout
+    /// @param _signer the signer-address of the in3-node, used as an identifier
     /// @param _url the url, will be changed if different from the current one
     /// @param _props the new properties, will be changed if different from the current onec
     /// @param _timeout the new timeout of the node, cannot be decreased
+    /// @param _weight the amount of requests per second the server is able to handle
     function updateNode(
         address _signer,
         string calldata _url,
@@ -445,6 +457,9 @@ contract NodeRegistry {
         return nodes.length;
     }
 
+    /// calculates the amount a sender has to pay in order to claim that a server is inactive
+    /// @param _signer the signer-address of the in3-node, used as an identifier
+    /// @return the amount of deposit to pay
     function calcUnregisterDeposit(address _signer) public view returns (uint) {
         return (nodes[signerIndex[_signer].index].deposit / 50 + tx.gasprice + 50000);
     }
@@ -465,7 +480,14 @@ contract NodeRegistry {
         );
     }
 
-    // internal helper functions
+    /// registers a node
+    /// @param _url the url of a node
+    /// @param _props properties of a node
+    /// @param _timeout the time before the owner can access the deposit after unregistering a server
+    /// @param _signer the address that signs the answers of the server
+    /// @param _owner the owner address of the node
+    /// @param _deposit the deposit of a server
+    /// @param _weight the amount of requests per second a server is able to handle
     function registerNodeInternal(
         string memory _url,
         uint64 _props,
@@ -477,8 +499,6 @@ contract NodeRegistry {
     )
     internal
     {
-
-        require(nodes.length < 0xFFFFFFFFFFFFFFFF, "maximum amount of nodes reached");
         // enforcing a minimum deposit
         require(_deposit >= 10 finney, "not enough deposit");
 
@@ -490,11 +510,11 @@ contract NodeRegistry {
         bytes32 urlHash = keccak256(bytes(_url));
 
         // make sure this url and also this owner was not registered before.
-        require(!urlIndex[urlHash].used && !signerIndex[_owner].used, "a node with the same url or owner is already registered");
+        require(!urlIndex[urlHash].used && !signerIndex[_signer].used, "a node with the same url or owner is already registered");
 
         // sets the information of the owner
         signerIndex[_signer].used = true;
-        signerIndex[_signer].index = uint64(nodes.length);
+        signerIndex[_signer].index = nodes.length;
         signerIndex[_signer].owner = _owner;
 
         // add new In3Node
