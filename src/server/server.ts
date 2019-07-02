@@ -18,6 +18,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
+
 import * as logger from '../util/logger'
 // Hook to nodeJs events
 function handleExit(signal) {
@@ -29,7 +30,7 @@ process.on('SIGINT', handleExit);
 process.on('SIGTERM', handleExit);
 
 process.on("uncaughtException", (err) => {
-  logger.error("Unhandled error: " + err,{ error: err});
+  logger.error("Unhandled error: " + err,err);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -101,7 +102,7 @@ router.post(/.*/, async ctx => {
     ctx.status = err.status || 500
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
-    logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
+    logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, err);
     ctx.app.emit('error', err, ctx)
   }
 
@@ -141,7 +142,7 @@ router.get(/.*/, async ctx => {
     ctx.status = err.status || 500
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
-    logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
+    logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, err);
     ctx.app.emit('error', err, ctx)
   }
 
@@ -164,7 +165,7 @@ initConfig().then(() => {
     }
     rpc.init().catch(err => {
       //console.error('Error initializing the server : ' + err.message)
-      logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
+      logger.error('Error initializing the server : ' + err.message, err);
       setTimeout(() => { doInit(retryCount - 1) }, 20000)
     })
   }
@@ -173,7 +174,7 @@ initConfig().then(() => {
   doInit(3)
 }).catch(err => {
   //console.error('Error starting the server : ' + err.message, config)
-  logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
+  logger.error('Error starting the server ' + err.message, err)
   process.exit(1)
 })
 

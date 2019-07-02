@@ -25,6 +25,11 @@ import * as memoryLogger from 'in3/js/test/util/memoryLogger'
 import config from '../server/config'
 import * as color from 'cli-color'
 
+
+const Sentry = require('@sentry/node');
+Sentry.init({dsn:'https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2'});
+
+
 const nodeEnv: string = process.env.NODE_ENV || 'production'
 const logLevel = config.logging && config.logging.level
 const winstonLogger = winston.createLogger({
@@ -42,7 +47,8 @@ const winstonLogger = winston.createLogger({
 })
 
 
-let impl = winstonLogger
+
+  let impl = winstonLogger
 
 export function setLogger(val: 'winston' | 'memory') {
   impl = ((val === 'winston') ? winstonLogger : memoryLogger) as any
@@ -62,5 +68,8 @@ export function trace(message: string, ...data: any[]) {
   log('debug', message, ...data)
 }
 export function error(message: string, ...data: any[]) {
+  console.log("SENTRY SEND")
+  Sentry.captureException(data[0]);
+
   log('error', message, ...data)
 }

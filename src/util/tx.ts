@@ -69,10 +69,18 @@ export async function callContract(url: string, contract: string, signature: str
       data
     },
       'latest']
-  }).then((_: RPCResponse) => _.error
-    ? Promise.reject(new Error('Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
-    : _.result + ''
-  )))
+  }).then((_: RPCResponse) => {
+    if(_.error)
+    {
+      throw _.error;
+    }
+    return  _.result + '';
+  })
+  .catch(err => {
+    throw(new Error('Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args)))
+
+  })
+  ))
 }
 
 export async function sendTransaction(url: string, txargs: {
