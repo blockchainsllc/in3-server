@@ -20,6 +20,9 @@
 
 
 import * as logger from '../util/logger'
+const Sentry = require('@sentry/node');
+Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
+
 // Hook to nodeJs events
 function handleExit(signal) {
   logger.info("Stopping in3-server gracefully...");
@@ -31,6 +34,7 @@ process.on('SIGTERM', handleExit);
 
 process.on("uncaughtException", (err) => {
   logger.error("Unhandled error: " + err,err);
+  Sentry.captureException(err);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -103,6 +107,7 @@ router.post(/.*/, async ctx => {
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, err);
+    Sentry.captureException(err);
     ctx.app.emit('error', err, ctx)
   }
 
@@ -143,6 +148,8 @@ router.get(/.*/, async ctx => {
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, err);
+    Sentry.captureException(err);
+
     ctx.app.emit('error', err, ctx)
   }
 
