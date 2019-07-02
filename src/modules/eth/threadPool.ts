@@ -40,7 +40,7 @@ class ThreadPool {
         }
 
     }
-
+console.log("tmp status")
     private async getMerkleProofWorker() {
         if (this.hasWorkers()) {
             return await workers.shift()
