@@ -27,8 +27,7 @@ import * as color from 'cli-color'
 
 
 const Sentry = require('@sentry/node');
-Sentry.init({dsn:'https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2'});
-
+Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
 
 const nodeEnv: string = process.env.NODE_ENV || 'production'
 const logLevel = config.logging && config.logging.level
