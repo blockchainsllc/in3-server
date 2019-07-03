@@ -26,9 +26,6 @@ Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' 
 
 function SentryError(err) {
   console.log(err)
-  console.log("Sentry SEND!")
-  Sentry.captureEvent(err)
-
 }
 // Hook to nodeJs events
 function handleExit(signal) {
@@ -115,7 +112,6 @@ router.post(/.*/, async ctx => {
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, err);
 
-    SentryError(err)
 
     ctx.app.emit('error', err, ctx)
   }
@@ -130,11 +126,11 @@ router.get(/.*/, async ctx => {
   else if (path[path.length - 1] === 'version') return getVersion(ctx)
   else if (INIT_ERROR) return initError(ctx)
   try {
-    if (path.length < 2)  throw SentryError('invalid path')
+    if (path.length < 2)  throw new Error('invalid path')
     let start = path.indexOf('api')
     if (start < 0)
       start = path.findIndex(_ => chainAliases[_] || _.startsWith('0x'))
-    if (start < 0 || start > path.length - 2) throw SentryError('invalid path ' + ctx.path)
+    if (start < 0 || start > path.length - 2) throw new Error('invalid path ' + ctx.path)
     const [chain, method] = path.slice(start)
     const req = rpc.getRequestFromPath(path.slice(start + 1), { chainId: chainAliases[chain] || chain, ...ctx.query }) || {
       id: 1,
@@ -157,7 +153,7 @@ router.get(/.*/, async ctx => {
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, err);
-    SentryError(err)
+
 
     ctx.app.emit('error', err, ctx)
   }
@@ -181,7 +177,6 @@ initConfig().then(() => {
     }
     rpc.init().catch(err => {
       //console.error('Error initializing the server : ' + err.message)
-      SentryError(err)
       logger.error('Error initializing the server : ' + err.message, err);
       setTimeout(() => { doInit(retryCount - 1) }, 20000)
     })
@@ -191,7 +186,6 @@ initConfig().then(() => {
   doInit(3)
 }).catch(err => {
   //console.error('Error starting the server : ' + err.message, config)
-  SentryError(err)
 
   logger.error('Error starting the server ' + err.message, err)
   process.exit(1)
