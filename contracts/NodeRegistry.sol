@@ -203,6 +203,38 @@ contract NodeRegistry {
         }
     }
 
+    /// proofing to the smart contract that the server is still active
+    /// by calculation a hash based on a keccak256(nonce,blockhash) that meets a certain difficulty
+    /// @param _blockNumber blockNumber of the blockhash used to proof activity
+    /// @param _nonce nonce for the hash
+    /// @param _signer a in3-node signer address
+    function proofActivity(uint _blockNumber, uint _nonce, address _signer) external {
+
+        SignerInformation storage si = signerIndex[_signer];
+        require(si.unregisterCaller != address(0x0), "proof only when beeing challenged");
+     //   require(si.used, "proof only when signer is currently in use");
+        require(si.owner == msg.sender || _signer == msg.sender, "only owner or signer can proof activity");
+
+        // solium-disable-next-line security/no-block-members
+        bytes32 evmBlockhash = blockhash(_blockNumber);
+        require(evmBlockhash != 0x0, "block not found");
+
+        bytes4 hashValue = bytes4(keccak256(abi.encodePacked(_nonce, _signer, evmBlockhash)));
+
+        uint32 difficulty = 4095;
+
+        require(uint32(hashValue) <= difficulty, "not enough proof of work");
+
+        uint depAmount = si.unregisterDeposit;
+
+        si.unregisterCaller = address(0x0);
+        si.unregisterTimeout = 0;
+        si.unregisterDeposit = 0;
+
+        msg.sender.transfer(depAmount);
+
+    }
+
     /// register a new Node with the sender as owner
     /// @param _url the url of the node, has to be unique
     /// @param _props properties of the node
@@ -348,7 +380,17 @@ contract NodeRegistry {
 
         emit LogNodeConvicted(_signer);
 
-        uint deposit = nodes[si.index].signer == _signer ? nodes[si.index].deposit : si.depositAmount;
+       // uint deposit = nodes[si.index].signer == _signer ? nodes[si.index].deposit : si.depositAmount;
+
+        uint deposit = 0;
+
+        if (nodes[si.index].signer == _signer) {
+            deposit = nodes[si.index].deposit;
+            nodes[si.index].deposit = 0;
+        } else {
+            deposit = si.depositAmount;
+            si.depositAmount = 0;
+        }
 
         // the signer is still active
         if (nodes[si.index].signer == _signer) {
@@ -358,7 +400,9 @@ contract NodeRegistry {
             si.depositAmount = 0;
             si.lockedTime = 0;
         }
-
+        
+        delete convictMapping[_blockNumber][msg.sender];
+        delete senderMapping[convictIdent];
         // remove the deposit
         uint payout = deposit / 2;
         // send 50% to the caller of this function
@@ -368,8 +412,7 @@ contract NodeRegistry {
         // and this getting all the deposit back after signing a wrong hash.
         address(0).transfer(deposit-payout);
 
-        delete convictMapping[_blockNumber][msg.sender];
-        delete senderMapping[convictIdent];
+      
     }
 
     /// changes the ownership of an in3-node

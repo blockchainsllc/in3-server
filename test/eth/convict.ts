@@ -51,6 +51,12 @@ const sign = (b: BlockData, registryId: string, pk: string, blockHash?: string) 
   } as Signature
 }
 
+const calcHash = (nonce: number, signer: string, blockhash: string): Buffer => {
+
+  return ethUtil.keccak(Buffer.concat([bytes32(nonce), address(signer), bytes32(blockhash)]))
+
+}
+
 
 describe('Convict', () => {
 
@@ -147,7 +153,7 @@ describe('Convict', () => {
     assert.equal(calcHash.toString(), calcHashContract.toString())
   })
 
-  it.skip('convict on contracts', async () => {
+  it('convict on contracts', async () => {
 
     const test = await TestTransport.createWithRegisteredNodes(2)
 
@@ -794,10 +800,48 @@ describe('Convict', () => {
     assert.equal(depositAmountAfter.toString(), serverAfter.deposit.sub(calcDeposit[0]))
     assert.equal(unregisterDepositAfter.toString(), '0')
     assert.equal(await test.getNodeCountFromContract(), 1)
-
-
   })
 
+  it('requestUnregisteringNode - proof activity', async () => {
+
+    const test = await TestTransport.createWithRegisteredNodes(4)
+
+    const unregisterCallerPK = await test.createAccount(null, toBN('49000000000000000000'))
+
+    const calcDeposit = await tx.callContract(test.url, test.nodeList.contract, 'calcUnregisterDeposit(address):(uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
+
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: unregisterCallerPK, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000 })
+
+    let currentBlock = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proofActivity(uint,uint,address)', [toNumber(currentBlock.number), 0, util.getAddress(test.getHandlerConfig(3).privateKey)], { privateKey: test.getHandlerConfig(3).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "proof only when beeing challenged")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proofActivity(uint,uint,address)', [toNumber(currentBlock.number), 0, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "only owner or signer can proof activity")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proofActivity(uint,uint,address)', [toNumber(0), 0, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "block not found")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proofActivity(uint,uint,address)', [toNumber(currentBlock.number), 0, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "not enough proof of work")
+
+
+    if (process.env.GITLAB_CI) {
+      let nonce = 0
+
+      while (true) {
+
+        const cHash = (calcHash(nonce, util.getAddress(test.getHandlerConfig(1).privateKey), currentBlock.hash).slice(0, 4))
+        if (toNumber(cHash) < 4095) break
+        nonce++
+      }
+
+      await tx.callContract(test.url, test.nodeList.contract, 'proofActivity(uint,uint,address)', [toNumber(currentBlock.number), nonce, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 })
+
+      // assert.isFalse(true)
+    }
+
+  }).timeout(300000)
 
   it('registerDuplicate', async () => {
     // create an empty registry
