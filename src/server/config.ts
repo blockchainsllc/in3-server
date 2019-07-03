@@ -88,6 +88,7 @@ export function readCargs(): IN3RPCConfig {
   }
   catch (err) {
     console.error('no config found (' + err + ')! using defaults')
+
   }
 
   const handler: IN3RPCHandlerConfig = { ...config.chains['0x2a'] }

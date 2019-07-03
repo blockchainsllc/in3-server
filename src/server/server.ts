@@ -20,20 +20,8 @@
 
 
 import * as logger from '../util/logger'
-const Sentry = require('@sentry/node');
-Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
+import {SentryError} from '../util/sentryError'
 
-
-
-class SentryError extends Error {
-  constructor(message?: string) {
-    super(message)
-    console.log(Error.captureStackTrace(this, this.constructor))
-    Error.captureStackTrace(this, this.constructor)
-    Sentry.captureException(message)
-
-  }
-}
 // Hook to nodeJs events
 function handleExit(signal) {
   logger.info("Stopping in3-server gracefully...");
@@ -190,15 +178,6 @@ initConfig().then(() => {
       //console.error('Error initializing the server : ' + err.message)
       logger.error('Error initializing the server : ' + err.message, err);
       setTimeout(() => { doInit(retryCount - 1) }, 20000)
-
-
-      Sentry.addBreadcrumb({
-        category: 'tmp',
-        message: 'trying to init server msg ',
-
-      });
-
-
       throw new SentryError(err)
     })
   }
