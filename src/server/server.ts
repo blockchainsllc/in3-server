@@ -28,7 +28,6 @@ Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' 
 class SentryError extends Error {
   constructor(message?: string) {
     super(message)
-    console.log(err)
     console.log(Error.captureStackTrace(this, this.constructor))
     Error.captureStackTrace(this, this.constructor)
     Sentry.captureException(message)
