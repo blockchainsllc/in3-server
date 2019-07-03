@@ -54,7 +54,7 @@ contract NodeRegistry {
         uint64 weight;                      ///  the flag for (future) incentivisation
         address signer;                     /// the signer for requests
 
-        bytes32 proofHash;
+        bytes32 proofHash;                  /// keccak(deposit,timeout,registerTime,unregisterTime,props,signer,url)
     }
 
      /// information of a (future) convict (used to prevent frontrunning)
@@ -195,7 +195,12 @@ contract NodeRegistry {
 
         convictMapping[_blockNumber][msg.sender] = ci;
 
-        senderMapping[keccak256(abi.encodePacked(_blockNumber, _signer))] = msg.sender;
+        bytes32 tempIdentifier = keccak256(abi.encodePacked(_blockNumber, _signer));
+
+        // the 1st caller for an identifier can write into this mapping, enabling faster revealConvicts
+        if (senderMapping[tempIdentifier] == address(0x0)) {
+            senderMapping[tempIdentifier] = msg.sender;
+        }
     }
 
     /// register a new Node with the sender as owner
