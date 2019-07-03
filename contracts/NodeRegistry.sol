@@ -361,26 +361,16 @@ contract NodeRegistry {
                         _blockNumber,
                         registryId)
                     ),
-                _v,
-                _r,
-                _s
-            ) == _signer,
+                _v, _r, _s) == _signer,
             "the block was not signed by the signer of the node");
 
         require(
             keccak256(
                 abi.encodePacked(
-                    _blockhash,
-                    msg.sender,
-                    _v,
-                    _r,
-                    _s
-                )
+                    _blockhash, msg.sender, _v, _r, _s)
             ) == ci.convictHash, "wrong convict hash");
 
         emit LogNodeConvicted(_signer);
-
-       // uint deposit = nodes[si.index].signer == _signer ? nodes[si.index].deposit : si.depositAmount;
 
         uint deposit = 0;
 
@@ -400,7 +390,7 @@ contract NodeRegistry {
             si.depositAmount = 0;
             si.lockedTime = 0;
         }
-        
+
         delete convictMapping[_blockNumber][msg.sender];
         delete senderMapping[convictIdent];
         // remove the deposit
@@ -412,7 +402,6 @@ contract NodeRegistry {
         // and this getting all the deposit back after signing a wrong hash.
         address(0).transfer(deposit-payout);
 
-      
     }
 
     /// changes the ownership of an in3-node
