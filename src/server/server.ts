@@ -23,6 +23,10 @@ import * as logger from '../util/logger'
 const Sentry = require('@sentry/node');
 Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
 
+
+function SentryError(err) {
+  console.log(err)
+}
 // Hook to nodeJs events
 function handleExit(signal) {
   logger.info("Stopping in3-server gracefully...");
@@ -34,8 +38,7 @@ process.on('SIGTERM', handleExit);
 
 process.on("uncaughtException", (err) => {
   logger.error("Unhandled error: " + err,err);
-  console.log("Sentry Send")
-  Sentry.captureException(err);
+
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -108,8 +111,7 @@ router.post(/.*/, async ctx => {
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, err);
-    Sentry.captureException(err);
-    console.log("Sentry Send")
+
 
     ctx.app.emit('error', err, ctx)
   }
@@ -124,10 +126,7 @@ router.get(/.*/, async ctx => {
   else if (path[path.length - 1] === 'version') return getVersion(ctx)
   else if (INIT_ERROR) return initError(ctx)
   try {
-    if (path.length < 2) {
-                          Sentry.captureException('invalid path');
-                          console.log("Sentry Send")
-                          } //throw new Error('invalid path')
+    if (path.length < 2)  throw new Error('invalid path')
     let start = path.indexOf('api')
     if (start < 0)
       start = path.findIndex(_ => chainAliases[_] || _.startsWith('0x'))
@@ -154,8 +153,7 @@ router.get(/.*/, async ctx => {
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, err);
-    Sentry.captureException(err);
-    console.log("Sentry Send")
+
 
     ctx.app.emit('error', err, ctx)
   }
@@ -188,8 +186,7 @@ initConfig().then(() => {
   doInit(3)
 }).catch(err => {
   //console.error('Error starting the server : ' + err.message, config)
-  Sentry.captureException(err);
-  console.log("Sentry Send")
+
   logger.error('Error starting the server ' + err.message, err)
   process.exit(1)
 })
