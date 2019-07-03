@@ -22,7 +22,6 @@ pragma experimental ABIEncoderV2;
 
 import "./BlockhashRegistry.sol";
 
-
 /// @title Registry for IN3-nodes
 contract NodeRegistry {
 
@@ -112,6 +111,8 @@ contract NodeRegistry {
     /// mapping for convicts: blocknumber => address => convictInformation
     mapping (uint => mapping(address => ConvictInformation)) internal convictMapping;
 
+    /// mapping for prevent frontrunning (maps the 1st account that called convict)
+    /// keccak256(blockNumber, in3-signer) to address
     mapping (bytes32 => address) public senderMapping;
 
     /// constructor
@@ -295,6 +296,7 @@ contract NodeRegistry {
 
         In3Node storage node = nodes[si.index];
         require(node.unregisterTime == 0, "node is already unregistering");
+        require(si.unregisterCaller == address(0x0), "cannot unregister when inactivity is claimed");
 
         // someone is claiming the node is inactive
         if (msg.sender != si.owner) {

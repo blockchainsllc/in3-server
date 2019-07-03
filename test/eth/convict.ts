@@ -623,7 +623,6 @@ describe('Convict', () => {
     assert.equal(serverBefore.unregisterTime.toNumber(), 0)
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 10, confirm: true, gas: 3000000 }).catch(_ => false))
-
     const receipt = await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
 
     let block = await test.getFromServer('eth_getBlockByNumber', receipt.blockNumber, false) as BlockData
@@ -647,7 +646,6 @@ describe('Convict', () => {
 
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 10, confirm: true, gas: 3000000 }).catch(_ => false))
-
     await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
 
     const serverAfterCancel = await test.getNodeFromContract(0)
@@ -667,7 +665,6 @@ describe('Convict', () => {
     assert.equal(serverBefore.unregisterTime.toNumber(), 0)
 
     const receipt = await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
-
 
     let block = await test.getFromServer('eth_getBlockByNumber', receipt.blockNumber, false) as BlockData
 
@@ -752,6 +749,8 @@ describe('Convict', () => {
     assert.equal(indexBefore.toString(), '0')
 
     await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: unregisterCallerPK, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000 })
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: unregisterCallerPK, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000 }).catch(_ => false), "cannot call unregister twice")
 
     const [unregisterTimeout, used, owner, lockedTime, unregisterCaller, depositAmount, unregisterDeposit, index] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,bool,address,uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
     let currentBlock = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
