@@ -29,6 +29,7 @@ class SentryError extends Error {
     console.log("Inside Sentry Constructor!!!")
     console.log(message)
     Sentry.captureException(message)
+    throw new Error(message)
   }
 }
 
