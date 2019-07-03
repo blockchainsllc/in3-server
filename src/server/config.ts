@@ -23,13 +23,15 @@ import * as cargs from 'args'
 
 const Sentry = require('@sentry/node');
 Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
+
 class SentryError extends Error {
   constructor(message?: string) {
+    const Sentry = require('@sentry/node');
+    Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
     super(message)
     console.log("Inside Sentry Constructor!!!")
     console.log(message)
-    Sentry.captureException(message)
-    throw new Error(message)
+    Sentry.captureException(message);
   }
 }
 

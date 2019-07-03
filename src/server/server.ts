@@ -25,27 +25,9 @@ Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' 
 
 
 
-// class SentryError extends Error {
-//   constructor(foo = 'SentryError Constructor', ...params) {
-//     console.log("Sentry Error constructor called");
-//     super(...params);
-//     console.log(params);
-//
-//     this.name = 'SentryError';
-//     // Custom debugging information
-//     this.foo = foo;
-//     console.log(err);
-//     console.log("Sentry Send!!");
-//     Sentry.captureException(err);
-//     Sentry.captureMessage('Something went wrong');
-//   }
-// }
-
 class SentryError extends Error {
   constructor(message?: string) {
     super(message)
-    console.log("Inside Sentry Constructor!!!")
-    console.log(message)
     Sentry.captureException(message)
   }
 }
@@ -66,7 +48,6 @@ process.on("uncaughtException", (err) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error("Unhandled promise rejection at " + promise,{ reason: reason, promise: promise});
-  throw new SentryError("Unhandled promise rejection at " + promise)
 });
 
 
@@ -137,6 +118,7 @@ router.post(/.*/, async ctx => {
     logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, err);
 
     ctx.app.emit('error', err, ctx)
+
     throw new SentryError("error" + err)
 
   }
@@ -205,6 +187,15 @@ initConfig().then(() => {
       //console.error('Error initializing the server : ' + err.message)
       logger.error('Error initializing the server : ' + err.message, err);
       setTimeout(() => { doInit(retryCount - 1) }, 20000)
+
+
+      Sentry.addBreadcrumb({
+        category: 'tmp',
+        message: 'trying to init server msg ',
+
+      });
+
+
       throw new SentryError(err)
     })
   }

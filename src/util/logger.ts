@@ -67,8 +67,7 @@ export function trace(message: string, ...data: any[]) {
   log('debug', message, ...data)
 }
 export function error(message: string, ...data: any[]) {
-  console.log("SENTRY SEND")
-  Sentry.captureException(data[0]);
-
+  // console.log("SENTRY SEND")
+  // Sentry.captureException(data[0]);
   log('error', message, ...data)
 }
