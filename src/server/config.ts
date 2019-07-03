@@ -21,8 +21,6 @@ import * as fs from 'fs'
 import { IN3RPCConfig, IN3RPCHandlerConfig, util, typeDefs } from 'in3'
 import * as cargs from 'args'
 
-const Sentry = require('@sentry/node');
-Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
 
 class SentryError extends Error {
   constructor(message?: string) {
@@ -31,7 +29,7 @@ class SentryError extends Error {
     super(message)
     console.log("Inside Sentry Constructor!!!")
     console.log(message)
-    Sentry.captureException(message);
+    Sentry.captureException(message)
   }
 }
 
@@ -90,6 +88,7 @@ export function readCargs(): IN3RPCConfig {
   }
   catch (err) {
     console.error('no config found (' + err + ')! using defaults')
+    throw new SentryError('no config found (' + err + ')! using defaults')
   }
 
   const handler: IN3RPCHandlerConfig = { ...config.chains['0x2a'] }
