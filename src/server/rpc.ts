@@ -27,6 +27,16 @@ import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
 
+const Sentry = require('@sentry/node');
+Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
+class SentryError extends Error {
+  constructor(message?: string) {
+    super(message)
+    console.log("Inside Sentry Constructor!!!")
+    console.log(message)
+    Sentry.captureException(message)
+  }
+}
 
 export class RPC {
   conf: IN3RPCConfig
@@ -218,12 +228,12 @@ export class HandlerTransport extends AxiosTransport {
       const res = await axios.post(url, requests, { headers: { 'Content-Type': 'application/json' } })
 
       // throw if the status is an error
-      if (res.status > 200) throw new Error('Invalid status')
+      if (res.status > 200) throw new SentryError('Invalid status')
 
       // if this was not given as array, we need to convert it back to a single object
       return Array.isArray(data) ? res.data : res.data[0]
     } catch (err) {
-      throw new Error('Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
+      throw new SentryError('Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
     }
   }
 

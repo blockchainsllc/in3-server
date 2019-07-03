@@ -24,8 +24,30 @@ const Sentry = require('@sentry/node');
 Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
 
 
-function SentryError(err) {
-  console.log(err)
+
+// class SentryError extends Error {
+//   constructor(foo = 'SentryError Constructor', ...params) {
+//     console.log("Sentry Error constructor called");
+//     super(...params);
+//     console.log(params);
+//
+//     this.name = 'SentryError';
+//     // Custom debugging information
+//     this.foo = foo;
+//     console.log(err);
+//     console.log("Sentry Send!!");
+//     Sentry.captureException(err);
+//     Sentry.captureMessage('Something went wrong');
+//   }
+// }
+
+class SentryError extends Error {
+  constructor(message?: string) {
+    super(message)
+    console.log("Inside Sentry Constructor!!!")
+    console.log(message)
+    Sentry.captureException(message)
+  }
 }
 // Hook to nodeJs events
 function handleExit(signal) {
@@ -38,11 +60,13 @@ process.on('SIGTERM', handleExit);
 
 process.on("uncaughtException", (err) => {
   logger.error("Unhandled error: " + err,err);
+  throw new SentryError("Unhandled error" + err)
 
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error("Unhandled promise rejection at " + promise,{ reason: reason, promise: promise});
+  throw new SentryError("Unhandled promise rejection at " + promise)
 });
 
 
@@ -112,8 +136,9 @@ router.post(/.*/, async ctx => {
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, err);
 
-
     ctx.app.emit('error', err, ctx)
+    throw new SentryError("error" + err)
+
   }
 
 })
@@ -126,11 +151,11 @@ router.get(/.*/, async ctx => {
   else if (path[path.length - 1] === 'version') return getVersion(ctx)
   else if (INIT_ERROR) return initError(ctx)
   try {
-    if (path.length < 2)  throw new Error('invalid path')
+    if (path.length < 2)  throw new SentryError('invalid path')
     let start = path.indexOf('api')
     if (start < 0)
       start = path.findIndex(_ => chainAliases[_] || _.startsWith('0x'))
-    if (start < 0 || start > path.length - 2) throw new Error('invalid path ' + ctx.path)
+    if (start < 0 || start > path.length - 2) throw new SentryError('invalid path ' + ctx.path)
     const [chain, method] = path.slice(start)
     const req = rpc.getRequestFromPath(path.slice(start + 1), { chainId: chainAliases[chain] || chain, ...ctx.query }) || {
       id: 1,
@@ -156,6 +181,7 @@ router.get(/.*/, async ctx => {
 
 
     ctx.app.emit('error', err, ctx)
+    throw new SentryError(err)
   }
 
 })
@@ -179,6 +205,7 @@ initConfig().then(() => {
       //console.error('Error initializing the server : ' + err.message)
       logger.error('Error initializing the server : ' + err.message, err);
       setTimeout(() => { doInit(retryCount - 1) }, 20000)
+      throw new SentryError(err)
     })
   }
 
@@ -188,6 +215,7 @@ initConfig().then(() => {
   //console.error('Error starting the server : ' + err.message, config)
 
   logger.error('Error starting the server ' + err.message, err)
+  throw new SentryError(err)
   process.exit(1)
 })
 
@@ -220,6 +248,7 @@ async function initError(ctx: Router.IRouterContext) {
   //lies to the rancher that it is healthy to avoid restart loop
   ctx.body = "Server uninitialized"
   ctx.status = 200
+  throw new SentryError(ctx.body)
 }
 
 async function getVersion(ctx: Router.IRouterContext) {
