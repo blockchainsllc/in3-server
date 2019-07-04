@@ -22,6 +22,7 @@ pragma experimental ABIEncoderV2;
 
 import "./BlockhashRegistry.sol";
 
+
 /// @title Registry for IN3-nodes
 contract NodeRegistry {
 
@@ -139,7 +140,6 @@ contract NodeRegistry {
         require(node.unregisterTime > 0, "node is not unregistering");
 
         node.unregisterTime = 0;
-
         node.proofHash = calcProofHash(node);
 
         emit LogNodeUnregisterCanceled(node.url, node.signer);
@@ -152,6 +152,7 @@ contract NodeRegistry {
         SignerInformation storage si = signerIndex[_signer];
         In3Node storage node = nodes[si.index];
 
+        uint transferAmount = 0;
         if (si.unregisterCaller == address(0x0)) {
             require(si.used, "sender does not own a node");
             require(si.owner == msg.sender, "only owner can unregister a node");
@@ -161,7 +162,8 @@ contract NodeRegistry {
             // solium-disable-next-line security/no-block-members
             require(node.unregisterTime < block.timestamp, "only confirm after the timeout allowed");//solhint-disable-line not-rely-on-time
 
-            msg.sender.transfer(node.deposit);
+            transferAmount = node.deposit;
+            node.deposit = 0;
 
         } else {
             require(msg.sender == si.unregisterCaller, "only unregister caller can confirm");
@@ -172,15 +174,18 @@ contract NodeRegistry {
             si.lockedTime = uint64(block.timestamp + node.timeout); //solhint-disable-line not-rely-on-time
             si.depositAmount = node.deposit - si.unregisterDeposit;
 
-            msg.sender.transfer(si.unregisterDeposit*2);
+            transferAmount = si.unregisterDeposit*2;
             si.unregisterTimeout = 0;
             si.unregisterDeposit = 0;
             si.unregisterCaller = address(0x0);
+
         }
 
         removeNode(si.index);
         si.index = 0;
         si.used = false;
+        msg.sender.transfer(transferAmount);
+
     }
 
     /// commits a blocknumber and a hash
@@ -213,7 +218,6 @@ contract NodeRegistry {
 
         SignerInformation storage si = signerIndex[_signer];
         require(si.unregisterCaller != address(0x0), "proof only when beeing challenged");
-     //   require(si.used, "proof only when signer is currently in use");
         require(si.owner == msg.sender || _signer == msg.sender, "only owner or signer can proof activity");
 
         // solium-disable-next-line security/no-block-members
@@ -221,11 +225,9 @@ contract NodeRegistry {
         require(evmBlockhash != 0x0, "block not found");
 
         bytes4 hashValue = bytes4(keccak256(abi.encodePacked(_nonce, _signer, evmBlockhash)));
-
         uint32 difficulty = 4095;
 
         require(uint32(hashValue) <= difficulty, "not enough proof of work");
-
         uint depAmount = si.unregisterDeposit;
 
         si.unregisterCaller = address(0x0);
@@ -418,7 +420,6 @@ contract NodeRegistry {
         require(si.unregisterCaller == address(0x0), "no ownership transfer during claimed inactivity");
 
         si.owner = _newOwner;
-
     }
 
     /// updates a Node by adding the msg.value to the deposit and setting the props or timeout
@@ -465,8 +466,9 @@ contract NodeRegistry {
             node.deposit += msg.value;
 
             // solium-disable-next-line security/no-block-members
-            if (block.timestamp < (blockTimeStampDeployment + 52 weeks)) // solhint-disable-line not-rely-on-time
+            if (block.timestamp < (blockTimeStampDeployment + 52 weeks)) {// solhint-disable-line not-rely-on-time
                 require(node.deposit < 50 ether, "Limit of 50 ETH reached");
+            }
         }
 
         if (_props != node.props) {
