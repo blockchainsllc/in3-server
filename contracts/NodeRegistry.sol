@@ -119,7 +119,6 @@ contract NodeRegistry {
     /// capping the max deposit timeout on 10 years
     uint constant internal MAXDEPOSITTIMEOUT = 1 days * 365 * 10;
 
-
     /// constructor
     /// @param _blockRegistry address of a BlockhashRegistry
     constructor(BlockhashRegistry _blockRegistry) public {
@@ -176,6 +175,8 @@ contract NodeRegistry {
 
             // solium-disable-next-line security/no-block-members
             si.lockedTime = uint64(block.timestamp + node.timeout); //solhint-disable-line not-rely-on-time
+
+            assert(node.deposit > si.unregisterDeposit);
             si.depositAmount = node.deposit - si.unregisterDeposit;
 
             transferAmount = si.unregisterDeposit*2;

@@ -752,16 +752,46 @@ describe('Convict', () => {
     }).catch(_ => false))
     assert.include(await test.getErrorReason(), "only owner can unregister a node")
 
+    assert.equal(await test.getNodeCountFromContract(), 2)
+
     await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], {
       privateKey: test.getHandlerConfig(0).privateKey,
       gas: 300000,
       value: 0,
       confirm: true
     })
+    assert.equal(await test.getNodeCountFromContract(), 1)
 
     const balanceOwnerAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
 
     assert.equal(balanceOwnerAfter.sub(balanceOwnerBefore).toString(), serverBefore.deposit.toString())
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], {
+      privateKey: test.getHandlerConfig(0).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false))
+
+    assert.include(await test.getErrorReason(), "sender does not own a node")
+
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 })
+
+    await test.increaseTime(10000)
+    await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    })
+    assert.equal(await test.getNodeCountFromContract(), 0)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false))
 
   })
 
