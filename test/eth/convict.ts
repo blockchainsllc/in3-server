@@ -895,7 +895,7 @@ describe('Convict', () => {
       }], test.chainId, null, test.url, transport, false)
     )
 
-    assert.include(await test.getErrorReason(), "a node with the same url or owner is already registered")
+    assert.include(await test.getErrorReason(), "a node with the same url or signer is already registered")
 
 
     // register same pk servers should not work
@@ -914,7 +914,7 @@ describe('Convict', () => {
         timeout: 3600
       }], test.chainId, null, test.url, transport, false)
     )
-    assert.include(await test.getErrorReason(), "a node with the same url or owner is already registered")
+    assert.include(await test.getErrorReason(), "a node with the same url or signer is already registered")
 
   })
 
@@ -928,12 +928,12 @@ describe('Convict', () => {
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)',
       ["#1", 1000, 10000, util.getAddress(signerAccount), 2000], { privateKey: ownerAccount, value: toBN('49000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false)
       , "must fail because url is already registered")
-    assert.include(await test.getErrorReason(), "a node with the same url or owner is already registered")
+    assert.include(await test.getErrorReason(), "a node with the same url or signer is already registered")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)',
       ["#10", 1000, 10000, util.getAddress(test.getHandlerConfig(0).privateKey), 2000], { privateKey: ownerAccount, value: toBN('49000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false)
       , "must fail because signer is already registered")
-    assert.include(await test.getErrorReason(), "a node with the same url or owner is already registered")
+    assert.include(await test.getErrorReason(), "a node with the same url or signer is already registered")
 
     await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)',
       ["#10", 1000, 10000, util.getAddress(signerAccount), 2000], { privateKey: ownerAccount, value: toBN('1000000000000000000'), confirm: true, gas: 3000000 })

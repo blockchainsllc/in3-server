@@ -118,8 +118,8 @@ contract NodeRegistry {
 
     /// constructor
     /// @param _blockRegistry address of a BlockhashRegistry
-    constructor(address _blockRegistry) public {
-        blockRegistry = BlockhashRegistry(_blockRegistry);
+    constructor(BlockhashRegistry _blockRegistry) public {
+        blockRegistry = _blockRegistry;
 
         // solium-disable-next-line security/no-block-members
         blockTimeStampDeployment = block.timestamp;  // solhint-disable-line not-rely-on-time
@@ -307,7 +307,6 @@ contract NodeRegistry {
             si.unregisterDeposit = msg.value;
             // solium-disable-next-line security/no-block-members
             si.unregisterTimeout = uint64(block.timestamp + 28 days); // solhint-disable-line not-rely-on-time
-
         } else {
             // the owner is calling this function
             require(msg.value == 0, "no value transfer allowed");
@@ -371,32 +370,27 @@ contract NodeRegistry {
         require(
             keccak256(
                 abi.encodePacked(
-                    _blockhash, msg.sender, _v, _r, _s)
+                    _blockhash, msg.sender, _v, _r, _s
+                )
             ) == ci.convictHash, "wrong convict hash");
-
         emit LogNodeConvicted(_signer);
 
         uint deposit = 0;
-
+        // the signer is still active
         if (nodes[si.index].signer == _signer) {
             deposit = nodes[si.index].deposit;
             nodes[si.index].deposit = 0;
-        } else {
-            deposit = si.depositAmount;
-            si.depositAmount = 0;
-        }
-
-        // the signer is still active
-        if (nodes[si.index].signer == _signer) {
             removeNode(si.index);
             si.index = 0;
         } else {
+            deposit = si.depositAmount;
             si.depositAmount = 0;
             si.lockedTime = 0;
         }
 
         delete convictMapping[_blockNumber][msg.sender];
         delete senderMapping[convictIdent];
+
         // remove the deposit
         uint payout = deposit / 2;
         // send 50% to the caller of this function
@@ -405,7 +399,6 @@ contract NodeRegistry {
         // this is done in order to make it useless trying to convict your own node with a second account
         // and this getting all the deposit back after signing a wrong hash.
         address(0).transfer(deposit-payout);
-
     }
 
     /// changes the ownership of an in3-node
@@ -517,7 +510,8 @@ contract NodeRegistry {
                 _node.unregisterTime,
                 _node.props,
                 _node.signer,
-                _node.url)
+                _node.url
+            )
         );
     }
 
@@ -551,7 +545,7 @@ contract NodeRegistry {
         bytes32 urlHash = keccak256(bytes(_url));
 
         // make sure this url and also this owner was not registered before.
-        require(!urlIndex[urlHash].used && !signerIndex[_signer].used, "a node with the same url or owner is already registered");
+        require(!urlIndex[urlHash].used && !signerIndex[_signer].used, "a node with the same url or signer is already registered");
 
         // sets the information of the owner
         signerIndex[_signer].used = true;
@@ -592,9 +586,7 @@ contract NodeRegistry {
         // trigger event
         emit LogNodeRemoved(nodes[_nodeIndex].url, nodes[_nodeIndex].signer);
 
-        uint length = nodes.length;
-
-        assert(length > 0);
+        assert(nodes.length > 0);
         // move the last entry to the removed one.
         In3Node memory m = nodes[length - 1];
         nodes[_nodeIndex] = m;
