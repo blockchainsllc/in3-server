@@ -3,9 +3,9 @@ Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' 
 
 export class SentryError extends Error {
     constructor(message? :string, stack? :string) {
-        super(stack);
-
-        // Error.captureStackTrace(this,SentryError)
-        Sentry.captureException(stack)
+        super(message);
+        console.log(stack)
+        console.log(Error.captureStackTrace(this,SentryError))
+        Sentry.captureException(message)
     }
 }
