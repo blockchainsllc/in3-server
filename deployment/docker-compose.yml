@@ -24,6 +24,8 @@ services:
 
   nd-1:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    memswap_limit: 1073741824
+    memswap_limit: 5242880
     stdin_open: true
     tty: true
     command:
@@ -43,6 +45,8 @@ services:
       io.rancher.container.pull_image: always
   nd-2:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    memswap_limit: 1073741824
+    memswap_limit: 5242880
     stdin_open: true
     tty: true
     command:
@@ -62,6 +66,8 @@ services:
       io.rancher.container.pull_image: always
   nd-3:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    memswap_limit: 1073741824
+    memswap_limit: 5242880
     stdin_open: true
     tty: true
     command:
@@ -81,6 +87,8 @@ services:
       io.rancher.container.pull_image: always
   nd-4:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    memswap_limit: 1073741824
+    memswap_limit: 5242880
     stdin_open: true
     tty: true
     command:
@@ -101,6 +109,8 @@ services:
 
   nd-5:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    memswap_limit: 1073741824
+    memswap_limit: 5242880
     stdin_open: true
     tty: true
     command:
