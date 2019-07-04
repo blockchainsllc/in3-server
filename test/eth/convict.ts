@@ -274,6 +274,15 @@ describe('Convict', () => {
       confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     }).catch(_ => false))
 
+    const s2 = sign({ number: blockNumberInSnapshot } as any, registryId, test.getHandlerConfig(1).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s2.blockHash, s2.block, s2.v, s2.r, s2.s], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 3000000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "the block was not signed by the signer of the node")
+
     rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 3000000,
@@ -646,7 +655,7 @@ describe('Convict', () => {
     assert.equal(serverAfter.timeout.toNumber(), 3600)
     assert.equal(serverAfter.unregisterTime - Number(block.timestamp), 3600)
 
-    const user = await test.createAccount()
+    const user = await test.createAccount(null, toBN('49000000000000000000'))
 
     const userNonExist = await test.createAccount(null, toBN('10000000000000000000'))
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(userNonExist)], { privateKey: userNonExist, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
@@ -658,8 +667,13 @@ describe('Convict', () => {
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false), 'Must fail, because not the owner of the server')
     assert.include(await test.getErrorReason(), "node is not unregistering")
 
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringNode(address)', [util.getAddress(user)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false), 'Must fail, because not the owner of the server')
+    assert.include(await test.getErrorReason(), "signer does not own a node")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 10, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: user, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "only owner can cancel unregistering a node")
+
     await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
 
     const serverAfterCancel = await test.getNodeFromContract(0)
@@ -667,6 +681,11 @@ describe('Convict', () => {
     assert.equal(serverAfterCancel.timeout.toNumber(), 3600)
     assert.equal(serverAfterCancel.unregisterTime.toNumber(), 0)
 
+    const calcDeposit = await tx.callContract(test.url, test.nodeList.contract, 'calcUnregisterDeposit(address):(uint)', [util.getAddress(test.getHandlerConfig(1).privateKey)])
+
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: user, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "cancel during challenge not allowed")
   })
 
   it('requestUnregisteringNode - owner', async () => {
@@ -725,6 +744,14 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false))
 
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "only owner can unregister a node")
+
     await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], {
       privateKey: test.getHandlerConfig(0).privateKey,
       gas: 300000,
@@ -765,6 +792,7 @@ describe('Convict', () => {
     await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: unregisterCallerPK, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000 })
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: unregisterCallerPK, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000 }).catch(_ => false), "cannot call unregister twice")
+    assert.include(await test.getErrorReason(), "cannot unregister when inactivity is claimed")
 
     const [unregisterTimeout, used, owner, lockedTime, unregisterCaller, depositAmount, unregisterDeposit, index] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,bool,address,uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
     let currentBlock = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
@@ -1003,6 +1031,8 @@ describe('Convict', () => {
     assert.equal(toHex(serverBefore.props), "0xffff")
 
     const pk1 = await test.createAccount(null, toBN('4900000000000000000'))
+    const pk2 = await test.createAccount(null, toBN('4900000000000000000'))
+
     const transport = new LoggingAxiosTransport()
 
     assert.equal(await test.getNodeCountFromContract(), 2)
@@ -1021,8 +1051,7 @@ describe('Convict', () => {
     assert.equal(toNumber(serverBefore.timeout), 7200)
     assert.equal(toHex(serverBefore.props), "0xff")
 
-    //updateNode(address _signer, string calldata _url, uint64 _props, uint64 _timeout)
-    // changing props
+
 
     await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(pk1), "test3.com", 0x0fff, 0, 2000], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     let serverAfter = await test.getNodeFromContract(2)
@@ -1109,6 +1138,15 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false), 'Must fail because the url is already taken')
     assert.include(await test.getErrorReason(), "url is already in use")
+
+    await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['unregisterServer', 1000, 1000, 2000], { privateKey: pk2, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(pk2)], { privateKey: pk2, value: 0, confirm: true, gas: 3000000 })
+
+    await test.increaseTime(3600)
+    await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(pk2)], { privateKey: pk2, value: 0, confirm: true, gas: 3000000 })
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(pk2), "test3.com", 0x0fff, 0, 2000], { privateKey: pk2, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "signer does not own a node")
 
   })
 

@@ -131,8 +131,8 @@ contract NodeRegistry {
     function cancelUnregisteringNode(address _signer) external {
 
         SignerInformation memory si = signerIndex[_signer];
-        require(si.used, "sender does not own a node");
-        require(si.owner == msg.sender, "only owner can unregister a node");
+        require(si.used, "signer does not own a node");
+        require(si.owner == msg.sender, "only owner can cancel unregistering a node");
         require(si.unregisterCaller == address(0x0), "cancel during challenge not allowed");
 
         In3Node storage node = nodes[si.index];
@@ -432,13 +432,11 @@ contract NodeRegistry {
     {
         SignerInformation memory si = signerIndex[_signer];
         require(si.owner == msg.sender, "only node owner can update");
+        require(si.used, "signer does not own a node");
 
         In3Node storage node = nodes[si.index];
 
         bytes32 newURl = keccak256(bytes(_url));
-
-        require(si.owner == msg.sender, "only owner can update node");
-        require(si.used, "signer does not own a node");
 
         // the url got changed
         if (newURl != keccak256(bytes(node.url))) {
