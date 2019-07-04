@@ -109,12 +109,16 @@ contract NodeRegistry {
     /// can be used to access the SignerInformation-struct
     mapping (bytes32 => UrlInformation) public urlIndex;
 
-    /// mapping for convicts: blocknumber => address => convictInformation
-    mapping (uint => mapping(address => ConvictInformation)) internal convictMapping;
-
     /// mapping for prevent frontrunning (maps the 1st account that called convict)
     /// keccak256(blockNumber, in3-signer) to address
     mapping (bytes32 => address) public senderMapping;
+
+    /// mapping for convicts: blocknumber => address => convictInformation
+    mapping (uint => mapping(address => ConvictInformation)) internal convictMapping;
+
+    /// capping the max deposit timeout on 10 years
+    uint constant internal MAXDEPOSITTIMEOUT = 1 days * 365 * 10;
+
 
     /// constructor
     /// @param _blockRegistry address of a BlockhashRegistry
@@ -235,7 +239,6 @@ contract NodeRegistry {
         si.unregisterDeposit = 0;
 
         msg.sender.transfer(depAmount);
-
     }
 
     /// register a new Node with the sender as owner
@@ -433,6 +436,7 @@ contract NodeRegistry {
         SignerInformation memory si = signerIndex[_signer];
         require(si.owner == msg.sender, "only node owner can update");
         require(si.used, "signer does not own a node");
+        require(_timeout <= MAXDEPOSITTIMEOUT, "exceeded maximum timeout");
 
         In3Node storage node = nodes[si.index];
 
@@ -532,6 +536,10 @@ contract NodeRegistry {
     )
     internal
     {
+
+        // enforcing a maximum timeout
+        require(_timeout <= MAXDEPOSITTIMEOUT, "exceeded maximum timeout");
+
         // enforcing a minimum deposit
         require(_deposit >= 10 finney, "not enough deposit");
 

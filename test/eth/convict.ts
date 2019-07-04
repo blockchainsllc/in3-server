@@ -879,7 +879,6 @@ describe('Convict', () => {
 
       await tx.callContract(test.url, test.nodeList.contract, 'proofActivity(uint,uint,address)', [toNumber(currentBlock.number), nonce, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 })
 
-      // assert.isFalse(true)
     }
 
   }).timeout(300000)
@@ -950,8 +949,10 @@ describe('Convict', () => {
     const test = await TestTransport.createWithRegisteredNodes(1)
 
     const signerAccount = await test.createAccount()
-    const ownerAccount = await test.createAccount(null, toBN('49000000000000000000'))
+    const ownerAccount = await test.createAccount(null, toBN('490000000000000000000'))
     const newOwner = await test.createAccount(null, toBN('49000000000000000000'))
+    const timeoutAccount = await test.createAccount()
+
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)',
       ["#1", 1000, 10000, util.getAddress(signerAccount), 2000], { privateKey: ownerAccount, value: toBN('49000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false)
@@ -1021,6 +1022,10 @@ describe('Convict', () => {
 
     assert.equal(ownerNew, util.getAddress(newOwner).substr(2).toLowerCase())
     assert.equal(indexnew.toString(), '1')
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400 * 365 * 10 + 1, util.getAddress(timeoutAccount), 2000], { privateKey: ownerAccount, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "exceeded maximum timeout")
+
   })
 
   it('updateServer', async () => {
@@ -1147,6 +1152,15 @@ describe('Convict', () => {
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(pk2), "test3.com", 0x0fff, 0, 2000], { privateKey: pk2, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "signer does not own a node")
+
+    const timeoutPK = await test.createAccount(null, toBN('4900000000000000000'))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', 1000, 86400 * 365 * 10 + 1, 2000], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "exceeded maximum timeout")
+    await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', 1000, 86400 * 365 * 10 - 1, 2000], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(timeoutPK), "timeout", 0x0fff, 86400 * 365 * 10 + 1, 2000], { privateKey: timeoutPK, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "exceeded maximum timeout")
+
+
 
   })
 
