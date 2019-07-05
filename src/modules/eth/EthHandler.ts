@@ -24,6 +24,7 @@ import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionR
 import BaseHandler from '../../chains/BaseHandler'
 import { handleSign } from '../../chains/signatures';
 import { getValidatorHistory } from '../../server/poa'
+import { TxRequest, LogFilter } from 'in3/js/src/modules/eth/api';
 
 const clientConf = require('in3/js/src/client/defaultConfig.json')
 const toHex = in3Util.toHex
@@ -61,6 +62,25 @@ export default class EthHandler extends BaseHandler {
     return result
   }
 
+  private checkPerformanceLimits(request: RPCRequest) {
+    if (request.method === 'eth_call') {
+      if (!request.params || request.params.length < 2) throw new Error('eth_call must have a transaction and a block as parameters')
+      const tx = request.params as TxRequest
+      if (!tx || (tx.gas && toNumber(tx.gas) > 10000000)) throw new Error('eth_call with a gaslimit > 10M are not allowed')
+    }
+    else if (request.method === 'eth_getLogs') {
+      if (!request.params || request.params.length < 1) throw new Error('eth_getLogs must have a filter as parameter')
+      const filter: LogFilter = request.params[0]
+      let toB = filter && filter.toBlock
+      if (toB === 'latest' || !toB) toB = this.watcher && this.watcher.block && this.watcher.block.number
+      let fromB = toB && filter && filter.fromBlock
+      if (fromB === 'earliest') fromB = 1;
+      const range = fromB && (toNumber(toB) - toNumber(fromB))
+      if (range > (request.in3.verification.startsWith('proof') ? 1000 : 10000))
+        throw new Error('eth_getLogs for a range of ' + range + ' blocks is not allowed. limits: with proof: 1000, without 10000 ')
+    }
+  }
+
   private async handleRPCMethod(request: RPCRequest) {
 
     // handle shortcut-functions
@@ -68,6 +88,9 @@ export default class EthHandler extends BaseHandler {
       request.method = 'eth_call'
       request.params = createCallParams(request)
     }
+
+    // check performancelimits
+    this.checkPerformanceLimits(request)
 
 
     // handle special jspn-rpc
