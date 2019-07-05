@@ -22,6 +22,7 @@
 import * as logger from '../util/logger'
 import {SentryError} from '../util/sentryError'
 
+
 // Hook to nodeJs events
 function handleExit(signal) {
   logger.info("Stopping in3-server gracefully...");
@@ -178,9 +179,11 @@ initConfig().then(() => {
       //console.error('Error initializing the server : ' + err.message)
       logger.error('Error initializing the server : ' + err.message, err);
       setTimeout(() => { doInit(retryCount - 1) }, 20000)
-      throw new SentryError(err)
+
+      throw new SentryError(err,"breadcrumb heading","breadcrumb info")
     })
   }
+
 
   // after starting the server, we should make sure our nodelist is up-to-date.
   doInit(3)
@@ -221,7 +224,6 @@ async function initError(ctx: Router.IRouterContext) {
   //lies to the rancher that it is healthy to avoid restart loop
   ctx.body = "Server uninitialized"
   ctx.status = 200
-  throw new SentryError(ctx.body)
 }
 
 async function getVersion(ctx: Router.IRouterContext) {
