@@ -17,8 +17,7 @@
 # For questions, please contact info@slock.it              *
 #**********************************************************/
 
-
-FROM node:11-alpine
+FROM node:12 AS build
 
 WORKDIR /app
 
@@ -26,32 +25,25 @@ ARG NPM_REGISTRY_TOKEN
 ARG CI_COMMIT_SHA
 
 ENV VERSION_SHA=$CI_COMMIT_SHA
+#ENV IN3_SRC_PATH='./js'
 
-COPY tsconfig.json  ./
-COPY src  ./src/
-COPY contracts  ./contracts/
-COPY package.json ./
-
+#COPY tsconfig.json  ./
+#COPY src  ./src/
+#COPY contracts  ./contracts/
+#COPY package.json ./
+#COPY package-lock.json ./
+ADD . .
 # temporarily install dependencies for building packages
-RUN apk add --no-cache --virtual .gyp \
-        python \
-        make \
-        g++ \
+RUN apt-get update && apt-get install -y build-essential python g++ cmake && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
+    && npm set registry https://npm.slock.it \
+    && npm install \
+    && npm run build
 
-        # allowing docker to access the private repo
-        && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
-        && npm set registry https://npm.slock.it \
-        && npm install \
-
-        # compile src
-        && npm run build \
-
-        # clean up
-        # pruning does not work with git-modules, so we can use it when the repo is public
-        && apk del .gyp \
-        && npm prune --production \
-        && rm -rf src tsconfig.json ~/.npmrc
-
+FROM node:12
+WORKDIR /app
+COPY --from=build /app/js /app/js
+COPY --from=build /app/contracts /app/contracts
+COPY --from=build /app/node_modules /app/node_modules
 # setup ENTRYPOINT
 EXPOSE 8500
-ENTRYPOINT ["node", "js/server/server.js"]
+ENTRYPOINT ["node", "js/src/server/server.js"]

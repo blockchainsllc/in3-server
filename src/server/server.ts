@@ -18,37 +18,43 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
+import * as logger from '../util/logger'
+// Hook to nodeJs events
+function handleExit(signal) {
+  logger.info("Stopping in3-server gracefully...");
+  process.exit(0);
+}
+
+process.on('SIGINT', handleExit);
+process.on('SIGTERM', handleExit);
+
+process.on("uncaughtException", (err) => {
+  logger.error("Unhandled error: " + err,{ error: err});
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error("Unhandled promise rejection at " + promise,{ reason: reason, promise: promise});
+});
+
+
+//var njstrace = require('njstrace').inject();
+
 // tslint:disable-next-line:missing-jsdoc
 import * as Koa from 'koa'
 import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
-import * as winston from 'winston'
+import { readCargs } from './config'
+const config = readCargs()
 import { RPC } from './rpc'
 import { cbor, RPCRequest, chainAliases } from 'in3'
-import { readCargs } from './config'
 import { initConfig } from '../util/db'
 import { encodeObject } from '../util/binjson'
 
-const config = readCargs()
+
 let AUTO_REGISTER_FLAG: boolean
 
 if (config.chains[Object.keys(config.chains)[0]].autoRegistry)
   AUTO_REGISTER_FLAG = true
-
-// Setup logger
-const nodeEnv: string = process.env.NODE_ENV || 'production';
-const logger = winston.createLogger({
-  levels: winston.config.syslog.levels,
-  format: nodeEnv === 'production' ? winston.format.json() : winston.format.combine(winston.format.colorize(),winston.format.simple()),
-  transports: [
-    new winston.transports.Console(nodeEnv === 'production' ? { level: 'info' } : { level: 'debug' })
-  ],
-  exceptionHandlers: [
-    new winston.transports.Console({ handleExceptions: true })
-  ],
-  exitOnError: false, // <--- set this to false
-});
-
 let INIT_ERROR = false;
 
 export const app = new Koa()
@@ -58,7 +64,6 @@ let rpc: RPC = null
 // handle cbor-encoding
 app.use(async (ctx, next) => {
 
-
   //allow cross site scripting
   ctx.set('Access-Control-Allow-Origin', '*')
   ctx.set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
@@ -66,24 +71,6 @@ app.use(async (ctx, next) => {
   if (ctx.request.method === 'OPTIONS') {
     ctx.body = ''
     ctx.status = 200
-    return
-  }
-
-  const format = ctx.headers['content-type']
-  if (format && format === 'application/cbor') {
-    const body = await new Promise((res, rej) => {
-      const bufs = []
-      ctx.req.on('data', d => bufs.push(d))
-      ctx.req.on('end', () => {
-        res(ctx.request.body = cbor.decodeRequests(Buffer.concat(bufs)))
-      })
-
-    })
-    await next()
-    if ((ctx.status || 200) === 200) {
-      ctx.set('content-type', 'application/cbor')
-      ctx.body = cbor.encodeResponses(ctx.body)
-    }
     return
   }
   await next()
@@ -96,9 +83,10 @@ app.use(bodyParser())
 router.post(/.*/, async ctx => {
 
   if (INIT_ERROR) return initError(ctx)
+  const start = Date.now()
+  const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
 
   try {
-    const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
     const result = await rpc.handle(requests)
     const res = requests.length && requests[0].in3 && requests[0].in3.useRef ? cbor.createRefs(result) : result
     let body = Array.isArray(ctx.request.body) ? res : res[0]
@@ -108,11 +96,12 @@ router.post(/.*/, async ctx => {
     }
     else
       ctx.body = body
+    logger.debug('request ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ')'))
   } catch (err) {
     ctx.status = err.status || 500
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
-    logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
+    logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
     ctx.app.emit('error', err, ctx)
   }
 
@@ -168,7 +157,7 @@ initConfig().then(() => {
     .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
 
   const doInit = (retryCount: number) => {
-    if(retryCount <= 0){
+    if (retryCount <= 0) {
       logger.error('Error initializing the server : Maxed out retries')
       INIT_ERROR = true
       return;
@@ -176,7 +165,7 @@ initConfig().then(() => {
     rpc.init().catch(err => {
       //console.error('Error initializing the server : ' + err.message)
       logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
-      setTimeout(() => {doInit(retryCount-1)}, 20000)
+      setTimeout(() => { doInit(retryCount - 1) }, 20000)
     })
   }
 
@@ -195,11 +184,11 @@ async function checkHealth(ctx: Router.IRouterContext) {
     ctx.body = { status: 'healthy' }
     ctx.status = 200
   }
-  else if(INIT_ERROR) {
-    ctx.body = { status: 'unhealthy', message: "server initialization error"}
+  else if (INIT_ERROR) {
+    ctx.body = { status: 'unhealthy', message: "server initialization error" }
     ctx.status = 500
   }
-  else{
+  else {
     await Promise.all(
       Object.keys(rpc.handlers).map(c => rpc.handlers[c].getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })))
       .then(_ => {

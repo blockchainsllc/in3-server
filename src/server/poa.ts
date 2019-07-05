@@ -25,6 +25,7 @@ import { recover } from 'secp256k1'
 import { rawDecode } from 'ethereumjs-abi'
 import { publicToAddress, rlp } from 'ethereumjs-util'
 import { handleLogs } from '../modules/eth/proof'
+import * as logger from '../util/logger'
 const chains = require('in3/js/src/client/defaultConfig.json').servers
 /**
  * a Object holding proofs for validator logs. The key is the blockNumber as hex
@@ -254,7 +255,6 @@ function updateVotes(blocks: BlockData[], history: ValidatorHistory) {
                 validators: vals,
                 proof
             })
-            console.log("found VOTE for " + newValidator)
             history.lastValidatorChange = history.states[history.states.length - 1].block
 
             delete history.lastEpoch.pendingVotes[newValidator]
@@ -264,6 +264,7 @@ function updateVotes(blocks: BlockData[], history: ValidatorHistory) {
 }
 
 async function updateCliqueHistory(epoch: number, handler: RPCHandler, history: ValidatorHistory, currentBlock: number) {
+    logger.info('check for clique validator changes starting with block ' + currentBlock)
 
     // collect blockheaders
     const headers: number[] = []
@@ -336,6 +337,7 @@ async function addFinalityForTransition(
 
 
 async function updateAuraHistory(validatorContract: string, handler: RPCHandler, history: ValidatorHistory, currentBlock: number) {
+    logger.info('check for aura validator changes starting with block ' + currentBlock)
 
     //do nothing until the current block is hgiher than the last checked block
     if (history.lastCheckedBlock >= currentBlock) return

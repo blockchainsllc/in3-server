@@ -1,4 +1,4 @@
-image: docker.slock.it/build-images/node:10-alpine
+image: docker.slock.it/build-images/node:11-alpine
 variables:
   COMMIT_IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
   RELEASE_IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
@@ -132,15 +132,139 @@ package-docker:
     - docker push $RELEASE_IMAGE_TAG
     - docker push $COMMIT_IMAGE_TAG
 
-deploy-to-dev:
+# Deployment Section
+.deploy-tmpl:
   stage: deploy
   tags:
-    - long-jobs
-  only:
-    - master
-    - develop
+    - short-jobs
   image: markuskeil/docker-and-rancher
   services:
     - docker:dind
   script:
-    - rancher -w up -d --prune -p -s $CI_PROJECT_PATH_SLUG -c --force-upgrade
+    - cd deployment
+    - rancher -w up -d --prune -p -s in3-server-${TARGET}-${CHAIN} -c --force-upgrade
+
+## Environments 
+.deploy-tmpl-stage:
+  extends: .deploy-tmpl
+  only:
+    - /^v[0-9]+.[0-9]+.[0-9]+-(alpha|beta|rc)\.[0-9]+$/
+  except:
+    - branches
+  environment:
+    name: stage-${CHAIN}
+  variables:
+    TARGET: stage
+    REGISTRY_CONTRACT_ADDR: "0x2736D225f85740f42D17987100dc8d58e9e16252"
+
+.deploy-tmpl-production:
+  extends: .deploy-tmpl
+  only:
+    - /^v[0-9]+.[0-9]+.[0-9]+$/
+  except:
+    - branches
+  environment:
+    name: production-${CHAIN}
+  variables:
+    TARGET: production
+  when: manual
+  allow_failure: false
+
+## Chains
+.chain-tmpl-goerli:
+  variables:
+    CHAIN: goerli
+    CHAIN_ID: "0x5"
+    RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
+
+.chain-tmpl-kovan:
+  variables:
+    CHAIN: kovan
+    CHAIN_ID: "0x2a"
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan/pruned
+
+.chain-tmpl-mainnet:
+  variables:
+    CHAIN: mainnet
+    CHAIN_ID: "0x1"
+    RPC_ENDPOINT: http://lb.parity-rpc/mainnet/parity-pruned
+
+.chain-tmpl-evan:
+  variables:
+    CHAIN: evan
+    CHAIN_ID: "0x4b1"
+    RPC_ENDPOINT: http://lb.parity-rpc/evan
+
+.chain-tmpl-tobalaba:
+  variables:
+    CHAIN: tobalaba
+    CHAIN_ID: "0x44d"
+    RPC_ENDPOINT: http://lb.parity-rpc/tobalaba/archive-one
+
+.chain-tmpl-ipfs:
+  variables:
+    CHAIN: ipfs
+    CHAIN_ID: "0x7d0"
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan/pruned
+
+
+# Stage deployments
+deploy-stage-kovan:
+  extends: 
+    - .deploy-tmpl-stage 
+    - .chain-tmpl-kovan
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x07965664f21abf0d615b734756f5f2b2b22a2a2b"
+
+deploy-stage-goerli:
+  extends: 
+    - .deploy-tmpl-stage 
+    - .chain-tmpl-goerli
+
+deploy-stage-mainnet:
+  extends: 
+    - .deploy-tmpl-stage
+    - .chain-tmpl-mainnet
+
+# Production deployments
+deploy-production-mainnet:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-mainnet
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x2736D225f85740f42D17987100dc8d58e9e16252"
+deploy-production-evan:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-evan
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e"
+deploy-production-kovan:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-kovan
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x27a37a1210df14f7e058393d026e2fb53b7cf8c1"
+deploy-production-goerli:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-goerli
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e"
+deploy-production-tobalaba:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-tobalaba
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x845E484b505443814B992Bf0319A5e8F5e407879"
+deploy-production-ipfs:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-ipfs
+  script:
+    - cd deployment
+    - rancher -w up -f docker-compose.ipfs.yml -d --prune -p -s in3-server-${TARGET}-${CHAIN} -c --force-upgrade
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0xf0fb87f4757c77ea3416afe87f36acaa0496c7e9"
+
+  

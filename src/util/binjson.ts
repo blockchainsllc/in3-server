@@ -63,7 +63,7 @@ function encodeTypeandLength(bb: BB, t: number, ldata: Buffer, data?: Buffer) {
 function hash(s: string): number {
     let val = 0
     for (let i = 0; i < s.length; i++)
-        val ^= s.charCodeAt(i) | val << 7;
+        val ^= (s.charCodeAt(i) | val << 7) & 0xFFFF;
 
     return val;
 }
@@ -101,10 +101,17 @@ function encode(bb: BB, ob: any) {
             }
         }
         else if (type == 'string') {
-            if (ob.length > 1 && ob[0] == '0' && ob[1] == 'x')
+            if (ob.length > 1 && ob[0] == '0' && ob[1] == 'x') {
                 ldata = bufferFromNumber((data = Buffer.from(even(ob.substr(2)), 'hex')).length)
+                if (data.length < 4) {
+                    t = 5
+                    ldata = data
+                    data = null
+                }
+            }
             else {
                 ldata = bufferFromNumber((data = Buffer.from(ob, 'utf8')).length)
+                data = Buffer.concat([data, bufferFromNumber(0)])
                 t = 1
             }
             if (!t && encodeRefIfExists(bb, data)) return
@@ -122,7 +129,7 @@ function encode(bb: BB, ob: any) {
             for (let i = 0; i < keys.length; i++) {
                 key.writeUInt16BE(hash(keys[i]), 0)
                 addBuffer(bb, key)
-                encode(bb, ob[key[i]])
+                encode(bb, ob[keys[i]])
             }
         }
     }
