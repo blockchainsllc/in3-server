@@ -24,8 +24,6 @@ services:
 
   nd-1:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
-    memswap_limit: 1073741824
-    memswap_limit: 5242880
     stdin_open: true
     tty: true
     command:
@@ -39,14 +37,15 @@ services:
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --persistentFile=false
+    - --handler=ipfs
+    - --ipfsUrl=http://ipfs.iotlayer-deploy:5001
+
     labels:
       io.rancher.scheduler.affinity:host_label: environment=${TARGET}
       io.rancher.container.hostname_override: container_name
       io.rancher.container.pull_image: always
   nd-2:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
-    memswap_limit: 1073741824
-    memswap_limit: 5242880
     stdin_open: true
     tty: true
     command:
@@ -60,14 +59,14 @@ services:
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --persistentFile=false
+    - --handler=ipfs
+    - --ipfsUrl=http://ipfs.iotlayer-deploy:5001
     labels:
       io.rancher.scheduler.affinity:host_label: environment=${TARGET}
       io.rancher.container.hostname_override: container_name
       io.rancher.container.pull_image: always
   nd-3:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
-    memswap_limit: 1073741824
-    memswap_limit: 5242880
     stdin_open: true
     tty: true
     command:
@@ -81,14 +80,14 @@ services:
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --persistentFile=false
+    - --handler=ipfs
+    - --ipfsUrl=http://ipfs.iotlayer-deploy:5001
     labels:
       io.rancher.scheduler.affinity:host_label: environment=${TARGET}
       io.rancher.container.hostname_override: container_name
       io.rancher.container.pull_image: always
   nd-4:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
-    memswap_limit: 1073741824
-    memswap_limit: 5242880
     stdin_open: true
     tty: true
     command:
@@ -102,6 +101,8 @@ services:
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --persistentFile=false
+    - --handler=ipfs
+    - --ipfsUrl=http://ipfs.iotlayer-deploy:5001
     labels:
       io.rancher.scheduler.affinity:host_label: environment=${TARGET}
       io.rancher.container.hostname_override: container_name
@@ -109,8 +110,6 @@ services:
 
   nd-5:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
-    memswap_limit: 1073741824
-    memswap_limit: 5242880
     stdin_open: true
     tty: true
     command:
@@ -124,6 +123,8 @@ services:
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
     - --persistentFile=false
+    - --handler=ipfs
+    - --ipfsUrl=http://ipfs.iotlayer-deploy:5001
     labels:
       io.rancher.scheduler.affinity:host_label: environment=${TARGET}
       io.rancher.container.hostname_override: container_name

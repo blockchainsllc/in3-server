@@ -201,6 +201,13 @@ package-docker:
     CHAIN_ID: "0x44d"
     RPC_ENDPOINT: http://lb.parity-rpc/tobalaba/archive-one
 
+.chain-tmpl-ipfs:
+  variables:
+    CHAIN: ipfs
+    CHAIN_ID: "0x7d0"
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan/pruned
+
+
 # Stage deployments
 deploy-stage-kovan:
   extends: 
@@ -248,5 +255,14 @@ deploy-production-tobalaba:
     - .chain-tmpl-tobalaba
   variables:
     REGISTRY_CONTRACT_ADDR: "0x845E484b505443814B992Bf0319A5e8F5e407879"
+deploy-production-ipfs:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-ipfs
+  script:
+    - cd deployment
+    - rancher -w up -f docker-compose.ipfs.yml -d --prune -p -s in3-server-${TARGET}-${CHAIN} -c --force-upgrade
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0xf0fb87f4757c77ea3416afe87f36acaa0496c7e9"
 
   
