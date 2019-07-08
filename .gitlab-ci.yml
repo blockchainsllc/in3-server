@@ -18,7 +18,7 @@ build-server:
     - npm install
     - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@git.slock.it/in3/ts/in3.git
     - cd in3
-    - git checkoput 43-support-transitions-in-aura-validator-updates
+    - git checkout 43-support-transitions-in-aura-validator-updates
     - npm install
     - npm run build
     - cd ..
