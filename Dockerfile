@@ -27,6 +27,7 @@ ARG CI_COMMIT_SHA
 ENV VERSION_SHA=$CI_COMMIT_SHA
 #ENV IN3_SRC_PATH='./js'
 
+
 #COPY tsconfig.json  ./
 #COPY src  ./src/
 #COPY contracts  ./contracts/
@@ -37,6 +38,8 @@ ADD . .
 RUN apt-get update && apt-get install -y build-essential python g++ cmake && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
     && npm set registry https://npm.slock.it \
     && npm install \
+    && rm -rf node_modules/in3 \
+    && cp -r in3 node_modules/ \
     && npm run build
 
 FROM node:12
