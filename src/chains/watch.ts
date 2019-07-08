@@ -192,7 +192,6 @@ export default class Watcher extends EventEmitter {
             })
           this.futureConvicts.pop()
         } catch (e) {
-
           console.log(e)
         }
       }

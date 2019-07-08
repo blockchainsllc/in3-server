@@ -558,9 +558,12 @@ describe('Convict', () => {
     })
 
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
-
+    await test.createAccount()
     // just read all events
+    await watcher.update()
+    await test.createAccount()
     const events = await watcher.update()
+
     assert.equal(events.length, 2)
     assert.equal(await test.getNodeCountFromContract(), 1)
 

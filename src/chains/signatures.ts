@@ -219,8 +219,19 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
         privateKey: handler.config.privateKey,
         gas: 500000,
         value: 0,
-        confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+        confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
       })
+      handler.watcher.futureConvicts.push({
+        convictBlockNumber: handler.watcher.block.number,
+        signer: singingNode.address,
+        wrongBlockHash: s.blockHash,
+        wrongBlockNumber: s.block,
+        v: s.v,
+        r: s.r,
+        s: s.s,
+        recreationDone: false
+      })
+
     } catch (e) {
       console.log(e)
     }
@@ -231,24 +242,13 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
           privateKey: handler.config.privateKey,
           gas: 8000000,
           value: 0,
-          confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+          confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
         })
         diffBlock += txArray.length
       } catch (e) {
         console.log(e)
       }
     }
-
-    try {
-      await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [singingNode.address, s.blockHash, s.block, s.v, s.r, s.s], {
-        privateKey: handler.config.privateKey,
-        gas: 800000,
-        value: 0,
-        confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-      })
-    } catch (e) {
-      console.log(e)
-    }
-
+    handler.watcher.futureConvicts.find(_ => (_.signer === singingNode.address && _.wrongBlockHash === s.blockHash)).recreationDone = true
   }
 }
