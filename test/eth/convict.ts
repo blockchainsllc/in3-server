@@ -153,6 +153,26 @@ describe('Convict', () => {
     assert.equal(calcHash.toString(), calcHashContract.toString())
   })
 
+
+  it("overflow checks", async () => {
+
+    const test = await TestTransport.createWithRegisteredNodes(1)
+
+    const timeoutPK = await test.createAccount(null, toBN('4900000000000000000'))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFFFFF"), 3601, toBN("0xFFFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFFFF"), 3601, toBN("0xFFFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFFFFF"), 3601, util.getAddress(timeoutPK), toBN("0xFFFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFFFF"), 3601, util.getAddress(timeoutPK), toBN("0xFFFFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFF"), 3601, util.getAddress(timeoutPK) + "0", toBN("0xFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), "test3.com", toBN("0xFFFFFFFFFFFFFFFFF"), 0, 2000], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), "test3.com", 0xFFFFFFFFFFFFFFFFF, 0, 2000], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), "test3.com", 0xFFFFFFFFFFF, 0, 0xFFFFFFFFFFFFFFFFF], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFF"), 3601, toBN("0xFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 })
+
+  })
+
   it('convict on contracts', async () => {
 
     const test = await TestTransport.createWithRegisteredNodes(2)
@@ -186,7 +206,7 @@ describe('Convict', () => {
 
     let convictSignature: Buffer = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    const c1 = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignature, convictOwner], {
+    const c1 = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 300000,
       value: 0,
@@ -206,15 +226,6 @@ describe('Convict', () => {
     s = sign({ number: 1 } as any, registryId, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
 
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
-    /*
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [0, convictSignature], {
-      privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 3000000,
-      value: 0,
-      confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-    }).catch(_ => false))
-    assert.include(await test.getErrorReason(), "block not found")
-    */
 
     rc = await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
@@ -231,7 +242,7 @@ describe('Convict', () => {
     s = sign(block, registryId, test.getHandlerConfig(0).privateKey)
 
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignature, convictOwner], {
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 3000000,
       value: 0,
@@ -260,14 +271,14 @@ describe('Convict', () => {
 
     const convictSignatureWrong: Buffer = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.s), bytes32(s.s)]))
 
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignatureWrong, convictOwner], {
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureWrong], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 3000000,
       value: 0,
       confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
     })
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignatureWrong, convictOwner], {
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureWrong], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 3000000,
       value: 10,
@@ -296,7 +307,7 @@ describe('Convict', () => {
     // send the transactions to convict with the wrong hash
     convictSignature = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(test.getHandlerConfig(1).privateKey)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignature, convictOwner], {
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 3000000,
       value: 0,
@@ -344,14 +355,14 @@ describe('Convict', () => {
     const convictSignatureOne = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(convictCallerOne)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     const convictSignatureTwo = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(convictCallerTwo)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignatureOne, util.getAddress(test.getHandlerConfig(0).privateKey)], {
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureOne], {
       privateKey: convictCallerOne,
       gas: 3000000,
       value: 0,
       confirm: true
     })
 
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignatureTwo, util.getAddress(test.getHandlerConfig(0).privateKey)], {
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureTwo], {
       privateKey: convictCallerTwo,
       gas: 3000000,
       value: 0,
@@ -359,13 +370,6 @@ describe('Convict', () => {
     })
 
     const tempAddr = util.getAddress(test.getHandlerConfig(0).privateKey)
-
-    const tempIdent = ethUtil.keccak(Buffer.concat([serialize.bytes32(s.block), address(tempAddr)]))
-
-    const sm = (await tx.callContract(test.url, test.nodeList.contract, 'senderMapping(bytes32):(address)',
-      [tempIdent]))[0]
-
-    assert.equal(sm, util.getAddress(convictCallerOne).substr(2).toLowerCase())
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [util.getAddress(test.getHandlerConfig(0).privateKey), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: convictCallerTwo,
@@ -398,14 +402,14 @@ describe('Convict', () => {
     const convictSignatureOne = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(convictCallerOne)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     const convictSignatureTwo = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(convictCallerTwo)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignatureOne, util.getAddress(test.getHandlerConfig(0).privateKey)], {
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureOne], {
       privateKey: convictCallerOne,
       gas: 3000000,
       value: 0,
       confirm: true
     })
 
-    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,address)', [s.block, convictSignatureTwo, util.getAddress(test.getHandlerConfig(0).privateKey)], {
+    await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureTwo], {
       privateKey: convictCallerTwo,
       gas: 3000000,
       value: 0,
@@ -414,21 +418,15 @@ describe('Convict', () => {
 
     const tempAddr = util.getAddress(test.getHandlerConfig(0).privateKey)
 
-    const tempIdent = ethUtil.keccak(Buffer.concat([serialize.bytes32(s.block), address(tempAddr)]))
-
-    const sm = (await tx.callContract(test.url, test.nodeList.contract, 'senderMapping(bytes32):(address)',
-      [tempIdent]))[0]
-
-    assert.equal(sm, util.getAddress(convictCallerOne).substr(2).toLowerCase())
-    for (let i = 0; i < 9; i++) {
-      assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [util.getAddress(test.getHandlerConfig(0).privateKey), s.blockHash, s.block, s.v, s.r, s.s], {
-        privateKey: convictCallerTwo,
-        gas: 3000000,
-        value: 0,
-        confirm: true
-      }).catch(_ => false))
-      assert.include(await test.getErrorReason(), "revealConvict still locked")
-    }
+    // for (let i = 0; i < 2; i++) {
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [util.getAddress(test.getHandlerConfig(0).privateKey), s.blockHash, s.block, s.v, s.r, s.s], {
+      privateKey: convictCallerTwo,
+      gas: 3000000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "revealConvict still locked")
+    //  }
 
     await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [util.getAddress(test.getHandlerConfig(0).privateKey), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: convictCallerTwo,

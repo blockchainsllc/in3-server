@@ -109,10 +109,6 @@ contract NodeRegistry {
     /// can be used to access the SignerInformation-struct
     mapping (bytes32 => UrlInformation) public urlIndex;
 
-    /// mapping for prevent frontrunning (maps the 1st account that called convict)
-    /// keccak256(blockNumber, in3-signer) to address
-    mapping (bytes32 => address) public senderMapping;
-
     /// mapping for convicts: blocknumber => address => convictInformation
     mapping (uint => mapping(address => ConvictInformation)) internal convictMapping;
 
@@ -197,21 +193,13 @@ contract NodeRegistry {
     /// must be called before revealConvict
     /// @param _blockNumber the blocknumber of the wrong blockhash
     /// @param _hash keccak256(wrong blockhash, msg.sender, v, r, s), used to prevent frontrunning
-    /// @param _signer in3-signer that send a wrong blockhash
-    function convict(uint _blockNumber, bytes32 _hash, address _signer) external {
+    function convict(uint _blockNumber, bytes32 _hash) external {
 
         ConvictInformation memory ci;
         ci.convictHash = _hash;
         ci.blockNumberConvict = block.number;
 
         convictMapping[_blockNumber][msg.sender] = ci;
-
-        bytes32 tempIdentifier = keccak256(abi.encodePacked(_blockNumber, _signer));
-
-        // the 1st caller for an identifier can write into this mapping, enabling faster revealConvicts
-        if (senderMapping[tempIdentifier] == address(0x0)) {
-            senderMapping[tempIdentifier] = msg.sender;
-        }
     }
 
     /// proofing to the smart contract that the server is still active
@@ -354,12 +342,7 @@ contract NodeRegistry {
         SignerInformation storage si = signerIndex[_signer];
         ConvictInformation storage ci = convictMapping[_blockNumber][msg.sender];
 
-        bytes32 convictIdent = keccak256(abi.encodePacked(_blockNumber, _signer));
-
-        if (senderMapping[convictIdent] != msg.sender) {
-            require(block.number >= ci.blockNumberConvict + 10, "revealConvict still locked");
-        }
-
+        require(block.number >= ci.blockNumberConvict + 2, "revealConvict still locked");
         require(
             ecrecover(
                 keccak256(
@@ -393,7 +376,6 @@ contract NodeRegistry {
         }
 
         delete convictMapping[_blockNumber][msg.sender];
-        delete senderMapping[convictIdent];
 
         // remove the deposit
         uint payout = deposit / 2;

@@ -97,7 +97,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         if (diffBlocks < 255) {
 
-          await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,address)', [s.block, convictSignature, singingNode.address], {
+          await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
             privateKey: handler.config.privateKey,
             gas: 500000,
             value: 0,
@@ -213,7 +213,7 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
     const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
     try {
-      await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32,address)', [s.block, convictSignature, singingNode.address], {
+      await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
         privateKey: handler.config.privateKey,
         gas: 500000,
         value: 0,
