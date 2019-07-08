@@ -21,9 +21,8 @@ build-server:
     - git checkout 43-support-transitions-in-aura-validator-updates
     - npm install
     - npm run build
+    - cp -r js/* ../node_modules/in3/js/
     - cd ..
-    - rm -rf node_modules/in3
-    - cp -r in3 node_modules/
     - npm run build
   artifacts:
     paths:

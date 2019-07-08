@@ -38,8 +38,7 @@ ADD . .
 RUN apt-get update && apt-get install -y build-essential python g++ cmake && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
     && npm set registry https://npm.slock.it \
     && npm install \
-    && rm -rf node_modules/in3 \
-    && cp -r in3 node_modules/ \
+    && cp -r in3/js/* node_modules/in3/js/ \
     && npm run build
 
 FROM node:12
