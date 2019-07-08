@@ -88,8 +88,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash)))
           return s
 
-        const latestBlockNumber = (await handler.getFromServer({ method: "eth_blockNumber", params: [] })).result
-
+        const latestBlockNumber = handler.watcher.block.number
 
         const diffBlocks = toNumber(latestBlockNumber) - s.block
 
@@ -104,18 +103,21 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
             confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
           })
 
-          // so he signed the wrong blockhash and we have all data to convict him!
-          await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [singingNode.address, s.blockHash, s.block, s.v, s.r, s.s], {
-            privateKey: handler.config.privateKey,
-            gas: 600000,
-            value: 0,
-            confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+          handler.watcher.futureConvicts.push({
+            convictBlockNumber: latestBlockNumber,
+            signer: singingNode.address,
+            wrongBlockHash: s.blockHash,
+            wrongBlockNumber: s.block,
+            v: s.v,
+            r: s.r,
+            s: s.s,
+            recreationDone: true
           })
         }
         else {
           await handleRecreation(handler, nodes, singingNode, s, diffBlocks)
         }
-        return null
+        return
 
       }))
 
@@ -237,8 +239,6 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
       }
     }
 
-
-
     try {
       await callContract(handler.config.rpcUrl, nodes.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [singingNode.address, s.blockHash, s.block, s.v, s.r, s.s], {
         privateKey: handler.config.privateKey,
@@ -248,7 +248,6 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
       })
     } catch (e) {
       console.log(e)
-
     }
 
   }

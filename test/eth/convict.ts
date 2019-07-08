@@ -440,10 +440,6 @@ describe('Convict', () => {
   else
     it('verify and convict (block within 256 blocks)', async () => {
 
-      if (process.env.GITLAB_CI) {
-        return this.skip()
-      }
-
       const test = await TestTransport.createWithRegisteredNodes(2)
       const watcher = test.getHandler(0).watcher
 
@@ -472,6 +468,8 @@ describe('Convict', () => {
         return re
       })
 
+
+
       assert.equal(await test.getNodeCountFromContract(), 2)
 
       // we create a new client because the old one may have different weights now
@@ -485,6 +483,11 @@ describe('Convict', () => {
         keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
       })
 
+
+      await test.createAccount()
+      await test.createAccount()
+      await test.createAccount()
+      await watcher.update()
       // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
       assert.equal(await test.getNodeCountFromContract(), 1)
 
