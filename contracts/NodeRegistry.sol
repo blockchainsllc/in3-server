@@ -113,10 +113,10 @@ contract NodeRegistry {
     mapping (uint => mapping(address => ConvictInformation)) internal convictMapping;
 
     /// capping the max deposit timeout on 10 years
-    uint constant internal MAXDEPOSITTIMEOUT = 1 days * 365 * 10;
+    uint constant internal MAXDEPOSITTIMEOUT = 1 days * 365;
 
     /// constructor
-    /// @param _blockRegistry address of a BlockhashRegistry
+    /// @param _blockRegistry address of a BlockhashRegistry-contract
     constructor(BlockhashRegistry _blockRegistry) public {
         blockRegistry = _blockRegistry;
 
@@ -125,8 +125,12 @@ contract NodeRegistry {
         registryId = keccak256(abi.encodePacked(address(this), blockhash(block.number-1)));
     }
 
-    /// this function must be called by the owner to cancel the unregister-process.
+    /// @notice this function must be called by the owner to cancel the unregister-process.
     /// @param _signer the signer-address of an in3-node
+    /// @dev reverts if the signer does not own a node
+    /// @dev reverts if not the sender is not the owner of the node
+    /// @dev reverts if the sender is currently challenged for inactivity
+    /// @dev reverts if the node is currently not unregistering
     function cancelUnregisteringNode(address _signer) external {
 
         SignerInformation memory si = signerIndex[_signer];
@@ -144,8 +148,16 @@ contract NodeRegistry {
         emit LogNodeUnregisterCanceled(node.url, node.signer);
     }
 
-    /// confirms the unregistering of a node by its owner
+    /// @notice confirms the unregistering of a node by its owner or by the unregister-caller
+    /// @notice if the node-owner calls the server will simply be removed from the nodelist
+    /// @notice the the challenger successfully calls unregister then node-owner will lose 2% of his deposit which the challenger will get
     /// @param _signer the signer-address of an in3-node
+    /// @dev reverts when not challenged and the sender is not the owner of the server
+    /// @dev reverts when not challenged and the sender does not own a server
+    /// @dev reverts when not challenged and the node is still active
+    /// @dev reverts when not challenged and the unregister-time is not yet over
+    /// @dev reverts when challenged and the sender is not the unregister caller
+    /// @dev reverts when challenged and the challange time is not yet over
     function confirmUnregisteringNode(address _signer) external {
 
         SignerInformation storage si = signerIndex[_signer];
@@ -153,16 +165,29 @@ contract NodeRegistry {
 
         uint transferAmount = 0;
         if (si.unregisterCaller == address(0x0)) {
+
             require(si.used, "sender does not own a node");
-            require(si.owner == msg.sender, "only owner can unregister a node");
 
             require(node.unregisterTime != 0, "cannot unregister an active node");
 
             // solium-disable-next-line security/no-block-members
             require(node.unregisterTime < block.timestamp, "only confirm after the timeout allowed");//solhint-disable-line not-rely-on-time
 
-            transferAmount = node.deposit;
-            node.deposit = 0;
+            // in the 1st day only the owner can confirm the unregistering
+            // solium-disable-next-line security/no-block-members
+            if (block.timestamp < node.unregisterTime + 1 days) { //solhint-disable-line not-rely-on-time
+                require(si.owner == msg.sender, "only owner can unregister a node");
+                transferAmount = node.deposit;
+                node.deposit = 0;
+            } else {
+                // the owner did not confirm his unregistering within 1 day
+                // so we allow everyone to call this function
+                // and the owner will lose 1% of his deposit
+                transferAmount = node.deposit/100;
+                // solium-disable-next-line security/no-block-members
+                si.lockedTime = uint64(block.timestamp); //solhint-disable-line not-rely-on-time
+                si.depositAmount = node.deposit - transferAmount;
+            }
 
         } else {
             require(msg.sender == si.unregisterCaller, "only unregister caller can confirm");
@@ -189,8 +214,8 @@ contract NodeRegistry {
 
     }
 
-    /// commits a blocknumber and a hash
-    /// must be called before revealConvict
+    /// @notice commits a blocknumber and a hash
+    /// @notice must be called before revealConvict
     /// @param _blockNumber the blocknumber of the wrong blockhash
     /// @param _hash keccak256(wrong blockhash, msg.sender, v, r, s), used to prevent frontrunning
     function convict(uint _blockNumber, bytes32 _hash) external {
@@ -202,16 +227,19 @@ contract NodeRegistry {
         convictMapping[_blockNumber][msg.sender] = ci;
     }
 
-    /// proofing to the smart contract that the server is still active
-    /// by calculation a hash based on a keccak256(nonce,blockhash) that meets a certain difficulty
+    /// @notice proofing to the smart contract that the server is still active
+    /// @notice by calculation a hash based on a keccak256(nonce,blockhash) that meets a certain difficulty
     /// @param _blockNumber blockNumber of the blockhash used to proof activity
     /// @param _nonce nonce for the hash
     /// @param _signer a in3-node signer address
-    function proofActivity(uint _blockNumber, uint _nonce, address _signer) external {
+    /// @dev reverts when not being challenged
+    /// @dev reverts when not called by owner or signer
+    /// @dev reverts when not enough proof of work is shown
+    function proveActivity(uint _blockNumber, uint _nonce, address _signer) external {
 
         SignerInformation storage si = signerIndex[_signer];
         require(si.unregisterCaller != address(0x0), "proof only when beeing challenged");
-        require(si.owner == msg.sender || _signer == msg.sender, "only owner or signer can proof activity");
+        require(si.owner == msg.sender || _signer == msg.sender, "only owner or signer can prove activity");
 
         // solium-disable-next-line security/no-block-members
         bytes32 evmBlockhash = blockhash(_blockNumber);
@@ -230,7 +258,7 @@ contract NodeRegistry {
         msg.sender.transfer(depAmount);
     }
 
-    /// register a new Node with the sender as owner
+    /// @notice register a new Node with the sender as owner
     /// @param _url the url of the node, has to be unique
     /// @param _props properties of the node
     /// @param _timeout timespan of how long the node of a deposit will be locked. Will be at least for 1h
@@ -254,7 +282,7 @@ contract NodeRegistry {
         );
     }
 
-     /// register a new Node with the sender as owner
+    /// @notice register a new Node with the sender as owner
     /// @param _url the url of the node, has to be unique
     /// @param _props properties of the node
     /// @param _timeout timespan of how long the node of a deposit will be locked. Will be at least for 1h
@@ -280,9 +308,14 @@ contract NodeRegistry {
         );
     }
 
-    /// a node owner can request to unregister his node
-    /// but before he can confirm, he has to wait for his own-set deposit timeout
+    /// @notice a node owner can request to unregister his node
+    /// @notice but before he can confirm, he has to wait for his own-set deposit timeout
     /// @param _signer the signer of the in3-node
+    /// @dev reverts when the provided address is not an in3-signer
+    /// @dev reverts when the node is already unregistering
+    /// @dev reverts when inactivity is claimed
+    /// @dev if not the server owner reverts when the send deposit it not correct
+    /// @dev reverts when being the owner and sending value through this function
     function requestUnregisteringNode(address _signer) external payable {
 
         SignerInformation storage si = signerIndex[_signer];
@@ -310,13 +343,40 @@ contract NodeRegistry {
         emit LogNodeUnregisterRequested(node.url, node.signer);
     }
 
-    /// reveals the wrongly provided blockhash, so that the node-owner will lose its deposit
+    /// @notice returns the deposit after a node has been kicked
+    /// @notice only callable after the timeout for the deposit is over
+    /// @param _signer the signer-address of a former in3-node
+    /// @dev reverts when not the owner of the former in3-node
+    /// @dev reverts when there is nothing to transfer
+    /// @dev reverts if the deposit is still locked
+    function returnDeposit(address _signer) external {
+
+        SignerInformation storage si = signerIndex[_signer];
+
+        require(si.owner == msg.sender, "only owner can claim deposit");
+        require(si.depositAmount > 0, "nothing to transfer");
+        // solium-disable-next-line security/no-block-members
+        require(block.timestamp > si.lockedTime, "deposit still locked"); // solhint-disable-line not-rely-on-time
+
+        uint payout = si.depositAmount;
+        si.depositAmount = 0;
+        si.lockedTime = 0;
+
+        msg.sender.transfer(payout);
+    }
+
+    /// @notice reveals the wrongly provided blockhash, so that the node-owner will lose its deposit
     /// @param _signer the address that signed the wrong blockhash
     /// @param _blockhash the wrongly provided blockhash
     /// @param _blockNumber number of the wrongly provided blockhash
     /// @param _v v of the signature
     /// @param _r r of the signature
     /// @param _s s of the signature
+    /// @dev reverts if a block with that number cannot be found in either the latest 256 blocks or the blockhash registry
+    /// @dev reverts when tryin to convict someone with a correct blockhash
+    /// @dev reverts when trying to reveal immediately after calling convict
+    /// @dev reverts when the _signer did not sign the block
+    /// @dev reverts when the wrong convict hash is used
     function revealConvict(
         address _signer,
         bytes32 _blockhash,
@@ -387,9 +447,13 @@ contract NodeRegistry {
         address(0).transfer(deposit-payout);
     }
 
-    /// changes the ownership of an in3-node
+    /// @notice changes the ownership of an in3-node
     /// @param _signer the signer-address of the in3-node, used as an identifier
     /// @param _newOwner the new owner
+    /// @dev reverts when trying to change ownership of an inactive node
+    /// @dev reverts when trying to pass ownership to 0x0
+    /// @dev reverts when the sender is not the current owner
+    /// @dev reverts when inacitivity is claimed
     function transferOwnership(address _signer, address _newOwner) external {
         SignerInformation storage si = signerIndex[_signer];
 
@@ -401,12 +465,16 @@ contract NodeRegistry {
         si.owner = _newOwner;
     }
 
-    /// updates a Node by adding the msg.value to the deposit and setting the props or timeout
+    /// @notice updates a Node by adding the msg.value to the deposit and setting the props or timeout
     /// @param _signer the signer-address of the in3-node, used as an identifier
     /// @param _url the url, will be changed if different from the current one
     /// @param _props the new properties, will be changed if different from the current onec
     /// @param _timeout the new timeout of the node, cannot be decreased
     /// @param _weight the amount of requests per second the server is able to handle
+    /// @dev reverts when the sender is not the owner of the node
+    /// @dev reverts when the signer does not own a node
+    /// @dev reverts when trying to increase the timeout above 10 years
+    /// @dev reverts when trying to change the url to an already existing one
     function updateNode(
         address _signer,
         string calldata _url,
@@ -471,12 +539,13 @@ contract NodeRegistry {
         );
     }
 
-    /// length of the nodelist
+    /// @notice length of the nodelist
+    /// @return the number of total in3-nodes
     function totalNodes() external view returns (uint) {
         return nodes.length;
     }
 
-    /// calculates the amount a sender has to pay in order to claim that a server is inactive
+    /// @notice calculates the amount a sender has to pay in order to claim that a server is inactive
     /// @param _signer the signer-address of the in3-node, used as an identifier
     /// @return the amount of deposit to pay
     function calcUnregisterDeposit(address _signer) public view returns (uint) {
@@ -485,6 +554,7 @@ contract NodeRegistry {
 
     /// calculates the sha3 hash of the most important properties
     /// @param _node the in3 node to calculate the hash from
+    /// @return the proof hash of the properties of an in3-node
     function calcProofHash(In3Node memory _node) internal pure returns (bytes32) {
 
         return keccak256(
@@ -500,7 +570,7 @@ contract NodeRegistry {
         );
     }
 
-    /// registers a node
+    /// @notice registers a node
     /// @param _url the url of a node
     /// @param _props properties of a node
     /// @param _timeout the time before the owner can access the deposit after unregistering a server
@@ -508,6 +578,10 @@ contract NodeRegistry {
     /// @param _owner the owner address of the node
     /// @param _deposit the deposit of a server
     /// @param _weight the amount of requests per second a server is able to handle
+    /// @dev reverts when time timeout exceed the MAXDEPOSITTIMEOUT
+    /// @dev reverts when provided not enough deposit
+    /// @dev reverts when trying to register a server with more then 50 ether in the 1st year after deployment
+    /// @dev reverts when either the owner or the url is already in use
     function registerNodeInternal(
         string memory _url,
         uint64 _props,

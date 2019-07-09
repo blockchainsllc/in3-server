@@ -797,6 +797,83 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false))
 
+    await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['abc', 1000, 3600, 2000], {
+      privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000
+    })
+
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+
+    await test.increaseTime(3600)
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], {
+      privateKey: userNonExist,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "only owner can unregister a node")
+
+    await test.increaseTime(86400)
+
+    const emptyAccount = await test.createAccount(null, 0)
+    assert.equal(new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(emptyAccount), 'latest')).toString(), '0')
+
+    const balanceOwnerBeforeConfirm = await test.getFromServer('eth_getBalance', util.getAddress(test.getHandlerConfig(0).privateKey), 'latest')
+
+    await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], {
+      privateKey: emptyAccount,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    })
+
+    let currentBlock = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+
+    assert.equal(new BigNumber(await test.getFromServer('eth_getBalance', util.getAddress(emptyAccount), 'latest')).toString(), toBN('4900000000000000').toString())
+    const [unregisterTimeoutAfter, usedAfter, ownerAfter, lockedTimeAfter, unregisterCallerAfter, depositAmountAfter, unregisterDepositAfter, indexAfter] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,bool,address,uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
+
+    assert.equal(unregisterTimeoutAfter.toString(), '0')
+    assert.isFalse(usedAfter)
+    assert.equal(ownerAfter, util.getAddress(test.getHandlerConfig(0).privateKey).substr(2).toLowerCase())
+    assert.equal(lockedTimeAfter.toString(), toNumber(currentBlock.timestamp).toString())
+    assert.equal(unregisterCallerAfter, '0000000000000000000000000000000000000000')
+    assert.equal(depositAmountAfter.toString(), toBN('490000000000000000').sub(toBN('4900000000000000')).toString())
+    assert.equal(unregisterDepositAfter.toString(), '0')
+    assert.equal(indexAfter.toString(), '0')
+    const balanceOwnerAfterConfirm = await test.getFromServer('eth_getBalance', util.getAddress(test.getHandlerConfig(0).privateKey), 'latest')
+
+    assert.equal(balanceOwnerBeforeConfirm, balanceOwnerAfterConfirm)
+    assert.equal(await test.getNodeCountFromContract(), 0)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], {
+      privateKey: emptyAccount,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false))
+
+    assert.include(await test.getErrorReason(), "only owner can claim deposit")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], {
+      privateKey: test.getHandlerConfig(1).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false))
+
+    assert.include(await test.getErrorReason(), "nothing to transfer")
+    await test.increaseTime(1)
+
+    await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], {
+      privateKey: test.getHandlerConfig(0).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    })
+
+    const balanceOwnerAfterDeposit = await test.getFromServer('eth_getBalance', util.getAddress(test.getHandlerConfig(0).privateKey), 'latest')
+
+    assert.equal(toBN(balanceOwnerAfterDeposit).toString(), toBN(balanceOwnerAfterConfirm).add(toBN('490000000000000000').sub(toBN('4900000000000000'))).toString())
+
   })
 
   it('requestUnregisteringNode - non-owner', async () => {
@@ -875,9 +952,29 @@ describe('Convict', () => {
     assert.equal(depositAmountAfter.toString(), serverAfter.deposit.sub(calcDeposit[0]))
     assert.equal(unregisterDepositAfter.toString(), '0')
     assert.equal(await test.getNodeCountFromContract(), 1)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "deposit still locked")
+
+    await test.increaseTime(toNumber(lockedTimeAfter))
+
+    const depositBeforeReturn = await test.getFromServer('eth_getBalance', util.getAddress(test.getHandlerConfig(0).privateKey), 'latest')
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "only owner can claim deposit")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "nothing to transfer")
+
+    await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+
+    const depositAfterReturn = await test.getFromServer('eth_getBalance', util.getAddress(test.getHandlerConfig(0).privateKey), 'latest')
+
+    assert.equal(toBN(depositAfterReturn).toString(), toBN(depositBeforeReturn).add(depositAmountAfter))
+
   })
 
-  it('requestUnregisteringNode - proof activity', async () => {
+  it('requestUnregisteringNode - prove activity', async () => {
 
     const test = await TestTransport.createWithRegisteredNodes(4)
 
@@ -888,16 +985,16 @@ describe('Convict', () => {
     await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: unregisterCallerPK, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000 })
 
     let currentBlock = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proofActivity(uint,uint,address)', [toNumber(currentBlock.number), 0, util.getAddress(test.getHandlerConfig(3).privateKey)], { privateKey: test.getHandlerConfig(3).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proveActivity(uint,uint,address)', [toNumber(currentBlock.number), 0, util.getAddress(test.getHandlerConfig(3).privateKey)], { privateKey: test.getHandlerConfig(3).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "proof only when beeing challenged")
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proofActivity(uint,uint,address)', [toNumber(currentBlock.number), 0, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
-    assert.include(await test.getErrorReason(), "only owner or signer can proof activity")
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proveActivity(uint,uint,address)', [toNumber(currentBlock.number), 0, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "only owner or signer can prove activity")
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proofActivity(uint,uint,address)', [toNumber(0), 0, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proveActivity(uint,uint,address)', [toNumber(0), 0, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "block not found")
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proofActivity(uint,uint,address)', [toNumber(currentBlock.number), 0, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proveActivity(uint,uint,address)', [toNumber(currentBlock.number), 0, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "not enough proof of work")
 
 
@@ -911,7 +1008,7 @@ describe('Convict', () => {
         nonce++
       }
 
-      await tx.callContract(test.url, test.nodeList.contract, 'proofActivity(uint,uint,address)', [toNumber(currentBlock.number), nonce, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 })
+      await tx.callContract(test.url, test.nodeList.contract, 'proveActivity(uint,uint,address)', [toNumber(currentBlock.number), nonce, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 })
 
     }
 
@@ -1188,9 +1285,9 @@ describe('Convict', () => {
     assert.include(await test.getErrorReason(), "signer does not own a node")
 
     const timeoutPK = await test.createAccount(null, toBN('4900000000000000000'))
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', 1000, 86400 * 365 * 10 + 1, 2000], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', 1000, 86400 * 365 + 1, 2000], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "exceeded maximum timeout")
-    await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', 1000, 86400 * 365 * 10 - 1, 2000], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', 1000, 86400 * 365 - 1, 2000], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 })
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(timeoutPK), "timeout", 0x0fff, 86400 * 365 * 10 + 1, 2000], { privateKey: timeoutPK, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "exceeded maximum timeout")
 

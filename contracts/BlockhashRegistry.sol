@@ -48,12 +48,15 @@ contract BlockhashRegistry {
         }
     }
 
-    /// starts with a given blocknumber and its header and tries to recreate a (reverse) chain of blocks
-    /// only usable when the given blocknumber is already in the smart contract
-    /// it will be checked whether the provided chain is correct by using the calculateBlockheaders function
-    /// if successfull the last blockhash of the header will be added to the smart contract
+    /// @notice starts with a given blocknumber and its header and tries to recreate a (reverse) chain of blocks
+    /// @notice only usable when the given blocknumber is already in the smart contract
+    /// @notice it will be checked whether the provided chain is correct by using the calculateBlockheaders function
+    /// @notice if successfull the last blockhash of the header will be added to the smart contract
     /// @param _blockNumber the block number to start recreation from
     /// @param _blockheaders array with serialized blockheaders in reverse order (youngest -> oldest) => (e.g. 100, 99, 98)
+    /// @dev reverts when there is not parent block already stored in the contract
+    /// @dev reverts when the chain of headers is incorrect
+    /// @dev function is public due to the usage of a dynamic bytes array (not yet supported for external functions)
     function recreateBlockheaders(uint _blockNumber, bytes[] memory _blockheaders) public {
         bytes32 currentBlockhash = blockhashMapping[_blockNumber];
         require(currentBlockhash != 0x0, "parentBlock is not available");
@@ -66,9 +69,9 @@ contract BlockhashRegistry {
         emit LogBlockhashAdded(bnr, calculatedHash);
     }
 
-    /// stores a certain blockhash to the state
-    /// will fail if the block can't be found inside the evm
+    /// @notice stores a certain blockhash to the state
     /// @param _blockNumber the blocknumber to be stored
+    /// @dev reverts if the block can't be found inside the evm
     function saveBlockNumber(uint _blockNumber) public {
         bytes32 bHash = blockhash(_blockNumber);
 
@@ -78,17 +81,14 @@ contract BlockhashRegistry {
         emit LogBlockhashAdded(_blockNumber, bHash);
     }
 
-    /// stores the currentBlock-1 in the smart contract
+    /// @notice stores the currentBlock-1 in the smart contract
     function snapshot() public {
-
         /// blockhash cannot return the current block, so we use the previous block
         saveBlockNumber(block.number-1);
     }
 
-    /// starts with a given blockhash and its header and tries to recreate a (reverse) chain of blocks
-    /// the array of the blockheaders have to be in reverse order (e.g. [100,99,98,97])
-    /// if the provided chain is not correct (parentHash != calculated hash)
-    /// if the hash is correct it will return the blockhash of the last header
+    /// @notice starts with a given blockhash and its header and tries to recreate a (reverse) chain of blocks
+    /// @notice the array of the blockheaders have to be in reverse order (e.g. [100,99,98,97])
     /// @param _blockheaders array with serialized blockheaders in reverse order, i.e. from youngest to oldest
     /// @param _bHash blockhash of the 1st element of the _blockheaders-array
     /// @return 0x0 if the functions detects a wrong chaining of blocks, blockhash of the last element of the array otherwhise
@@ -110,7 +110,7 @@ contract BlockhashRegistry {
         return currentBlockhash;
     }
 
-    /// returns the blockhash and the parent blockhash from the provided blockheader
+    /// @notice returns the blockhash and the parent blockhash from the provided blockheader
     /// @param _blockheader a serialized (rlp-encoded) blockheader
     /// @return the parent blockhash and the keccak256 of the provided blockheader (= the corresponding blockhash)
     function getParentAndBlockhash(bytes memory _blockheader) public pure returns (bytes32 parentHash, bytes32 bhash) {
@@ -123,6 +123,7 @@ contract BlockhashRegistry {
         /// we also have to add "2" = 1 byte to it to skip the length-information
         uint8 offset = first - 0xf7 + 2;
 
+        /// we are using assembly because it's the most efficent way to access the parent blockhash within the rlp-encoded blockheader
         // solium-disable-next-line security/no-inline-assembly
         assembly { // solhint-disable-line no-inline-assembly
             // mstore to get the memory pointer of the blockheader to 0x20
