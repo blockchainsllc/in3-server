@@ -230,6 +230,3 @@ async function getVersion(ctx: Router.IRouterContext) {
   }
 }
 
-checkHealth(ctx).catch(ctx => console.error(ctx))
-initError(ctx).catch(ctx => console.error(ctx))
-getVersion(ctx).catch(ctx => console.error(ctx))
