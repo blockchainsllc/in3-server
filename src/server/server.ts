@@ -22,7 +22,6 @@
 import * as logger from '../util/logger'
 import {SentryError} from '../util/sentryError'
 
-
 // Hook to nodeJs events
 function handleExit(signal) {
   logger.info("Stopping in3-server gracefully...");
@@ -33,9 +32,7 @@ process.on('SIGINT', handleExit);
 process.on('SIGTERM', handleExit);
 
 process.on("uncaughtException", (err) => {
-  logger.error("Unhandled error: " + err,err);
-  throw new SentryError("Unhandled error" + err)
-
+  logger.error("Unhandled error: " + err,{ error: err});
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -107,12 +104,8 @@ router.post(/.*/, async ctx => {
     ctx.status = err.status || 500
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
-    logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, err);
-
+    logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
     ctx.app.emit('error', err, ctx)
-
-    throw new SentryError("error" + err)
-
   }
 
 })
@@ -125,11 +118,11 @@ router.get(/.*/, async ctx => {
   else if (path[path.length - 1] === 'version') return getVersion(ctx)
   else if (INIT_ERROR) return initError(ctx)
   try {
-    if (path.length < 2)  throw new SentryError('invalid path')
+    if (path.length < 2) throw new SentryError('invalid path','input_error',"the path entered returned error:" + ctx.path)
     let start = path.indexOf('api')
     if (start < 0)
       start = path.findIndex(_ => chainAliases[_] || _.startsWith('0x'))
-    if (start < 0 || start > path.length - 2) throw new SentryError('invalid path ' + ctx.path)
+    if (start < 0 || start > path.length - 2) throw new SentryError('invalid path','input_error',"the path entered returned error:" + ctx.path)
     const [chain, method] = path.slice(start)
     const req = rpc.getRequestFromPath(path.slice(start + 1), { chainId: chainAliases[chain] || chain, ...ctx.query }) || {
       id: 1,
@@ -151,11 +144,8 @@ router.get(/.*/, async ctx => {
     ctx.status = err.status || 500
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
-    logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, err);
-
-
+    logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
     ctx.app.emit('error', err, ctx)
-    throw new SentryError(err)
   }
 
 })
@@ -165,9 +155,9 @@ initConfig().then(() => {
   (chainAliases as any).api = Object.keys(config.chains)[0]
   logger.info('staring in3-server...')
   app
-    .use(router.routes())
-    .use(router.allowedMethods())
-    .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
+      .use(router.routes())
+      .use(router.allowedMethods())
+      .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
 
   const doInit = (retryCount: number) => {
     if (retryCount <= 0) {
@@ -177,21 +167,16 @@ initConfig().then(() => {
     }
     rpc.init().catch(err => {
       //console.error('Error initializing the server : ' + err.message)
-      logger.error('Error initializing the server : ' + err.message, err);
+      logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
       setTimeout(() => { doInit(retryCount - 1) }, 20000)
-
-      throw new SentryError(err,"breadcrumb heading","breadcrumb info")
     })
   }
-
 
   // after starting the server, we should make sure our nodelist is up-to-date.
   doInit(3)
 }).catch(err => {
   //console.error('Error starting the server : ' + err.message, config)
-
-  logger.error('Error starting the server ' + err.message, err)
-  throw new SentryError(err)
+  logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
   process.exit(1)
 })
 
@@ -208,14 +193,14 @@ async function checkHealth(ctx: Router.IRouterContext) {
   }
   else {
     await Promise.all(
-      Object.keys(rpc.handlers).map(c => rpc.handlers[c].getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })))
-      .then(_ => {
-        ctx.body = { status: 'healthy' }
-        ctx.status = 200
-      }, _ => {
-        ctx.body = { status: 'unhealthy', message: _.message }
-        ctx.status = 500
-      })
+        Object.keys(rpc.handlers).map(c => rpc.handlers[c].getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })))
+        .then(_ => {
+          ctx.body = { status: 'healthy' }
+          ctx.status = 200
+        }, _ => {
+          ctx.body = { status: 'unhealthy', message: _.message }
+          ctx.status = 500
+        })
   }
 
 }
@@ -237,3 +222,4 @@ async function getVersion(ctx: Router.IRouterContext) {
     ctx.status = 500
   }
 }
+
