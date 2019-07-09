@@ -21,18 +21,6 @@ import * as fs from 'fs'
 import { IN3RPCConfig, IN3RPCHandlerConfig, util, typeDefs } from 'in3'
 import * as cargs from 'args'
 
-
-class SentryError extends Error {
-  constructor(message?: string) {
-    const Sentry = require('@sentry/node');
-    Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
-    super(message)
-    console.log("Inside Sentry Constructor!!!")
-    console.log(message)
-    Sentry.captureException(message)
-  }
-}
-
 // defaults for the config
 const config: IN3RPCConfig = {
   port: 8500,
