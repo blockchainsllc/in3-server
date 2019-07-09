@@ -165,8 +165,6 @@ describe('Convict', () => {
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFFFFF"), 3601, util.getAddress(timeoutPK), toBN("0xFFFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFFFF"), 3601, util.getAddress(timeoutPK), toBN("0xFFFFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
 
-    console.log("abc" + util.getAddress(timeoutPK))
-
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFF"), 3601, "abcdefg" + util.getAddress(timeoutPK), toBN("0xFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), "test3.com", toBN("0xFFFFFFFFFFFFFFFFF"), 0, 2000], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
@@ -876,6 +874,31 @@ describe('Convict', () => {
     const balanceOwnerAfterDeposit = await test.getFromServer('eth_getBalance', util.getAddress(test.getHandlerConfig(0).privateKey), 'latest')
 
     assert.equal(toBN(balanceOwnerAfterDeposit).toString(), toBN(balanceOwnerAfterConfirm).add(toBN('490000000000000000').sub(toBN('4900000000000000'))).toString())
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], {
+      privateKey: test.getHandlerConfig(0).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    }).catch(_ => false), "cannot return deposit twice")
+
+    await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['abc', 1000, 3600, 2000], {
+      privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000
+    })
+
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+
+    await test.increaseTime(90001)
+    const balanceBeforeUnregister = await test.getFromServer('eth_getBalance', util.getAddress(test.getHandlerConfig(0).privateKey), 'latest')
+    await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], {
+      privateKey: test.getHandlerConfig(0).privateKey,
+      gas: 300000,
+      value: 0,
+      confirm: true
+    })
+    const balanceAfterUnregister = await test.getFromServer('eth_getBalance', util.getAddress(test.getHandlerConfig(0).privateKey), 'latest')
+
+    assert.equal(toBN(balanceAfterUnregister).toString(), toBN(balanceBeforeUnregister).add(toBN('490000000000000000')).toString())
 
   })
 

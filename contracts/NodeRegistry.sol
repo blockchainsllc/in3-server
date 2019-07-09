@@ -183,7 +183,7 @@ contract NodeRegistry {
                 // the owner did not confirm his unregistering within 1 day
                 // so we allow everyone to call this function
                 // and the owner will lose 1% of the deposit
-                transferAmount = node.deposit/100;
+                transferAmount = msg.sender == si.owner ? node.deposit : node.deposit/100;
                 // solium-disable-next-line security/no-block-members
                 si.lockedTime = uint64(block.timestamp); //solhint-disable-line not-rely-on-time
                 si.depositAmount = node.deposit - transferAmount;
@@ -655,7 +655,8 @@ contract NodeRegistry {
     function removeNode(uint _nodeIndex) internal {
         // trigger event
         emit LogNodeRemoved(nodes[_nodeIndex].url, nodes[_nodeIndex].signer);
-
+        // deleting the old entry
+        delete urlIndex[keccak256(bytes(nodes[_nodeIndex].url))];
         uint length = nodes.length;
 
         assert(length > 0);
