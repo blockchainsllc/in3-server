@@ -66,7 +66,7 @@ describe('Convict', () => {
     const version = (await tx.callContract(test.url, test.nodeList.contract, 'VERSION():(uint)', []))[0]
     await tx.callContract(test.url, test.nodeList.contract, 'VERSION():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'VERSION():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
-    assert.equal(toNumber(version).toString(), "12300020190328")
+    assert.equal(toNumber(version).toString(), "12300020190709")
 
     const numNodes = (await tx.callContract(test.url, test.nodeList.contract, 'totalNodes():(uint)', []))[0]
     await tx.callContract(test.url, test.nodeList.contract, 'totalNodes():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
@@ -164,7 +164,10 @@ describe('Convict', () => {
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFFFFF"), 3601, util.getAddress(timeoutPK), toBN("0xFFFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFFFF"), 3601, util.getAddress(timeoutPK), toBN("0xFFFFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFF"), 3601, util.getAddress(timeoutPK) + "0", toBN("0xFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+
+    console.log("abc" + util.getAddress(timeoutPK))
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', toBN("0xFFFFFFFFFFFFFF"), 3601, "abcdefg" + util.getAddress(timeoutPK), toBN("0xFFFFFFFFFFFFFFF")], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), "test3.com", toBN("0xFFFFFFFFFFFFFFFFF"), 0, 2000], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), "test3.com", 0xFFFFFFFFFFFFFFFFF, 0, 2000], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
@@ -986,7 +989,7 @@ describe('Convict', () => {
 
     let currentBlock = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proveActivity(uint,uint,address)', [toNumber(currentBlock.number), 0, util.getAddress(test.getHandlerConfig(3).privateKey)], { privateKey: test.getHandlerConfig(3).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
-    assert.include(await test.getErrorReason(), "proof only when beeing challenged")
+    assert.include(await test.getErrorReason(), "proof only when being challenged")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'proveActivity(uint,uint,address)', [toNumber(currentBlock.number), 0, util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "only owner or signer can prove activity")
