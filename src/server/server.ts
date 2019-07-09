@@ -190,6 +190,7 @@ async function checkHealth(ctx: Router.IRouterContext) {
   else if (INIT_ERROR) {
     ctx.body = { status: 'unhealthy', message: "server initialization error" }
     ctx.status = 500
+    throw new SentryError("server initialization error","server_status","unhealthy")
   }
   else {
     await Promise.all(
@@ -200,6 +201,8 @@ async function checkHealth(ctx: Router.IRouterContext) {
         }, _ => {
           ctx.body = { status: 'unhealthy', message: _.message }
           ctx.status = 500
+          throw new SentryError("server initialization error","server_status","unhealthy")
+
         })
   }
 
@@ -209,6 +212,8 @@ async function initError(ctx: Router.IRouterContext) {
   //lies to the rancher that it is healthy to avoid restart loop
   ctx.body = "Server uninitialized"
   ctx.status = 200
+  throw new SentryError("server initialization error","server_status","unhealthy")
+
 }
 
 async function getVersion(ctx: Router.IRouterContext) {
@@ -220,6 +225,11 @@ async function getVersion(ctx: Router.IRouterContext) {
   else {
     ctx.body = "Unknown Version"
     ctx.status = 500
+    throw new SentryError("server unknown version","server_status","unknown version")
+
   }
 }
 
+checkHealth(ctx).catch(ctx => console.error(ctx))
+initError(ctx).catch(ctx => console.error(ctx))
+getVersion(ctx).catch(ctx => console.error(ctx))
