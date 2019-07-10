@@ -219,7 +219,7 @@ export class HandlerTransport extends AxiosTransport {
       const res = await axios.post(url, requests, { headers: { 'Content-Type': 'application/json' } })
 
       // throw if the status is an error
-      if (res.status > 200) throw new SentryError('Invalid status','status_error',str(res.status))
+      if (res.status > 200) throw new SentryError('Invalid status','status_error',res.status.toString())
 
       // if this was not given as array, we need to convert it back to a single object
       return Array.isArray(data) ? res.data : res.data[0]
