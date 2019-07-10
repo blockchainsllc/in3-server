@@ -74,7 +74,7 @@ contract NodeRegistry {
 
         uint depositAmount;                 /// amount of deposit to be locked, used only after vote-kick
 
-        uint unregisterDeposit;             /// the deposit payed to claim inactivite
+        uint unregisterDeposit;             /// the deposit payed to claim inactivity
 
         uint index;                         /// current index-position of the node in the node-array
     }
@@ -113,7 +113,10 @@ contract NodeRegistry {
     mapping (uint => mapping(address => ConvictInformation)) internal convictMapping;
 
     /// capping the max deposit timeout on 1 year
-    uint constant internal MAXDEPOSITTIMEOUT = 1 days * 365;
+    uint constant internal YEARDEFINITION = 1 days * 365;
+
+    /// limit for ether per server in the 1st year
+    uint constant internal MAXETHERLIMIT = 50 ether;
 
     /// constructor
     /// @param _blockRegistry address of a BlockhashRegistry-contract
@@ -164,10 +167,10 @@ contract NodeRegistry {
         In3Node storage node = nodes[si.index];
 
         uint transferAmount = 0;
+        // there is no unregister caller, so the owner called requestUnregister
         if (si.unregisterCaller == address(0x0)) {
 
             require(si.used, "sender does not own a node");
-
             require(node.unregisterTime != 0, "cannot unregister an active node");
 
             // solium-disable-next-line security/no-block-members
@@ -186,9 +189,9 @@ contract NodeRegistry {
                 transferAmount = msg.sender == si.owner ? node.deposit : node.deposit/100;
                 // solium-disable-next-line security/no-block-members
                 si.lockedTime = uint64(block.timestamp); //solhint-disable-line not-rely-on-time
+                assert(node.deposit >= transferAmount);
                 si.depositAmount = node.deposit - transferAmount;
             }
-
         } else {
             require(msg.sender == si.unregisterCaller, "only unregister caller can confirm");
             // solium-disable-next-line security/no-block-members
@@ -211,7 +214,6 @@ contract NodeRegistry {
         si.index = 0;
         si.used = false;
         msg.sender.transfer(transferAmount);
-
     }
 
     /// @notice commits a blocknumber and a hash
@@ -494,7 +496,7 @@ contract NodeRegistry {
         SignerInformation memory si = signerIndex[_signer];
         require(si.owner == msg.sender, "only node owner can update");
         require(si.used, "signer does not own a node");
-        require(_timeout <= MAXDEPOSITTIMEOUT, "exceeded maximum timeout");
+        require(_timeout <= YEARDEFINITION, "exceeded maximum timeout");
 
         In3Node storage node = nodes[si.index];
 
@@ -519,8 +521,8 @@ contract NodeRegistry {
             node.deposit += msg.value;
 
             // solium-disable-next-line security/no-block-members
-            if (block.timestamp < (blockTimeStampDeployment + 52 weeks)) {// solhint-disable-line not-rely-on-time
-                require(node.deposit < 50 ether, "Limit of 50 ETH reached");
+            if (block.timestamp < (blockTimeStampDeployment + YEARDEFINITION)) {// solhint-disable-line not-rely-on-time
+                require(node.deposit < MAXETHERLIMIT, "Limit of 50 ETH reached");
             }
         }
 
@@ -602,14 +604,14 @@ contract NodeRegistry {
     {
 
         // enforcing a maximum timeout
-        require(_timeout <= MAXDEPOSITTIMEOUT, "exceeded maximum timeout");
+        require(_timeout <= YEARDEFINITION, "exceeded maximum timeout");
 
         // enforcing a minimum deposit
         require(_deposit >= 10 finney, "not enough deposit");
 
         // solium-disable-next-line security/no-block-members
-        if (block.timestamp < (blockTimeStampDeployment + 52 weeks)) { // solhint-disable-line not-rely-on-time
-            require(_deposit < 50 ether, "Limit of 50 ETH reached");
+        if (block.timestamp < (blockTimeStampDeployment + YEARDEFINITION)) { // solhint-disable-line not-rely-on-time
+            require(_deposit < MAXETHERLIMIT, "Limit of 50 ETH reached");
         }
 
         bytes32 urlHash = keccak256(bytes(_url));

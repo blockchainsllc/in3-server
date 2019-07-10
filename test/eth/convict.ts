@@ -179,7 +179,8 @@ describe('Convict', () => {
     const test = await TestTransport.createWithRegisteredNodes(2)
 
     const registryId = (await tx.callContract(test.url, test.nodeList.contract, 'registryId():(bytes32)', []))[0]
-
+    await tx.callContract(test.url, test.nodeList.contract, 'registryId():(bytes32)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registryId():(bytes32)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
     const blockHashRegAddress = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString('hex')
     await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 50000000 })
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
@@ -678,6 +679,7 @@ describe('Convict', () => {
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 10, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: user, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "only owner can cancel unregistering a node")
+
 
     await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
 
@@ -1213,8 +1215,6 @@ describe('Convict', () => {
     assert.equal(toNumber(serverBefore.timeout), 7200)
     assert.equal(toHex(serverBefore.props), "0xff")
 
-
-
     await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(pk1), "test3.com", 0x0fff, 0, 2000], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     let serverAfter = await test.getNodeFromContract(2)
 
@@ -1314,9 +1314,13 @@ describe('Convict', () => {
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', 1000, 86400 * 365 + 1, 2000], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "exceeded maximum timeout")
     await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', 1000, 86400 * 365 - 1, 2000], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 })
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(timeoutPK), "timeout", 0x0fff, 86400 * 365 * 10 + 1, 2000], { privateKey: timeoutPK, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(timeoutPK), "timeout", 0x0fff, 86400 * 365 * 1 + 1, 2000], { privateKey: timeoutPK, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "exceeded maximum timeout")
 
+    await test.increaseTime(365 * 86400 + 1)
+    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(richUser), 'abc', 0xffff, 16400, 2000], { privateKey: richUser, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 })
+    const richUserTwo = await test.createAccount(null, toBN("100000000000000000000"))
+    await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['richNode', 1000, 10000, 2000], { privateKey: richUserTwo, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 })
 
 
   })
