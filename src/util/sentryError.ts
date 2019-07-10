@@ -11,5 +11,6 @@ export class SentryError extends Error {
         });
 
         Sentry.captureException(message)
+        return
     }
 }

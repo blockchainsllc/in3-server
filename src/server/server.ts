@@ -105,7 +105,10 @@ router.post(/.*/, async ctx => {
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
+    throw new SentryError(err,"request_status",ctx.request.body)
+
     ctx.app.emit('error', err, ctx)
+
   }
 
 })
@@ -139,13 +142,16 @@ router.get(/.*/, async ctx => {
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
     ctx.body = result.result || result.error
-
+    console.log(ctx.status)
   } catch (err) {
     ctx.status = err.status || 500
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
+    throw new SentryError(err,"request_status",ctx.request.body)
+
     ctx.app.emit('error', err, ctx)
+
   }
 
 })
@@ -162,13 +168,17 @@ initConfig().then(() => {
   const doInit = (retryCount: number) => {
     if (retryCount <= 0) {
       logger.error('Error initializing the server : Maxed out retries')
+      throw new SentryError("server initialization error","server_status","maxed out retries")
       INIT_ERROR = true
       return;
     }
     rpc.init().catch(err => {
       //console.error('Error initializing the server : ' + err.message)
       logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
+
       setTimeout(() => { doInit(retryCount - 1) }, 20000)
+      throw new SentryError(err.message,"server_status","Error initializing the server" + err.stack)
+
     })
   }
 
@@ -177,6 +187,8 @@ initConfig().then(() => {
 }).catch(err => {
   //console.error('Error starting the server : ' + err.message, config)
   logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
+  throw new SentryError(err,"server_status","Error starting the server")
+
   process.exit(1)
 })
 
