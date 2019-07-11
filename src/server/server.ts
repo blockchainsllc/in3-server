@@ -161,9 +161,9 @@ initConfig().then(() => {
   (chainAliases as any).api = Object.keys(config.chains)[0]
   logger.info('staring in3-server...')
   app
-      .use(router.routes())
-      .use(router.allowedMethods())
-      .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
+  .use(router.routes())
+  .use(router.allowedMethods())
+  .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
 
   const doInit = (retryCount: number) => {
     if (retryCount <= 0) {

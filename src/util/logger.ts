@@ -26,9 +26,6 @@ import config from '../server/config'
 import * as color from 'cli-color'
 
 
-const Sentry = require('@sentry/node');
-Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
-
 const nodeEnv: string = process.env.NODE_ENV || 'production'
 const logLevel = config.logging && config.logging.level
 const winstonLogger = winston.createLogger({
@@ -67,7 +64,5 @@ export function trace(message: string, ...data: any[]) {
   log('debug', message, ...data)
 }
 export function error(message: string, ...data: any[]) {
-  // console.log("SENTRY SEND")
-  // Sentry.captureException(data[0]);
   log('error', message, ...data)
 }

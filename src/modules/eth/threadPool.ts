@@ -1,8 +1,6 @@
 import { Worker } from 'worker_threads'
 import { cpus } from 'os'
 
-const Sentry = require('@sentry/node');
-Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
 
 let workers = []
 let firstTime = true
@@ -34,8 +32,7 @@ class ThreadPool {
                 });
             })
         } catch (error) {
-            Sentry.captureException(error);
-            // throw new Error(error)
+            throw new Error(error)
         } finally {
             worker.removeAllListeners('message')
             worker.removeAllListeners('error')

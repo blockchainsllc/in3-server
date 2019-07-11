@@ -176,7 +176,7 @@ function manageRequest<T>(handler: RPCHandler, p: Promise<T>): Promise<T> {
     return r
   }, err => {
     handler.openRequests--
-    throw new SentryError(err,'request_manage','rpc handler rejected')
+    throw err
   })
 }
 
