@@ -21,7 +21,6 @@
 
 import * as logger from '../util/logger'
 import {SentryError} from '../util/sentryError'
-const sentryEnvCheck = process.env.SENTRY_CHECK || false
 
 // Hook to nodeJs events
 function handleExit(signal) {
