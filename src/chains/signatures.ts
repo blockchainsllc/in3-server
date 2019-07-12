@@ -64,10 +64,12 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
     // send the sign-request
     const response = (blocksToRequest.length ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest }) : { result: [] }) as RPCResponse
-    if (response.error)
-      throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+    if (response.error || response.result['Error'])
+      throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + '. ' + (response.result['Error']?response.result['Error']:response.error))
 
+    
     const signatures = [...cachedSignatures, ...response.result] as Signature[]
+
 
     // if there are signature, we only return the valid ones
     if (signatures && signatures.length)
@@ -147,12 +149,15 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
 
   const blockHeight = handler.config.minBlockHeight === undefined ? 6 : handler.config.minBlockHeight
   const tooYoungBlock = blockData.find(block => toNumber(blockNumber) - toNumber(block.number) < blockHeight)
-  if (tooYoungBlock)
-    throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
+  //if (tooYoungBlock)
+    //throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
 
-  return {
-    id: request.id,
-    jsonrpc: request.jsonrpc,
-    result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash })))
-  }
+    return {
+      id: request.id,
+      jsonrpc: request.jsonrpc,
+      result: (tooYoungBlock?
+        ({Error:'Cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight }):
+        sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash }))) )
+    }
+  
 }

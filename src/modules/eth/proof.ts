@@ -513,8 +513,11 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
   ], request)
 
   // error checking
-  if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
-  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] }, null, 2))
+  if (blockResponse.error) 
+    return {id: request.id,jsonrpc: '2.0',result: ('Error: Could not get the block for ' + request.params[1] + ':' + blockResponse.error)}
+
+  if (proof.error) 
+    return {id: request.id,jsonrpc: '2.0',result: ('Error: Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] }, null, 2))}
 
   // make sure we use minHex for the proof-keys
   if (proof.result && proof.result.storageProof)
@@ -534,6 +537,18 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
   else if (request.method === 'eth_getStorageAt')
     result = account.storageProof[0].value
 
+  let requestedSignatures;
+  try {
+    requestedSignatures = await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes)
+  }
+  catch(e) {
+    return {      
+      id: request.id,
+      jsonrpc: '2.0',
+      result: e.toString()
+    }
+  }
+
   // bundle the answer
   return addFinality(request,
     {
@@ -544,7 +559,7 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
         proof: {
           type: 'accountProof',
           block: createBlock(block, request.in3.verifiedHashes),
-          signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
+          signatures: requestedSignatures,
           accounts: { [toChecksumAddress(address)]: proof.result }
         }
       }
