@@ -25,7 +25,7 @@ import { sendTransaction, callContract } from '../../src/util/tx'
 import axios from 'axios'
 import { registerNodes } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
-import { toBN, toUtf8 } from 'in3/js/src/util/util';
+import { toBN, toUtf8, toMinHex } from 'in3/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
 logger.setLogger('memory')
 
@@ -144,6 +144,15 @@ export class TestTransport implements Transport {
   }
 
   async getFromServer(method: string, ...params: any[]) {
+
+    for (let i = 0; i < params.length; i++) {
+      if (typeof params[i] === 'string' && params[i].startsWith("0x0")) {
+        if (params[i].substr(2).length % 32 != 0 && params[i].substr(2).length % 20 != 0) {
+          params[i] = toMinHex(params[i])
+        }
+      }
+    }
+
     const res = await axios.post(this.url, { id: 1, jsonrpc: '2.0', method, params }, { headers: { 'Content-Type': 'application/json' } })
     if (res.status !== 200) throw new Error('Wrong status! Error getting ' + method + ' ' + JSON.stringify(params))
     if (!res.data) throw new Error('No response! Error getting ' + method + ' ' + JSON.stringify(params))
@@ -257,10 +266,21 @@ export class TestTransport implements Transport {
   }
 
   async getErrorReason(txHash?: string): Promise<string> {
-    if (!txHash)
+
+    const clientVersion = await this.getFromServer('web3_clientVersion')
+
+    if (!txHash) {
       txHash = (await this.getFromServer('eth_getBlockByNumber', 'latest', false)).transactions[0]
-    const trace = await this.getFromServer('trace_replayTransaction', txHash, ['trace'])
-    return toUtf8(trace.output)
+    }
+
+    if (clientVersion.includes("Parity")) {
+      const trace = await this.getFromServer('trace_replayTransaction', txHash, ['trace'])
+      return toUtf8(trace.output)
+    }
+    if (clientVersion.includes("Geth")) {
+      const trace = await this.getFromServer('debug_traceTransaction', txHash)
+      return toUtf8("0x" + trace.returnValue)
+    }
   }
 
   static async createWithRegisteredNodes(count: number) {

@@ -207,7 +207,7 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
 
     // splitting the blocks in array with the size of 235 (sweet spot)
     while (serialzedBlocks.length) {
-      transactionArrays.push(serialzedBlocks.splice(0, 235));
+      transactionArrays.push(serialzedBlocks.splice(0, 45));
     }
 
     let diffBlock = 0;
@@ -242,7 +242,7 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
           privateKey: handler.config.privateKey,
           gas: 8000000,
           value: 0,
-          confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+          confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
         })
         diffBlock += txArray.length
       } catch (e) {

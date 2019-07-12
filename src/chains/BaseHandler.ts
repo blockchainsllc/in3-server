@@ -26,6 +26,7 @@ import { checkPrivateKey, checkRegistry } from './initHandler'
 import { collectSignatures, handleSign } from './signatures'
 import { RPCHandler } from '../server/rpc'
 import { SimpleCache } from '../util/cache'
+import { toMinHex } from 'in3/js/src/util/util';
 
 /**
  * handles eth_sign and eth_nodelist
@@ -89,6 +90,15 @@ export default abstract class BaseHandler implements RPCHandler {
     const startTime = Date.now()
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
+
+    for (let i = 0; i < request.params.length; i++) {
+      if (typeof request.params[i] === 'string' && request.params[i].startsWith("0x0")) {
+        if (request.params[i].substr(2).length % 32 != 0 && request.params[i].substr(2).length % 20 != 0) {
+          request.params[i] = toMinHex(request.params[i])
+        }
+      }
+    }
+
     return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
     }).then(res => {
@@ -140,6 +150,14 @@ export default abstract class BaseHandler implements RPCHandler {
 
 
   toCleanRequest(request: Partial<RPCRequest>): RPCRequest {
+
+    for (let i = 0; i < request.params.length; i++) {
+      if (typeof request.params[i] === 'string' && request.params[i].startsWith("0x0")) {
+        if (request.params[i].substr(2).length % 32 != 0 && request.params[i].substr(2).length % 20 != 0) {
+          request.params[i] = toMinHex(request.params[i])
+        }
+      }
+    }
     return {
       id: request.id,
       method: request.method,
