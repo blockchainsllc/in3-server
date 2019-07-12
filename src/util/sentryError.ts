@@ -1,5 +1,5 @@
 const Sentry = require('@sentry/node');
-Sentry.init({ dsn: 'https://1aca629ca89c42a6b5601fcce6499103@sentry.slock.it/5' });
+Sentry.init({ dsn: 'https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2' });
 
 export class SentryError extends Error {
     constructor(message? :string, category_info? :string, breadcrumb_message? :string) {

@@ -21,6 +21,9 @@
 
 import * as logger from '../util/logger'
 import {SentryError} from '../util/sentryError'
+console.log("sentry value = " + process.env.SENTRY_CHECK)
+const sentryEnvCheck = process.env.SENTRY_CHECK || false
+console.log(`Should sentry be used?: ` + sentryEnvCheck)
 
 // Hook to nodeJs events
 function handleExit(signal) {
@@ -213,8 +216,6 @@ async function checkHealth(ctx: Router.IRouterContext) {
         }, _ => {
           ctx.body = { status: 'unhealthy', message: _.message }
           ctx.status = 500
-          throw new SentryError("server initialization error","server_status","unhealthy")
-
         })
   }
 
