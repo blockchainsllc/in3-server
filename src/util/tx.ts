@@ -1,27 +1,27 @@
 /***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+ * This file is part of the Slock.it IoT Layer.             *
+ * The Slock.it IoT Layer contains:                         *
+ *   - USN (Universal Sharing Network)                      *
+ *   - INCUBED (Trustless INcentivized remote Node Network) *
+ ************************************************************
+ * Copyright (C) 2016 - 2018 Slock.it GmbH                  *
+ * All Rights Reserved.                                     *
+ ************************************************************
+ * You may use, distribute and modify this code under the   *
+ * terms of the license contract you have concluded with    *
+ * Slock.it GmbH.                                           *
+ * For information about liability, maintenance etc. also   *
+ * refer to the contract concluded with Slock.it GmbH.      *
+ ************************************************************
+ * For more information, please refer to https://slock.it   *
+ * For questions, please contact info@slock.it              *
+ ***********************************************************/
 
 import { simpleEncode, simpleDecode, methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress, BN, keccak256 } from 'ethereumjs-util'
 import Client, { Transport, AxiosTransport, RPCResponse, util, transport } from 'in3'
 import * as ETx from 'ethereumjs-tx'
-
+import {SentryError} from '../util/sentryError'
 
 const toHex = util.toHex
 
@@ -62,24 +62,23 @@ export async function callContract(url: string, contract: string, signature: str
     return sendTransaction(url, { ...txargs, to: contract, data }, transport)
 
   return simpleDecode(signature.replace('()', '(uint)'), toBuffer(await transport.handle(url, {
-    jsonrpc: '2.0',
-    id: idCount++,
-    method: 'eth_call', params: [{
-      to: contract,
-      data
-    },
-      'latest']
-  }).then((_: RPCResponse) => {
-    if(_.error)
-    {
-      throw _.error;
-    }
-    return  _.result + '';
-  })
-  .catch(err => {
-    throw(new Error('Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args)))
-
-  })
+        jsonrpc: '2.0',
+        id: idCount++,
+        method: 'eth_call', params: [{
+          to: contract,
+          data
+        },
+          'latest']
+      }).then((_: RPCResponse) => {
+        if(_.error)
+        {
+          throw _.error;
+        }
+        return  _.result + '';
+      })
+          .catch(err => {
+            throw(new SentryError('Could not call contract','contract_call_error','Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args)))
+          })
   ))
 }
 
@@ -146,7 +145,7 @@ export async function sendTransaction(url: string, txargs: {
     id: idCount++,
     method: 'eth_sendRawTransaction',
     params: [toHex(tx.serialize())]
-  }).then((_: RPCResponse) => _.error ? Promise.reject(new Error('Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
+  }).then((_: RPCResponse) => _.error ? Promise.reject(new SentryError('Error sending tx','tx_error','Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
 
   return txargs.confirm ? waitForReceipt(url, txHash, 30, txargs.gas, transport) : txHash
 }
@@ -165,13 +164,13 @@ export async function waitForReceipt(url: string, txHash: string, timeout = 10, 
       params: [txHash]
     }) as RPCResponse
 
-    if (r.error) throw new Error('Error fetching the receipt for ' + txHash + ' : ' + JSON.stringify(r.error))
+    if (r.error) throw new SentryError('Error fetching receipt','error_fetching_tx','Error fetching the receipt for ' + txHash + ' : ' + JSON.stringify(r.error))
     if (r.result) {
       const receipt = r.result as any
       if (sentGas && parseInt(sentGas as any) === parseInt(receipt.gasUsed))
-        throw new Error('Transaction failed and all gas was used up')
+        throw new SentryError('Transaction failed and all gas was used up','gas_error',sentGas + ' not enough')
       if (receipt.status && receipt.status == '0x0')
-        throw new Error('The Transaction failed because it returned status=0')
+        throw new SentryError('tx failed','tx_failed','The Transaction failed because it returned status=0')
       return receipt
     }
 
@@ -179,7 +178,7 @@ export async function waitForReceipt(url: string, txHash: string, timeout = 10, 
     await new Promise(_ => setTimeout(_, Math.min(timeout * 200, steps *= 2)))
   }
 
-  throw new Error('Error waiting for the transaction to confirm')
+  throw new SentryError('Error waiting for the transaction to confirm')
 
 
 
