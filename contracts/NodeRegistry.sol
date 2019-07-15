@@ -558,7 +558,7 @@ contract NodeRegistry {
     /// @param _signer the signer-address of the in3-node, used as an identifier
     /// @return the amount of deposit to pay (2% + costs for the transaction)
     function calcUnregisterDeposit(address _signer) public view returns (uint) {
-        return (nodes[signerIndex[_signer].index].deposit / 50 + tx.gasprice + 50000);
+        return (nodes[signerIndex[_signer].index].deposit / 50);
     }
 
     /// @notice calculates the sha3 hash of the most important properties

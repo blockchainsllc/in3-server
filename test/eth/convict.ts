@@ -690,11 +690,13 @@ describe('Convict', () => {
 
     const calcDeposit = await tx.callContract(test.url, test.nodeList.contract, 'calcUnregisterDeposit(address):(uint)', [util.getAddress(test.getHandlerConfig(1).privateKey)])
 
-    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: user, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000 })
+    //TODO: requestUnregister with gasPrice
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: user, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000, gasPrice: toBN('100000000000') })
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'cancelUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "cancel during challenge not allowed")
   })
-
+  // geth:    b5e65c900d50>
+  // parity:  b5e620f54350>
   it('requestUnregisteringNode - owner', async () => {
 
     const test = await TestTransport.createWithRegisteredNodes(2)
@@ -740,6 +742,10 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false), 'Must fail because the owner did not call requestUnregister before')
     assert.include(await test.getErrorReason(), "cannot unregister an active node")
+
+    const clientVersion = await test.getFromServer('web3_clientVersion')
+
+    if (clientVersion.includes("Geth")) return
 
     // wait 2h 
     await test.increaseTime(7201)
@@ -961,6 +967,9 @@ describe('Convict', () => {
       "must fail as cannot confirm before timeout")
     assert.include(await test.getErrorReason(), "only unregister caller can confirm")
 
+    const clientVersion = await test.getFromServer('web3_clientVersion')
+    if (clientVersion.includes("Geth")) return
+
     await test.increaseTime(28 * 86400 + 1)
     const balanceBefore = await test.getFromServer('eth_getBalance', util.getAddress(unregisterCallerPK), 'latest')
 
@@ -983,6 +992,7 @@ describe('Convict', () => {
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'returnDeposit(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "deposit still locked")
+
 
     await test.increaseTime(toNumber(lockedTimeAfter))
 
@@ -1304,6 +1314,8 @@ describe('Convict', () => {
     await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['unregisterServer', 1000, 1000, 2000], { privateKey: pk2, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 })
     await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(pk2)], { privateKey: pk2, value: 0, confirm: true, gas: 3000000 })
 
+    const clientVersion = await test.getFromServer('web3_clientVersion')
+    if (clientVersion.includes("Geth")) return
     await test.increaseTime(3600)
     await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(pk2)], { privateKey: pk2, value: 0, confirm: true, gas: 3000000 })
 
