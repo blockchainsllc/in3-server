@@ -62,25 +62,19 @@ export async function callContract(url: string, contract: string, signature: str
     return sendTransaction(url, { ...txargs, to: contract, data }, transport)
 
   return simpleDecode(signature.replace('()', '(uint)'), toBuffer(await transport.handle(url, {
-        jsonrpc: '2.0',
-        id: idCount++,
-        method: 'eth_call', params: [{
-          to: contract,
-          data
-        },
-          'latest']
-      }).then((_: RPCResponse) => {
-        if(_.error)
-        {
-          throw _.error;
-        }
-        return  _.result + '';
-      })
-          .catch(err => {
-            throw(new SentryError('Could not call contract','contract_call_error','Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args)))
-          })
-  ))
+    jsonrpc: '2.0',
+    id: idCount++,
+    method: 'eth_call', params: [{
+      to: contract,
+      data
+    },
+      'latest']
+  }).then((_: RPCResponse) => _.error
+      ? Promise.reject(new SentryError('Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
+      : _.result + ''
+  )))
 }
+
 
 export async function sendTransaction(url: string, txargs: {
   privateKey: string
