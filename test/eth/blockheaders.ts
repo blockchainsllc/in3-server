@@ -180,34 +180,43 @@ describe('Blockheader contract', () => {
 
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
 
+        const clientVersion = await test.getFromServer('web3_clientVersion')
+
         const chains = Object.keys(blockHeaderFile);
         for (let j = 0; j < chains.length; j++) {
 
-            const allBlocks = process.env.GITLAB_CI ? blockHeaderFile[chains[j]] : blockHeaderFile[chains[j]].slice(0, 10)
+            let totalBlocks = process.env.GITLAB_CI ? blockHeaderFile[chains[j]] : blockHeaderFile[chains[j]].slice(0, 10)
 
-            const firstBlock = allBlocks.shift();
+            //   if (clientVersion.includes("Geth") && allBlocks.length > 10) {
 
-            const startHash = allBlocks[allBlocks.length - 1].hash;
+            for (let i = 0; i < totalBlocks.length; i += 45) {
 
-            let serialzedBlocks = [];
+                const allBlocks = totalBlocks.slice(i, i + 45)
 
+                const firstBlock = allBlocks.shift();
 
-            for (const b of allBlocks) {
-                const s = new serialize.Block(b as any).serializeHeader()
-                serialzedBlocks.push(s);
+                const startHash = allBlocks[allBlocks.length - 1].hash;
+
+                let serialzedBlocks = [];
+
+                for (const b of allBlocks) {
+                    const s = new serialize.Block(b as any).serializeHeader()
+                    serialzedBlocks.push(s);
+                }
+
+                serialzedBlocks = serialzedBlocks.reverse()
+
+                const result = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash]))[0].toString('hex')
+                await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
+
+                assert.equal(result, firstBlock.hash)
+
+                assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
             }
-
-            serialzedBlocks = serialzedBlocks.reverse()
-
-            const result = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash]))[0].toString('hex')
-            await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
-
-            assert.equal(result, firstBlock.hash)
-
-            assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
-
         }
-    })
+
+        //  }
+    }).timeout(60000)
 
     it('calculateBlockheaders fail', async () => {
         const test = await TestTransport.createWithRegisteredNodes(2)
@@ -217,35 +226,40 @@ describe('Blockheader contract', () => {
 
         const chains = Object.keys(blockHeaderFile);
         for (let j = 0; j < chains.length; j++) {
-            const allBlocks = process.env.GITLAB_CI ? blockHeaderFile[chains[j]] : blockHeaderFile[chains[j]].slice(0, 10)
+            let totalBlocks = process.env.GITLAB_CI ? blockHeaderFile[chains[j]] : blockHeaderFile[chains[j]].slice(0, 10)
 
-            const firstBlock = allBlocks.shift();
-            const startHash = allBlocks[allBlocks.length - 1].hash;
+            for (let i = 0; i < totalBlocks.length; i += 45) {
 
-            let serialzedBlocks = [];
+                const allBlocks = totalBlocks.slice(i, i + 45)
 
-            for (const b of allBlocks) {
-                const s = new serialize.Block(b as any).serializeHeader()
-                serialzedBlocks.push(s);
+                const firstBlock = allBlocks.shift();
+
+                const startHash = allBlocks[allBlocks.length - 1].hash;
+
+                let serialzedBlocks = [];
+
+                for (const b of allBlocks) {
+                    const s = new serialize.Block(b as any).serializeHeader()
+                    serialzedBlocks.push(s);
+                }
+
+                serialzedBlocks = serialzedBlocks.reverse()
+                const temp = serialzedBlocks[2]
+                serialzedBlocks[2] = serialzedBlocks[3]
+                serialzedBlocks[3] = temp
+
+                const result = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash]))[0].toString('hex')
+
+                await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
+
+                assert.equal(result, "0x0000000000000000000000000000000000000000000000000000000000000000")
+
+                assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
             }
-
-            serialzedBlocks = serialzedBlocks.reverse()
-
-            const temp = serialzedBlocks[2]
-            serialzedBlocks[2] = serialzedBlocks[3]
-            serialzedBlocks[3] = temp
-
-            const result = "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash]))[0].toString('hex')
-
-            //   if (process.env.GITLAB_CI) {
-            await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
-            //   }
-
-            assert.equal(result, "0x0000000000000000000000000000000000000000000000000000000000000000")
         }
-    })
+    }).timeout(60000)
 
-    const headerLength = process.env.GITLAB_CI ? 250 : 10
+    let headerLength = process.env.GITLAB_CI ? 250 : 10
 
 
     it(`create ${headerLength} blocks`, async () => {
@@ -262,25 +276,26 @@ describe('Blockheader contract', () => {
 
         const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
 
-        const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+        let block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
         await tx.callContract(test.url, blockHashRegAddress, 'snapshot()', [], { privateKey: pk1, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 10 })
-
-        const blockNumber = toNumber(block.number)
+        let blockNumber = toNumber(block.number)
 
         const sstart = new serialize.Block(block as any);
 
         let blockheaderArray = [];
         blockheaderArray.push(sstart.serializeHeader());
 
+        const clientVersion = await test.getFromServer('web3_clientVersion')
 
+        if (clientVersion.includes("Geth")) headerLength = 45
 
         for (let i = 1; i < headerLength; i++) {
             const b = await test.getFromServer('eth_getBlockByNumber', toHex(blockNumber - i), false) as BlockData
             const s = new serialize.Block(b as any);
             blockheaderArray.push(s.serializeHeader());
-
         }
+
         const targetBlock = ("0x" + (await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash]))[0].toString('hex'))
         await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [blockheaderArray, block.hash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
 
@@ -304,6 +319,7 @@ describe('Blockheader contract', () => {
         assert.equal(blockHashAfter, blockResult.hash)
 
         assert.equal((blockNumber - toNumber(blockResult.number)), headerLength)
+
     })
 
     it('recreateBlockheaders fail', async () => {
@@ -388,6 +404,10 @@ describe('Blockheader contract', () => {
 
             const test = await TestTransport.createWithRegisteredNodes(2)
             const pk1 = test.getHandlerConfig(0).privateKey
+
+            const clientVersion = await test.getFromServer('web3_clientVersion')
+
+            if (clientVersion.includes("Geth")) return
 
             const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
 

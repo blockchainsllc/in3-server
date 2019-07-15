@@ -94,12 +94,12 @@ test-geth:
         - daemon
         - --offline
       alias: ipfs
-    - name: docker.slock.it/build-images/geth:v1.8.18
+    - name: docker.slock.it/core-technology/geth-timemachine:master
       alias: geth
   script:
     - sh /prepare.sh
     - npm install
-  #        - npm run testCoverage             just for now geth seems to have some issues
+    - npm run testCoverage 
   dependencies:
     - build-server
     - compile-contracts

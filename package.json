@@ -14,7 +14,7 @@
     "updateContracts": "docker run --rm -v $(pwd)/contracts:/contracts ethereum/solc:0.5.10 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata,srcmap-runtime /contracts/NodeRegistry.sol /contracts/ChainRegistry.sol /contracts/BlockhashRegistry.sol > contracts/contracts.json; docker run --rm -v $(pwd)/test:/test ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /test/contracts/TestContract.sol > test/contracts/contracts.json",
     "start": "node --inspect js/server/server",
     "parity": "docker run --rm -p 8180:8180 -p 8545:8545 -p 8546:8546 docker.slock.it/core-technology/parity-timemachine:master",
-    "geth": "docker run --rm -d -p 8545:8545 -p 8546:8546 docker.slock.it/build-images/geth:v1.8.18",
+    "geth": "docker run --rm -p 8545:8545 -p 8546:8546 docker.slock.it/core-technology/geth-timemachine:master",
     "docker-build": "docker build --squash  --build-arg \"SSH_PRIVATE_KEY=`cat ~/.ssh/id_dsa`\"  -t slockit/in3-server:0.1 .",
     "docker-push": "npm run docker-build && docker push slockit/in3-server:0.1",
     "docker-run": "docker run -p 8500:8500 docker.slock.it/slockit/in3-server:latest --privateKey=0x3858a0f49ce12df65031ba0eb0b353abc74f93f8ccd43df9682fd2e2293a4db3 --chain=0x2a --rpcUrl=https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX --minBlockHeight=6 --registry=0x013b82355a066A31427df3140C5326cdE9c64e3A --persistentFile=false --logging-host=logs7.papertrailapp.com --logging-name=Papertrail --logging-port=30571 --logging-type=winston-papertrail",
