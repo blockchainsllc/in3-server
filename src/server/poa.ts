@@ -137,6 +137,8 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
                       handler
                     )
 
+                    const lastFinalityBlock = serialize.blockFromHex(finalityBlocks[finalityBlocks.length-1])
+
                     /*
                     * Stitch the proof
                     */
@@ -155,10 +157,13 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
                     }
 
                     history.states.push({
-                        block: s.block,
+                        block: toNumber(lastFinalityBlock.number) + 1,//s.block,
                         validators: s.list,
                         proof: validatorProof as AuraValidatoryProof
                     })
+
+                    history.lastCheckedBlock = toNumber(lastFinalityBlock.number) + 1
+                    history.lastValidatorChange = toNumber(lastFinalityBlock.number) + 1
 
                     await updateAuraHistory(s.contract, handler, history, nextBlock)
                 }
@@ -174,10 +179,9 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
     else if (spec && spec.length) {
         // just update the history
         const latestTransition = spec[spec.length - 1]
-        const finalityAdded = history.states.filter(s => s.block == latestTransition.block)
 
         //update only if the trnasition is contract based
-        if (latestTransition.contract && latestTransition.engine === 'authorityRound' && finalityAdded.length)
+        if (latestTransition.contract && latestTransition.engine === 'authorityRound')
             await updateAuraHistory(latestTransition.contract, handler, history, currentBlock)
         else if (latestTransition.engine === 'clique')
             await updateCliqueHistory(latestTransition.epoch || 30000, handler, history, currentBlock)
@@ -312,7 +316,7 @@ async function addFinalityForTransition(
 
     //Hardcoded 51% finality // TODO for now we do not use finality yet, but we
     //must fix it!
-    const minSigners = 1 || Math.ceil((numValidators + 1) / 2)
+    const minSigners = Math.ceil((numValidators + 1) / 2)
 
     const finalityBlocks = []
 
@@ -372,6 +376,8 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
             currentBlock,
             handler)
 
+        const lastFinalityBlock = serialize.blockFromHex(finalityBlocks[finalityBlocks.length-1])
+
         /*
         * Stitch the proof
         */
@@ -391,7 +397,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         //update the history states
         history.states.push({
             validators: validatorList,
-            block: parseInt(log.blockNumber),
+            block: toNumber(lastFinalityBlock.number) + 1,
             proof: validatorProof as AuraValidatoryProof
         })
 
