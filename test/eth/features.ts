@@ -185,7 +185,7 @@ describe('Features', () => {
 
   })
 
-  it.skip('partial Server List', async () => {
+  it('partial Server List', async () => {
 
     // create  10 nodes
     const test = await TestTransport.createWithRegisteredNodes(10)
@@ -211,19 +211,15 @@ describe('Features', () => {
 
   })
 
-
-
   it('code cache', async () => {
 
     // create  10 nodes
     const test = new TestTransport(2)
     const client = await test.createClient({ maxCodeCache: 100000, requestCount: 1, proof: 'standard', includeCode: false })
 
-
     // deploy testcontract
     const pk = await test.createAccount()
     const adr = await deployContract('TestContract', pk, getTestClient())
-
 
     const ctx = client.getChainContext(client.defConfig.chainId) as EthChainContext
 

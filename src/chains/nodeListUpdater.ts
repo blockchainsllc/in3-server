@@ -100,15 +100,9 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
   const keys: Buffer[] = [storage.getStorageArrayKey(0)]
 
   for (const n of list) {
-    for (let i = 0; i < 4; i++)
-      keys.push(storage.getStorageArrayKey(0, n.index, 5, i))
-    const urlKey = util.toBN(keccak256(keys[keys.length - 4]))
-    if (n.url.length > 31) {
-      for (let i = 0; i < n.url.length / 32; i++)
-        keys.push(bytes32(urlKey.add(util.toBN(i))))
-    }
-  }
 
+    keys.push(storage.getStorageArrayKey(0, n.index, 5, 4))
+  }
   return keys
 }
 
@@ -215,10 +209,14 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
       url,
       address: toChecksumAddress(signer),
       index: i,
-      deposit: parseInt(deposit.toString()),
-      props: props.toNumber(),
+      deposit: deposit.toString(),
+      props: props.toString(),
       chainIds: [handler.chainId],
-      unregisterRequestTime: unregisterTime.toNumber()
+      unregisterRequestTime: unregisterTime.toString(),
+      timeout: timeout.toString(),
+      registerTime: registerTime.toString(),
+      weight: weight.toString(),
+      proofHash: (proofHash).toString('hex')
     } as IN3NodeConfig
 
   })).then(_ => _)
