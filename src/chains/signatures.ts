@@ -48,7 +48,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
   // get our own nodeList
   const nodes = await handler.getNodeList(false)
-  return Promise.all(addresses.map(async adr => {
+  const uniqueAddresses =   [...new Set(addresses.map(item => item))];
+  return Promise.all(uniqueAddresses.map(async adr => {
     // find the requested address in our list
     const config = nodes.nodes.find(_ => _.address.toLowerCase() === adr.toLowerCase())
     if (!config) // TODO do we need to throw here or is it ok to simply not deliver the signature?
