@@ -88,6 +88,9 @@ contract NodeRegistry {
     /// node list of incubed nodes
     In3Node[] public nodes;
 
+    /// id used for signing
+    bytes32 public registryId;
+
     /// add your additional storage here. If you add information before this line you will break in3 nodelist
 
     /// blockhash registry address
@@ -98,9 +101,6 @@ contract NodeRegistry {
 
     /// the timestamp of the deployment
     uint public blockTimeStampDeployment;
-
-    /// id used for signing
-    bytes32 public registryId;
 
     /// mapping for information of the owner
     mapping (address => SignerInformation) public signerIndex;

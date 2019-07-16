@@ -35,7 +35,7 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
     await updateNodeList(handler, nodeList)
 
 
-  if (!(nodeList as any).registryId || (nodeList as any).registryId === '0x') {
+  if (!nodeList.registryId || nodeList.registryId === '0x') {
     const registryIdRequest: RPCRequest = {
       jsonrpc: '2.0',
       id: 0,
@@ -48,7 +48,7 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
 
 
     const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string);
-    if (registryId != undefined) (nodeList as any).registryId = registryId
+    if (registryId != undefined) nodeList.registryId = registryId
   }
 
   // if the client requires a portion of the list
@@ -65,7 +65,8 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
       totalServers: nodeList.totalServers,
       contract: nodeList.contract,
       lastBlockNumber: nodeList.lastBlockNumber,
-      nodes: result.map(i => nodeList.nodes[i])
+      nodes: result.map(i => nodeList.nodes[i]),
+      registryId: nodeList.registryId
     }
 
     if (includeProof) {
@@ -99,6 +100,7 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
   // create the keys with the serverCount
   const keys: Buffer[] = [storage.getStorageArrayKey(0)]
 
+  keys.push(storage.getStorageArrayKey(1))
   for (const n of list) {
 
     keys.push(storage.getStorageArrayKey(0, n.index, 5, 4))
@@ -112,7 +114,6 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
  * @param nodeList 
  */
 export async function createNodeListProof(handler: RPCHandler, nodeList: ServerList) {
-
 
   // create the keys with the serverCount
   const keys: Buffer[] = getStorageKeys(nodeList.nodes)
@@ -139,7 +140,6 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
   if (proof.result && proof.result.storageProof)
     proof.result.storageProof.forEach(p => p.key = util.toMinHex(p.key))
 
-
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as BlockData
   const account = proof.result as AccountProof
@@ -165,7 +165,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
     //    list.contract = toChecksumAddress('0x' + registryContract)
   }
 
-  if (!(list as any).registryId) {
+  if (!list.registryId) {
 
     const registryIdRequest: RPCRequest = {
       jsonrpc: '2.0',
@@ -178,7 +178,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
     }
 
     const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string);
-    (list as any).registryId = registryId
+    list.registryId = registryId
 
   }
 
