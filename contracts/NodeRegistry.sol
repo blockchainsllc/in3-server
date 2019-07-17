@@ -153,7 +153,7 @@ contract NodeRegistry {
 
     /// @notice confirms the unregistering of a node by its owner or by the unregister-caller (challenger)
     /// @notice if the node-owner calls the node will simply be removed from the nodelist
-    /// @notice if the the challenger successfully calls unregister then node-owner will lose 2% of his deposit which the challenger will get
+    /// @notice if the the challenger successfully calls unregister then node will lose 2% of his deposit which the challenger will get
     /// @param _signer the signer-address of an in3-node
     /// @dev reverts when not challenged and the sender is not the owner of the node
     /// @dev reverts when not challenged and the sender does not own a node
