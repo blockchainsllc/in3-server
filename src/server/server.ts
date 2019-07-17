@@ -18,7 +18,10 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
+
 import * as logger from '../util/logger'
+import {SentryError} from '../util/sentryError'
+
 // Hook to nodeJs events
 function handleExit(signal) {
   logger.info("Stopping in3-server gracefully...");
@@ -102,7 +105,10 @@ router.post(/.*/, async ctx => {
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
+    throw new SentryError(err,"request_status",ctx.request.body)
+
     ctx.app.emit('error', err, ctx)
+
   }
 
 })
@@ -115,11 +121,11 @@ router.get(/.*/, async ctx => {
   else if (path[path.length - 1] === 'version') return getVersion(ctx)
   else if (INIT_ERROR) return initError(ctx)
   try {
-    if (path.length < 2) throw new Error('invalid path')
+    if (path.length < 2) throw new SentryError('invalid path','input_error',"the path entered returned error:" + ctx.path)
     let start = path.indexOf('api')
     if (start < 0)
       start = path.findIndex(_ => chainAliases[_] || _.startsWith('0x'))
-    if (start < 0 || start > path.length - 2) throw new Error('invalid path ' + ctx.path)
+    if (start < 0 || start > path.length - 2) throw new SentryError('invalid path','input_error',"the path entered returned error:" + ctx.path)
     const [chain, method] = path.slice(start)
     const req = rpc.getRequestFromPath(path.slice(start + 1), { chainId: chainAliases[chain] || chain, ...ctx.query }) || {
       id: 1,
@@ -136,13 +142,16 @@ router.get(/.*/, async ctx => {
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
     ctx.body = result.result || result.error
-
+    console.log(ctx.status)
   } catch (err) {
     ctx.status = err.status || 500
     ctx.body = err.message
     //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
+    throw new SentryError(err,"request_status",ctx.request.body)
+
     ctx.app.emit('error', err, ctx)
+
   }
 
 })
@@ -152,20 +161,24 @@ initConfig().then(() => {
   (chainAliases as any).api = Object.keys(config.chains)[0]
   logger.info('staring in3-server...')
   app
-    .use(router.routes())
-    .use(router.allowedMethods())
-    .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
+  .use(router.routes())
+  .use(router.allowedMethods())
+  .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
 
   const doInit = (retryCount: number) => {
     if (retryCount <= 0) {
       logger.error('Error initializing the server : Maxed out retries')
+      throw new SentryError("server initialization error","server_status","maxed out retries")
       INIT_ERROR = true
       return;
     }
     rpc.init().catch(err => {
       //console.error('Error initializing the server : ' + err.message)
       logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
+
       setTimeout(() => { doInit(retryCount - 1) }, 20000)
+      throw new SentryError(err.message,"server_status","Error initializing the server" + err.stack)
+
     })
   }
 
@@ -174,6 +187,8 @@ initConfig().then(() => {
 }).catch(err => {
   //console.error('Error starting the server : ' + err.message, config)
   logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
+  throw new SentryError(err,"server_status","Error starting the server")
+
   process.exit(1)
 })
 
@@ -187,17 +202,18 @@ async function checkHealth(ctx: Router.IRouterContext) {
   else if (INIT_ERROR) {
     ctx.body = { status: 'unhealthy', message: "server initialization error" }
     ctx.status = 500
+    throw new SentryError("server initialization error","server_status","unhealthy")
   }
   else {
     await Promise.all(
-      Object.keys(rpc.handlers).map(c => rpc.handlers[c].getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })))
-      .then(_ => {
-        ctx.body = { status: 'healthy' }
-        ctx.status = 200
-      }, _ => {
-        ctx.body = { status: 'unhealthy', message: _.message }
-        ctx.status = 500
-      })
+        Object.keys(rpc.handlers).map(c => rpc.handlers[c].getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })))
+        .then(_ => {
+          ctx.body = { status: 'healthy' }
+          ctx.status = 200
+        }, _ => {
+          ctx.body = { status: 'unhealthy', message: _.message }
+          ctx.status = 500
+        })
   }
 
 }
@@ -206,6 +222,8 @@ async function initError(ctx: Router.IRouterContext) {
   //lies to the rancher that it is healthy to avoid restart loop
   ctx.body = "Server uninitialized"
   ctx.status = 200
+  throw new SentryError("server initialization error","server_status","unhealthy")
+
 }
 
 async function getVersion(ctx: Router.IRouterContext) {
@@ -217,5 +235,8 @@ async function getVersion(ctx: Router.IRouterContext) {
   else {
     ctx.body = "Unknown Version"
     ctx.status = 500
+    throw new SentryError("server unknown version","server_status","unknown version")
+
   }
 }
+
