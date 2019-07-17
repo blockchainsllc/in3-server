@@ -65,7 +65,7 @@ contract NodeRegistry {
 
     /// information of a in3-node owner
     struct SignerInformation {
-        uint64 unregisterTimeout;           /// unix timestamp until a server can proof activity
+        uint64 unregisterTimeout;           /// unix timestamp until a node can proof activity
         bool used;                          /// flag whether account is currently a signer of a node
         address owner;                      /// the owner of the node
 
@@ -115,7 +115,7 @@ contract NodeRegistry {
     /// capping the max deposit timeout on 1 year
     uint constant internal YEARDEFINITION = 1 days * 365;
 
-    /// limit for ether per server in the 1st year
+    /// limit for ether per node in the 1st year
     uint constant internal MAXETHERLIMIT = 50 ether;
 
     /// constructor
@@ -152,11 +152,11 @@ contract NodeRegistry {
     }
 
     /// @notice confirms the unregistering of a node by its owner or by the unregister-caller (challenger)
-    /// @notice if the node-owner calls the server will simply be removed from the nodelist
-    /// @notice the the challenger successfully calls unregister then node-owner will lose 2% of his deposit which the challenger will get
+    /// @notice if the node-owner calls the node will simply be removed from the nodelist
+    /// @notice if the the challenger successfully calls unregister then node-owner will lose 2% of his deposit which the challenger will get
     /// @param _signer the signer-address of an in3-node
-    /// @dev reverts when not challenged and the sender is not the owner of the server
-    /// @dev reverts when not challenged and the sender does not own a server
+    /// @dev reverts when not challenged and the sender is not the owner of the node
+    /// @dev reverts when not challenged and the sender does not own a node
     /// @dev reverts when not challenged and the node is still active
     /// @dev reverts when not challenged and the unregister-time is not yet over
     /// @dev reverts when challenged and the sender is not the unregister caller
@@ -219,7 +219,7 @@ contract NodeRegistry {
     /// @notice commits a blocknumber and a hash
     /// @notice must be called before revealConvict
     /// @param _blockNumber the blocknumber of the wrong blockhash
-    /// @param _hash keccak256(wrong blockhash, msg.sender, v, r, s), used to prevent frontrunning
+    /// @param _hash _B used to prevent frontrunning
     function convict(uint _blockNumber, bytes32 _hash) external {
 
         ConvictInformation memory ci;
@@ -229,7 +229,7 @@ contract NodeRegistry {
         convictMapping[_blockNumber][msg.sender] = ci;
     }
 
-    /// @notice proving to the smart contract that the server is still active
+    /// @notice proving to the smart contract that the node is still active
     /// @notice by calculating a hash based on a keccak256(nonce,blockhash) that meets a certain difficulty
     /// @param _blockNumber blockNumber of the blockhash used to prove activity
     /// @param _nonce nonce for the hash
@@ -264,7 +264,7 @@ contract NodeRegistry {
     /// @param _url the url of the node, has to be unique
     /// @param _props properties of the node
     /// @param _timeout timespan of how long the node of a deposit will be locked. Will be at least for 1h
-    /// @param _weight how many requests per second the server is able to handle
+    /// @param _weight how many requests per second the node is able to handle
     /// @dev will call the registerNodeInteral function
     function registerNode(
         string calldata _url,
@@ -290,7 +290,7 @@ contract NodeRegistry {
     /// @param _props properties of the node
     /// @param _timeout timespan of how long the node of a deposit will be locked. Will be at least for 1h
     /// @param _signer the signer of the in3-node
-    /// @param _weight how many requests per second the server is able to handle
+    /// @param _weight how many requests per second the node is able to handle
     /// @dev will call the registerNodeInteral function
     function registerNodeFor(
         string calldata _url,
@@ -320,7 +320,7 @@ contract NodeRegistry {
     /// @dev reverts when the provided address is not an in3-signer
     /// @dev reverts when the node is already unregistering
     /// @dev reverts when inactivity is claimed
-    /// @dev if not the server owner reverts when the send deposit it not correct
+    /// @dev if not the node owner reverts when the send deposit it not correct
     /// @dev reverts when being the owner and sending value through this function
     function requestUnregisteringNode(address _signer) external payable {
 
@@ -479,7 +479,7 @@ contract NodeRegistry {
     /// @param _url the url, will be changed if different from the current one
     /// @param _props the new properties, will be changed if different from the current onec
     /// @param _timeout the new timeout of the node, cannot be decreased
-    /// @param _weight the amount of requests per second the server is able to handle
+    /// @param _weight the amount of requests per second the node is able to handle
     /// @dev reverts when the sender is not the owner of the node
     /// @dev reverts when the signer does not own a node
     /// @dev reverts when trying to increase the timeout above 10 years
@@ -554,7 +554,7 @@ contract NodeRegistry {
         return nodes.length;
     }
 
-    /// @notice calculates the amount a sender has to pay in order to claim that a server is inactive
+    /// @notice calculates the amount a sender has to pay in order to claim that a node is inactive
     /// @param _signer the signer-address of the in3-node, used as an identifier
     /// @return the amount of deposit to pay (2% + costs for the transaction)
     function calcUnregisterDeposit(address _signer) public view returns (uint) {
@@ -582,14 +582,14 @@ contract NodeRegistry {
     /// @notice registers a node
     /// @param _url the url of a node
     /// @param _props properties of a node
-    /// @param _timeout the time before the owner can access the deposit after unregistering a server
-    /// @param _signer the address that signs the answers of the server
+    /// @param _timeout the time before the owner can access the deposit after unregistering a node
+    /// @param _signer the address that signs the answers of the node
     /// @param _owner the owner address of the node
-    /// @param _deposit the deposit of a server
-    /// @param _weight the amount of requests per second a server is able to handle
+    /// @param _deposit the deposit of a node
+    /// @param _weight the amount of requests per second a node is able to handle
     /// @dev reverts when time timeout exceed the MAXDEPOSITTIMEOUT
     /// @dev reverts when provided not enough deposit
-    /// @dev reverts when trying to register a server with more then 50 ether in the 1st year after deployment
+    /// @dev reverts when trying to register a node with more then 50 ether in the 1st year after deployment
     /// @dev reverts when either the owner or the url is already in use
     function registerNodeInternal(
         string memory _url,
