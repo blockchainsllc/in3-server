@@ -18,6 +18,7 @@
 ***********************************************************/
 
 pragma solidity ^0.4.19;
+pragma experimental ABIEncoderV2;
 
 contract TestContract {
 
@@ -77,6 +78,9 @@ contract TestContract {
         }
     }
 
+    function calculateBlockheaders(bytes[] memory _blockheaders, bytes32 _startHash) public pure returns (bytes[]){
+        return _blockheaders;
+    }
 
 
     

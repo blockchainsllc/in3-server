@@ -18,7 +18,6 @@
 ***********************************************************/
 
 import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec, util as in3Util, serialize } from 'in3'
-import { simpleDecode } from 'ethereumjs-abi'
 
 import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
 import BaseHandler from '../../chains/BaseHandler'
@@ -206,7 +205,7 @@ function createCallParams(request: RPCRequest): any[] {
     const retTypes = method.split(':')[1].substr(1).replace(')', ' ').trim().split(', ');
     (request as any).convert = result => {
       if (result.result)
-        result.result = simpleDecode(fullMethod, Buffer.from(result.result.substr(2), 'hex')).map((v, i) => {
+        result.result = tx.decodeFunction(fullMethod, Buffer.from(result.result.substr(2), 'hex')).map((v, i) => {
           if (Buffer.isBuffer(v)) return '0x' + v.toString('hex')
           if (v && v.ixor) return v.toString()
           if (retTypes[i] !== 'string' && typeof v === 'string' && v[1] !== 'x')

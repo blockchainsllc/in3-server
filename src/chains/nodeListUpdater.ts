@@ -184,7 +184,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   list.nodes = await handler.getAllFromServer(nodeRequests).then(all => all.map((n, i) => {
     // invalid requests must be filtered out
     if (n.error) return null
-    const [url, owner, deposit, props, unregisterTime] = abi.simpleDecode('servers(uint):(string,address,uint,uint,uint,address)', toBuffer(n.result))
+    const [url, owner, deposit, props, unregisterTime] = tx.decodeFunction('servers(uint):(string,address,uint,uint,uint128,uint128,address)', toBuffer(n.result))
 
     return {
       url,

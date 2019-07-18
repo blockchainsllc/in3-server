@@ -21,6 +21,11 @@
 import { assert } from 'chai'
 import 'mocha'
 import * as tx from '../../src/util/tx'
+import { util } from 'in3'
+import { TestTransport, getTestClient } from '../utils/transport'
+import { deployContract } from '../../src/util/registry';
+import { toBuffer, toBN } from 'in3/js/src/util/util';
+const getAddress = util.getAddress
 
 describe('AbiCoder', () => {
 
@@ -34,7 +39,37 @@ describe('AbiCoder', () => {
 
   })
 
-  it.skip('callContract', async () => {
+  it('decode', async () => {
+    let dec = tx.decodeFunction('calculateBlockheaders(bytes[],bytes32):(bytes[])', toBuffer('0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000002abcd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002cdef000000000000000000000000000000000000000000000000000000000000'))
+    assert.deepEqual(dec, [['0xabcd', '0xcdef']])
+
+    dec = tx.decodeFunction('totalServers(uint):(uint)', toBuffer('0x0000000000000000000000000000000000000000000000000000000000000002'))
+    assert.equal(dec[0].toNumber(), 2)
+
+    const [url, owner, deposit, props, unregisterTime, unregisterDeposit, unregisterCaller] = tx.decodeFunction('servers(uint):(string,address,uint,uint,uint128,uint128,address)', toBuffer('0x00000000000000000000000000000000000000000000000000000000000000e00000000000000000000000009ede820a9d092fceb803e91f5f1008ecc33e9a9d0000000000000000000000000000000000000000000000000000000000002710000000000000000000000000000000000000000000000000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022331000000000000000000000000000000000000000000000000000000000000'))
+
+    assert.equal(url, '#1')
+    assert.equal(owner, '0x9Ede820a9d092Fceb803e91f5F1008ecc33E9A9d')
+    assert.equal(deposit.toNumber(), 10000)
+    assert.equal(props.toNumber(), 65535)
+    assert.equal(unregisterTime.toNumber(), 0)
+    assert.equal(unregisterDeposit.toNumber(), 0)
+    assert.equal(unregisterCaller, "0x0000000000000000000000000000000000000000")
+
+  })
+
+  it('callContract', async () => {
+
+    let test = new TestTransport(1) // create a network of 3 nodes
+
+    // check deployed code
+    const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
+
+    const returnValue = await tx.callContract(test.url, adr, 'calculateBlockheaders(bytes[],bytes32):(bytes[])', [['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20"])
+
+    assert.deepEqual(returnValue, [['0xabcd', '0xcdef']])
+
+
   })
 
   it.skip('callContractWithClient', async () => {

@@ -17,7 +17,7 @@
  * For questions, please contact info@slock.it              *
  ***********************************************************/
 
-import { simpleDecode, methodID } from 'ethereumjs-abi'
+import { methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress, BN, keccak256 } from 'ethereumjs-util'
 import Client, { Transport, AxiosTransport, RPCResponse, util, transport } from 'in3'
 import * as ETx from 'ethereumjs-tx'
@@ -62,7 +62,7 @@ export async function callContract(url: string, contract: string, signature: str
   if (txargs)
     return sendTransaction(url, { ...txargs, to: contract, data }, transport)
 
-  return simpleDecode(signature.replace('()', '(uint)'), toBuffer(await transport.handle(url, {
+  return decodeFunction(signature.replace('()', '(uint)'), toBuffer(await transport.handle(url, {
     jsonrpc: '2.0',
     id: idCount++,
     method: 'eth_call', params: [{
@@ -190,5 +190,19 @@ export function encodeFunction(signature: string, args: any[]): string {
   const methodHash = (methodID(signature.substr(0, signature.indexOf('(')), typeArray)).toString('hex')
 
   return methodHash + abiCoder.encode(typeArray, args).substr(2)
+
+}
+
+export function decodeFunction(signature: string, args: Buffer): any {
+  const outputParams = signature.split(':')[1]
+
+  const abiCoder = new AbiCoder()
+
+  const typeTemp = outputParams.substring(outputParams.indexOf('(') + 1, (outputParams.indexOf(')')))
+
+  const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
+
+  return abiCoder.decode(typeArray, args)
+
 
 }
