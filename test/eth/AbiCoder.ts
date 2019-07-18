@@ -20,10 +20,7 @@
 
 import { assert } from 'chai'
 import 'mocha'
-
 import * as tx from '../../src/util/tx'
-
-
 
 describe('AbiCoder', () => {
 

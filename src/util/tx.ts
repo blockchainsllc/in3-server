@@ -17,7 +17,7 @@
  * For questions, please contact info@slock.it              *
  ***********************************************************/
 
-import { simpleEncode, simpleDecode, methodID } from 'ethereumjs-abi'
+import { simpleDecode, methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress, BN, keccak256 } from 'ethereumjs-util'
 import Client, { Transport, AxiosTransport, RPCResponse, util, transport } from 'in3'
 import * as ETx from 'ethereumjs-tx'
