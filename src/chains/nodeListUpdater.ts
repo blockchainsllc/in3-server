@@ -176,7 +176,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
       id: i + 1,
       method: 'eth_call', params: [{
         to: list.contract,
-        data: '0x' + abi.simpleEncode('servers(uint)', toHex(i, 32)).toString('hex')
+        data: '0x' + tx.encodeFunction('servers(uint)', [toHex(i, 32)])
       },
         'latest']
     })

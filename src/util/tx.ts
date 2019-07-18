@@ -21,7 +21,8 @@ import { simpleEncode, simpleDecode, methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress, BN, keccak256 } from 'ethereumjs-util'
 import Client, { Transport, AxiosTransport, RPCResponse, util, transport } from 'in3'
 import * as ETx from 'ethereumjs-tx'
-import {SentryError} from '../util/sentryError'
+import { SentryError } from '../util/sentryError'
+import { AbiCoder } from '@ethersproject/abi'
 
 const toHex = util.toHex
 
@@ -40,7 +41,7 @@ export async function deployContract(url: string, bin: string, txargs?: {
 }
 
 export async function callContractWithClient(client: Client, contract: string, signature: string, ...args: any[]) {
-  const data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
+  const data = '0x' + encodeFunction(signature, args)
 
   return client.sendRPC('eth_call', [{ to: contract, data }, 'latest'], client.defConfig.chainId)
 }
@@ -56,7 +57,7 @@ export async function callContract(url: string, contract: string, signature: str
   confirm?: boolean
 }, transport?: Transport) {
   if (!transport) transport = new AxiosTransport()
-  const data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
+  const data = '0x' + encodeFunction(signature, args)
 
   if (txargs)
     return sendTransaction(url, { ...txargs, to: contract, data }, transport)
@@ -70,8 +71,8 @@ export async function callContract(url: string, contract: string, signature: str
     },
       'latest']
   }).then((_: RPCResponse) => _.error
-      ? Promise.reject(new SentryError('Could not call contract','contract_call_error','Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
-      : _.result + ''
+    ? Promise.reject(new SentryError('Could not call contract', 'contract_call_error', 'Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
+    : _.result + ''
   )))
 }
 
@@ -139,7 +140,7 @@ export async function sendTransaction(url: string, txargs: {
     id: idCount++,
     method: 'eth_sendRawTransaction',
     params: [toHex(tx.serialize())]
-  }).then((_: RPCResponse) => _.error ? Promise.reject(new SentryError('Error sending tx','tx_error','Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
+  }).then((_: RPCResponse) => _.error ? Promise.reject(new SentryError('Error sending tx', 'tx_error', 'Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
 
   return txargs.confirm ? waitForReceipt(url, txHash, 30, txargs.gas, transport) : txHash
 }
@@ -158,13 +159,13 @@ export async function waitForReceipt(url: string, txHash: string, timeout = 10, 
       params: [txHash]
     }) as RPCResponse
 
-    if (r.error) throw new SentryError('Error fetching receipt','error_fetching_tx','Error fetching the receipt for ' + txHash + ' : ' + JSON.stringify(r.error))
+    if (r.error) throw new SentryError('Error fetching receipt', 'error_fetching_tx', 'Error fetching the receipt for ' + txHash + ' : ' + JSON.stringify(r.error))
     if (r.result) {
       const receipt = r.result as any
       if (sentGas && parseInt(sentGas as any) === parseInt(receipt.gasUsed))
-        throw new SentryError('Transaction failed and all gas was used up','gas_error',sentGas + ' not enough')
+        throw new SentryError('Transaction failed and all gas was used up', 'gas_error', sentGas + ' not enough')
       if (receipt.status && receipt.status == '0x0')
-        throw new SentryError('tx failed','tx_failed','The Transaction failed because it returned status=0')
+        throw new SentryError('tx failed', 'tx_failed', 'The Transaction failed because it returned status=0')
       return receipt
     }
 
@@ -175,5 +176,19 @@ export async function waitForReceipt(url: string, txHash: string, timeout = 10, 
   throw new SentryError('Error waiting for the transaction to confirm')
 
 
+
+}
+
+export function encodeFunction(signature: string, args: any[]): string {
+  const inputParams = signature.split(':')[0]
+
+  const abiCoder = new AbiCoder()
+
+  const typeTemp = inputParams.substring(inputParams.indexOf('(') + 1, (inputParams.indexOf(')')))
+
+  const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
+  const methodHash = (methodID(signature.substr(0, signature.indexOf('(')), typeArray)).toString('hex')
+
+  return methodHash + abiCoder.encode(typeArray, args).substr(2)
 
 }
