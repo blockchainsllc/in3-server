@@ -65,14 +65,30 @@ describe('AbiCoder', () => {
     // check deployed code
     const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
 
-    const returnValue = await tx.callContract(test.url, adr, 'calculateBlockheaders(bytes[],bytes32):(bytes[])', [['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20"])
+    const returnValue = await tx.callContract(test.url, adr, 'encodingTest(bytes[],bytes32):(bytes32,bytes[])', [['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20"])
 
-    assert.deepEqual(returnValue, [['0xabcd', '0xcdef']])
+    assert.deepEqual(returnValue, ["0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20", ['0xabcd', '0xcdef']])
 
 
   })
 
-  it.skip('callContractWithClient', async () => {
+  it('callContractWithClient', async () => {
+    let test = new TestTransport(1) // create a network of 3 nodes
+    let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
+
+    // create a account with 500 wei
+    const user = getAddress(await test.createAccount(undefined, 500))
+
+
+    // check deployed code
+    const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
+
+    const returnValue = await tx.callContractWithClient(client, adr, 'encodingTest(bytes[],bytes32):(bytes32,bytes[])', ['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20")
+
+    //  assert.deepEqual(returnValue.result, ["0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20", ['0xabcd', '0xcdef']])
+    assert.equal(returnValue.result, "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac2000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000002abcd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002cdef000000000000000000000000000000000000000000000000000000000000")
+
+    assert.deepEqual(tx.decodeFunction('encodingTest(bytes[],bytes32):(bytes32,bytes[])', toBuffer("0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac2000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000002abcd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002cdef000000000000000000000000000000000000000000000000000000000000")), ["0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20", ['0xabcd', '0xcdef']])
   })
 })
 

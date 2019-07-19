@@ -78,8 +78,8 @@ contract TestContract {
         }
     }
 
-    function calculateBlockheaders(bytes[] memory _blockheaders, bytes32 _startHash) public pure returns (bytes[]){
-        return _blockheaders;
+    function encodingTest(bytes[] memory _a, bytes32 _b) public pure returns (bytes32, bytes[]){
+        return (_b, _a);
     }
 
 
