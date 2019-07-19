@@ -18,7 +18,7 @@
  ***********************************************************/
 
 import { methodID } from 'ethereumjs-abi'
-import { toBuffer, toChecksumAddress, privateToAddress, BN, keccak256 } from 'ethereumjs-util'
+import { toBuffer, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
 import Client, { Transport, AxiosTransport, RPCResponse, util, transport } from 'in3'
 import * as ETx from 'ethereumjs-tx'
 import { SentryError } from '../util/sentryError'
@@ -193,8 +193,9 @@ export function encodeFunction(signature: string, args: any[]): string {
 
 }
 
-export function decodeFunction(signature: string, args: Buffer): any {
-  const outputParams = signature.split(':')[1]
+export function decodeFunction(signature: string | string[], args: Buffer): any {
+
+  const outputParams = Array.isArray(signature) ? "(" + signature.toString() + ")" : signature.split(':')[1]
 
   const abiCoder = new AbiCoder()
 
@@ -203,6 +204,4 @@ export function decodeFunction(signature: string, args: Buffer): any {
   const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
 
   return abiCoder.decode(typeArray, args)
-
-
 }

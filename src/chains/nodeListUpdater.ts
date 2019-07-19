@@ -19,7 +19,6 @@
 
 import { RPCHandler, HandlerTransport } from '../server/rpc'
 import * as tx from '../util/tx'
-import * as abi from 'ethereumjs-abi'
 import { createRandomIndexes, Proof, ServerList, Transport, BlockData, AccountProof, RPCRequest, IN3NodeConfig, util, storage, serialize } from 'in3'
 import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
