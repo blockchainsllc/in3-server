@@ -537,18 +537,6 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
   else if (request.method === 'eth_getStorageAt')
     result = account.storageProof[0].value
 
-  let requestedSignatures;
-  try {
-    requestedSignatures = await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes)
-  }
-  catch(e) {
-    return {      
-      id: request.id,
-      jsonrpc: '2.0',
-      result: e.toString()
-    }
-  }
-
   // bundle the answer
   return addFinality(request,
     {
@@ -559,7 +547,7 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
         proof: {
           type: 'accountProof',
           block: createBlock(block, request.in3.verifiedHashes),
-          signatures: requestedSignatures,
+          signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
           accounts: { [toChecksumAddress(address)]: proof.result }
         }
       }
