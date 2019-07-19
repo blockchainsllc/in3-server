@@ -56,10 +56,19 @@ export default class EthHandler extends BaseHandler {
       request.in3.verification = 'never'
 
     // execute it
-    const result = await this.handleRPCMethod(request)
-    if ((request as any).convert)
-      (request as any).convert(result)
-    return result
+    try{
+      const result = await this.handleRPCMethod(request)
+      if ((request as any).convert)
+        (request as any).convert(result)
+      return result
+    }
+    catch(error){
+      return {
+        jsonrpc: '2.0',
+        id: request.id,
+        error: error.toString()
+      }
+    }
   }
 
   private checkPerformanceLimits(request: RPCRequest) {
