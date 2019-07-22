@@ -128,71 +128,6 @@ contract NodeRegistry {
         registryId = keccak256(abi.encodePacked(address(this), blockhash(block.number-1)));
     }
 
-    /// @notice confirms the unregistering of a node by its owner or by the unregister-caller (challenger)
-    /// @notice if the node-owner calls the node will simply be removed from the nodelist
-    /// @notice if the the challenger successfully calls unregister then node will lose 2% of his deposit which the challenger will get
-    /// @param _signer the signer-address of an in3-node
-    /// @dev reverts when not challenged and the sender is not the owner of the node
-    /// @dev reverts when not challenged and the sender does not own a node
-    /// @dev reverts when not challenged and the node is still active
-    /// @dev reverts when not challenged and the unregister-time is not yet over
-    /// @dev reverts when challenged and the sender is not the unregister caller
-    /// @dev reverts when challenged and the challange time is not yet over
-    function confirmUnregisteringNode(address _signer) external {
-
-        SignerInformation storage si = signerIndex[_signer];
-        In3Node storage node = nodes[si.index];
-
-        uint transferAmount = 0;
-        // there is no unregister caller, so the owner called requestUnregister
-        if (si.unregisterCaller == address(0x0)) {
-
-            require(si.used, "sender does not own a node");
-            require(node.unregisterTime != 0, "cannot unregister an active node");
-
-            // solium-disable-next-line security/no-block-members
-            require(node.unregisterTime < block.timestamp, "only confirm after the timeout allowed");//solhint-disable-line not-rely-on-time
-
-            // during the 1st day after the unregisterTime only the owner can confirm the unregistering
-            // solium-disable-next-line security/no-block-members
-            if (block.timestamp < node.unregisterTime + 1 days) { //solhint-disable-line not-rely-on-time
-                require(si.owner == msg.sender, "only owner can unregister a node");
-                transferAmount = node.deposit;
-                node.deposit = 0;
-            } else {
-                // the owner did not confirm his unregistering within 1 day
-                // so we allow everyone to call this function
-                // and the owner will lose 1% of the deposit
-                transferAmount = msg.sender == si.owner ? node.deposit : node.deposit/100;
-                // solium-disable-next-line security/no-block-members
-                si.lockedTime = uint64(block.timestamp); //solhint-disable-line not-rely-on-time
-                assert(node.deposit >= transferAmount);
-                si.depositAmount = node.deposit - transferAmount;
-            }
-        } else {
-            require(msg.sender == si.unregisterCaller, "only unregister caller can confirm");
-            // solium-disable-next-line security/no-block-members
-            require(block.timestamp > si.unregisterTimeout, "only after challenge time is over"); //solhint-disable-line not-rely-on-time
-
-            // solium-disable-next-line security/no-block-members
-            si.lockedTime = uint64(block.timestamp + node.timeout); //solhint-disable-line not-rely-on-time
-
-            assert(node.deposit > si.unregisterDeposit);
-            si.depositAmount = node.deposit - si.unregisterDeposit;
-
-            transferAmount = si.unregisterDeposit*2;
-            si.unregisterTimeout = 0;
-            si.unregisterDeposit = 0;
-            si.unregisterCaller = address(0x0);
-
-        }
-
-        removeNode(si.index);
-        si.index = 0;
-        si.used = false;
-        msg.sender.transfer(transferAmount);
-    }
-
     /// @notice commits a blocknumber and a hash
     /// @notice must be called before revealConvict
     /// @param _blockNumber the blocknumber of the wrong blockhash
@@ -272,27 +207,9 @@ contract NodeRegistry {
 
         SignerInformation storage si = signerIndex[_signer];
         require(si.used, "address is not an in3-signer");
+        require(si.owner == msg.sender, "only the owner can unregister");
 
-        In3Node storage node = nodes[si.index];
-        require(node.unregisterTime == 0, "node is already unregistering");
-        require(si.unregisterCaller == address(0x0), "cannot unregister when inactivity is claimed");
-
-        // someone is claiming the node is inactive
-        if (msg.sender != si.owner) {
-            require(msg.value == calcUnregisterDeposit(_signer), "send deposit is not correct");
-            si.unregisterCaller = msg.sender;
-            si.unregisterDeposit = msg.value;
-            // solium-disable-next-line security/no-block-members
-            si.unregisterTimeout = uint64(block.timestamp + 28 days); // solhint-disable-line not-rely-on-time
-        } else {
-            // the owner is calling this function
-            require(msg.value == 0, "no value transfer allowed");
-             // solium-disable-next-line security/no-block-members
-            node.unregisterTime = uint64(block.timestamp + node.timeout); // solhint-disable-line not-rely-on-time
-            node.proofHash = calcProofHash(node);
-        }
-
-        emit LogNodeUnregisterRequested(node.url, node.signer);
+        removeNode(si.index);
     }
 
     /// @notice returns the deposit after a node has been removed due to inactivity
