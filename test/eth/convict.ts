@@ -1117,6 +1117,8 @@ describe('Convict', () => {
     const newOwner = await test.createAccount(null, toBN('49000000000000000000'))
     const timeoutAccount = await test.createAccount()
 
+    const unregisterCallerPK = await test.createAccount(null, toBN('49000000000000000000'))
+
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)',
       ["#1", 1000, 10000, util.getAddress(signerAccount), 2000], { privateKey: ownerAccount, value: toBN('49000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false)
@@ -1187,9 +1189,27 @@ describe('Convict', () => {
     assert.equal(ownerNew, util.getAddress(newOwner).substr(2).toLowerCase())
     assert.equal(indexnew.toString(), '1')
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400 * 365 * 10 + 1, util.getAddress(timeoutAccount), 2000], { privateKey: ownerAccount, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400 * 365 * 1 + 1, util.getAddress(timeoutAccount), 2000], { privateKey: ownerAccount, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "exceeded maximum timeout")
 
+    const calcDeposit = await tx.callContract(test.url, test.nodeList.contract, 'calcUnregisterDeposit(address):(uint)', [util.getAddress(signerAccount)])
+
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(signerAccount)], { privateKey: unregisterCallerPK, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000 })
+
+    await test.increaseTime(86400 * 28 + 10)
+
+    await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(signerAccount)], { privateKey: unregisterCallerPK, value: 0, confirm: true, gas: 3000000 })
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400, util.getAddress(signerAccount), 2000], { privateKey: unregisterCallerPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "owner is not correct")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400, util.getAddress(signerAccount), 2000], { privateKey: signerAccount, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "owner is not correct")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400, util.getAddress(signerAccount), 2000], { privateKey: timeoutAccount, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "owner is not correct")
+
+    await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400, util.getAddress(signerAccount), 2000], { privateKey: newOwner, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 })
   })
 
   it('updateServer', async () => {
@@ -1328,7 +1348,6 @@ describe('Convict', () => {
     await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(richUser), 'abc', 0xffff, 16400, 2000], { privateKey: richUser, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 })
     const richUserTwo = await test.createAccount(null, toBN("100000000000000000000"))
     await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['richNode', 1000, 10000, 2000], { privateKey: richUserTwo, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 })
-
 
   })
 

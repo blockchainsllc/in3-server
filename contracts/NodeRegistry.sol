@@ -619,6 +619,8 @@ contract NodeRegistry {
         // make sure this url and also this owner was not registered before.
         require(!urlIndex[urlHash].used && !signerIndex[_signer].used, "a node with the same url or signer is already registered");
 
+        require(signerIndex[_signer].owner == msg.sender || signerIndex[_signer].owner == address(0x0), "owner is not correct");
+
         // sets the information of the owner
         signerIndex[_signer].used = true;
         signerIndex[_signer].index = nodes.length;
