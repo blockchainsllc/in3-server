@@ -48,13 +48,13 @@ contract NodeRegistry {
 
         uint64 timeout;                     /// timeout after which the owner is allowed to receive his stored deposit
         uint64 registerTime;                /// timestamp when the node was registered
-        uint64 unregisterTime;              /// earliest timestamp to call unregister
-        uint64 props;                       /// a list of properties-flags representing the capabilities of the node
+     //   uint64 unregisterTime;              /// earliest timestamp to call unregister
+        uint128 props;                       /// a list of properties-flags representing the capabilities of the node
 
         uint64 weight;                      ///  the flag for (future) incentivisation
         address signer;                     /// the signer for requests
 
-        bytes32 proofHash;                  /// keccak(deposit,timeout,registerTime,unregisterTime,props,signer,url)
+        bytes32 proofHash;                  /// keccak(deposit,timeout,registerTime,props,signer,url)
     }
 
      /// information of a (future) convict (used to prevent frontrunning)
@@ -65,16 +65,11 @@ contract NodeRegistry {
 
     /// information of a in3-node owner
     struct SignerInformation {
-        uint64 unregisterTimeout;           /// unix timestamp until a node can proof activity
+        uint64 lockedTime;                  /// unix timestamp until a node can proof activity
         bool used;                          /// flag whether account is currently a signer of a node
         address owner;                      /// the owner of the node
 
-        uint64 lockedTime;                  /// time for the deposit to be locked, used only after vote-kick
-        address payable unregisterCaller;   /// the address that called unregister
-
         uint depositAmount;                 /// amount of deposit to be locked, used only after vote-kick
-
-        uint unregisterDeposit;             /// the deposit payed to claim inactivity
 
         uint index;                         /// current index-position of the node in the node-array
     }
@@ -102,6 +97,8 @@ contract NodeRegistry {
     /// the timestamp of the deployment
     uint public blockTimeStampDeployment;
 
+    address public unregisterkey;
+
     /// mapping for information of the owner
     mapping (address => SignerInformation) public signerIndex;
 
@@ -126,6 +123,7 @@ contract NodeRegistry {
         // solium-disable-next-line security/no-block-members
         blockTimeStampDeployment = block.timestamp;  // solhint-disable-line not-rely-on-time
         registryId = keccak256(abi.encodePacked(address(this), blockhash(block.number-1)));
+        unregisterkey = msg.sender;
     }
 
     /// @notice commits a blocknumber and a hash
@@ -209,6 +207,12 @@ contract NodeRegistry {
         require(si.used, "address is not an in3-signer");
         require(si.owner == msg.sender, "only the owner can unregister");
 
+        In3Node memory n = nodes[si.index];
+        require(n.signer == _signer, "not the correct signer");
+
+        // solium-disable-next-line security/no-block-members
+        si.lockedTime = uint64(block.timestamp + n.timeout);// solhint-disable-line not-rely-on-time
+        si.depositAmount = n.deposit;
         removeNode(si.index);
     }
 
@@ -332,7 +336,6 @@ contract NodeRegistry {
         require(si.used, "owner changes only on active nodes");
         require(_newOwner != address(0x0), "0x0 address is invalid");
         require(si.owner == msg.sender, "only current owner can transfer ownership");
-        require(si.unregisterCaller == address(0x0), "no ownership transfer during claimed inactivity");
 
         si.owner = _newOwner;
     }
@@ -434,7 +437,6 @@ contract NodeRegistry {
                 _node.deposit,
                 _node.timeout,
                 _node.registerTime,
-                _node.unregisterTime,
                 _node.props,
                 _node.signer,
                 _node.url
