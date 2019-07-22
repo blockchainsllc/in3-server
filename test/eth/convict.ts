@@ -1196,6 +1196,8 @@ describe('Convict', () => {
 
     await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(signerAccount)], { privateKey: unregisterCallerPK, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000 })
 
+    const clientVersion = await test.getFromServer('web3_clientVersion')
+    if (clientVersion.includes("Geth")) return
     await test.increaseTime(86400 * 28 + 10)
 
     await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(signerAccount)], { privateKey: unregisterCallerPK, value: 0, confirm: true, gas: 3000000 })
