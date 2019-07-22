@@ -128,29 +128,6 @@ contract NodeRegistry {
         registryId = keccak256(abi.encodePacked(address(this), blockhash(block.number-1)));
     }
 
-    /// @notice this function must be called by the owner to cancel the unregister-process.
-    /// @param _signer the signer-address of an in3-node
-    /// @dev reverts if the signer does not own a node
-    /// @dev reverts if not the sender is not the owner of the node
-    /// @dev reverts if the sender is currently challenged for inactivity
-    /// @dev reverts if the node is currently not unregistering
-    function cancelUnregisteringNode(address _signer) external {
-
-        SignerInformation memory si = signerIndex[_signer];
-        require(si.used, "signer does not own a node");
-        require(si.owner == msg.sender, "only owner can cancel unregistering a node");
-        require(si.unregisterCaller == address(0x0), "cancel during challenge not allowed");
-
-        In3Node storage node = nodes[si.index];
-
-        require(node.unregisterTime > 0, "node is not unregistering");
-
-        node.unregisterTime = 0;
-        node.proofHash = calcProofHash(node);
-
-        emit LogNodeUnregisterCancelled(node.url, node.signer);
-    }
-
     /// @notice confirms the unregistering of a node by its owner or by the unregister-caller (challenger)
     /// @notice if the node-owner calls the node will simply be removed from the nodelist
     /// @notice if the the challenger successfully calls unregister then node will lose 2% of his deposit which the challenger will get
