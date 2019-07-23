@@ -23,6 +23,7 @@ import Client, { Transport, AxiosTransport, RPCResponse, util, transport } from 
 import * as ETx from 'ethereumjs-tx'
 import { SentryError } from '../util/sentryError'
 import { AbiCoder } from '@ethersproject/abi'
+const BN = require('bn.js')
 
 const toHex = util.toHex
 
@@ -179,6 +180,10 @@ export async function waitForReceipt(url: string, txHash: string, timeout = 10, 
 
 }
 
+function encodeEtheresBN(val: any) {
+  return val && BN.isBN(val) ? toHex(val) : val
+}
+
 export function encodeFunction(signature: string, args: any[]): string {
   const inputParams = signature.split(':')[0]
 
@@ -189,8 +194,14 @@ export function encodeFunction(signature: string, args: any[]): string {
   const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
   const methodHash = (methodID(signature.substr(0, signature.indexOf('(')), typeArray)).toString('hex')
 
-  return methodHash + abiCoder.encode(typeArray, args).substr(2)
+  return methodHash + abiCoder.encode(typeArray, args.map(encodeEtheresBN)).substr(2)
 
+}
+
+function fixBN(val: any) {
+  if (val && val._isBigNumber) return new BN.BN(val.toHexString().substr(2), 'hex')
+  if (Array.isArray(val)) return val.map(fixBN)
+  return val
 }
 
 export function decodeFunction(signature: string | string[], args: Buffer): any {
@@ -203,5 +214,5 @@ export function decodeFunction(signature: string | string[], args: Buffer): any 
 
   const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
 
-  return abiCoder.decode(typeArray, args)
+  return abiCoder.decode(typeArray, args).then(fixBN)
 }
