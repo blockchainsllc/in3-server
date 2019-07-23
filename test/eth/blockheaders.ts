@@ -216,7 +216,7 @@ describe('Blockheader contract', () => {
         }
 
         //  }
-    }).timeout(60000)
+    }).timeout(600000)
 
     it('calculateBlockheaders fail', async () => {
         const test = await TestTransport.createWithRegisteredNodes(2)
@@ -257,7 +257,7 @@ describe('Blockheader contract', () => {
                 assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'calculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
             }
         }
-    }).timeout(60000)
+    }).timeout(600000)
 
     let headerLength = process.env.GITLAB_CI ? 250 : 10
 

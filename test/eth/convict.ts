@@ -655,7 +655,55 @@ describe('Convict', () => {
     // just read all events
     const events = await watcher.update()
   })
+  it('removeNodeFromRegistry', async () => {
+    const test = await TestTransport.createWithRegisteredNodes(4)
+    const nonExistingUser = await test.createAccount()
 
+    assert.equal(await test.getNodeCountFromContract(), 4)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'removeNodeFromRegistry(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: nonExistingUser, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "only unregisterKey is allowed to remove nodes")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'removeNodeFromRegistry(address)', [util.getAddress(nonExistingUser)], { privateKey: nonExistingUser, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "address is not an in3-signer")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'removeNodeFromRegistry(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "only unregisterKey is allowed to remove nodes")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'removeNodeFromRegistry(address)', [util.getAddress(nonExistingUser)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "address is not an in3-signer")
+
+    const [lockedTimeBefore, ownerBefore, stageBefore, depositAmountBefore, indexBefore] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(1).privateKey)])
+
+    assert.equal(lockedTimeBefore.toString(), '0')
+    assert.equal(ownerBefore, util.getAddress(test.getHandlerConfig(1).privateKey).toLowerCase().substr(2))
+    assert.equal(stageBefore.toString(), '1')
+    assert.equal(depositAmountBefore.toString(), '0')
+    assert.equal(indexBefore.toString(), '1')
+
+    await tx.callContract(test.url, test.nodeList.contract, 'removeNodeFromRegistry(address)', [util.getAddress(test.getHandlerConfig(1).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+    const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+
+    const [lockedTimeAfter, ownerAfter, stageAfter, depositAmountAfter, indexAfter] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(1).privateKey)])
+
+    assert.equal(lockedTimeAfter.toString(), toBN(block.timestamp).add(toBN(3600)).toString())
+
+    assert.equal(ownerAfter, util.getAddress(test.getHandlerConfig(1).privateKey).toLowerCase().substr(2))
+    assert.equal(stageAfter.toString(), '3')
+    assert.equal(depositAmountAfter.toString(), '10000000000000000')
+    assert.equal(indexAfter.toString(), '0')
+
+    assert.equal(await test.getNodeCountFromContract(), 3)
+
+    const clientVersion = await test.getFromServer('web3_clientVersion')
+
+    if (clientVersion.includes("Geth")) return
+
+    await test.increaseTime(366 * 86400)
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'removeNodeFromRegistry(address)', [util.getAddress(test.getHandlerConfig(2).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.include(await test.getErrorReason(), "only in 1st year")
+
+  })
 
   it('requestUnregisteringNode - owner', async () => {
 

@@ -208,13 +208,13 @@ contract NodeRegistry {
         );
     }
 
-    function removeNode(address _signer) external onlyActiveState(_signer) {
+    function removeNodeFromRegistry(address _signer) external onlyActiveState(_signer) {
 
         // solium-disable-next-line security/no-block-members
         require(block.timestamp < (blockTimeStampDeployment + YEARDEFINITION), "only in 1st year");// solhint-disable-line not-rely-on-time
         require(msg.sender == unregisterKey, "only unregisterKey is allowed to remove nodes");
 
-        SignerInformation memory si = signerIndex[_signer];
+        SignerInformation storage si = signerIndex[_signer];
 
         In3Node memory n = nodes[si.index];
 
@@ -224,6 +224,7 @@ contract NodeRegistry {
         si.stage = Stages.DepositNotWithdrawn;
 
         removeNode(si.index);
+        si.index = 0;
 
     }
 
