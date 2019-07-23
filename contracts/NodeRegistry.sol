@@ -65,8 +65,9 @@ contract NodeRegistry {
     /// information of a in3-node owner
     struct SignerInformation {
         uint64 lockedTime;                  /// unix timestamp until a node can proof activity
-        Stages stage;                       /// state of the address
         address owner;                      /// the owner of the node
+
+        Stages stage;                       /// state of the address
 
         uint depositAmount;                 /// amount of deposit to be locked, used only after vote-kick
 
@@ -240,7 +241,7 @@ contract NodeRegistry {
 
         SignerInformation storage si = signerIndex[_signer];
         In3Node memory n = nodes[si.index];
-        require(si.owner == msg.sender, "only for the owner");
+        require(si.owner == msg.sender, "only for the in3-node owner");
 
         // solium-disable-next-line security/no-block-members
         si.lockedTime = uint64(block.timestamp + n.timeout);// solhint-disable-line not-rely-on-time
