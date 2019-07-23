@@ -114,10 +114,10 @@ contract NodeRegistry {
     mapping (uint => mapping(address => ConvictInformation)) internal convictMapping;
 
     /// capping the max deposit timeout on 1 year
-    uint constant internal YEARDEFINITION = 1 days * 365;
+    uint constant internal YEAR_DEFINITION = 1 days * 365;
 
     /// limit for ether per node in the 1st year
-    uint constant internal MAXETHERLIMIT = 50 ether;
+    uint constant internal MAX_ETHER_LIMIT = 50 ether;
 
     /// version: major minor fork(000) date(yyyy/mm/dd)
     uint constant public VERSION = 12300020190709;
@@ -168,7 +168,8 @@ contract NodeRegistry {
         uint64 _timeout,
         uint64 _weight
     )
-    external payable
+        external
+        payable
     {
         registerNodeInternal(
             _url,
@@ -195,7 +196,8 @@ contract NodeRegistry {
         address _signer,
         uint64 _weight
     )
-    external payable
+        external
+        payable
     {
         registerNodeInternal(
             _url,
@@ -208,10 +210,17 @@ contract NodeRegistry {
         );
     }
 
-    function removeNodeFromRegistry(address _signer) external onlyActiveState(_signer) {
+    /// @notice removes an in3-server from the registry
+    /// @param _signer the signer-address of the in3-node
+    /// @dev only callable by the unregisterKey-account
+    /// @dev only callable in the 1st year after deployment
+    function removeNodeFromRegistry(address _signer)
+        external
+        onlyActiveState(_signer)
+    {
 
         // solium-disable-next-line security/no-block-members
-        require(block.timestamp < (blockTimeStampDeployment + YEARDEFINITION), "only in 1st year");// solhint-disable-line not-rely-on-time
+        require(block.timestamp < (blockTimeStampDeployment + YEAR_DEFINITION), "only in 1st year");// solhint-disable-line not-rely-on-time
         require(msg.sender == unregisterKey, "only unregisterKey is allowed to remove nodes");
 
         SignerInformation storage si = signerIndex[_signer];
@@ -238,7 +247,11 @@ contract NodeRegistry {
     /// @dev reverts when inactivity is claimed
     /// @dev if not the node owner reverts when the send deposit it not correct
     /// @dev reverts when being the owner and sending value through this function
-    function requestUnregisteringNode(address _signer) external payable onlyActiveState(_signer) {
+    function requestUnregisteringNode(address _signer)
+        external
+        payable
+        onlyActiveState(_signer)
+    {
 
         SignerInformation storage si = signerIndex[_signer];
         In3Node memory n = nodes[si.index];
@@ -295,7 +308,7 @@ contract NodeRegistry {
         bytes32 _r,
         bytes32 _s
     )
-    external
+        external
     {
         // solium-disable-next-line security/no-block-members
         bytes32 evmBlockhash = blockhash(_blockNumber);
@@ -369,7 +382,10 @@ contract NodeRegistry {
     /// @dev reverts when trying to pass ownership to 0x0
     /// @dev reverts when the sender is not the current owner
     /// @dev reverts when inacitivity is claimed
-    function transferOwnership(address _signer, address _newOwner) external onlyActiveState(_signer) {
+    function transferOwnership(address _signer, address _newOwner)
+        external
+        onlyActiveState(_signer)
+    {
         SignerInformation storage si = signerIndex[_signer];
         require(si.owner == msg.sender, "only for the in3-node owner");
 
@@ -394,10 +410,12 @@ contract NodeRegistry {
         uint64 _timeout,
         uint64 _weight
     )
-    external payable onlyActiveState(_signer)
+        external
+        payable
+        onlyActiveState(_signer)
     {
         SignerInformation memory si = signerIndex[_signer];
-        require(_timeout <= YEARDEFINITION, "exceeded maximum timeout");
+        require(_timeout <= YEAR_DEFINITION, "exceeded maximum timeout");
         require(si.owner == msg.sender, "only for the owner");
 
         In3Node storage node = nodes[si.index];
@@ -423,8 +441,8 @@ contract NodeRegistry {
             node.deposit += msg.value;
 
             // solium-disable-next-line security/no-block-members
-            if (block.timestamp < (blockTimeStampDeployment + YEARDEFINITION)) {// solhint-disable-line not-rely-on-time
-                require(node.deposit < MAXETHERLIMIT, "Limit of 50 ETH reached");
+            if (block.timestamp < (blockTimeStampDeployment + YEAR_DEFINITION)) {// solhint-disable-line not-rely-on-time
+                require(node.deposit < MAX_ETHER_LIMIT, "Limit of 50 ETH reached");
             }
         }
 
@@ -494,18 +512,18 @@ contract NodeRegistry {
         uint _deposit,
         uint64 _weight
     )
-    internal
+        internal
     {
 
         // enforcing a maximum timeout
-        require(_timeout <= YEARDEFINITION, "exceeded maximum timeout");
+        require(_timeout <= YEAR_DEFINITION, "exceeded maximum timeout");
 
         // enforcing a minimum deposit
         require(_deposit >= 10 finney, "not enough deposit");
 
         // solium-disable-next-line security/no-block-members
-        if (block.timestamp < (blockTimeStampDeployment + YEARDEFINITION)) { // solhint-disable-line not-rely-on-time
-            require(_deposit < MAXETHERLIMIT, "Limit of 50 ETH reached");
+        if (block.timestamp < (blockTimeStampDeployment + YEAR_DEFINITION)) { // solhint-disable-line not-rely-on-time
+            require(_deposit < MAX_ETHER_LIMIT, "Limit of 50 ETH reached");
         }
 
         bytes32 urlHash = keccak256(bytes(_url));
@@ -514,8 +532,6 @@ contract NodeRegistry {
         // solium-disable-next-line
         require(!urlIndex[urlHash].used && signerIndex[_signer].stage == Stages.NotInUse,
             "a node with the same url or signer is already registered");
-
-       // require(signerIndex[_signer].owner == msg.sender || signerIndex[_signer].owner == address(0x0), "owner is not correct");
 
         // sets the information of the owner
         signerIndex[_signer].stage = Stages.Active;
@@ -550,7 +566,7 @@ contract NodeRegistry {
         );
     }
 
-    /// removes a node from the node-array
+    /// @notice removes a node from the node-array
     /// @param _nodeIndex the nodeIndex to be removed
     function removeNode(uint _nodeIndex) internal {
         // trigger event
