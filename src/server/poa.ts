@@ -22,10 +22,10 @@ import { RPCRequest, header, serialize, BlockData, Proof, LogData, util } from '
 import { RPCHandler } from './rpc'
 import EthHandler from '../modules/eth/EthHandler'
 import { recover } from 'secp256k1'
-import { rawDecode } from 'ethereumjs-abi'
 import { publicToAddress, rlp } from 'ethereumjs-util'
 import { handleLogs } from '../modules/eth/proof'
 import * as logger from '../util/logger'
+import { decodeFunction } from '../util/tx';
 const chains = require('in3/js/src/client/defaultConfig.json').servers
 /**
  * a Object holding proofs for validator logs. The key is the blockNumber as hex
@@ -119,25 +119,25 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
                 // changes for this transition segment
                 if (s.contract && s.engine === 'authorityRound' && s.list && s.requiresFinality) {
                     const b = await handler.getFromServer({
-                      method: 'eth_getBlockByNumber',
-                      params: [toMinHex(s.block), false]
+                        method: 'eth_getBlockByNumber',
+                        params: [toMinHex(s.block), false]
                     })
 
                     if (!b || b.error || !b.result)
-                      throw new Error("Couldn't get the block at transition")
+                        throw new Error("Couldn't get the block at transition")
 
                     const transitionBlockSigner = header.getSigner(new serialize.Block(b.result))
 
 
                     const finalityBlocks = await addFinalityForTransition(
-                      toNumber(b.result.number),
-                      transitionBlockSigner,
-                      history.states[history.states.length - 1].validators.length,
-                      null,
-                      handler
+                        toNumber(b.result.number),
+                        transitionBlockSigner,
+                        history.states[history.states.length - 1].validators.length,
+                        null,
+                        handler
                     )
 
-                    const lastFinalityBlock = serialize.blockFromHex(finalityBlocks[finalityBlocks.length-1])
+                    const lastFinalityBlock = serialize.blockFromHex(finalityBlocks[finalityBlocks.length - 1])
 
                     /*
                     * Stitch the proof
@@ -299,11 +299,11 @@ async function updateCliqueHistory(epoch: number, handler: RPCHandler, history: 
 * Returns a list of finality blocks over a specified block
 */
 async function addFinalityForTransition(
-  blockNumber: number,
-  blockSigner: Buffer,
-  numValidators: number,
-  maxBlock: number,
-  handler: RPCHandler) {
+    blockNumber: number,
+    blockSigner: Buffer,
+    numValidators: number,
+    maxBlock: number,
+    handler: RPCHandler) {
 
     let bn = blockNumber
 
@@ -324,8 +324,8 @@ async function addFinalityForTransition(
         bn = bn + 1
 
         const b = await handler.getFromServer({
-          method: 'eth_getBlockByNumber',
-          params: [toMinHex(bn), false]
+            method: 'eth_getBlockByNumber',
+            params: [toMinHex(bn), false]
         })
 
         if (!b || b.error || !b.result) break
@@ -363,20 +363,20 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
     })
 
     for (const log of logs.result) {
-        const validatorList = rawDecode(['address[]'], util.toBuffer(log.data))[0]
+        const validatorList = decodeFunction(['address[]'], util.toBuffer(log.data))[0]
         const receipts = logs.in3.proof.logProof[toHex(log.blockNumber)].receipts
 
         const block = serialize.blockFromHex(logs.in3.proof.logProof[toHex(log.blockNumber)].block)
 
         // Fetch the finality blocks
-        const finalityBlocks = await addFinalityForTransition (
+        const finalityBlocks = await addFinalityForTransition(
             toNumber(block.number),
             header.getSigner(block),
             history.states[history.states.length - 1].validators.length,
             currentBlock,
             handler)
 
-        const lastFinalityBlock = serialize.blockFromHex(finalityBlocks[finalityBlocks.length-1])
+        const lastFinalityBlock = serialize.blockFromHex(finalityBlocks[finalityBlocks.length - 1])
 
         /*
         * Stitch the proof
