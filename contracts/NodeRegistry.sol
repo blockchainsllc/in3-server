@@ -29,12 +29,6 @@ contract NodeRegistry {
     /// node has been registered or updated its registry props or deposit
     event LogNodeRegistered(string url, uint props, address signer, uint deposit);
 
-    ///  a caller requested to unregister a node.
-    event LogNodeUnregisterRequested(string url, address signer);
-
-    /// the owner Cancelled the unregister-proccess
-    event LogNodeUnregisterCancelled(string url, address signer);
-
     /// a node was convicted
     event LogNodeConvicted(address signer);
 
