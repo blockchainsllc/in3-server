@@ -214,5 +214,5 @@ export function decodeFunction(signature: string | string[], args: Buffer): any 
 
   const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
 
-  return abiCoder.decode(typeArray, args).then(fixBN)
+  return fixBN(abiCoder.decode(typeArray, args))
 }
