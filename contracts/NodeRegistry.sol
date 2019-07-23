@@ -215,7 +215,7 @@ contract NodeRegistry {
         require(msg.sender == unregisterKey, "only unregisterKey is allowed to remove nodes");
 
         SignerInformation memory si = signerIndex[_signer];
-      
+
         In3Node memory n = nodes[si.index];
 
         // solium-disable-next-line security/no-block-members
@@ -510,6 +510,7 @@ contract NodeRegistry {
         bytes32 urlHash = keccak256(bytes(_url));
 
         // make sure this url and also this owner was not registered before.
+        // solium-disable-next-line
         require(!urlIndex[urlHash].used && signerIndex[_signer].stage == Stages.NotInUse,
             "a node with the same url or signer is already registered");
 
