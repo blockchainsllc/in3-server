@@ -32,7 +32,7 @@ const blockHeaderFile = JSON.parse(fs.readFileSync('test/blockheader/blockHeader
 const toNumber = util.toNumber
 const toHex = util.toHex
 
-describe('Blockheader contract', () => {
+describe.skip('Blockheader contract', () => {
 
 
     it('deploy blockheader contract', async () => {

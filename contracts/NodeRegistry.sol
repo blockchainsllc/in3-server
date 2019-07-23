@@ -454,13 +454,6 @@ contract NodeRegistry {
         return nodes.length;
     }
 
-    /// @notice calculates the amount a sender has to pay in order to claim that a node is inactive
-    /// @param _signer the signer-address of the in3-node, used as an identifier
-    /// @return the amount of deposit to pay (2% + costs for the transaction)
-    function calcUnregisterDeposit(address _signer) public view returns (uint) {
-        return (nodes[signerIndex[_signer].index].deposit / 50);
-    }
-
     /// @notice calculates the sha3 hash of the most important properties
     /// @param _node the in3 node to calculate the hash from
     /// @return the proof hash of the properties of an in3-node

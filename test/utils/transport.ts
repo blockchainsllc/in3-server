@@ -248,8 +248,8 @@ export class TestTransport implements Transport {
   }
 
   async getNodeFromContract(index: number) {
-    const [url, deposit, timeout, registerTime, unregisterTime, props, weight, signer, proofHash] = await callContract(this.url, this.nodeList.contract, 'nodes(uint):(string,uint,uint64,uint64,uint64,uint64,uint64,address,bytes32)', [index])
-    return { url, deposit, timeout, registerTime, unregisterTime, props, weight, signer, proofHash }
+    const [url, deposit, timeout, registerTime, props, weight, signer, proofHash] = await callContract(this.url, this.nodeList.contract, 'nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', [index])
+    return { url, deposit, timeout, registerTime, props, weight, signer, proofHash }
   }
 
   async getNodeCountFromContract() {

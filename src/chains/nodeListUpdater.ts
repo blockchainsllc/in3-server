@@ -203,7 +203,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   list.nodes = await handler.getAllFromServer(nodeRequests).then(all => all.map((n, i) => {
     // invalid requests must be filtered out
     if (n.error) return null
-    const [url, deposit, timeout, registerTime, unregisterTime, props, weight, signer, proofHash] = abi.simpleDecode('nodes(uint):(string,uint,uint64,uint64,uint64,uint64,uint64,address,bytes32)', toBuffer(n.result))
+    const [url, deposit, timeout, registerTime, props, weight, signer, proofHash] = abi.simpleDecode('nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', toBuffer(n.result))
 
     return {
       url,
@@ -212,7 +212,6 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
       deposit: deposit.toString(),
       props: props.toString(),
       chainIds: [handler.chainId],
-      unregisterRequestTime: unregisterTime.toString(),
       timeout: timeout.toString(),
       registerTime: registerTime.toString(),
       weight: weight.toString(),
