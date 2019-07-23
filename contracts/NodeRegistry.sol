@@ -48,7 +48,6 @@ contract NodeRegistry {
 
         uint64 timeout;                     /// timeout after which the owner is allowed to receive his stored deposit
         uint64 registerTime;                /// timestamp when the node was registered
-     //   uint64 unregisterTime;              /// earliest timestamp to call unregister
         uint128 props;                       /// a list of properties-flags representing the capabilities of the node
 
         uint64 weight;                      ///  the flag for (future) incentivisation
@@ -66,7 +65,7 @@ contract NodeRegistry {
     /// information of a in3-node owner
     struct SignerInformation {
         uint64 lockedTime;                  /// unix timestamp until a node can proof activity
-        bool used;                          /// flag whether account is currently a signer of a node
+        Stages stage;                       /// state of the address
         address owner;                      /// the owner of the node
 
         uint depositAmount;                 /// amount of deposit to be locked, used only after vote-kick
@@ -80,6 +79,13 @@ contract NodeRegistry {
         address signer;                     /// address of the owner of the url
     }
 
+    enum Stages {
+        NotInUse,
+        Active,
+        Convicted,
+        DepositNotWithdrawn
+    }
+
     /// node list of incubed nodes
     In3Node[] public nodes;
 
@@ -91,13 +97,10 @@ contract NodeRegistry {
     /// blockhash registry address
     BlockhashRegistry public blockRegistry;
 
-    /// version: major minor fork(000) date(yyyy/mm/dd)
-    uint constant public VERSION = 12300020190709;
-
     /// the timestamp of the deployment
     uint public blockTimeStampDeployment;
 
-    address public unregisterkey;
+    address public unregisterKey;
 
     /// mapping for information of the owner
     mapping (address => SignerInformation) public signerIndex;
@@ -115,6 +118,19 @@ contract NodeRegistry {
     /// limit for ether per node in the 1st year
     uint constant internal MAXETHERLIMIT = 50 ether;
 
+    /// version: major minor fork(000) date(yyyy/mm/dd)
+    uint constant public VERSION = 12300020190709;
+
+    modifier onlyActiveState(address _signer) {
+
+        SignerInformation memory si = signerIndex[_signer];
+        require(si.stage == Stages.Active, "address is not an in3-signer");
+
+        In3Node memory n = nodes[si.index];
+        require(n.signer == _signer, "not the correct signer");
+        _;
+    }
+
     /// constructor
     /// @param _blockRegistry address of a BlockhashRegistry-contract
     constructor(BlockhashRegistry _blockRegistry) public {
@@ -123,7 +139,7 @@ contract NodeRegistry {
         // solium-disable-next-line security/no-block-members
         blockTimeStampDeployment = block.timestamp;  // solhint-disable-line not-rely-on-time
         registryId = keccak256(abi.encodePacked(address(this), blockhash(block.number-1)));
-        unregisterkey = msg.sender;
+        unregisterKey = msg.sender;
     }
 
     /// @notice commits a blocknumber and a hash
@@ -191,6 +207,25 @@ contract NodeRegistry {
         );
     }
 
+    function removeNode(address _signer) external onlyActiveState(_signer) {
+
+        // solium-disable-next-line security/no-block-members
+        require(block.timestamp < (blockTimeStampDeployment + YEARDEFINITION), "only in 1st year");// solhint-disable-line not-rely-on-time
+        require(msg.sender == unregisterKey, "only unregisterKey is allowed to remove nodes");
+
+        SignerInformation memory si = signerIndex[_signer];
+      
+        In3Node memory n = nodes[si.index];
+
+        // solium-disable-next-line security/no-block-members
+        si.lockedTime = uint64(block.timestamp + n.timeout);// solhint-disable-line not-rely-on-time
+        si.depositAmount = n.deposit;
+        si.stage = Stages.DepositNotWithdrawn;
+
+        removeNode(si.index);
+
+    }
+
     /// @notice a node owner can request to unregister his node
     /// @notice but before he can confirm, he has to wait for his own-set deposit timeout
     /// @notice can also be called by a non owner, challenging the in3-node to prove that he is active
@@ -201,18 +236,16 @@ contract NodeRegistry {
     /// @dev reverts when inactivity is claimed
     /// @dev if not the node owner reverts when the send deposit it not correct
     /// @dev reverts when being the owner and sending value through this function
-    function requestUnregisteringNode(address _signer) external payable {
+    function requestUnregisteringNode(address _signer) external payable onlyActiveState(_signer) {
 
         SignerInformation storage si = signerIndex[_signer];
-        require(si.used, "address is not an in3-signer");
-        require(si.owner == msg.sender, "only the owner can unregister");
-
         In3Node memory n = nodes[si.index];
-        require(n.signer == _signer, "not the correct signer");
+        require(si.owner == msg.sender, "only for the owner");
 
         // solium-disable-next-line security/no-block-members
         si.lockedTime = uint64(block.timestamp + n.timeout);// solhint-disable-line not-rely-on-time
         si.depositAmount = n.deposit;
+        si.stage = Stages.DepositNotWithdrawn;
         removeNode(si.index);
     }
 
@@ -226,6 +259,7 @@ contract NodeRegistry {
 
         SignerInformation storage si = signerIndex[_signer];
 
+        require(si.stage == Stages.DepositNotWithdrawn, "not in the correct state");
         require(si.owner == msg.sender, "only owner can claim deposit");
         require(si.depositAmount > 0, "nothing to transfer");
         // solium-disable-next-line security/no-block-members
@@ -234,6 +268,7 @@ contract NodeRegistry {
         uint payout = si.depositAmount;
         si.depositAmount = 0;
         si.lockedTime = 0;
+        si.stage = Stages.NotInUse;
 
         msg.sender.transfer(payout);
     }
@@ -298,19 +333,21 @@ contract NodeRegistry {
         uint deposit = 0;
         // the signer is still active
         if (nodes[si.index].signer == _signer) {
+            assert(si.stage == Stages.Active);
             deposit = nodes[si.index].deposit;
             nodes[si.index].deposit = 0;
             removeNode(si.index);
             si.index = 0;
         } else {
             // double check that the signer is not active
-            assert(!si.used);
+            assert(si.stage != Stages.Active);
             // the signer is not active anymore
             deposit = si.depositAmount;
             si.depositAmount = 0;
             si.lockedTime = 0;
         }
 
+        si.stage = Stages.Convicted;
         delete convictMapping[_blockNumber][msg.sender];
 
         // remove the deposit
@@ -330,13 +367,11 @@ contract NodeRegistry {
     /// @dev reverts when trying to pass ownership to 0x0
     /// @dev reverts when the sender is not the current owner
     /// @dev reverts when inacitivity is claimed
-    function transferOwnership(address _signer, address _newOwner) external {
+    function transferOwnership(address _signer, address _newOwner) external onlyActiveState(_signer) {
         SignerInformation storage si = signerIndex[_signer];
+        require(si.owner == msg.sender, "only for the owner");
 
-        require(si.used, "owner changes only on active nodes");
         require(_newOwner != address(0x0), "0x0 address is invalid");
-        require(si.owner == msg.sender, "only current owner can transfer ownership");
-
         si.owner = _newOwner;
     }
 
@@ -357,12 +392,11 @@ contract NodeRegistry {
         uint64 _timeout,
         uint64 _weight
     )
-    external payable
+    external payable onlyActiveState(_signer)
     {
         SignerInformation memory si = signerIndex[_signer];
-        require(si.owner == msg.sender, "only node owner can update");
-        require(si.used, "signer does not own a node");
         require(_timeout <= YEARDEFINITION, "exceeded maximum timeout");
+        require(si.owner == msg.sender, "only for the owner");
 
         In3Node storage node = nodes[si.index];
 
@@ -482,12 +516,13 @@ contract NodeRegistry {
         bytes32 urlHash = keccak256(bytes(_url));
 
         // make sure this url and also this owner was not registered before.
-        require(!urlIndex[urlHash].used && !signerIndex[_signer].used, "a node with the same url or signer is already registered");
+        require(!urlIndex[urlHash].used && signerIndex[_signer].stage == Stages.NotInUse,
+            "a node with the same url or signer is already registered");
 
-        require(signerIndex[_signer].owner == msg.sender || signerIndex[_signer].owner == address(0x0), "owner is not correct");
+       // require(signerIndex[_signer].owner == msg.sender || signerIndex[_signer].owner == address(0x0), "owner is not correct");
 
         // sets the information of the owner
-        signerIndex[_signer].used = true;
+        signerIndex[_signer].stage = Stages.Active;
         signerIndex[_signer].index = nodes.length;
         signerIndex[_signer].owner = _owner;
 
