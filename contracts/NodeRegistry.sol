@@ -370,7 +370,7 @@ contract NodeRegistry {
     /// @dev reverts when inacitivity is claimed
     function transferOwnership(address _signer, address _newOwner) external onlyActiveState(_signer) {
         SignerInformation storage si = signerIndex[_signer];
-        require(si.owner == msg.sender, "only for the owner");
+        require(si.owner == msg.sender, "only for the in3-node owner");
 
         require(_newOwner != address(0x0), "0x0 address is invalid");
         si.owner = _newOwner;

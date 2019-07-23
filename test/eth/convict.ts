@@ -320,13 +320,27 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false))
 
+    const [lockedTimeBefore, ownerBefore, stageBefore, depositAmountBefore, indexBefore] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
+
+    assert.equal(lockedTimeBefore.toString(), "0")
+    assert.equal(ownerBefore, convictOwner.toLowerCase().substr(2))
+    assert.equal(stageBefore.toString(), "1")
+    assert.equal(depositAmountBefore.toString(), "0")
+    assert.equal(indexBefore.toString(), "0")
+
     await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [convictOwner, s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: test.getHandlerConfig(1).privateKey,
       gas: 3000000,
       value: 0,
       confirm: true
     })
+    const [lockedTimeAfter, ownerAfter, stageAfter, depositAmountAfter, indexAfter] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
+    assert.equal(lockedTimeAfter.toString(), "0")
+    assert.equal(ownerAfter, convictOwner.toLowerCase().substr(2))
+    assert.equal(stageAfter.toString(), "2")
+    assert.equal(depositAmountAfter.toString(), "0")
+    assert.equal(indexAfter.toString(), "0")
     const balanceSenderAfter = new BigNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
     const balanceRegistryAfter = new BigNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
 
@@ -368,8 +382,6 @@ describe('Convict', () => {
       confirm: true
     })
 
-    const tempAddr = util.getAddress(test.getHandlerConfig(0).privateKey)
-
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [util.getAddress(test.getHandlerConfig(0).privateKey), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: convictCallerTwo,
       gas: 3000000,
@@ -386,7 +398,7 @@ describe('Convict', () => {
     })
   })
 
-  it("convict - locked", async () => {
+  it("convict - unregister", async () => {
     const test = await TestTransport.createWithRegisteredNodes(2)
 
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
@@ -400,6 +412,8 @@ describe('Convict', () => {
     // send the transactions to convict with the wrong hash
     const convictSignatureOne = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(convictCallerOne)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     const convictSignatureTwo = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(convictCallerTwo)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+
+    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
 
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureOne], {
       privateKey: convictCallerOne,
@@ -415,9 +429,6 @@ describe('Convict', () => {
       confirm: true
     })
 
-    const tempAddr = util.getAddress(test.getHandlerConfig(0).privateKey)
-
-    // for (let i = 0; i < 2; i++) {
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [util.getAddress(test.getHandlerConfig(0).privateKey), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: convictCallerTwo,
       gas: 3000000,
@@ -425,7 +436,14 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false))
     assert.include(await test.getErrorReason(), "revealConvict still locked")
-    //  }
+
+
+    const [, ownerBefore, stageBefore, depositAmountBefore, indexBefore] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
+    assert.equal(ownerBefore, util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase().substr(2))
+    assert.equal(stageBefore.toString(), "3")
+    assert.equal(depositAmountBefore.toString(), toBN("10000000000000000"))
+    assert.equal(indexBefore.toString(), "0")
+
 
     await tx.callContract(test.url, test.nodeList.contract, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)', [util.getAddress(test.getHandlerConfig(0).privateKey), s.blockHash, s.block, s.v, s.r, s.s], {
       privateKey: convictCallerTwo,
@@ -433,6 +451,14 @@ describe('Convict', () => {
       value: 0,
       confirm: true
     })
+
+    const [lockedTimeAfter, ownerAfter, stageAfter, depositAmountAfter, indexAfter] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
+
+    assert.equal(lockedTimeAfter.toString(), "0")
+    assert.equal(ownerAfter, util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase().substr(2))
+    assert.equal(stageAfter.toString(), "2")
+    assert.equal(depositAmountAfter.toString(), "0")
+    assert.equal(indexAfter.toString(), "0")
   })
 
   it('verify and convict (block within 256 blocks)', async () => {
@@ -465,8 +491,6 @@ describe('Convict', () => {
       return re
     })
 
-
-
     assert.equal(await test.getNodeCountFromContract(), 2)
 
     // we create a new client because the old one may have different weights now
@@ -479,7 +503,6 @@ describe('Convict', () => {
     await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
-
 
     await test.createAccount()
     await test.createAccount()
@@ -644,8 +667,6 @@ describe('Convict', () => {
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(nonExistingUser)], { privateKey: nonExistingUser, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "address is not an in3-signer")
-
-    //TODO: signer infor
 
     assert.equal(await test.getNodeCountFromContract(), 2)
 
@@ -841,21 +862,17 @@ describe('Convict', () => {
     assert.equal(server.signer.toLowerCase(), util.getAddress(signerAccount).substr(2).toLowerCase())
     assert.equal(server.proofHash.toString('hex'), proofcalc.toString('hex'))
 
+    const [lockedTime, owner, stage, depositAmount, index] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(signerAccount)])
+    assert.equal(lockedTime.toString(), '0')
+    assert.equal(owner, util.getAddress(ownerAccount).substr(2).toLowerCase())
+    assert.equal(stage.toString(), '1')
+    assert.equal(depositAmount.toString(), '0')
+    assert.equal(index.toString(), '1')
 
-    //   const [unregisterTimeout, owner, lockedTime, unregisterCaller, depositAmount, unregisterDeposit, index] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(signerAccount)])
-    /*
-  assert.equal(unregisterTimeout.toString(), '0')
-  assert.isTrue(used)
-  assert.equal(lockedTime.toString(), '0')
-  assert.equal(unregisterCaller, '0000000000000000000000000000000000000000')
-  assert.equal(depositAmount.toString(), '0')
-  assert.equal(unregisterDeposit.toString(), '0')
-  assert.equal(owner, util.getAddress(ownerAccount).substr(2).toLowerCase())
-  assert.equal(index.toString(), '1')
-    */
+
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'transferOwnership(address,address)',
       [util.getAddress(ownerAccount), util.getAddress(newOwner)], { privateKey: ownerAccount, value: 0, confirm: true, gas: 3000000 }).catch(_ => false), "must fail as the owner is not a signer")
-    //   assert.include(await test.getErrorReason(), "owner changes only on active nodes")
+    assert.include(await test.getErrorReason(), "address is not an in3-signer")
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'transferOwnership(address,address)',
       [util.getAddress(signerAccount), "0x0000000000000000000000000000000000000000"], { privateKey: ownerAccount, value: 0, confirm: true, gas: 3000000 }).catch(_ => false), "must fail as the 0x0 as new owner is invalid")
@@ -863,40 +880,19 @@ describe('Convict', () => {
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'transferOwnership(address,address)',
       [util.getAddress(signerAccount), util.getAddress(newOwner)], { privateKey: newOwner, value: 0, confirm: true, gas: 3000000 }).catch(_ => false), "must fail as the 0x0 as new owner is invalid")
-    // assert.include(await test.getErrorReason(), "only current owner can transfer ownership")
+    assert.include(await test.getErrorReason(), "only for the in3-node owner")
 
     await tx.callContract(test.url, test.nodeList.contract, 'transferOwnership(address,address)',
       [util.getAddress(signerAccount), util.getAddress(newOwner)], { privateKey: ownerAccount, value: 0, confirm: true, gas: 3000000 })
 
-    //   const [, , ownerNew, , , , , indexnew] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,uint8,address,uint,uint)', [util.getAddress(signerAccount)])
+    const [, ownerNew, , , indexnew] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(signerAccount)])
 
-    //  assert.equal(ownerNew, util.getAddress(newOwner).substr(2).toLowerCase())
-    //assert.equal(indexnew.toString(), '1')
+    assert.equal(ownerNew, util.getAddress(newOwner).substr(2).toLowerCase())
+    assert.equal(indexnew.toString(), '1')
 
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400 * 365 * 1 + 1, util.getAddress(timeoutAccount), 2000], { privateKey: ownerAccount, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "exceeded maximum timeout")
-    /*
-      const calcDeposit = await tx.callContract(test.url, test.nodeList.contract, 'calcUnregisterDeposit(address):(uint)', [util.getAddress(signerAccount)])
-  
-      await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(signerAccount)], { privateKey: unregisterCallerPK, value: toBN(calcDeposit[0].toString()), confirm: true, gas: 3000000 })
-    
-    const clientVersion = await test.getFromServer('web3_clientVersion')
-    if (clientVersion.includes("Geth")) return
-    await test.increaseTime(86400 * 28 + 10)
-  
-    await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(signerAccount)], { privateKey: unregisterCallerPK, value: 0, confirm: true, gas: 3000000 })
-  
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400, util.getAddress(signerAccount), 2000], { privateKey: unregisterCallerPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
-    assert.include(await test.getErrorReason(), "owner is not correct")
-  
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400, util.getAddress(signerAccount), 2000], { privateKey: signerAccount, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
-    assert.include(await test.getErrorReason(), "owner is not correct")
-  
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400, util.getAddress(signerAccount), 2000], { privateKey: timeoutAccount, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
-    assert.include(await test.getErrorReason(), "owner is not correct")
-  
-    await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400, util.getAddress(signerAccount), 2000], { privateKey: newOwner, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 })
-      */
+
   })
 
   it('updateServer', async () => {
@@ -988,7 +984,7 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false), 'Must fail because the owner does not have a node yet')
 
-    // assert.include(await test.getErrorReason(), "only node owner can update")
+    assert.include(await test.getErrorReason(), "address is not an in3-signer")
 
     const richUser = await test.createAccount(null, toBN("100000000000000000000"))
 
@@ -1009,17 +1005,6 @@ describe('Convict', () => {
       confirm: true
     }).catch(_ => false), 'Must fail because the url is already taken')
     assert.include(await test.getErrorReason(), "url is already in use")
-    /*
-    await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['unregisterServer', 1000, 1000, 2000], { privateKey: pk2, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 })
-    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(pk2)], { privateKey: pk2, value: 0, confirm: true, gas: 3000000 })
-
-    const clientVersion = await test.getFromServer('web3_clientVersion')
-    if (clientVersion.includes("Geth")) return
-    await test.increaseTime(3600)
-    await tx.callContract(test.url, test.nodeList.contract, 'confirmUnregisteringNode(address)', [util.getAddress(pk2)], { privateKey: pk2, value: 0, confirm: true, gas: 3000000 })
-
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(pk2), "test3.com", 0x0fff, 0, 2000], { privateKey: pk2, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
-    assert.include(await test.getErrorReason(), "signer does not own a node")
 
     const timeoutPK = await test.createAccount(null, toBN('4900000000000000000'))
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['timeout', 1000, 86400 * 365 + 1, 2000], { privateKey: timeoutPK, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
@@ -1028,11 +1013,14 @@ describe('Convict', () => {
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(timeoutPK), "timeout", 0x0fff, 86400 * 365 * 1 + 1, 2000], { privateKey: timeoutPK, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "exceeded maximum timeout")
 
+    const clientVersion = await test.getFromServer('web3_clientVersion')
+    if (clientVersion.includes("Geth")) return
     await test.increaseTime(365 * 86400 + 1)
+
     await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(richUser), 'abc', 0xffff, 16400, 2000], { privateKey: richUser, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 })
     const richUserTwo = await test.createAccount(null, toBN("100000000000000000000"))
     await tx.callContract(test.url, test.nodeList.contract, 'registerNode(string,uint64,uint64,uint64)', ['richNode', 1000, 10000, 2000], { privateKey: richUserTwo, value: toBN('50000000000000000000'), confirm: true, gas: 5000000 })
-    */
+
   })
 
 })
