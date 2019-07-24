@@ -462,138 +462,151 @@ describe('Convict', () => {
   })
 
   it('verify and convict (block within 256 blocks)', async () => {
+    const numberRuns = process.env.GITLAB_CI ? 100 : 1
+    for (let i = 0; i < numberRuns; i++) {
+      const test = await TestTransport.createWithRegisteredNodes(2)
+      const watcher = test.getHandler(0).watcher
+      const watcher2 = test.getHandler(1).watcher
 
-    const test = await TestTransport.createWithRegisteredNodes(2)
-    const watcher = test.getHandler(0).watcher
+      const pk1 = test.getHandlerConfig(0).privateKey
 
-    const pk1 = test.getHandlerConfig(0).privateKey
+      const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+      const client = await test.createClient()
 
-    const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
-    const client = await test.createClient()
+      // this is a correct signature and should not fail.
+      const res = await client.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
+        keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
+      })
 
-    // this is a correct signature and should not fail.
-    const res = await client.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
-      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
-    })
+      assert.isDefined(res.in3.proof.signatures[0])
+      test.injectRandom([0.01, 0.9])
+      test.injectRandom([0.02, 0.8])
 
-    assert.isDefined(res.in3.proof.signatures[0])
-    test.injectRandom([0.01, 0.9])
-    test.injectRandom([0.02, 0.8])
+      let manipulated = false
+      test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
+        const index = parseInt(url.substr(1)) - 1
+        // we change it to a wrong signature
+        if (!manipulated) {
+          re.result = [sign(block, test.registryId, test.getHandlerConfig(index).privateKey, pk1)]
+          manipulated = true
+        }
+        return re
+      })
 
-    let manipulated = false
-    test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
-      const index = parseInt(url.substr(1)) - 1
-      // we change it to a wrong signature
-      if (!manipulated) {
-        re.result = [sign(block, test.registryId, test.getHandlerConfig(index).privateKey, pk1)]
-        manipulated = true
-      }
-      return re
-    })
+      assert.equal(await test.getNodeCountFromContract(), 2)
 
-    assert.equal(await test.getNodeCountFromContract(), 2)
+      // we create a new client because the old one may have different weights now
+      const client2 = await test.createClient()
 
-    // we create a new client because the old one may have different weights now
-    const client2 = await test.createClient()
+      // just read all events
+      await watcher.update()
+      await watcher2.update()
 
-    // just read all events
-    await watcher.update()
+      // this is a correct signature and should not fail.
+      await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
+        keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
+      })
 
-    // this is a correct signature and should not fail.
-    await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
-      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
-    })
+      await test.createAccount()
+      await test.createAccount()
+      await test.createAccount()
+      await watcher.update()
+      await watcher2.update()
 
-    await test.createAccount()
-    await test.createAccount()
-    await test.createAccount()
-    await watcher.update()
-    // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
-    assert.equal(await test.getNodeCountFromContract(), 1)
+      // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
+      assert.equal(await test.getNodeCountFromContract(), 1)
 
-    // just read all events
-    const events = await watcher.update()
-    assert.equal(events.length, 2)
-    assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
+      // just read all events
+      let events = await watcher.update()
 
-  })
+      if (events.length == 0) events = await watcher2.update()
+      assert.equal(events.length, 2)
+      assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
+    }
+  }).timeout(6000000)
 
-
-  // TODO: remove
   it('verify and convict (block older then 256 blocks) - worth it', async () => {
-    // TODO: remove
-    const test = await TestTransport.createWithRegisteredNodes(2)
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), test.getHandlerConfig(0).rpcUrl, 0, 0, 0], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
-    const blockHashRegistry = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
+    const numberRuns = process.env.GITLAB_CI ? 100 : 1
+    for (let i = 0; i < numberRuns; i++) {
 
-    const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 }))
+      const test = await TestTransport.createWithRegisteredNodes(2)
 
-    const wrongBlock = txReceipt.blockNumber - 0x12C
-    const watcher = test.getHandler(0).watcher
+      await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), "#1", 0, 0, 0], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
+      await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(1).privateKey), "#2", 0, 0, 0], { privateKey: test.getHandlerConfig(1).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false)
 
-    const pk1 = test.getHandlerConfig(0).privateKey
-    const pk2 = test.getHandlerConfig(1).privateKey
+      const blockHashRegistry = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
 
-    const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
+      const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 }))
 
-    assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 300)
+      const wrongBlock = txReceipt.blockNumber - 0x12C
+      const watcher = test.getHandler(0).watcher
 
-    const client = await test.createClient()
+      const watcher2 = test.getHandler(1).watcher
 
-    // this is a correct signature and should not fail.
-    const res = await client.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
-      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
-    })
+      const pk1 = test.getHandlerConfig(0).privateKey
+      const pk2 = test.getHandlerConfig(1).privateKey
 
-    assert.isDefined(res.in3.proof.signatures[0])
-    test.injectRandom([0.01, 0.9])
-    test.injectRandom([0.02, 0.8])
+      const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
 
-    let manipulated = false
-    test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
-      const index = parseInt(url.substr(1)) - 1
-      // we change it to a wrong signature
-      if (!manipulated) {
-        re.result = [sign(block, test.registryId, test.getHandlerConfig(index).privateKey, pk1)]
-        manipulated = true
-      }
-      return re
-    })
+      assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 300)
 
+      const client = await test.createClient()
 
-    assert.equal(await test.getNodeCountFromContract(), 2)
+      // this is a correct signature and should not fail.
+      const res = await client.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
+        keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
+      })
 
-    // we create a new client because the old one may have different weights now
-    const client2 = await test.createClient()
+      assert.isDefined(res.in3.proof.signatures[0])
+      test.injectRandom([0.01, 0.9])
+      test.injectRandom([0.02, 0.8])
 
-    // just read all events
-    await watcher.update()
+      let manipulated = false
+      test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
+        const index = parseInt(url.substr(1)) - 1
+        // we change it to a wrong signature
+        if (!manipulated) {
+          re.result = [sign(block, test.registryId, test.getHandlerConfig(index).privateKey, pk1)]
+          manipulated = true
+        }
+        return re
+      })
 
 
-    // this is a correct signature and should not fail.
-    const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
-      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
-    })
+      assert.equal(await test.getNodeCountFromContract(), 2)
 
-    // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
-    await test.createAccount()
-    // just read all events
-    await watcher.update()
-    await test.createAccount()
-    const events = await watcher.update()
+      // we create a new client because the old one may have different weights now
+      const client2 = await test.createClient()
 
-    assert.equal(events.length, 2)
-    assert.equal(await test.getNodeCountFromContract(), 1)
+      // just read all events
+      await watcher.update()
+      await watcher2.update()
 
-    assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
+      // this is a correct signature and should not fail.
+      const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
+        keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
+      })
 
-  })
+      // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
+      await test.createAccount()
+      // just read all events
+      await watcher.update()
+      await watcher2.update()
 
+      await test.createAccount()
+      let events = await watcher.update()
 
-  // TODO: remove
+      if (events.length == 0) events = await watcher2.update()
+
+      assert.equal(events.length, 2)
+      assert.equal(await test.getNodeCountFromContract(), 1)
+
+      assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
+    }
+  }).timeout(6000000)
+
   it('verify and convict (block older then 256 blocks) - not worth it', async () => {
-    // TODO: remove
     const test = await TestTransport.createWithRegisteredNodes(2)
 
 
@@ -603,7 +616,10 @@ describe('Convict', () => {
     const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 }))
 
     const wrongBlock = txReceipt.blockNumber - 0x12C
+
     const watcher = test.getHandler(0).watcher
+    const watcher2 = test.getHandler(1).watcher
+
 
     const pk1 = test.getHandlerConfig(0).privateKey
     const pk2 = test.getHandlerConfig(1).privateKey
@@ -642,6 +658,7 @@ describe('Convict', () => {
 
     // just read all events
     await watcher.update()
+    await watcher2.update()
 
 
     // this is a correct signature and should not fail.
@@ -654,7 +671,14 @@ describe('Convict', () => {
 
     // just read all events
     const events = await watcher.update()
+    const events2 = await watcher2.update()
+
+    assert.equal(events, undefined)
+    assert.equal(events2, undefined)
+
   })
+
+
   it('removeNodeFromRegistry', async () => {
     const test = await TestTransport.createWithRegisteredNodes(4)
     const nonExistingUser = await test.createAccount()

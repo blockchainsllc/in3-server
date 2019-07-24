@@ -182,18 +182,14 @@ export default class Watcher extends EventEmitter {
 
     for (const ci of this.futureConvicts) {
       if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone) {
-        try {
-          await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
-            [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
-              privateKey: this.handler.config.privateKey,
-              gas: 600000,
-              value: 0,
-              confirm: true
-            })
-          this.futureConvicts.pop()
-        } catch (e) {
-          console.log(e)
-        }
+        await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
+          [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
+            privateKey: this.handler.config.privateKey,
+            gas: 600000,
+            value: 0,
+            confirm: true
+          }).catch(_ => logger.error('Error sending revealConvict ', _))
+        this.futureConvicts.pop()
       }
     }
 

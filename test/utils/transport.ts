@@ -292,12 +292,12 @@ export class TestTransport implements Transport {
     // create accounts
     for (let i = 0; i < count; i++) {
 
-      pks.push(await test.createAccount(null, toBN('4900000000000000000')))
+      pks.push(await test.createAccount(null, toBN('5000000000000000000')))
       servers.push({
         url: '#' + (i + 1),
         pk: pks[i],
         props: '0xffff',
-        deposit: '0x2386F26FC10000',
+        deposit: toBN('10000000000000000'),
         timeout: 3600
       })
     }
