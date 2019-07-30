@@ -43,6 +43,8 @@ process.on('unhandledRejection', (reason, promise) => {
 //var njstrace = require('njstrace').inject();
 
 // tslint:disable-next-line:missing-jsdoc
+const Sentry = require('@sentry/node');
+
 import * as Koa from 'koa'
 import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
@@ -64,6 +66,15 @@ export const app = new Koa()
 const router = new Router()
 let rpc: RPC = null
 
+// Hook up sentry if enabled
+if (process.env.SENTRY_ENABLE === 'true') {
+  app.on('error', (err, ctx) => {
+    Sentry.withScope(scope => {
+      scope.addEventProcessor(event => Sentry.Handlers.parseRequest(event, ctx.request));
+      Sentry.captureException(err);
+    });
+  });
+}
 // handle cbor-encoding
 app.use(async (ctx, next) => {
 
