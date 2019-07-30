@@ -25,7 +25,7 @@ services:
   nd-1:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
     mem_limit: 1073741824
-    memswap_limit: 5242880
+    memswap_limit: 1127428915
     stdin_open: true
     tty: true
     command:
@@ -46,7 +46,7 @@ services:
   nd-2:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
     mem_limit: 1073741824
-    memswap_limit: 5242880
+    memswap_limit: 1127428915
     stdin_open: true
     tty: true
     command:
@@ -67,7 +67,7 @@ services:
   nd-3:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
     mem_limit: 1073741824
-    memswap_limit: 5242880
+    memswap_limit: 1127428915
     stdin_open: true
     tty: true
     command:
@@ -88,7 +88,7 @@ services:
   nd-4:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
     mem_limit: 1073741824
-    memswap_limit: 5242880
+    memswap_limit: 1127428915
     stdin_open: true
     tty: true
     command:
@@ -110,7 +110,7 @@ services:
   nd-5:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
     mem_limit: 1073741824
-    memswap_limit: 5242880
+    memswap_limit: 1127428915
     stdin_open: true
     tty: true
     command:
