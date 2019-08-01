@@ -243,7 +243,6 @@ contract NodeRegistry {
     /// @dev reverts when being the owner and sending value through this function
     function requestUnregisteringNode(address _signer)
         external
-        payable
         onlyActiveState(_signer)
     {
 
