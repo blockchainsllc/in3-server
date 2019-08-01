@@ -159,12 +159,7 @@ router.get(/.*/, async ctx => {
 initConfig().then(() => {
   rpc = new RPC(config);
   (chainAliases as any).api = Object.keys(config.chains)[0]
-  logger.info('staring in3-server...')
-  app
-  .use(router.routes())
-  .use(router.allowedMethods())
-  .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
-
+ 
   const doInit = (retryCount: number) => {
     if (retryCount <= 0) {
       logger.error('Error initializing the server : Maxed out retries')
@@ -182,8 +177,16 @@ initConfig().then(() => {
     })
   }
 
-  // after starting the server, we should make sure our nodelist is up-to-date.
+  // Getting node list and validator list before starting server
+  logger.info('initializing in3-server...')
   doInit(3)
+
+  logger.info('staring in3-server...')
+  app
+  .use(router.routes())
+  .use(router.allowedMethods())
+  .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
+
 }).catch(err => {
   //console.error('Error starting the server : ' + err.message, config)
   logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
