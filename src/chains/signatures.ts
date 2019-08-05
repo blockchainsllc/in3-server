@@ -64,8 +64,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
     // send the sign-request
     const response = (blocksToRequest.length ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest }) : { result: [] }) as RPCResponse
-    if (response.error || response.result['Error'])
-      throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + '. ' + (response.result['Error']?response.result['Error']:response.error))
+    if (response.error || response.result.Error)
+      throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + '. ' + (response.result.Error||response.error))
 
     
     const signatures = [...cachedSignatures, ...response.result] as Signature[]
