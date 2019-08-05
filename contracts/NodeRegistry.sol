@@ -227,7 +227,6 @@ contract NodeRegistry {
         si.stage = Stages.DepositNotWithdrawn;
 
         removeNode(si.index);
-        si.index = 0;
 
     }
 
@@ -340,12 +339,11 @@ contract NodeRegistry {
 
         uint deposit = 0;
         // the signer is still active
-        if (nodes[si.index].signer == _signer) {
-            assert(si.stage == Stages.Active);
+        if (si.stage == Stages.Active) {
+            assert(nodes[si.index].signer == _signer);
             deposit = nodes[si.index].deposit;
             nodes[si.index].deposit = 0;
             removeNode(si.index);
-            si.index = 0;
         } else {
             // double check that the signer is not active
             assert(si.stage != Stages.Active);
@@ -569,6 +567,10 @@ contract NodeRegistry {
         uint length = nodes.length;
 
         assert(length > 0);
+
+        // reset the index position
+        signerIndex[nodes[_nodeIndex].signer].index = 0;
+
         // move the last entry to the removed one.
         In3Node memory m = nodes[length - 1];
         nodes[_nodeIndex] = m;
