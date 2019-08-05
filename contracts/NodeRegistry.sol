@@ -188,11 +188,36 @@ contract NodeRegistry {
         uint64 _props,
         uint64 _timeout,
         address _signer,
-        uint64 _weight
+        uint64 _weight,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
     )
         external
         payable
     {
+
+        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+        bytes32 tempHash = keccak256(
+            abi.encodePacked(
+                _url,
+                _props,
+                _timeout,
+                _weight,
+                msg.sender
+            )
+        );
+        bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, tempHash));
+
+        address signer = ecrecover(
+            prefixedHash,
+            _v,
+            _r,
+            _s
+        );
+
+        require(_signer == signer, "not the correct signature of the signer provided");
+
         registerNodeInternal(
             _url,
             _props,

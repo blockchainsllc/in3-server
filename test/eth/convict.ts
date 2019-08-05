@@ -51,11 +51,31 @@ const sign = (b: BlockData, registryId: string, pk: string, blockHash?: string) 
   } as Signature
 }
 
-const calcHash = (nonce: number, signer: string, blockhash: string): Buffer => {
+const signForRegister = (url: string, props: number, timeout: number, weight: number, owner: string, pk: string) => {
 
-  return ethUtil.keccak(Buffer.concat([bytes32(nonce), address(signer), bytes32(blockhash)]))
+  const msgHash = ethUtil.keccak(
+    Buffer.concat([
+      serialize.bytes(url),
+      uint64(props),
+      uint64(timeout),
+      uint64(weight),
+      address(owner)
+    ])
+  )
+  const msgHash2 = ethUtil.keccak(toHex("\x19Ethereum Signed Message:\n32") + toHex(msgHash).substr(2))
+  const s = ethUtil.ecsign((msgHash2), bytes32(pk))
 
+  return {
+    ...s,
+    address: util.getAddress(pk),
+    msgHash: toHex(msgHash2, 32),
+    signature: toHex(s.r) + toHex(s.s).substr(2) + toHex(s.v).substr(2),
+    r: toHex(s.r),
+    s: toHex(s.s),
+    v: s.v
+  }
 }
+
 
 
 describe('Convict', () => {
@@ -896,18 +916,31 @@ describe('Convict', () => {
     const newOwner = await test.createAccount(null, toBN('49000000000000000000'))
     const timeoutAccount = await test.createAccount()
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)',
-      ["#1", 1000, 10000, util.getAddress(signerAccount), 2000], { privateKey: ownerAccount, value: toBN('49000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false)
+    const signerSig = signForRegister("#1", 1000, 10000, 2000, util.getAddress(ownerAccount), signerAccount)
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64,uint8,bytes32,bytes32)',
+      ["#1", 1000, 10000, util.getAddress(signerAccount), 2000, signerSig.v, signerSig.r, signerSig.s], { privateKey: ownerAccount, value: toBN('49000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false)
       , "must fail because url is already registered")
     assert.include(await test.getErrorReason(), "a node with the same url or signer is already registered")
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)',
-      ["#10", 1000, 10000, util.getAddress(test.getHandlerConfig(0).privateKey), 2000], { privateKey: ownerAccount, value: toBN('49000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false)
+    const signerOwnerAlreadyTaken = signForRegister("#10", 1000, 10000, 2000, util.getAddress(ownerAccount), test.getHandlerConfig(0).privateKey)
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64,uint8,bytes32,bytes32)',
+      ["#10", 1000, 10000, util.getAddress(test.getHandlerConfig(0).privateKey), 2000, signerOwnerAlreadyTaken.v, signerOwnerAlreadyTaken.r, signerOwnerAlreadyTaken.s], { privateKey: ownerAccount, value: toBN('49000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false)
       , "must fail because signer is already registered")
     assert.include(await test.getErrorReason(), "a node with the same url or signer is already registered")
 
-    await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)',
-      ["#10", 1000, 10000, util.getAddress(signerAccount), 2000], { privateKey: ownerAccount, value: toBN('1000000000000000000'), confirm: true, gas: 3000000 })
+    const signerSigCorrect = signForRegister("#10", 1000, 10000, 2000, util.getAddress(ownerAccount), signerAccount)
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64,uint8,bytes32,bytes32)',
+      ["#10", 1000, 10000, util.getAddress(test.getHandlerConfig(0).privateKey), 2000, signerOwnerAlreadyTaken.v, signerOwnerAlreadyTaken.s, signerOwnerAlreadyTaken.r], { privateKey: ownerAccount, value: toBN('49000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false)
+      , "must fail because wrong signature")
+
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64,uint8,bytes32,bytes32)',
+      ["#100", 1000, 10000, util.getAddress(test.getHandlerConfig(0).privateKey), 2000, signerOwnerAlreadyTaken.v, signerOwnerAlreadyTaken.r, signerOwnerAlreadyTaken.s], { privateKey: ownerAccount, value: toBN('49000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false)
+      , "must fail because of wrong data signed")
+    assert.include(await test.getErrorReason(), "not the correct signature of the signer provided")
+
+    await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64,uint8,bytes32,bytes32)',
+      ["#10", 1000, 10000, util.getAddress(signerAccount), 2000, signerSigCorrect.v, signerSigCorrect.r, signerSigCorrect.s], { privateKey: ownerAccount, value: toBN('1000000000000000000'), confirm: true, gas: 5000000 })
 
     const currentBlock = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
@@ -962,7 +995,12 @@ describe('Convict', () => {
     assert.equal(ownerNew, util.getAddress(newOwner).substr(2).toLowerCase())
     assert.equal(indexnew.toString(), '1')
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400 * 365 * 1 + 1, util.getAddress(timeoutAccount), 2000], { privateKey: ownerAccount, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    // assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400 * 365 * 1 + 1, util.getAddress(timeoutAccount), 2000], { privateKey: ownerAccount, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
+    const maxTimeoutTry = signForRegister("timeout", 1000, 86400 * 365 * 1 + 1, 2000, util.getAddress(ownerAccount), timeoutAccount)
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64,uint8,bytes32,bytes32)',
+      ["timeout", 1000, 86400 * 365 * 1 + 1, util.getAddress(timeoutAccount), 2000, maxTimeoutTry.v, maxTimeoutTry.r, maxTimeoutTry.s], { privateKey: ownerAccount, value: toBN('49000000000000000000'), confirm: true, gas: 3000000 }).catch(_ => false)
+      , "must fail because exceeded maximum timeout")
+
     assert.include(await test.getErrorReason(), "exceeded maximum timeout")
 
   })
