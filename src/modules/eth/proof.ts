@@ -514,10 +514,11 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
 
   // error checking
   if (blockResponse.error) 
-    return {id: request.id,jsonrpc: '2.0',result: ('Error: Could not get the block for ' + request.params[1] + ':' + blockResponse.error)}
+    throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
 
   if (proof.error) 
-    return {id: request.id,jsonrpc: '2.0',result: ('Error: Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] }, null, 2))}
+    throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] }, null, 2))
+
 
   // make sure we use minHex for the proof-keys
   if (proof.result && proof.result.storageProof)
