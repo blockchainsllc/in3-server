@@ -71,6 +71,9 @@ export class RPC {
       const in3: IN3ResponseConfig = {} as any
       const start = Date.now()
 
+      if(!handler)
+        throw new Error("Unable to connect Ethereum and/or invalid chainId give.")
+
       // update stats
       currentHour.update(r)
 
