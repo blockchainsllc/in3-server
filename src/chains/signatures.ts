@@ -53,10 +53,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
   return Promise.all(uniqueAddresses.slice(0, nodes.nodes.length).map(async adr => {
     // find the requested address in our list
     const config = nodes.nodes.find(_ => _.address.toLowerCase() === adr.toLowerCase())
-    if (!config){ // TODO do we need to throw here or is it ok to simply not deliver the signature?
-      //logger.error('The requested signature ' + adr + ' does not exist within the current nodeList!')
+    if (!config) // TODO do we need to throw here or is it ok to simply not deliver the signature?
       throw new Error('The ' + adr + ' does not exist within the current registered active nodeList!')
-    }
 
     // get cache signatures and remaining blocks that have no signatures
     const cachedSignatures: Signature[] = []
@@ -66,17 +64,20 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
     })
 
     // send the sign-request
-    let response
+    let response:RPCResponse
     try{
-      response = (blocksToRequest.length ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest }) : { result: [] }) as RPCResponse
+      response = (blocksToRequest.length 
+        ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest }) 
+        : { result: [] }) as RPCResponse
       if (response.error){
         //throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         return null
       }
-    }catch(error){
+    }catch(error) {
       logger.error(error.toString())
-      return null}
+      return null
+    }
 
     const signatures = [...cachedSignatures, ...response.result] as Signature[]
 
