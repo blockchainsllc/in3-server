@@ -60,7 +60,7 @@ export async function callContract(url: string, contract: string, signature: str
 
   let data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
 
-  if (signature === 'calculateBlockheaders(bytes[],bytes32):(bytes32)'
+  if (signature === 'reCalculateBlockheaders(bytes[],bytes32):(bytes32)'
     || signature === 'recreateBlockheaders(uint,bytes[])'
     || signature === 'recoverAddress(bytes,bytes32,address):(address)'
     || signature === 'voteUnregisterNode(uint,address,bytes[])'

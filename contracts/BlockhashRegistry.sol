@@ -51,7 +51,7 @@ contract BlockhashRegistry {
 
     /// @notice starts with a given blocknumber and its header and tries to recreate a (reverse) chain of blocks
     /// @notice only usable when the given blocknumber is already in the smart contract
-    /// @notice it will be checked whether the provided chain is correct by using the calculateBlockheaders function
+    /// @notice it will be checked whether the provided chain is correct by using the reCalculateBlockheaders function
     /// @notice if successfull the last blockhash of the header will be added to the smart contract
     /// @param _blockNumber the block number to start recreation from
     /// @param _blockheaders array with serialized blockheaders in reverse order (youngest -> oldest) => (e.g. 100, 99, 98)
@@ -62,7 +62,7 @@ contract BlockhashRegistry {
         bytes32 currentBlockhash = blockhashMapping[_blockNumber];
         require(currentBlockhash != 0x0, "parentBlock is not available");
 
-        bytes32 calculatedHash = calculateBlockheaders(_blockheaders, currentBlockhash);
+        bytes32 calculatedHash = reCalculateBlockheaders(_blockheaders, currentBlockhash);
         require(calculatedHash != 0x0, "invalid headers");
 
         require(_blockNumber > _blockheaders.length, "invalid amount of headers");
@@ -94,7 +94,7 @@ contract BlockhashRegistry {
     /// @param _blockheaders array with serialized blockheaders in reverse order, i.e. from youngest to oldest
     /// @param _bHash blockhash of the 1st element of the _blockheaders-array
     /// @return 0x0 if the functions detects a wrong chaining of blocks, blockhash of the last element of the array otherwhise
-    function calculateBlockheaders(bytes[] memory _blockheaders, bytes32 _bHash) public pure returns (bytes32 bhash) {
+    function reCalculateBlockheaders(bytes[] memory _blockheaders, bytes32 _bHash) public pure returns (bytes32 bhash) {
 
         bytes32 currentBlockhash = _bHash;
         bytes32 calcParent = 0x0;
