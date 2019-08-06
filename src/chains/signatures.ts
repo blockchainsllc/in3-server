@@ -79,7 +79,9 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       return null
     }
 
+    
     const signatures = [...cachedSignatures, ...response.result] as Signature[]
+
 
     // if there are signature, we only return the valid ones
     if (signatures && signatures.length)
@@ -159,12 +161,20 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
 
   const blockHeight = handler.config.minBlockHeight === undefined ? 6 : handler.config.minBlockHeight
   const tooYoungBlock = blockData.find(block => toNumber(blockNumber) - toNumber(block.number) < blockHeight)
-  if (tooYoungBlock)
-    throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
+  //if (tooYoungBlock)
+    //throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
 
-  return {
-    id: request.id,
-    jsonrpc: request.jsonrpc,
-    result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash })))
-  }
+  if(tooYoungBlock)
+    return {
+      id: request.id,
+      jsonrpc: request.jsonrpc,
+      error: 'Cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight 
+    }
+  else
+    return {
+      id: request.id,
+      jsonrpc: request.jsonrpc,
+      result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash }))) 
+    }
+  
 }
