@@ -130,6 +130,7 @@ contract NodeRegistry {
 
     /// @notice constructor
     /// @param _blockRegistry address of a BlockhashRegistry-contract
+    /// @dev cannot be deployed in a genesis block
     constructor(BlockhashRegistry _blockRegistry) public {
         blockRegistry = _blockRegistry;
 

@@ -31,6 +31,7 @@ contract BlockhashRegistry {
     mapping(uint => bytes32) public blockhashMapping;
 
     /// constructor, calls snapshot-function when contract get deployed as entry point
+    /// @dev cannot be deployed in a genesis block
     constructor() public {
         snapshot();
     }
