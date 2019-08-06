@@ -58,7 +58,7 @@ contract NodeRegistry {
 
     /// information of a in3-node owner
     struct SignerInformation {
-        uint64 lockedTime;                  /// unix timestamp until the deposit of an in3-node can be returned after the node had been removed
+        uint64 lockedTime;                  /// timestamp until the deposit of an in3-node can be returned after the node had been removed
         address owner;                      /// the owner of the node
 
         Stages stage;                       /// state of the address
@@ -495,6 +495,8 @@ contract NodeRegistry {
         );
     }
 
+    /// @notice function to check whether the allowed amount of ether as deposit per server has been reached
+    /// @param _deposit the new amount of deposit a server has
     function checkNodeProperties(uint256 _deposit) internal view {
 
         // solium-disable-next-line security/no-block-members
@@ -502,7 +504,6 @@ contract NodeRegistry {
             require(_deposit < MAX_ETHER_LIMIT, "Limit of 50 ETH reached");
         }
     }
-
 
     /// @notice registers a node
     /// @param _url the url of a node
@@ -516,7 +517,7 @@ contract NodeRegistry {
     /// @dev reverts when provided not enough deposit
     /// @dev reverts when trying to register a node with more then 50 ether in the 1st year after deployment
     /// @dev reverts when either the owner or the url is already in use
-    function registerNodeInternal(
+    function registerNodeInternal (
         string memory _url,
         uint64 _props,
         uint64 _timeout,
@@ -576,6 +577,9 @@ contract NodeRegistry {
         );
     }
 
+    /// @notice handes the setting of the unregister values for a node internally
+    /// @param _si information of the signer
+    /// @param _n information of the in3-node
     function unregisterNodeInternal(SignerInformation  storage _si, In3Node memory _n) internal {
 
         // solium-disable-next-line security/no-block-members
