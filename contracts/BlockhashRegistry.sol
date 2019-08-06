@@ -65,7 +65,8 @@ contract BlockhashRegistry {
         bytes32 calculatedHash = reCalculateBlockheaders(_blockheaders, currentBlockhash);
         require(calculatedHash != 0x0, "invalid headers");
 
-        require(_blockNumber > _blockheaders.length, "invalid amount of headers");
+        /// we should never fail this assert, as this would mean that we were able to recreate a invalid blockchain
+        assert(_blockNumber > _blockheaders.length);
         uint bnr = _blockNumber - _blockheaders.length;
         blockhashMapping[bnr] = calculatedHash;
         emit LogBlockhashAdded(bnr, calculatedHash);
