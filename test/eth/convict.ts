@@ -839,7 +839,7 @@ describe('Convict', () => {
     const [lockedTimeEnd, ownerEnd, stageEnd, depositAmountEnd, indexEnd] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
     assert.equal(lockedTimeEnd.toString(), '0')
-    assert.equal(ownerEnd, util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase().substr(2))
+    assert.equal(ownerEnd, '0000000000000000000000000000000000000000')
     assert.equal(stageEnd.toString(), '0')
     assert.equal(depositAmountEnd.toString(), '0')
     assert.equal(indexEnd.toString(), '0')

@@ -245,15 +245,9 @@ contract NodeRegistry {
         require(msg.sender == unregisterKey, "only unregisterKey is allowed to remove nodes");
 
         SignerInformation storage si = signerIndex[_signer];
-
         In3Node memory n = nodes[si.index];
 
-        // solium-disable-next-line security/no-block-members
-        si.lockedTime = uint64(block.timestamp + n.timeout);// solhint-disable-line not-rely-on-time
-        si.depositAmount = n.deposit;
-        si.stage = Stages.DepositNotWithdrawn;
-
-        removeNode(si.index);
+        unregisterNodeInternal(si, n);
 
     }
 
@@ -276,11 +270,7 @@ contract NodeRegistry {
         In3Node memory n = nodes[si.index];
         require(si.owner == msg.sender, "only for the in3-node owner");
 
-        // solium-disable-next-line security/no-block-members
-        si.lockedTime = uint64(block.timestamp + n.timeout);// solhint-disable-line not-rely-on-time
-        si.depositAmount = n.deposit;
-        si.stage = Stages.DepositNotWithdrawn;
-        removeNode(si.index);
+        unregisterNodeInternal(si, n);
     }
 
     /// @notice returns the deposit after a node has been removed due to inactivity
@@ -300,10 +290,7 @@ contract NodeRegistry {
         require(block.timestamp > si.lockedTime, "deposit still locked"); // solhint-disable-line not-rely-on-time
 
         uint payout = si.depositAmount;
-        si.depositAmount = 0;
-        si.lockedTime = 0;
-        si.stage = Stages.NotInUse;
-
+        delete signerIndex[_signer];
         msg.sender.transfer(payout);
     }
 
@@ -458,11 +445,7 @@ contract NodeRegistry {
 
         if (msg.value > 0) {
             node.deposit += msg.value;
-
-            // solium-disable-next-line security/no-block-members
-            if (block.timestamp < (blockTimeStampDeployment + YEAR_DEFINITION)) {// solhint-disable-line not-rely-on-time
-                require(node.deposit < MAX_ETHER_LIMIT, "Limit of 50 ETH reached");
-            }
+            checkNodeProperties(node.deposit);
         }
 
         if (_props != node.props) {
@@ -510,6 +493,15 @@ contract NodeRegistry {
         );
     }
 
+    function checkNodeProperties(uint256 _deposit) internal view {
+
+        // solium-disable-next-line security/no-block-members
+        if (block.timestamp < (blockTimeStampDeployment + YEAR_DEFINITION)) { // solhint-disable-line not-rely-on-time
+            require(_deposit < MAX_ETHER_LIMIT, "Limit of 50 ETH reached");
+        }
+    }
+
+
     /// @notice registers a node
     /// @param _url the url of a node
     /// @param _props properties of a node
@@ -540,10 +532,7 @@ contract NodeRegistry {
         // enforcing a minimum deposit
         require(_deposit >= 10 finney, "not enough deposit");
 
-        // solium-disable-next-line security/no-block-members
-        if (block.timestamp < (blockTimeStampDeployment + YEAR_DEFINITION)) { // solhint-disable-line not-rely-on-time
-            require(_deposit < MAX_ETHER_LIMIT, "Limit of 50 ETH reached");
-        }
+        checkNodeProperties(_deposit);
 
         bytes32 urlHash = keccak256(bytes(_url));
 
@@ -583,6 +572,16 @@ contract NodeRegistry {
             _signer,
             _deposit
         );
+    }
+
+    function unregisterNodeInternal(SignerInformation  storage _si, In3Node memory _n) internal {
+
+        // solium-disable-next-line security/no-block-members
+        _si.lockedTime = uint64(block.timestamp + _n.timeout);// solhint-disable-line not-rely-on-time
+        _si.depositAmount = _n.deposit;
+        _si.stage = Stages.DepositNotWithdrawn;
+
+        removeNode(_si.index);
     }
 
     /// @notice removes a node from the node-array
