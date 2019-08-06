@@ -64,6 +64,7 @@ contract BlockhashRegistry {
         bytes32 calculatedHash = calculateBlockheaders(_blockheaders, currentBlockhash);
         require(calculatedHash != 0x0, "invalid headers");
 
+        require(_blockNumber > _blockheaders.length, "invalid amount of headers");
         uint bnr = _blockNumber - _blockheaders.length;
         blockhashMapping[bnr] = calculatedHash;
         emit LogBlockhashAdded(bnr, calculatedHash);
@@ -121,6 +122,7 @@ contract BlockhashRegistry {
         /// calculates the offset
         /// by using the 1st byte (usually f9) and substracting f7 to get the start point of the parentHash information
         /// we also have to add "2" = 1 byte to it to skip the length-information
+        require(first > 0xf7, "invalid offset");
         uint8 offset = first - 0xf7 + 2;
 
         /// we are using assembly because it's the most efficent way to access the parent blockhash within the rlp-encoded blockheader
