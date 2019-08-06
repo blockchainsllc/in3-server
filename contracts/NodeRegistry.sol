@@ -423,7 +423,6 @@ contract NodeRegistry {
         onlyActiveState(_signer)
     {
         SignerInformation memory si = signerIndex[_signer];
-        require(_timeout <= YEAR_DEFINITION, "exceeded maximum timeout");
         require(si.owner == msg.sender, "only for the owner");
 
         In3Node storage node = nodes[si.index];
@@ -447,8 +446,9 @@ contract NodeRegistry {
 
         if (msg.value > 0) {
             node.deposit += msg.value;
-            checkNodeProperties(node.deposit);
         }
+
+        checkNodeProperties(node.deposit, _timeout);
 
         if (_props != node.props) {
             node.props = _props;
@@ -497,12 +497,16 @@ contract NodeRegistry {
 
     /// @notice function to check whether the allowed amount of ether as deposit per server has been reached
     /// @param _deposit the new amount of deposit a server has
-    function checkNodeProperties(uint256 _deposit) internal view {
+    /// @param _timeout the timeout until a server can receive his depoist after unregistering
+    /// @dev will fail when the deposit is greater then 50 ether in the 1st year
+    /// @dev will fail when the provided timeout is greater then 1 year
+    function checkNodeProperties(uint256 _deposit, uint64 _timeout) internal view {
 
         // solium-disable-next-line security/no-block-members
         if (block.timestamp < (blockTimeStampDeployment + YEAR_DEFINITION)) { // solhint-disable-line not-rely-on-time
             require(_deposit < MAX_ETHER_LIMIT, "Limit of 50 ETH reached");
         }
+        require(_timeout <= YEAR_DEFINITION, "exceeded maximum timeout");
     }
 
     /// @notice registers a node
@@ -529,13 +533,10 @@ contract NodeRegistry {
         internal
     {
 
-        // enforcing a maximum timeout
-        require(_timeout <= YEAR_DEFINITION, "exceeded maximum timeout");
-
         // enforcing a minimum deposit
         require(_deposit >= 10 finney, "not enough deposit");
 
-        checkNodeProperties(_deposit);
+        checkNodeProperties(_deposit, _timeout);
 
         bytes32 urlHash = keccak256(bytes(_url));
 
