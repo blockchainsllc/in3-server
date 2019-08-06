@@ -252,28 +252,6 @@ contract NodeRegistry {
 
     }
 
-    /// @notice a node owner can request to unregister his node
-    /// @notice but before he can confirm, he has to wait for his own-set deposit timeout
-    /// @notice can also be called by a non owner, challenging the in3-node to prove that he is active
-    /// @notice in order to do so, a challenger has to stake an amount equal to 2% of the node's deposit
-    /// @param _signer the signer of the in3-node
-    /// @dev reverts when the provided address is not an in3-signer
-    /// @dev reverts when the node is already unregistering
-    /// @dev reverts when inactivity is claimed
-    /// @dev if not the node owner reverts when the send deposit it not correct
-    /// @dev reverts when being the owner and sending value through this function
-    function unregisteringNode(address _signer)
-        external
-        onlyActiveState(_signer)
-    {
-
-        SignerInformation storage si = signerIndex[_signer];
-        In3Node memory n = nodes[si.index];
-        require(si.owner == msg.sender, "only for the in3-node owner");
-
-        unregisterNodeInternal(si, n);
-    }
-
     /// @notice returns the deposit after a node has been removed due to inactivity
     /// @notice only callable after the timeout of the deposit is over
     /// @param _signer the signer-address of a former in3-node
@@ -399,6 +377,28 @@ contract NodeRegistry {
 
         require(_newOwner != address(0x0), "0x0 address is invalid");
         si.owner = _newOwner;
+    }
+
+    /// @notice a node owner can request to unregister his node
+    /// @notice but before he can confirm, he has to wait for his own-set deposit timeout
+    /// @notice can also be called by a non owner, challenging the in3-node to prove that he is active
+    /// @notice in order to do so, a challenger has to stake an amount equal to 2% of the node's deposit
+    /// @param _signer the signer of the in3-node
+    /// @dev reverts when the provided address is not an in3-signer
+    /// @dev reverts when the node is already unregistering
+    /// @dev reverts when inactivity is claimed
+    /// @dev if not the node owner reverts when the send deposit it not correct
+    /// @dev reverts when being the owner and sending value through this function
+    function unregisteringNode(address _signer)
+        external
+        onlyActiveState(_signer)
+    {
+
+        SignerInformation storage si = signerIndex[_signer];
+        In3Node memory n = nodes[si.index];
+        require(si.owner == msg.sender, "only for the in3-node owner");
+
+        unregisterNodeInternal(si, n);
     }
 
     /// @notice updates a node by adding the msg.value to the deposit and setting the props or timeout
