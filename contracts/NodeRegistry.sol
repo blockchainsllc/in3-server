@@ -74,11 +74,12 @@ contract NodeRegistry {
         address signer;                     /// address of the owner of the url
     }
 
+    /// Different Stages a node can have
     enum Stages {
-        NotInUse,
-        Active,
-        Convicted,
-        DepositNotWithdrawn
+        NotInUse,                           /// node is not in use, so a new node with the same address can be registered
+        Active,                             /// node is active, so a new node with the same address cannot be registered
+        Convicted,                          /// node is convited, so he is inactive, but cannot be registered anymore
+        DepositNotWithdrawn                 /// node is not in use anymore, but still has some deposit stored within the contract
     }
 
     /// node list of incubed nodes
@@ -95,6 +96,7 @@ contract NodeRegistry {
     /// the timestamp of the deployment
     uint public blockTimeStampDeployment;
 
+    /// admin-key to remove some server, only usable within the 1st year
     address public unregisterKey;
 
     /// mapping for information of the owner
@@ -126,7 +128,7 @@ contract NodeRegistry {
         _;
     }
 
-    /// constructor
+    /// @notice constructor
     /// @param _blockRegistry address of a BlockhashRegistry-contract
     constructor(BlockhashRegistry _blockRegistry) public {
         blockRegistry = _blockRegistry;
@@ -140,7 +142,7 @@ contract NodeRegistry {
     /// @notice commits a blocknumber and a hash
     /// @notice must be called before revealConvict
     /// @param _blockNumber the blocknumber of the wrong blockhash
-    /// @param _hash _B used to prevent frontrunning
+    /// @param _hash keccak256(wrong blockhash, msg.sender, v, r, s); used to prevent frontrunning
     function convict(uint _blockNumber, bytes32 _hash) external {
 
         ConvictInformation memory ci;
@@ -349,8 +351,9 @@ contract NodeRegistry {
                     abi.encodePacked(
                         _blockhash,
                         _blockNumber,
-                        registryId)
-                    ),
+                        registryId
+                    )
+                ),
                 _v, _r, _s) == _signer,
             "the block was not signed by the signer of the node");
 
@@ -413,7 +416,7 @@ contract NodeRegistry {
     /// @param _signer the signer-address of the in3-node, used as an identifier
     /// @param _url the url, will be changed if different from the current one
     /// @param _props the new properties, will be changed if different from the current onec
-    /// @param _timeout the new timeout of the node, cannot be decreased
+    /// @param _timeout the new timeout of the node, cannot be decreased. Has to be at least 1h
     /// @param _weight the amount of requests per second the node is able to handle
     /// @dev reverts when the sender is not the owner of the node
     /// @dev reverts when the signer does not own a node
