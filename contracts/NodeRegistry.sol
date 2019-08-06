@@ -351,6 +351,8 @@ contract NodeRegistry {
                     _blockhash, msg.sender, _v, _r, _s
                 )
             ) == ci.convictHash, "wrong convict hash");
+
+        require(si.stage != Stages.Convicted, "node already convicted");
         emit LogNodeConvicted(_signer);
 
         uint deposit = 0;
