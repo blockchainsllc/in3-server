@@ -58,12 +58,12 @@ contract NodeRegistry {
 
     /// information of a in3-node owner
     struct SignerInformation {
-        uint64 lockedTime;                  /// unix timestamp until a node can proof activity
+        uint64 lockedTime;                  /// unix timestamp until the deposit of an in3-node can be returned after the node had been removed
         address owner;                      /// the owner of the node
 
         Stages stage;                       /// state of the address
 
-        uint depositAmount;                 /// amount of deposit to be locked, used only after vote-kick
+        uint depositAmount;                 /// amount of deposit to be locked, used only a node had been removed
 
         uint index;                         /// current index-position of the node in the node-array
     }
@@ -285,7 +285,7 @@ contract NodeRegistry {
 
         require(si.stage == Stages.DepositNotWithdrawn, "not in the correct state");
         require(si.owner == msg.sender, "only owner can claim deposit");
-        require(si.depositAmount > 0, "nothing to transfer");
+
         // solium-disable-next-line security/no-block-members
         require(block.timestamp > si.lockedTime, "deposit still locked"); // solhint-disable-line not-rely-on-time
 
@@ -357,7 +357,6 @@ contract NodeRegistry {
         if (si.stage == Stages.Active) {
             assert(nodes[si.index].signer == _signer);
             deposit = nodes[si.index].deposit;
-            nodes[si.index].deposit = 0;
             removeNode(si.index);
         } else {
             // double check that the signer is not active
