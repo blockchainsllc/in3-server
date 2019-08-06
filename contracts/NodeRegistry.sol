@@ -261,7 +261,7 @@ contract NodeRegistry {
     /// @dev reverts when inactivity is claimed
     /// @dev if not the node owner reverts when the send deposit it not correct
     /// @dev reverts when being the owner and sending value through this function
-    function requestUnregisteringNode(address _signer)
+    function unregisteringNode(address _signer)
         external
         onlyActiveState(_signer)
     {

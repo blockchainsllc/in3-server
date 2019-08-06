@@ -433,7 +433,7 @@ describe('Convict', () => {
     const convictSignatureOne = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(convictCallerOne)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
     const convictSignatureTwo = ethUtil.keccak(Buffer.concat([bytes32(s.blockHash), address(util.getAddress(convictCallerTwo)), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'unregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
 
     await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32)', [s.block, convictSignatureOne], {
       privateKey: convictCallerOne,
@@ -749,20 +749,20 @@ describe('Convict', () => {
 
   })
 
-  it('requestUnregisteringNode - owner', async () => {
+  it('unregisteringNode - owner', async () => {
 
     const test = await TestTransport.createWithRegisteredNodes(2)
 
     const nonExistingUser = await test.createAccount()
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: nonExistingUser, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'unregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: nonExistingUser, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "only for the in3-node owner")
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(nonExistingUser)], { privateKey: nonExistingUser, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'unregisteringNode(address)', [util.getAddress(nonExistingUser)], { privateKey: nonExistingUser, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "address is not an in3-signer")
 
     assert.equal(await test.getNodeCountFromContract(), 2)
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(nonExistingUser)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'unregisteringNode(address)', [util.getAddress(nonExistingUser)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "address is not an in3-signer")
     const [lockedTimeBefore, ownerBefore, stageBefore, depositAmountBefore, indexBefore] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
@@ -772,12 +772,12 @@ describe('Convict', () => {
     assert.equal(depositAmountBefore.toString(), '0')
     assert.equal(indexBefore.toString(), '0')
 
-    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'unregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 })
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
 
     assert.equal(await test.getNodeCountFromContract(), 1)
 
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
+    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'unregisteringNode(address)', [util.getAddress(test.getHandlerConfig(0).privateKey)], { privateKey: test.getHandlerConfig(0).privateKey, value: 0, confirm: true, gas: 3000000 }).catch(_ => false))
     assert.include(await test.getErrorReason(), "address is not an in3-signer")
 
     const [lockedTimeAfter, ownerAfter, stageAfter, depositAmountAfter, indexAfter] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
