@@ -2,7 +2,6 @@ image: docker.slock.it/build-images/node:11-alpine
 variables:
   COMMIT_IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
   RELEASE_IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
-
 stages:
   - build
   - test
@@ -133,16 +132,46 @@ package-docker:
     - docker push $COMMIT_IMAGE_TAG
 
 # Deployment Section
+
+.register-with-sentry:
+  stage: deploy
+  tags:
+    - short-jobs
+  image: docker.slock.it/build-images/deployment
+  script:
+    - sentry-cli releases new -p in3-server in3-server@${CI_COMMIT_REF_NAME}
+    - sentry-cli releases deploys in3-server@${CI_COMMIT_REF_NAME} new -e ${TARGET}
+    - sentry-cli releases set-commits --auto in3-server@${CI_COMMIT_REF_NAME}
+
+register-with-sentry-stage:
+  extends: .register-with-sentry
+  only:
+    - /^v[0-9]+.[0-9]+.[0-9]+-(alpha|beta|rc)\.[0-9]+$/
+  except:
+    - branches
+  variables:
+    TARGET: stage
+
+register-with-sentry-production:
+  extends: .register-with-sentry
+  only:
+    - /^v[0-9]+.[0-9]+.[0-9]+$/
+  except:
+    - branches
+  variables:
+    TARGET: production
+
 .deploy-tmpl:
   stage: deploy
   tags:
     - short-jobs
-  image: markuskeil/docker-and-rancher
+  image: docker.slock.it/build-images/deployment
   services:
     - docker:dind
   script:
     - cd deployment
     - rancher -w up -d --prune -p -s in3-server-${TARGET}-${CHAIN} -c --force-upgrade
+    
 
 ## Environments 
 .deploy-tmpl-stage:
@@ -175,19 +204,19 @@ package-docker:
   variables:
     CHAIN: goerli
     CHAIN_ID: "0x5"
-    RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
+    RPC_ENDPOINT: http://lb.parity-rpc/goerli
 
 .chain-tmpl-kovan:
   variables:
     CHAIN: kovan
     CHAIN_ID: "0x2a"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan/pruned
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan
 
 .chain-tmpl-mainnet:
   variables:
     CHAIN: mainnet
     CHAIN_ID: "0x1"
-    RPC_ENDPOINT: http://lb.parity-rpc/mainnet/parity-pruned
+    RPC_ENDPOINT: http://lb.parity-rpc/mainnet
 
 .chain-tmpl-evan:
   variables:
@@ -199,13 +228,19 @@ package-docker:
   variables:
     CHAIN: tobalaba
     CHAIN_ID: "0x44d"
-    RPC_ENDPOINT: http://lb.parity-rpc/tobalaba/archive-one
+    RPC_ENDPOINT: http://lb.parity-rpc/tobalaba
+
+.chain-tmpl-volta:
+  variables:
+    CHAIN: tobalaba
+    CHAIN_ID: "0x44d"
+    RPC_ENDPOINT: http://lb.parity-rpc/volta
 
 .chain-tmpl-ipfs:
   variables:
     CHAIN: ipfs
     CHAIN_ID: "0x7d0"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan/pruned
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan
 
 
 # Stage deployments
@@ -251,6 +286,14 @@ deploy-production-goerli:
     - .chain-tmpl-goerli
   variables:
     REGISTRY_CONTRACT_ADDR: "0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e"
+
+deploy-production-volta:
+  extends: 
+    - .deploy-tmpl-production
+    - .chain-tmpl-volta
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x8d8Fd38311d57163524478404C75008fBEaACccB"
+
 deploy-production-tobalaba:
   extends: 
     - .deploy-tmpl-production

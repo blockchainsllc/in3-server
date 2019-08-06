@@ -24,10 +24,15 @@ services:
 
   nd-1:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
-    memswap_limit: 1073741824
-    memswap_limit: 5242880
+    mem_limit: 1073741824
+    memswap_limit: 1127428915
     stdin_open: true
     tty: true
+    environment:
+    - SENTRY_ENABLE=true
+    - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
+    - SENTRY_ENVIRONMENT="${TARGET}"
+    - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
     command:
     - --privateKey=${SRV_PK1}
     - --registry=${REGISTRY_CONTRACT_ADDR}
@@ -45,10 +50,15 @@ services:
       io.rancher.container.pull_image: always
   nd-2:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
-    memswap_limit: 1073741824
-    memswap_limit: 5242880
+    mem_limit: 1073741824
+    memswap_limit: 1127428915
     stdin_open: true
     tty: true
+    environment:
+    - SENTRY_ENABLE=true
+    - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
+    - SENTRY_ENVIRONMENT="${TARGET}"
+    - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
     command:
     - --privateKey=${SRV_PK2}
     - --registry=${REGISTRY_CONTRACT_ADDR}
@@ -66,10 +76,15 @@ services:
       io.rancher.container.pull_image: always
   nd-3:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
-    memswap_limit: 1073741824
-    memswap_limit: 5242880
+    mem_limit: 1073741824
+    memswap_limit: 1127428915
     stdin_open: true
     tty: true
+    environment:
+    - SENTRY_ENABLE=true
+    - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
+    - SENTRY_ENVIRONMENT="${TARGET}"
+    - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
     command:
     - --privateKey=${SRV_PK3}
     - --registry=${REGISTRY_CONTRACT_ADDR}
@@ -87,10 +102,15 @@ services:
       io.rancher.container.pull_image: always
   nd-4:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
-    memswap_limit: 1073741824
-    memswap_limit: 5242880
+    mem_limit: 1073741824
+    memswap_limit: 1127428915
     stdin_open: true
     tty: true
+    environment:
+    - SENTRY_ENABLE=true
+    - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
+    - SENTRY_ENVIRONMENT="${TARGET}"
+    - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
     command:
     - --privateKey=${SRV_PK4}
     - --registry=${REGISTRY_CONTRACT_ADDR}
@@ -109,10 +129,15 @@ services:
 
   nd-5:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
-    memswap_limit: 1073741824
-    memswap_limit: 5242880
+    mem_limit: 1073741824
+    memswap_limit: 1127428915
     stdin_open: true
     tty: true
+    environment:
+    - SENTRY_ENABLE=true
+    - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
+    - SENTRY_ENVIRONMENT="${TARGET}"
+    - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
     command:
     - --privateKey=${SRV_PK5}
     - --registry=${REGISTRY_CONTRACT_ADDR}

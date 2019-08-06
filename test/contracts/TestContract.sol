@@ -18,6 +18,7 @@
 ***********************************************************/
 
 pragma solidity ^0.4.19;
+pragma experimental ABIEncoderV2;
 
 contract TestContract {
 
@@ -77,6 +78,9 @@ contract TestContract {
         }
     }
 
+    function encodingTest(bytes[] memory _a, bytes32 _b) public pure returns (bytes32, bytes[]){
+        return (_b, _a);
+    }
 
 
     

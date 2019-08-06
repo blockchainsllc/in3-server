@@ -19,7 +19,6 @@
 
 import { RPCHandler, HandlerTransport } from '../server/rpc'
 import * as tx from '../util/tx'
-import * as abi from 'ethereumjs-abi'
 import { createRandomIndexes, Proof, ServerList, Transport, BlockData, AccountProof, RPCRequest, IN3NodeConfig, util, storage, serialize } from 'in3'
 import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
@@ -176,7 +175,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
       id: i + 1,
       method: 'eth_call', params: [{
         to: list.contract,
-        data: '0x' + abi.simpleEncode('servers(uint)', toHex(i, 32)).toString('hex')
+        data: '0x' + tx.encodeFunction('servers(uint)', [toHex(i, 32)])
       },
         'latest']
     })
@@ -184,7 +183,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   list.nodes = await handler.getAllFromServer(nodeRequests).then(all => all.map((n, i) => {
     // invalid requests must be filtered out
     if (n.error) return null
-    const [url, owner, deposit, props, unregisterTime] = abi.simpleDecode('servers(uint):(string,address,uint,uint,uint,address)', toBuffer(n.result))
+    const [url, owner, deposit, props, unregisterTime] = tx.decodeFunction('servers(uint):(string,address,uint,uint,uint128,uint128,address)', toBuffer(n.result))
 
     return {
       url,

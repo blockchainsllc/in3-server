@@ -24,6 +24,7 @@ import { BlockData, RPCResponse, util, Proof, LogData } from 'in3'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
+import { toBuffer } from 'in3/js/src/util/util';
 const toHex = util.toHex
 const getAddress = util.getAddress
 const toNumber = util.toNumber
@@ -175,7 +176,7 @@ describe('eth_call', () => {
     assert.isTrue(response.in3.proof.accounts[toHex(adr2.toLowerCase(), 20)].accountProof.length > 0)
 
     // try to get the code from a non-existent account, so the merkleTree should prove it's not esiting
-    const responseEmpty = await tx.callContractWithClient(client, adr, 'getCodeAt(address)', toHex(123))
+    const responseEmpty = await tx.callContractWithClient(client, adr, 'getCodeAt(address)', "0x" + toBuffer(123, 20).toString('hex'))
 
 
     client.clearStats()

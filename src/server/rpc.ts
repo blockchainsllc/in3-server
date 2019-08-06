@@ -26,6 +26,7 @@ import { getStats, currentHour } from './stats'
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
+import {SentryError} from '../util/sentryError'
 
 
 export class RPC {
@@ -69,6 +70,9 @@ export class RPC {
       const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
       const in3: IN3ResponseConfig = {} as any
       const start = Date.now()
+
+      if(!handler)
+        throw new Error("Unable to connect Ethereum and/or invalid chainId give.")
 
       // update stats
       currentHour.update(r)
@@ -218,12 +222,12 @@ export class HandlerTransport extends AxiosTransport {
       const res = await axios.post(url, requests, { headers: { 'Content-Type': 'application/json' } })
 
       // throw if the status is an error
-      if (res.status > 200) throw new Error('Invalid status')
+      if (res.status > 200) throw new SentryError('Invalid status','status_error',res.status.toString())
 
       // if this was not given as array, we need to convert it back to a single object
       return Array.isArray(data) ? res.data : res.data[0]
     } catch (err) {
-      throw new Error('Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
+      throw new SentryError(err,'status_error','Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
     }
   }
 

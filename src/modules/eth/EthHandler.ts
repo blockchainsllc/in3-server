@@ -18,13 +18,13 @@
 ***********************************************************/
 
 import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec, util as in3Util, serialize } from 'in3'
-import { simpleEncode, simpleDecode } from 'ethereumjs-abi'
 
 import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
 import BaseHandler from '../../chains/BaseHandler'
 import { handleSign } from '../../chains/signatures';
 import { getValidatorHistory } from '../../server/poa'
 import { TxRequest, LogFilter } from 'in3/js/src/modules/eth/api';
+import * as tx from '../../../src/util/tx'
 
 const clientConf = require('in3/js/src/client/defaultConfig.json')
 const toHex = in3Util.toHex
@@ -56,10 +56,19 @@ export default class EthHandler extends BaseHandler {
       request.in3.verification = 'never'
 
     // execute it
-    const result = await this.handleRPCMethod(request)
-    if ((request as any).convert)
-      (request as any).convert(result)
-    return result
+    try{
+      const result = await this.handleRPCMethod(request)
+      if ((request as any).convert)
+        (request as any).convert(result)
+      return result
+    }
+    catch(error){
+      return {
+        jsonrpc: '2.0',
+        id: request.id,
+        error: error.toString()
+      }
+    }
   }
 
   private checkPerformanceLimits(request: RPCRequest) {
@@ -205,7 +214,7 @@ function createCallParams(request: RPCRequest): any[] {
     const retTypes = method.split(':')[1].substr(1).replace(')', ' ').trim().split(', ');
     (request as any).convert = result => {
       if (result.result)
-        result.result = simpleDecode(fullMethod, Buffer.from(result.result.substr(2), 'hex')).map((v, i) => {
+        result.result = tx.decodeFunction(fullMethod, Buffer.from(result.result.substr(2), 'hex')).map((v, i) => {
           if (Buffer.isBuffer(v)) return '0x' + v.toString('hex')
           if (v && v.ixor) return v.toString()
           if (retTypes[i] !== 'string' && typeof v === 'string' && v[1] !== 'x')
@@ -225,5 +234,5 @@ function createCallParams(request: RPCRequest): any[] {
   const values = params.slice(2, types.length + 2)
   if (values.length < types.length) throw new Error('invalid number of arguments. Must be at least ' + types.length)
 
-  return [{ to: contract, data: '0x' + simpleEncode(method, ...values).toString('hex') }, params[types.length + 2] || 'latest']
+  return [{ to: contract, data: '0x' + tx.encodeFunction(method, values) }, params[types.length + 2] || 'latest']
 }
