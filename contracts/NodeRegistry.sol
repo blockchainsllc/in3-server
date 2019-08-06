@@ -85,7 +85,11 @@ contract NodeRegistry {
     /// node list of incubed nodes
     In3Node[] public nodes;
 
-    /// id used for signing
+    /// id used for signing in3-requests and in order to prevent cross-chain convicts
+    /// in case a fork happens there is the possibility that a node can be convicted on the other fork,
+    /// because they would use the very same registryId. Nevertheless we cannot change the registryId.
+    /// So in case of a fork a node should chose one of the forks and unregister his nodes on the others.
+    /// In this case it is also recommend to not sign requests until the node get his deposits from the forked contracts
     bytes32 public registryId;
 
     /// add your additional storage here. If you add information before this line you will break in3 nodelist
