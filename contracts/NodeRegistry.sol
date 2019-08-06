@@ -185,7 +185,13 @@ contract NodeRegistry {
     /// @param _timeout timespan of how long the node of a deposit will be locked. Will be at least for 1h
     /// @param _signer the signer of the in3-node
     /// @param _weight how many requests per second the node is able to handle
+    /// @param _v v of the signed message
+    /// @param _r r of the signed message
+    /// @param _s s of the signed message
     /// @dev will call the registerNodeInteral function
+    /// @dev in order to prove that the owner has controll over the signer-address he has to sign a message
+    /// @dev which is calculated by the hash of the url, properties, timeout, weight and the owner
+    /// @dev will revert when a wrong signature has been provided
     function registerNodeFor(
         string calldata _url,
         uint64 _props,
