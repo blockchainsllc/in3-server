@@ -476,9 +476,9 @@ contract NodeRegistry {
         return nodes.length;
     }
 
-    /// @notice calculates the sha3 hash of the most important properties
+    /// @notice calculates the sha3 hash of the most important properties in order to make the proof faster
     /// @param _node the in3 node to calculate the hash from
-    /// @return the proof hash of the properties of an in3-node
+    /// @return the hash of the properties of an in3-node
     function calcProofHash(In3Node memory _node) internal pure returns (bytes32) {
 
         return keccak256(
