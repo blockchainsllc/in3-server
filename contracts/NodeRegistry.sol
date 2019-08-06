@@ -379,16 +379,13 @@ contract NodeRegistry {
         si.owner = _newOwner;
     }
 
-    /// @notice a node owner can request to unregister his node
-    /// @notice but before he can confirm, he has to wait for his own-set deposit timeout
-    /// @notice can also be called by a non owner, challenging the in3-node to prove that he is active
-    /// @notice in order to do so, a challenger has to stake an amount equal to 2% of the node's deposit
+    /// @notice a node owner can unregister a node, removing it from the nodeList
+    /// @notice doing so will also lock his deposit for the timeout of the node
     /// @param _signer the signer of the in3-node
     /// @dev reverts when the provided address is not an in3-signer
     /// @dev reverts when the node is already unregistering
-    /// @dev reverts when inactivity is claimed
-    /// @dev if not the node owner reverts when the send deposit it not correct
-    /// @dev reverts when being the owner and sending value through this function
+    /// @dev reverts when not called by the owner of the node
+
     function unregisteringNode(address _signer)
         external
         onlyActiveState(_signer)
