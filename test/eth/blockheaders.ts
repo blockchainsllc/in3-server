@@ -25,6 +25,7 @@ import { TestTransport } from '../utils/transport'
 import { deployBlockhashRegistry } from '../../src/util/registry'
 import { Block } from 'in3/js/src/modules/eth/serialize';
 import * as fs from 'fs'
+import { toUtf8Bytes } from 'ethers/utils';
 
 
 const blockHeaderFile = JSON.parse(fs.readFileSync('test/blockheader/blockHeaders.json').toString('utf8'))
@@ -69,10 +70,35 @@ describe('Blockheader contract', () => {
         const parentHash = "0x" + contractResult[0].toString('hex')
         const blockHash = "0x" + contractResult[1].toString('hex')
 
-
-
         assert.equal(parentHash, ((await test.getFromServer('eth_getBlockByHash', block.parentHash, false)) as BlockData).hash)
         assert.equal(blockHash, block.hash)
+    })
+
+    it('getParentAndBlockhash on privateChain - underflow', async () => {
+        const test = await TestTransport.createWithRegisteredNodes(2)
+        const pk1 = test.getHandlerConfig(0).privateKey
+        const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
+
+        const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
+
+        const b = new Block(block)
+        let serializedHeader = b.serializeHeader()
+
+        // replacing f9 with f1 to provoke an underflow
+        serializedHeader[0] = 241
+
+        let failed = false
+        try {
+
+            const contractResult = await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [serializedHeader])
+
+            // we have to send a transaction to the call in order to make sure that the assert is failing (see https://github.com/ethereum/go-ethereum/issues/19027)
+            await tx.callContract(test.url, blockHashRegAddress, 'getParentAndBlockhash(bytes):(bytes32,bytes32)', [serializedHeader], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 10 })
+        } catch (e) {
+            failed = true
+        }
+
+        assert.isTrue(failed)
     })
 
     it('getParentAndBlockhash with real blocks', async () => {
@@ -172,8 +198,6 @@ describe('Blockheader contract', () => {
 
     })
 
-
-
     it('reCalculateBlockheaders', async () => {
         const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
@@ -254,6 +278,53 @@ describe('Blockheader contract', () => {
 
                 assert.equal(result, "0x0000000000000000000000000000000000000000000000000000000000000000")
 
+                assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'reCalculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
+            }
+        }
+    }).timeout(600000)
+
+    it('reCalculateBlockheaders fail do to underflow', async () => {
+        const test = await TestTransport.createWithRegisteredNodes(2)
+        const pk1 = test.getHandlerConfig(0).privateKey
+
+        const blockHashRegAddress = await deployBlockhashRegistry(pk1, test.url)
+
+        const chains = Object.keys(blockHeaderFile);
+        for (let j = 0; j < chains.length; j++) {
+            let totalBlocks = process.env.GITLAB_CI ? blockHeaderFile[chains[j]] : blockHeaderFile[chains[j]].slice(0, 10)
+
+            for (let i = 0; i < totalBlocks.length; i += 45) {
+
+                const allBlocks = totalBlocks.slice(i, i + 45)
+
+                const firstBlock = allBlocks.shift();
+
+                const startHash = allBlocks[allBlocks.length - 1].hash;
+
+                let serialzedBlocks = [];
+
+                for (const b of allBlocks) {
+                    const s = new serialize.Block(b as any).serializeHeader()
+                    // replacing f9 with f1 to provoke an underflow
+                    s[0] = 241
+                    serialzedBlocks.push(s);
+                }
+
+                serialzedBlocks = serialzedBlocks.reverse()
+
+                let failed = false
+                try {
+
+                    "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'reCalculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash]))[0].toString('hex')
+                    await tx.callContract(test.url, blockHashRegAddress, 'reCalculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
+
+
+                } catch {
+                    failed = true
+                }
+
+                assert.include(await test.getErrorReason(), "invalid offset")
+                assert.isTrue(failed)
                 assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'reCalculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 300000000 - 1 }).catch(_ => false))
             }
         }
