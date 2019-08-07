@@ -20,7 +20,9 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util, serialize, ServerList, RPCResponse } from 'in3'
+import { util, serialize } from 'in3-common'
+import { ServerList } from '../../src/model/types'
+import { RPCResponse } from '../../src/model/types'
 import EthChainContext from 'in3/js/src/modules/eth/EthChainContext' 
 import { registerServers, deployContract } from '../../src/util/registry';
 import { TestTransport, getTestClient } from '../utils/transport';

@@ -18,7 +18,8 @@
 ***********************************************************/
 
 
-import { RPCRequest, header, serialize, BlockData, Proof, LogData, util } from 'in3'
+import {  getSigner as utilSigner, serialize, BlockData,  LogData, util } from 'in3-common'
+import { RPCRequest,  Proof} from '../model/types'
 import { RPCHandler } from './rpc'
 import EthHandler from '../modules/eth/EthHandler'
 import { recover } from 'secp256k1'
@@ -26,7 +27,7 @@ import { publicToAddress, rlp } from 'ethereumjs-util'
 import { handleLogs } from '../modules/eth/proof'
 import * as logger from '../util/logger'
 import { decodeFunction } from '../util/tx';
-const chains = require('in3/js/src/client/defaultConfig.json').servers
+const chains = require('in3-common/js/defaultConfig.json').servers
 /**
  * a Object holding proofs for validator logs. The key is the blockNumber as hex
  */
@@ -126,7 +127,7 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
                     if (!b || b.error || !b.result)
                         throw new Error("Couldn't get the block at transition")
 
-                    const transitionBlockSigner = header.getSigner(new serialize.Block(b.result))
+                    const transitionBlockSigner = utilSigner(new serialize.Block(b.result))
 
 
                     const finalityBlocks = await addFinalityForTransition(
@@ -329,7 +330,7 @@ async function addFinalityForTransition(
         })
 
         if (!b || b.error || !b.result) break
-        const currentSigner = header.getSigner(new serialize.Block(b.result))
+        const currentSigner = utilSigner(new serialize.Block(b.result))
         if (!signers.find(_ => _.equals(currentSigner)))
             signers.push(currentSigner)
 
@@ -371,7 +372,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         // Fetch the finality blocks
         const finalityBlocks = await addFinalityForTransition(
             toNumber(block.number),
-            header.getSigner(block),
+            utilSigner(block),
             history.states[history.states.length - 1].validators.length,
             currentBlock,
             handler)

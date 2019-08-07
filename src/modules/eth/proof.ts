@@ -17,7 +17,8 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { LogProof, LogData, RPCRequest, RPCResponse, BlockData, Signature, Proof, ReceiptData, serialize, util, TransactionData, header } from 'in3'
+import {  LogData, BlockData, ReceiptData, serialize, util, TransactionData, getSigner } from 'in3-common'
+import { LogProof,  RPCRequest, RPCResponse,  Signature, Proof } from '../../model/types'
 import { rlp, toChecksumAddress } from 'ethereumjs-util'
 import * as Trie from 'merkle-patricia-tree'
 import In3Trie from 'in3-trie'
@@ -47,14 +48,14 @@ export async function addFinality(request: RPCRequest, response: RPCResponse, bl
     if (validators) {
       let bn = parseInt(block.number as any)
       const blocks = response.in3.proof.finalityBlocks = []
-      const signers = [header.getSigner(new serialize.Block(block))]
+      const signers = [getSigner(new serialize.Block(block))]
       const minNumber = Math.ceil(Math.min(Math.max(request.in3.finality, 0), 100) * validators.length / 100)
       while (signers.length < minNumber) {
         bn = bn + 1
         if (curBlock && curBlock.number < bn) break
         const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['0x' + bn.toString(16), false] }, request)
         if (!b || b.error || !b.result) break
-        const s = header.getSigner(new serialize.Block(b.result))
+        const s = getSigner(new serialize.Block(b.result))
         if (!signers.find(_ => _.equals(s)))
           signers.push(s)
 

@@ -16,26 +16,27 @@
 * For more information, please refer to https://slock.it   *
 * For questions, please contact info@slock.it              *
 ***********************************************************/
-const Sentry = require('@sentry/node');
 
-if (process.env.SENTRY_ENABLE === 'true') {
-    Sentry.init({
-            dsn: process.env.SENTRY_DSN,
-            release: process.env.SENTRY_RELEASE,
-            environment: process.env.SENTRY_ENVIRONMENT,
-        });
+const messages: { level: string, message: string, data?: any[] }[] = []
+
+export function getLogsAndClear() {
+  const copy = [...messages]
+  messages.length = 0
+  return copy
+}
+export function log(level: string, message: string, ...data: any[]) {
+  messages.push({ level, message, data })
 }
 
-import *  as rpc from './server/rpc'
-import *  as server from './server/server'
-import _config from './server/config'
-import { IN3RPCConfig } from '../src/model/types'
+export function info(message: string, ...data: any[]) {
+  log('info', message, ...data)
+}
+export function debug(message: string, ...data: any[]) {
+  log('debug', message, ...data)
+}
 
-/** the default rpc-handler */
-export type RPC = rpc.RPC
+export function error(message: string, ...data: any[]) {
+  log('error', message, ...data)
+}
 
-export const s = server.app
-
-/** the configuration */
-export const config: IN3RPCConfig = _config
 

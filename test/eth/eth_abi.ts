@@ -20,12 +20,12 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { serialize, BlockData, RPCResponse, util, Proof, LogData, IN3Config, RPCRequest, IN3Client } from 'in3'
+import { serialize, BlockData,  util, LogData,  } from 'in3-common'
+import {  RPCResponse,  Proof,  IN3Config, RPCRequest } from '../../src/model/types'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployChainRegistry, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
-import * as logger from 'in3/js/test/util/memoryLogger'
-import { toMinHex } from 'in3/js/src/util/util';
+import * as logger from '../../src/util/memoryLogger'
 
 const toHex = util.toHex
 const getAddress = util.getAddress
@@ -872,7 +872,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     assert.equal(receipt.logs.length, 1)
 
-    const res = await client.sendRPC('eth_getLogs', [{ fromBlock: toMinHex(receipt.blockNumber) }], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getLogs', [{ fromBlock: util.toMinHex(receipt.blockNumber) }], null, { keepIn3: true })
     const result = res.result as any
     assert.exists(res.in3)
     assert.exists(res.in3.proof)
@@ -890,7 +890,7 @@ describe('ETH Standard JSON-RPC', () => {
         ((re.result as any)[0] as LogData).address = getAddress(pk1)
         return re
       })
-      await client.sendRPC('eth_getLogs', [{ fromBlock: toMinHex(receipt.blockNumber) }])
+      await client.sendRPC('eth_getLogs', [{ fromBlock: util.toMinHex(receipt.blockNumber) }])
     }
     catch {
       failed = true

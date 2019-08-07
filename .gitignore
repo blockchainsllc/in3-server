@@ -64,3 +64,6 @@ dev
 
 #idea files
 .idea
+
+#npmrc
+.npmrc
