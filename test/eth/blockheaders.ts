@@ -283,7 +283,7 @@ describe('Blockheader contract', () => {
         }
     }).timeout(600000)
 
-    it('reCalculateBlockheaders fail do to underflow', async () => {
+    it('reCalculateBlockheaders fail due to underflow', async () => {
         const test = await TestTransport.createWithRegisteredNodes(2)
         const pk1 = test.getHandlerConfig(0).privateKey
 
@@ -313,9 +313,15 @@ describe('Blockheader contract', () => {
                 serialzedBlocks = serialzedBlocks.reverse()
 
                 let failed = false
+
+                const clientVersion = await test.getFromServer('web3_clientVersion')
+
+
                 try {
 
-                    "0x" + (await tx.callContract(test.url, blockHashRegAddress, 'reCalculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash]))[0].toString('hex')
+                    if (clientVersion.includes("Parity")) {
+                        assert.isFalse(await tx.callContract(test.url, blockHashRegAddress, 'reCalculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash]).catch(_ => false))
+                    }
                     await tx.callContract(test.url, blockHashRegAddress, 'reCalculateBlockheaders(bytes[],bytes32):(bytes32)', [serialzedBlocks, startHash], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 300000000 - 1 })
 
 
@@ -331,7 +337,6 @@ describe('Blockheader contract', () => {
     }).timeout(600000)
 
     let headerLength = process.env.GITLAB_CI ? 250 : 10
-
 
     it(`create ${headerLength} blocks`, async () => {
         const test = await TestTransport.createWithRegisteredNodes(2)
