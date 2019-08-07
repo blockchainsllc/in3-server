@@ -61,3 +61,6 @@ typings/
 
 #development scripts
 dev
+
+# compiled contract
+contracts/contracts.json
