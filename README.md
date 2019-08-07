@@ -1,13 +1,21 @@
-# Incubed Server
+# Concept 
 
-Typescript-version of the incubed server.
-This server provides data and proof used to verify data.
+The in3 nodes are providing data from the ethereum clients to the in3-clients. They can either act as an regular RPC-provider, but they can also provide merkle-proofs for their responses and also sign blockHashes. 
+
+The merkle-proofs can be used by the clients to make sure that the response was correct (see https://in3.readthedocs.io/en/develop/poa.html for more information). The blockHeaders are an essential part for each proofs. An in3-client can also ask an in3-node to sign the blockHeader of the proofs, staking the deposit of the server to the correct answer. If the signed blockHash is not part of the chain, he can be convicted and will lose its deposit. 
+
+Using this technique an in3-client has some kind of insurance that he will receive correct responses and results. 
 
 # Building
 
 In order to compile the contracts, simply run `npm run updateContracts` and all the contracts in this repository will be compiled. The compiled contracts for the BlockhashRegistry, the ChainRegistry and the NodeRegistry can be found in the file `contracts.json` within the `contracts`-folder. 
 
 The command `npm run build` will compile all the TypeScript files to JavaScript. 
+
+# Testing
+
+The test can be run by using the command `npm test`. However, the in3-node are using the `evm_increaseTime` command that regular ethereum-clients do not support, but is needed in order to test how the contract react to certain dates in the future (e.g. 1 year after deployment). For this, there is a special docker container using a reverse proxy in combination with libfaketime (see https://github.com/wolfcw/libfaketime) allowing the change of time for parities. Nevertheless, the test should also run using a regular geth-client. 
+
 
 # BlockHashRegistry
 
