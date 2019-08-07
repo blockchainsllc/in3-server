@@ -291,7 +291,7 @@ describe('Blockheader contract', () => {
 
         const chains = Object.keys(blockHeaderFile);
         for (let j = 0; j < chains.length; j++) {
-            let totalBlocks = process.env.GITLAB_CI ? blockHeaderFile[chains[j]] : blockHeaderFile[chains[j]].slice(0, 10)
+            let totalBlocks = blockHeaderFile[chains[j]].slice(0, 90)
 
             for (let i = 0; i < totalBlocks.length; i += 45) {
 
