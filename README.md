@@ -1,8 +1,8 @@
 # Concept 
 
-The in3-node provides data from the ethereum clients to the in3-clients. They can either act as an regular RPC-provider, but they can also provide merkle-proofs for their responses and also sign blockhashes. 
+The in3-node provides data from the ethereum clients to the in3-clients. They can either act as an regular RPC-provider, but they can also provide merkle-proofs(see https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getproof) for their responses and also sign blockhashes. 
 
-The merkle-proofs can be used by the clients to make sure that the response was correct (see https://in3.readthedocs.io/en/develop/poa.html for more information). The blockHeaders are an essential part for each proof. An in3-client can also ask an in3-node to sign the blockHeader of the proofs, staking the deposit of the node to the correct answer. If the signed blockhashes is not part of the chain, he can be convicted and will lose its deposit. 
+The merkle-proofs can be used by the clients to make sure that the response was correct (see https://in3.readthedocs.io/en/develop/poa.html for more information). The blockheaders are an essential part for each proof. An in3-client can also ask an in3-node to sign the blockHeader of the proofs, staking the deposit of the node to the correct answer. If the signed blockhashes is not part of the chain, he can be convicted and will lose its deposit. 
 
 Using this technique an in3-client has some kind of insurance that he will receive correct responses and results. 
 
