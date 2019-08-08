@@ -58,7 +58,7 @@ contract NodeRegistry {
 
     /// information of a in3-node owner
     struct SignerInformation {
-        uint64 lockedTime;                  /// timestamp until the deposit of an in3-node can not be withdrawn after the node had been removed
+        uint64 lockedTime;                  /// timestamp until the deposit of an in3-node can not be withdrawn after the node was removed
         address owner;                      /// the owner of the node
 
         Stages stage;                       /// state of the address
@@ -394,7 +394,6 @@ contract NodeRegistry {
     /// @dev reverts when the provided address is not an in3-signer
     /// @dev reverts when the node is already unregistering
     /// @dev reverts when not called by the owner of the node
-
     function unregisteringNode(address _signer)
         external
         onlyActiveState(_signer)
