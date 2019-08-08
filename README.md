@@ -1,8 +1,8 @@
 # Concept 
 
-The in3-node provides data from the ethereum clients to the in3-clients. They can either act as an regular RPC-provider, but they can also provide merkle-proofs for their responses and also sign blockHashes. 
+The in3-node provides data from the ethereum clients to the in3-clients. They can either act as an regular RPC-provider, but they can also provide merkle-proofs for their responses and also sign blockhashes. 
 
-The merkle-proofs can be used by the clients to make sure that the response was correct (see https://in3.readthedocs.io/en/develop/poa.html for more information). The blockHeaders are an essential part for each proof. An in3-client can also ask an in3-node to sign the blockHeader of the proofs, staking the deposit of the node to the correct answer. If the signed blockHash is not part of the chain, he can be convicted and will lose its deposit. 
+The merkle-proofs can be used by the clients to make sure that the response was correct (see https://in3.readthedocs.io/en/develop/poa.html for more information). The blockHeaders are an essential part for each proof. An in3-client can also ask an in3-node to sign the blockHeader of the proofs, staking the deposit of the node to the correct answer. If the signed blockhashes is not part of the chain, he can be convicted and will lose its deposit. 
 
 Using this technique an in3-client has some kind of insurance that he will receive correct responses and results. 
 
@@ -21,9 +21,9 @@ The test can be run by using the command `npm test`. However, the tests for the 
 
 ## Deployment
 
-The NodeRegistry can be deployed using the function `deployNodeRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport)`. As the NodeRegistry needs a BlockHashRegistry contract-address during the deployment, both of them will be deployed at once and automatically linked. 
+The NodeRegistry can be deployed using the function `deployNodeRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport)`. As the NodeRegistry needs a BlockhashRegistry contract-address during the deployment, both of them will be deployed at once and automatically linked. 
 
-An alternative way of deploying only the NodeRegistry and using an already deployed BlockHashRegistry-contract would be using `deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('NodeRegistry') >= 0)].bin + padStart(blockHashAddress, 64, "0")`. 
+An alternative way of deploying only the NodeRegistry and using an already deployed BlockhashRegistry-contract would be using `deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('NodeRegistry') >= 0)].bin + padStart(blockHashAddress, 64, "0")`. 
 
 Both of the function can be found within the `src/util/registry.ts` file.
 
@@ -35,7 +35,7 @@ Both of the function can be found within the `src/util/registry.ts` file.
 
 ## Usage and Purpose 
 
-The main purpose of the NodeRegistry contracts is storing an array with currently active in3-nodes (= nodeList). In order to achieve that functionality, there are function for registering, updating, unregistering and also convicting nodes that signed wrong blockHashes, i.e. returning wrong results for requests. 
+The main purpose of the NodeRegistry contracts is storing an array with currently active in3-nodes (= nodeList). In order to achieve that functionality, there are function for registering, updating, unregistering and also convicting nodes that signed wrong blockhashes, i.e. returning wrong results for requests. 
 
 ### Registering an in3-node
 
@@ -65,7 +65,7 @@ For the update the same rules as for onboarding do apply. In addtion there are s
 
 ### Unregister
 
-In order to unregister a node, the function `unregisteringNode(address _signer)` can be called by the owner of the in3-node. The node will then immediately removed from the in3-nodeList. However, the deposit of the former in3-node will be locked until the provided timeout of that node is over. This is done to make sure the node can still be made liable for returning wrong signed blockHashes.
+In order to unregister a node, the function `unregisteringNode(address _signer)` can be called by the owner of the in3-node. The node will then immediately removed from the in3-nodeList. However, the deposit of the former in3-node will be locked until the provided timeout of that node is over. This is done to make sure the node can still be made liable for returning wrong signed blockhashes.
 
 After the timeout-period is over, the deposit can be withdrawn using the function `returnDeposit(address _signer)` which will the deposit of the former node to its former owner.
 
@@ -74,18 +74,18 @@ After the timeout-period is over, the deposit can be withdrawn using the functio
 If an in3-node sends a wrong response to the clients, he can be convicted using two steps: 
 
 Calling the `convict(uint _blockNumber, bytes32 _hash)` function with uses 2 parameters:
-* `_blockNumber` the blockNumber of the block with the wrong blockHash
-* `_hash` a hash calculated using the formula `keccak256(wrong blockhash, msg.sender, v, r, s)`, i.e. hashing the wrongly provided blockHash, the sender of the convict-transaction and the signature paramters of the in3-node response the client received. 
+* `_blockNumber` the blockNumber of the block with the wrong blockhash
+* `_hash` a hash calculated using the formula `keccak256(wrong blockhash, msg.sender, v, r, s)`, i.e. hashing the wrongly provided blockhash, the sender of the convict-transaction and the signature paramters of the in3-node response the client received. 
 
 After this transaction was mined, the user has to wait for at least 2 blocks until he can call `revealConvict(address _signer, bytes32 _blockhash, uint _blockNumber, uint8 _v, bytes32 _r,bytes32 _s)` with the parameters: 
-* `_signer` the address of the in3 node that provided a wrong blockHash
-* `_blockhash` the wrong blockHash
-* `_blockNumber` the blockNumber of block with the wrong blockHash
-* `_v` v of the signature with the wrong blockHash
-* `_r` r of the signature with the wrong blockHash
-* `_s` s of the signature with the wrong blockHash 
+* `_signer` the address of the in3 node that provided a wrong blockhash
+* `_blockhash` the wrong blockhash
+* `_blockNumber` the blockNumber of block with the wrong blockhash
+* `_v` v of the signature with the wrong blockhash
+* `_r` r of the signature with the wrong blockhash
+* `_s` s of the signature with the wrong blockhash 
 
-If the wrongfully block was within the latest 256 blocks, there both functions can be called without further actions. Nevertheless, the NodeRegistry is also able to handle blocks that are older then this, thus cannot be found within the evm directly. For older blocks the blockHash has to be stored (and found) within the BlockHashRegistry. 
+If the wrongfully block was within the latest 256 blocks, there both functions can be called without further actions. Nevertheless, the NodeRegistry is also able to handle blocks that are older then this, thus cannot be found within the evm directly. For older blocks the blockhash has to be stored (and found) within the BlockHashRegistry. 
 
 If a node has been successfully convicted, 50% of the deposit will be transferred to the caller of the `revealConcict`-caller, the rest will be burned. In addition, the node will also be removed from the registry.
 
@@ -105,17 +105,17 @@ The BlockHash-registry can be deployed using the function `deployBlockhashRegist
 
 ## Usage and Purpose 
 
-The BlockHashRegistry-contract is able to store certain blockHashes and their corresponding numbers. On the one hand it's possible to do either a `snapshot()` (i.e. storing the previous blockHash of the chain), or calling `saveBlockNumber(uint _blockNumber)` (i.e. storing one of the latest 256 blocks). 
+The BlockHashRegistry-contract is able to store certain blockhashes and their corresponding numbers. On the one hand it's possible to do either a `snapshot()` (i.e. storing the previous blockhash of the chain), or calling `saveBlockNumber(uint _blockNumber)` (i.e. storing one of the latest 256 blocks). 
 
-In addition, the smart contract is also able to store blockHashes that are (way) older then the latest blocks using the function `recreateBlockheaders(uint _blockNumber, bytes[] memory _blockheaders)`. The user has to provide a blockNumber of an already stored blockHash and it's corresponding serialized blockheader together with more serialized blockheaders in reversed order (e.g. blockNumber #100, blockNumber #99, blockNumber #98).
+In addition, the smart contract is also able to store blockhashes that are (way) older then the latest blocks using the function `recreateBlockheaders(uint _blockNumber, bytes[] memory _blockheaders)`. The user has to provide a blockNumber of an already stored blockhash and it's corresponding serialized blockheader together with more serialized blockheaders in reversed order (e.g. blockNumber #100, blockNumber #99, blockNumber #98).
 
-The smart contract will use the serialized headers to both extract the blockHash of the parentBlock, and also hash the header in order to receive the blockHash. This calculated blockHash is then compared to the previous parent blockHash(or the starting blockHash). Repeating this action enables the smart contract to check for the validity of the provided chain and securely store blockHashes that are way older then the latest blocks. 
+The smart contract will use the serialized headers to both extract the blockhash of the parentBlock, and also hash the header in order to receive the blockhash. This calculated blockhash is then compared to the previous parent blockhash(or the starting blockhash). Repeating this action enables the smart contract to check for the validity of the provided chain and securely store blockhashes that are way older then the latest blocks. 
 
 Nevertheless, there are some limitations using this function: as the provided payloads can get really big, geth-clients only support up to about 45 serialized blockHeaders. Using a parity-clients enabled the recreation of up to 200 blockHeaders at once. 
 
 In order to achieve the described functionality, there are multiple helper functions using the view modifier, enabling a user to check whether the smart contract would accept his provided chain of blockheaders:
-* `getParentAndBlockhash(bytes memory _blockheader)` is used to calculate and return both the parent blockHash and the blockHash of the provided blockHeader
-* `reCalculateBlockheaders(bytes[] memory _blockheaders, bytes32 _bHash)` uses starting blockHash `_bHash`and an array of reversed serialized blockHeader. It will either return the blockHash of the last element of the provided array, or it will return `0x0` when the provided chain is not correct
+* `getParentAndBlockhash(bytes memory _blockheader)` is used to calculate and return both the parent blockhash and the blockhash of the provided blockHeader
+* `reCalculateBlockheaders(bytes[] memory _blockheaders, bytes32 _bHash)` uses starting blockhash `_bHash`and an array of reversed serialized blockHeader. It will either return the blockhash of the last element of the provided array, or it will return `0x0` when the provided chain is not correct
 *  `searchForAvailableBlock(uint _startNumber, uint _numBlocks)` allows to search for an already stored blockNumber within the smart contract within the provided range. It will return either 0 (when no blockNumber had been found), or it will return the closest blockNumber that allows the recreation of the chain. 
 
 
