@@ -351,8 +351,6 @@ contract NodeRegistry {
             deposit = nodes[si.index].deposit;
             removeNode(si.index);
         } else {
-            // double check that the signer is not active
-            assert(si.stage != Stages.Active);
             // the signer is not active anymore
             deposit = si.depositAmount;
             si.depositAmount = 0;
