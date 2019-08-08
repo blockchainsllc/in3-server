@@ -179,7 +179,7 @@ To run a incubed node, you simply use docker-compose:
 version: '2'
 services:
   incubed-server:
-    image: slockit/in3-server:latest
+    image: .
     volumes:
     - $PWD/keys:/secure                                     # directory where the private key is stored 
     ports:
@@ -194,10 +194,8 @@ services:
     - --autoRegistry-deposit=2                              # deposit to use when registering
 
   incubed-parity:
-    image: slockit/parity-in3:v2.2                          # parity-image with the getProof-function implemented
+    image: parity/parity                                    # parity-image with the getProof-function implemented
     command:
     - --auto-update=none                                    # do not automaticly update the client
-    - --pruning=archive 
-    - --pruning-memory=30000                                # limit storage
 ```
 
