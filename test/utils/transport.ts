@@ -17,7 +17,8 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import Client, { Transport, AxiosTransport, util } from 'in3-common'
+import  { Transport, AxiosTransport, util } from 'in3-common'
+import Client from 'in3'
 import  {  RPCRequest, RPCResponse, IN3NodeConfig, IN3Config,  ServerList, IN3RPCHandlerConfig } from '../../src/model/types'
 
 import * as logger from '../../src/util/logger'

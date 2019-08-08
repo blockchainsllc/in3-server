@@ -21,6 +21,7 @@
 import { assert } from 'chai'
 import 'mocha'
 import * as tx from '../../src/util/tx'
+import * as clientRPC from '../utils/clientRPC'
 import { util } from 'in3-common'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployContract } from '../../src/util/registry';
@@ -82,7 +83,7 @@ describe('AbiCoder', () => {
     // check deployed code
     const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
 
-    const returnValue = await tx.callContractWithClient(client, adr, 'encodingTest(bytes[],bytes32):(bytes32,bytes[])', ['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20")
+    const returnValue = await clientRPC.callContractWithClient(client, adr, 'encodingTest(bytes[],bytes32):(bytes32,bytes[])', ['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20")
 
     //  assert.deepEqual(returnValue.result, ["0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20", ['0xabcd', '0xcdef']])
     assert.equal(returnValue.result, "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac2000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000002abcd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002cdef000000000000000000000000000000000000000000000000000000000000")
