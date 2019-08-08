@@ -17,33 +17,6 @@ The command `npm run build` will compile all the TypeScript files to JavaScript.
 The test can be run by using the command `npm test`. However, the tests for the in3-node are using the `evm_increaseTime` command that regular ethereum-clients do not support, but is needed in order to test how the contract react to certain dates in the future (e.g. 1 year after deployment). For this, there is a special docker container using a reverse proxy in combination with libfaketime (see https://github.com/wolfcw/libfaketime) allowing the change of time for parities. Nevertheless, the test should also run using a regular geth-client. 
 
 
-# BlockHashRegistry
-
-## Deployment
-
-The BlockHash-registry can be deployed using the function `deployBlockhashRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport)` located within the `src/util/registry.ts` file. 
-
-## ABI
-
-```js
-[{\"constant\":false,\"inputs\":[{\"name\":\"_blockNumber\",\"type\":\"uint256\"}],\"name\":\"saveBlockNumber\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_blockheader\",\"type\":\"bytes\"}],\"name\":\"getParentAndBlockhash\",\"outputs\":[{\"name\":\"parentHash\",\"type\":\"bytes32\"},{\"name\":\"bhash\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"pure\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_startNumber\",\"type\":\"uint256\"},{\"name\":\"_numBlocks\",\"type\":\"uint256\"}],\"name\":\"searchForAvailableBlock\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_blockNumber\",\"type\":\"uint256\"},{\"name\":\"_blockheaders\",\"type\":\"bytes[]\"}],\"name\":\"recreateBlockheaders\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"snapshot\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_blockheaders\",\"type\":\"bytes[]\"},{\"name\":\"_bHash\",\"type\":\"bytes32\"}],\"name\":\"reCalculateBlockheaders\",\"outputs\":[{\"name\":\"bhash\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"pure\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"blockhashMapping\",\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"blockNr\",\"type\":\"uint256\"},{\"indexed\":true,\"name\":\"bhash\",\"type\":\"bytes32\"}],\"name\":\"LogBlockhashAdded\",\"type\":\"event\"}]
-```
-
-## Usage and Purpose 
-
-The BlockHashRegistry-contract is able to store certain blockHashes and their corresponding numbers. On the one hand it's possible to do either a `snapshot()` (i.e. storing the previous blockHash of the chain), or calling `saveBlockNumber(uint _blockNumber)` (i.e. storing one of the latest 256 blocks). 
-
-In addition, the smart contract is also able to store blockHashes that are (way) older then the latest blocks using the function `recreateBlockheaders(uint _blockNumber, bytes[] memory _blockheaders)`. The user has to provide a blockNumber of an already stored blockHash and it's corresponding serialized blockheader together with more serialized blockheaders in reversed order (e.g. blockNumber #100, blockNumber #99, blockNumber #98).
-
-The smart contract will use the serialized headers to both extract the blockHash of the parentBlock, and also hash the header in order to receive the blockHash. This calculated blockHash is then compared to the previous parent blockHash(or the starting blockHash). Repeating this action enables the smart contract to check for the validity of the provided chain and securely store blockHashes that are way older then the latest blocks. 
-
-Nevertheless, there are some limitations using this function: as the provided payloads can get really big, geth-clients only support up to about 45 serialized blockHeaders. Using a parity-clients enabled the recreation of up to 200 blockHeaders at once. 
-
-In order to achieve the described functionality, there are multiple helper functions using the view modifier, enabling a user to check whether the smart contract would accept his provided chain of blockheaders:
-* `getParentAndBlockhash(bytes memory _blockheader)` is used to calculate and return both the parent blockHash and the blockHash of the provided blockHeader
-* `reCalculateBlockheaders(bytes[] memory _blockheaders, bytes32 _bHash)` uses starting blockHash `_bHash`and an array of reversed serialized blockHeader. It will either return the blockHash of the last element of the provided array, or it will return `0x0` when the provided chain is not correct
-*  `searchForAvailableBlock(uint _startNumber, uint _numBlocks)` allows to search for an already stored blockNumber within the smart contract within the provided range. It will return either 0 (when no blockNumber had been found), or it will return the closest blockNumber that allows the recreation of the chain. 
-
 # NodeRegistry
 
 ## Deployment
@@ -116,7 +89,36 @@ If the wrongfully block was within the latest 256 blocks, there both functions c
 
 If a node has been successfully convicted, 50% of the deposit will be transferred to the caller of the `revealConcict`-caller, the rest will be burned. In addition, the node will also be removed from the registry.
 
-Usually the users do not have to care about convicting mechanics, as the in3-nodes can (and will) handle the full convict circle automatically.
+**Usually the users do not have to care about convicting mechanics, as the in3-nodes can (and will) handle the full convict circle automatically (including the possible recreation of blockHeaders for the BlockHashRegistry of it's worth it)**
+
+# BlockHashRegistry
+
+## Deployment
+
+The BlockHash-registry can be deployed using the function `deployBlockhashRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport)` located within the `src/util/registry.ts` file. 
+
+## ABI
+
+```js
+[{\"constant\":false,\"inputs\":[{\"name\":\"_blockNumber\",\"type\":\"uint256\"}],\"name\":\"saveBlockNumber\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_blockheader\",\"type\":\"bytes\"}],\"name\":\"getParentAndBlockhash\",\"outputs\":[{\"name\":\"parentHash\",\"type\":\"bytes32\"},{\"name\":\"bhash\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"pure\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_startNumber\",\"type\":\"uint256\"},{\"name\":\"_numBlocks\",\"type\":\"uint256\"}],\"name\":\"searchForAvailableBlock\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_blockNumber\",\"type\":\"uint256\"},{\"name\":\"_blockheaders\",\"type\":\"bytes[]\"}],\"name\":\"recreateBlockheaders\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"snapshot\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_blockheaders\",\"type\":\"bytes[]\"},{\"name\":\"_bHash\",\"type\":\"bytes32\"}],\"name\":\"reCalculateBlockheaders\",\"outputs\":[{\"name\":\"bhash\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"pure\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"blockhashMapping\",\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"blockNr\",\"type\":\"uint256\"},{\"indexed\":true,\"name\":\"bhash\",\"type\":\"bytes32\"}],\"name\":\"LogBlockhashAdded\",\"type\":\"event\"}]
+```
+
+## Usage and Purpose 
+
+The BlockHashRegistry-contract is able to store certain blockHashes and their corresponding numbers. On the one hand it's possible to do either a `snapshot()` (i.e. storing the previous blockHash of the chain), or calling `saveBlockNumber(uint _blockNumber)` (i.e. storing one of the latest 256 blocks). 
+
+In addition, the smart contract is also able to store blockHashes that are (way) older then the latest blocks using the function `recreateBlockheaders(uint _blockNumber, bytes[] memory _blockheaders)`. The user has to provide a blockNumber of an already stored blockHash and it's corresponding serialized blockheader together with more serialized blockheaders in reversed order (e.g. blockNumber #100, blockNumber #99, blockNumber #98).
+
+The smart contract will use the serialized headers to both extract the blockHash of the parentBlock, and also hash the header in order to receive the blockHash. This calculated blockHash is then compared to the previous parent blockHash(or the starting blockHash). Repeating this action enables the smart contract to check for the validity of the provided chain and securely store blockHashes that are way older then the latest blocks. 
+
+Nevertheless, there are some limitations using this function: as the provided payloads can get really big, geth-clients only support up to about 45 serialized blockHeaders. Using a parity-clients enabled the recreation of up to 200 blockHeaders at once. 
+
+In order to achieve the described functionality, there are multiple helper functions using the view modifier, enabling a user to check whether the smart contract would accept his provided chain of blockheaders:
+* `getParentAndBlockhash(bytes memory _blockheader)` is used to calculate and return both the parent blockHash and the blockHash of the provided blockHeader
+* `reCalculateBlockheaders(bytes[] memory _blockheaders, bytes32 _bHash)` uses starting blockHash `_bHash`and an array of reversed serialized blockHeader. It will either return the blockHash of the last element of the provided array, or it will return `0x0` when the provided chain is not correct
+*  `searchForAvailableBlock(uint _startNumber, uint _numBlocks)` allows to search for an already stored blockNumber within the smart contract within the provided range. It will return either 0 (when no blockNumber had been found), or it will return the closest blockNumber that allows the recreation of the chain. 
+
+
 
 
 ### Running an in3-node
