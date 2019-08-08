@@ -58,12 +58,12 @@ contract NodeRegistry {
 
     /// information of a in3-node owner
     struct SignerInformation {
-        uint64 lockedTime;                  /// timestamp until the deposit of an in3-node can be returned after the node had been removed
+        uint64 lockedTime;                  /// timestamp until the deposit of an in3-node can not be withdrawn after the node had been removed
         address owner;                      /// the owner of the node
 
         Stages stage;                       /// state of the address
 
-        uint depositAmount;                 /// amount of deposit to be locked, used only a node had been removed
+        uint depositAmount;                 /// amount of deposit to be locked, used only after a node had been removed
 
         uint index;                         /// current index-position of the node in the node-array
     }
