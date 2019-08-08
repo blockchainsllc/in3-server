@@ -80,7 +80,8 @@
     "source-map-support": "^0.5.12",
     "ts-node": "^6.0.3",
     "typedoc": "^0.11.1",
-    "typescript": "^3.4.3"
+    "typescript": "^3.4.3",
+    "in3": "^1.1.47"
   },
   "dependencies": {
     "@ethersproject/abi": "^5.0.0-beta.133",
