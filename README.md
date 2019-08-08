@@ -1,8 +1,8 @@
 # Concept 
 
-The in3 nodes are providing data from the ethereum clients to the in3-clients. They can either act as an regular RPC-provider, but they can also provide merkle-proofs for their responses and also sign blockHashes. 
+The in3-node provides data from the ethereum clients to the in3-clients. They can either act as an regular RPC-provider, but they can also provide merkle-proofs for their responses and also sign blockHashes. 
 
-The merkle-proofs can be used by the clients to make sure that the response was correct (see https://in3.readthedocs.io/en/develop/poa.html for more information). The blockHeaders are an essential part for each proofs. An in3-client can also ask an in3-node to sign the blockHeader of the proofs, staking the deposit of the server to the correct answer. If the signed blockHash is not part of the chain, he can be convicted and will lose its deposit. 
+The merkle-proofs can be used by the clients to make sure that the response was correct (see https://in3.readthedocs.io/en/develop/poa.html for more information). The blockHeaders are an essential part for each proof. An in3-client can also ask an in3-node to sign the blockHeader of the proofs, staking the deposit of the node to the correct answer. If the signed blockHash is not part of the chain, he can be convicted and will lose its deposit. 
 
 Using this technique an in3-client has some kind of insurance that he will receive correct responses and results. 
 
@@ -14,7 +14,7 @@ The command `npm run build` will compile all the TypeScript files to JavaScript.
 
 # Testing
 
-The test can be run by using the command `npm test`. However, the in3-node are using the `evm_increaseTime` command that regular ethereum-clients do not support, but is needed in order to test how the contract react to certain dates in the future (e.g. 1 year after deployment). For this, there is a special docker container using a reverse proxy in combination with libfaketime (see https://github.com/wolfcw/libfaketime) allowing the change of time for parities. Nevertheless, the test should also run using a regular geth-client. 
+The test can be run by using the command `npm test`. However, the tests for the in3-node are using the `evm_increaseTime` command that regular ethereum-clients do not support, but is needed in order to test how the contract react to certain dates in the future (e.g. 1 year after deployment). For this, there is a special docker container using a reverse proxy in combination with libfaketime (see https://github.com/wolfcw/libfaketime) allowing the change of time for parities. Nevertheless, the test should also run using a regular geth-client. 
 
 
 # BlockHashRegistry
@@ -74,17 +74,17 @@ Both functions share some parameters:
 * `_url`: the url of the in3-node. Has to be unique, so if there is already an in3-node with the same url the register-transaction will fail
 * `_props`: the properties of the new in3-node (e.g. archive-node) as bitmask
 * `_timeout`: the time until the owner of the in3-node can access his deposit after he unregistered his node in seconds
-* `_weight`: how many requests the server is able to handle 
+* `_weight`: how many requests the node is able to handle 
 
 When using the `registerNodeFor`-function, the owner and the signer of an in3-node are different. In order to make sure that the owner has also control over the signer-address, the signer has to sign an ethereum-message containing the  `_url`, `_props`, `_timeout`, `_weight` and the owner (= msg.sender of the `registerNodeFor`-transaction) and using the resulting parameters (v,r,s) within the function. 
 
-In addition, the user has to provide a minimum deposit of `10 finney` = `0.01 ether`. In addition, during the 1st year after deployment, the maximum amount of deposit a server is allowed to have it `50 ether`. 
+In addition, the user has to provide a minimum deposit of `10 finney` = `0.01 ether`. In addition, during the 1st year after deployment, the maximum amount of deposit a node is allowed to have it `50 ether`. 
 
 The `_timeout` parameter has certain boundaries: the minimal timeout is 1h (3600 sec). So when registering a new node with a timeout smaller then 1h this will be overwritten by the smart contract and the timeout will be set to 1h. There is also an upper boundary of 1 year. When trying to register a new in3-node with a timeout greater then 1 year the transaction will fail. 
 
 ### Updating an in3-node
 
-In case that the properties of the server changed (e.g. deposit, props, etc), the `updateNode(address _signer, string _url, uint64 _props, uint64 _timeout, uint64 _weight)` can be called, updating the values. 
+In case that the properties of the node changed (e.g. deposit, props, etc), the `updateNode(address _signer, string _url, uint64 _props, uint64 _timeout, uint64 _weight)` can be called, updating the values. 
 
 For the update the same rules as for onboarding do apply. In addtion there are some more rules:
 * if the `_url` is different from the current one, the new one also has to be unique and not yet registered within the smart contract
@@ -92,7 +92,7 @@ For the update the same rules as for onboarding do apply. In addtion there are s
 
 ### Unregister
 
-In order to unregister a server, the function `unregisteringNode(address _signer)` can be called by the owner of the in3-node. The node will then immediately removed from the in3-nodeList. However, the deposit of the former in3-node will be locked until the provided timeout of that node is over. This is done to make sure the node can still be made liable for returning wrong signed blockHashes.
+In order to unregister a node, the function `unregisteringNode(address _signer)` can be called by the owner of the in3-node. The node will then immediately removed from the in3-nodeList. However, the deposit of the former in3-node will be locked until the provided timeout of that node is over. This is done to make sure the node can still be made liable for returning wrong signed blockHashes.
 
 After the timeout-period is over, the deposit can be withdrawn using the function `returnDeposit(address _signer)` which will the deposit of the former node to its former owner.
 
