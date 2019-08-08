@@ -16,10 +16,56 @@ The command `npm run build` will compile all the TypeScript files to JavaScript.
 
 The test can be run by using the command `npm test`. However, the tests for the in3-node are using the `evm_increaseTime` command that regular ethereum-clients do not support, but is needed in order to test how the contract react to certain dates in the future (e.g. 1 year after deployment). For this, there is a special docker container using a reverse proxy in combination with libfaketime (see https://github.com/wolfcw/libfaketime) allowing the change of time for parities. Nevertheless, the test should also run using a regular geth-client. 
 
+# usage
 
-# NodeRegistry
+**not yet implemented**
 
-## Deployment
+## registering a node
+
+Running the command `npm run registerServer config.json` will parse the provided JSON-file and try to unboard a new configuration using the desired configuration. 
+
+Such a JSON-file has different field with some of then being optional:
+* `pk`: the privateKey for signing blockhashes with the in3-node. If not provided the standard account of the user is used
+* `registry_address`: the address of the NodeRegistry contract. If not provided the in3-contract for mainnet is used (if no different chainID is provided)
+* `rpc_endPoint`: the RPC to be used for deploying. If not provided a slock.it rpc is used. 
+* `chainId`: the chainId of the chain to be used. If not provided the mainnet-id will be used
+* `in3_node_url` the url for the new in3-node. Has to be provided
+* `depositAmount` the amount of deposit the user is willing to stake in the NodeRegistry-contract. If not provided 10 finney will be used
+* `properties` the properties of the in3-node as bitmask. If not provided the standard properties will be used
+* `timeout` the timeout until the user can receive his deposit after he unregistered his in3-node. If not provided 1h will be used
+* `weight` the amount of requests the node is able to handle. 
+
+## update a node
+
+Running the command `npm run updateServer config.json` will parse the provided JSON-file and try to update an existing in3-node to a new configuration using the desired configuration. 
+
+Such a JSON-file has different field with some of then being optional:
+* `pk`: the privateKey for signing blockhashes with the in3-node. If not provided the standard account of the user is used
+* `registry_address`: the address of the NodeRegistry contract. If not provided the in3-contract for mainnet is used (if no different chainID is provided)
+* `rpc_endPoint`: the RPC to be used for deploying. If not provided a slock.it rpc is used. 
+* `chainId`: the chainId of the chain to be used. If not provided the mainnet-id will be used
+* `in3_node_url` the url for the new in3-node. If not provided the current one will be used
+* `depositAmount` the amount of deposit the user is willing to stake in the NodeRegistry-contract. If not provided 10 finney will be used
+* `properties` the properties of the in3-node as bitmask. If not provided the standard properties will be used
+* `timeout` the timeout until the user can receive his deposit after he unregistered his in3-node. If not provided 1h will be used
+* `weight` the amount of requests the node is able to handle. 
+
+## unregister
+
+Running the command `npm run unregisterServer config.json` will parse the provided JSON-file and unregister an existing in3-node
+
+Such a JSON-file has different field with some of then being optional:
+* `pk`: the privateKey for signing blockhashes with the in3-node. If not provided the standard account of the user is used
+* `registry_address`: the address of the NodeRegistry contract. If not provided the in3-contract for mainnet is used (if no different chainID is provided)
+* `rpc_endPoint`: the RPC to be used for deploying. If not provided a slock.it rpc is used. 
+* `chainId`: the chainId of the chain to be used. If not provided the mainnet-id will be used
+* `depositAmount` the amount of deposit the user is willing to stake in the NodeRegistry-contract. If not provided 10 finney will be used
+
+# in depth
+
+## NodeRegistry
+
+### Deployment
 
 The NodeRegistry can be deployed using the function `deployNodeRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport)`. As the NodeRegistry needs a BlockhashRegistry contract-address during the deployment, both of them will be deployed at once and automatically linked. 
 
@@ -27,17 +73,17 @@ An alternative way of deploying only the NodeRegistry and using an already deplo
 
 Both of the function can be found within the `src/util/registry.ts` file.
 
-## ABI 
+### ABI 
 
 ```js
 [{\"constant\":false,\"inputs\":[{\"name\":\"_signer\",\"type\":\"address\"},{\"name\":\"_url\",\"type\":\"string\"},{\"name\":\"_props\",\"type\":\"uint64\"},{\"name\":\"_timeout\",\"type\":\"uint64\"},{\"name\":\"_weight\",\"type\":\"uint64\"}],\"name\":\"updateNode\",\"outputs\":[],\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"registryId\",\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_signer\",\"type\":\"address\"}],\"name\":\"removeNodeFromRegistry\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_blockNumber\",\"type\":\"uint256\"},{\"name\":\"_hash\",\"type\":\"bytes32\"}],\"name\":\"convict\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"signerIndex\",\"outputs\":[{\"name\":\"lockedTime\",\"type\":\"uint64\"},{\"name\":\"owner\",\"type\":\"address\"},{\"name\":\"stage\",\"type\":\"uint8\"},{\"name\":\"depositAmount\",\"type\":\"uint256\"},{\"name\":\"index\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_signer\",\"type\":\"address\"}],\"name\":\"unregisteringNode\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"nodes\",\"outputs\":[{\"name\":\"url\",\"type\":\"string\"},{\"name\":\"deposit\",\"type\":\"uint256\"},{\"name\":\"timeout\",\"type\":\"uint64\"},{\"name\":\"registerTime\",\"type\":\"uint64\"},{\"name\":\"props\",\"type\":\"uint128\"},{\"name\":\"weight\",\"type\":\"uint64\"},{\"name\":\"signer\",\"type\":\"address\"},{\"name\":\"proofHash\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"unregisterKey\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_signer\",\"type\":\"address\"},{\"name\":\"_newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"totalNodes\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_url\",\"type\":\"string\"},{\"name\":\"_props\",\"type\":\"uint64\"},{\"name\":\"_timeout\",\"type\":\"uint64\"},{\"name\":\"_signer\",\"type\":\"address\"},{\"name\":\"_weight\",\"type\":\"uint64\"},{\"name\":\"_v\",\"type\":\"uint8\"},{\"name\":\"_r\",\"type\":\"bytes32\"},{\"name\":\"_s\",\"type\":\"bytes32\"}],\"name\":\"registerNodeFor\",\"outputs\":[],\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_signer\",\"type\":\"address\"}],\"name\":\"returnDeposit\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"blockTimeStampDeployment\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_signer\",\"type\":\"address\"},{\"name\":\"_blockhash\",\"type\":\"bytes32\"},{\"name\":\"_blockNumber\",\"type\":\"uint256\"},{\"name\":\"_v\",\"type\":\"uint8\"},{\"name\":\"_r\",\"type\":\"bytes32\"},{\"name\":\"_s\",\"type\":\"bytes32\"}],\"name\":\"revealConvict\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"urlIndex\",\"outputs\":[{\"name\":\"used\",\"type\":\"bool\"},{\"name\":\"signer\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_url\",\"type\":\"string\"},{\"name\":\"_props\",\"type\":\"uint64\"},{\"name\":\"_timeout\",\"type\":\"uint64\"},{\"name\":\"_weight\",\"type\":\"uint64\"}],\"name\":\"registerNode\",\"outputs\":[],\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"blockRegistry\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"VERSION\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"name\":\"_blockRegistry\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"url\",\"type\":\"string\"},{\"indexed\":false,\"name\":\"props\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"signer\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"deposit\",\"type\":\"uint256\"}],\"name\":\"LogNodeRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"signer\",\"type\":\"address\"}],\"name\":\"LogNodeConvicted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"url\",\"type\":\"string\"},{\"indexed\":false,\"name\":\"signer\",\"type\":\"address\"}],\"name\":\"LogNodeRemoved\",\"type\":\"event\"}]
 ```
 
-## Usage and Purpose 
+### Usage and Purpose 
 
 The main purpose of the NodeRegistry contracts is storing an array with currently active in3-nodes (= nodeList). In order to achieve that functionality, there are function for registering, updating, unregistering and also convicting nodes that signed wrong blockhashes, i.e. returning wrong results for requests. 
 
-### Registering an in3-node
+#### Registering an in3-node
 
 There are two different ways of registering an in3-node within the smart contract: 
 * `registerNode(string _url, uint64 _props, uint64 _timeout, uint64 _weight)` registers a new node with the sender of the transaction as signer for in3-requests
@@ -55,7 +101,7 @@ In addition, the user has to provide a minimum deposit of `10 finney` = `0.01 et
 
 The `_timeout` parameter has certain boundaries: the minimal timeout is 1h (3600 sec). So when registering a new node with a timeout smaller then 1h this will be overwritten by the smart contract and the timeout will be set to 1h. There is also an upper boundary of 1 year. When trying to register a new in3-node with a timeout greater then 1 year the transaction will fail. 
 
-### Updating an in3-node
+#### Updating an in3-node
 
 In case that the properties of the node changed (e.g. deposit, props, etc), the `updateNode(address _signer, string _url, uint64 _props, uint64 _timeout, uint64 _weight)` can be called, updating the values. 
 
@@ -63,13 +109,13 @@ For the update the same rules as for onboarding do apply. In addtion there are s
 * if the `_url` is different from the current one, the new one also has to be unique and not yet registered within the smart contract
 * the `_timeout` cannot be decreased, so if a new timeout smaller then the old one is provided, it will be ignored by the smart contract
 
-### Unregister
+#### Unregister
 
 In order to unregister a node, the function `unregisteringNode(address _signer)` can be called by the owner of the in3-node. The node will then immediately removed from the in3-nodeList. However, the deposit of the former in3-node will be locked until the provided timeout of that node is over. This is done to make sure the node can still be made liable for returning wrong signed blockhashes.
 
 After the timeout-period is over, the deposit can be withdrawn using the function `returnDeposit(address _signer)` which will the deposit of the former node to its former owner.
 
-### Convicting an in3-node
+#### Convicting an in3-node
 
 If an in3-node sends a wrong response to the clients, he can be convicted using two steps: 
 
@@ -91,19 +137,19 @@ If a node has been successfully convicted, 50% of the deposit will be transferre
 
 **Usually the users do not have to care about convicting mechanics, as the in3-nodes can (and will) handle the full convict circle automatically (including the possible recreation of blockHeaders for the BlockHashRegistry of it's worth it)**
 
-# BlockHashRegistry
+## BlockHashRegistry
 
-## Deployment
+### Deployment
 
 The BlockHash-registry can be deployed using the function `deployBlockhashRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport)` located within the `src/util/registry.ts` file. 
 
-## ABI
+### ABI
 
 ```js
 [{\"constant\":false,\"inputs\":[{\"name\":\"_blockNumber\",\"type\":\"uint256\"}],\"name\":\"saveBlockNumber\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_blockheader\",\"type\":\"bytes\"}],\"name\":\"getParentAndBlockhash\",\"outputs\":[{\"name\":\"parentHash\",\"type\":\"bytes32\"},{\"name\":\"bhash\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"pure\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_startNumber\",\"type\":\"uint256\"},{\"name\":\"_numBlocks\",\"type\":\"uint256\"}],\"name\":\"searchForAvailableBlock\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_blockNumber\",\"type\":\"uint256\"},{\"name\":\"_blockheaders\",\"type\":\"bytes[]\"}],\"name\":\"recreateBlockheaders\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"snapshot\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_blockheaders\",\"type\":\"bytes[]\"},{\"name\":\"_bHash\",\"type\":\"bytes32\"}],\"name\":\"reCalculateBlockheaders\",\"outputs\":[{\"name\":\"bhash\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"pure\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"blockhashMapping\",\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"blockNr\",\"type\":\"uint256\"},{\"indexed\":true,\"name\":\"bhash\",\"type\":\"bytes32\"}],\"name\":\"LogBlockhashAdded\",\"type\":\"event\"}]
 ```
 
-## Usage and Purpose 
+### Usage and Purpose 
 
 The BlockHashRegistry-contract is able to store certain blockhashes and their corresponding numbers. On the one hand it's possible to do either a `snapshot()` (i.e. storing the previous blockhash of the chain), or calling `saveBlockNumber(uint _blockNumber)` (i.e. storing one of the latest 256 blocks). 
 
@@ -117,8 +163,6 @@ In order to achieve the described functionality, there are multiple helper funct
 * `getParentAndBlockhash(bytes memory _blockheader)` is used to calculate and return both the parent blockhash and the blockhash of the provided blockHeader
 * `reCalculateBlockheaders(bytes[] memory _blockheaders, bytes32 _bHash)` uses starting blockhash `_bHash`and an array of reversed serialized blockHeader. It will either return the blockhash of the last element of the provided array, or it will return `0x0` when the provided chain is not correct
 *  `searchForAvailableBlock(uint _startNumber, uint _numBlocks)` allows to search for an already stored blockNumber within the smart contract within the provided range. It will return either 0 (when no blockNumber had been found), or it will return the closest blockNumber that allows the recreation of the chain. 
-
-
 
 
 ### Running an in3-node
