@@ -59,6 +59,7 @@ contract BlockhashRegistry {
     /// @dev reverts when the chain of headers is incorrect
     /// @dev function is public due to the usage of a dynamic bytes array (not yet supported for external functions)
     function recreateBlockheaders(uint _blockNumber, bytes[] memory _blockheaders) public {
+
         bytes32 currentBlockhash = blockhashMapping[_blockNumber];
         require(currentBlockhash != 0x0, "parentBlock is not available");
 
@@ -76,6 +77,7 @@ contract BlockhashRegistry {
     /// @param _blockNumber the blocknumber to be stored
     /// @dev reverts if the block can't be found inside the evm
     function saveBlockNumber(uint _blockNumber) public {
+
         bytes32 bHash = blockhash(_blockNumber);
 
         require(bHash != 0x0, "block not available");
@@ -88,29 +90,6 @@ contract BlockhashRegistry {
     function snapshot() public {
         /// blockhash cannot return the current block, so we use the previous block
         saveBlockNumber(block.number-1);
-    }
-
-    /// @notice starts with a given blockhash and its header and tries to recreate a (reverse) chain of blocks
-    /// @notice the array of the blockheaders have to be in reverse order (e.g. [100,99,98,97])
-    /// @param _blockheaders array with serialized blockheaders in reverse order, i.e. from youngest to oldest
-    /// @param _bHash blockhash of the 1st element of the _blockheaders-array
-    /// @return 0x0 if the functions detects a wrong chaining of blocks, blockhash of the last element of the array otherwhise
-    function reCalculateBlockheaders(bytes[] memory _blockheaders, bytes32 _bHash) public pure returns (bytes32 bhash) {
-
-        bytes32 currentBlockhash = _bHash;
-        bytes32 calcParent = 0x0;
-        bytes32 calcBlockhash = 0x0;
-
-        /// save to use for up to 200 blocks, exponential increase of gas-usage afterwards
-        for (uint i = 0; i < _blockheaders.length; i++) {
-            (calcParent, calcBlockhash) = getParentAndBlockhash(_blockheaders[i]);
-            if (calcBlockhash != currentBlockhash) {
-                return 0x0;
-            }
-            currentBlockhash = calcParent;
-        }
-
-        return currentBlockhash;
     }
 
     /// @notice returns the blockhash and the parent blockhash from the provided blockheader
@@ -147,4 +126,26 @@ contract BlockhashRegistry {
         bhash = keccak256(_blockheader);
     }
 
+    /// @notice starts with a given blockhash and its header and tries to recreate a (reverse) chain of blocks
+    /// @notice the array of the blockheaders have to be in reverse order (e.g. [100,99,98,97])
+    /// @param _blockheaders array with serialized blockheaders in reverse order, i.e. from youngest to oldest
+    /// @param _bHash blockhash of the 1st element of the _blockheaders-array
+    /// @return 0x0 if the functions detects a wrong chaining of blocks, blockhash of the last element of the array otherwhise
+    function reCalculateBlockheaders(bytes[] memory _blockheaders, bytes32 _bHash) public pure returns (bytes32 bhash) {
+
+        bytes32 currentBlockhash = _bHash;
+        bytes32 calcParent = 0x0;
+        bytes32 calcBlockhash = 0x0;
+
+        /// save to use for up to 200 blocks, exponential increase of gas-usage afterwards
+        for (uint i = 0; i < _blockheaders.length; i++) {
+            (calcParent, calcBlockhash) = getParentAndBlockhash(_blockheaders[i]);
+            if (calcBlockhash != currentBlockhash) {
+                return 0x0;
+            }
+            currentBlockhash = calcParent;
+        }
+
+        return currentBlockhash;
+    }
 }
