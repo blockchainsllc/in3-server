@@ -147,7 +147,8 @@ contract NodeRegistry {
     /// @notice commits a blocknumber and a hash
     /// @notice must be called before revealConvict
     /// @param _blockNumber the blocknumber of the wrong blockhash
-    /// @param _hash keccak256(wrong blockhash, msg.sender, v, r, s); used to prevent frontrunning
+    /// @param _hash keccak256(wrong blockhash, msg.sender, v, r, s); used to prevent frontrunning.
+    /// @dev The v,r,s paramaters are from the signature of the wrong blockhash that the node provided
     function convict(uint _blockNumber, bytes32 _hash) external {
 
         ConvictInformation memory ci;
