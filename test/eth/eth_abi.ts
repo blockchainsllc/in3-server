@@ -25,7 +25,7 @@ import {  RPCResponse,  Proof,  IN3Config, RPCRequest } from '../../src/model/ty
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployChainRegistry, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
-import * as logger from '../../src/util/memoryLogger'
+import * as logger from 'in3-common/js/test/util/memoryLogger'
 
 const toHex = util.toHex
 const getAddress = util.getAddress
