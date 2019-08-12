@@ -21,7 +21,7 @@
 import { keccak } from 'ethereumjs-util'
 // Setup logger
 import * as winston from 'winston'
-import * as memoryLogger from 'in3-common'
+import * as memoryLogger from 'in3-common/js/test/util/memoryLogger'
 import config from '../server/config'
 import * as color from 'cli-color'
 
@@ -47,6 +47,7 @@ const winstonLogger = winston.createLogger({
   let impl = winstonLogger
 
 export function setLogger(val: 'winston' | 'memory') {
+  console.log("--->"+memoryLogger)
   impl = ((val === 'winston') ? winstonLogger : memoryLogger) as any
 }
 
