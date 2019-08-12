@@ -47,7 +47,6 @@ const winstonLogger = winston.createLogger({
   let impl = winstonLogger
 
 export function setLogger(val: 'winston' | 'memory') {
-  console.log("--->"+memoryLogger)
   impl = ((val === 'winston') ? winstonLogger : memoryLogger) as any
 }
 
