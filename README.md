@@ -61,6 +61,46 @@ Such a JSON-file has different field with some of then being optional:
 * `chainId`: the chainId of the chain to be used. If not provided the mainnet-id will be used
 * `depositAmount` the amount of deposit the user is willing to stake in the NodeRegistry-contract. If not provided 10 finney will be used
 
+# Running an in3-node
+
+## docker
+
+To run a incubed node, you simply use docker-compose: 
+
+```yml
+version: '2'
+services:
+  incubed-server:
+    image: .
+    volumes:
+    - $PWD/keys:/secure                                     # directory where the private key is stored 
+    ports:
+    - 8500:8500/tcp                                         # open the port 8500 to be accessed by public
+    command:
+    - --privateKey=/secure/myKey.json                       # internal path to the key
+    - --privateKeyPassphrase=dummy                          # passphrase to unlock the key
+    - --chain=0x1                                           # chain (mainnet)
+    - --rpcUrl=http://incubed-parity:8545                   # url of the kovan-client
+    - --registry=0xFdb0eA8AB08212A1fFfDB35aFacf37C3857083ca # url of the incubed-registry 
+    - --autoRegistry-url=http://in3.server:8500             # check or register this node for this url
+    - --autoRegistry-deposit=2                              # deposit to use when registering
+
+  incubed-parity:
+    image: parity/parity                                    # parity-image with the getProof-function implemented
+    command:
+    - --auto-update=none                                    # do not automaticly update the client
+```
+
+A full list with possible commands to configure the in3-node can be found in the documentation: https://in3.readthedocs.io/en/develop/api-docker.html
+
+## node
+
+It s also possible to run a node without docker using the command:
+
+`node js/src/server/server.js --chain=0x1 --privateKey=/secure/myKey.json --rpcUrl=http://incubed-parity:8545  --registry=0xFdb0eA8AB08212A1fFfDB35aFacf37C3857083ca`
+
+A full list with possible commands to configure the in3-node for node can be found in the documentation: https://in3.readthedocs.io/en/develop/api-node.html#comandline-arguments
+
 # in depth
 
 ## NodeRegistry
@@ -159,7 +199,7 @@ In addition, the output of the latest compilation is also stored within IPFS:
 
 The BlockHashRegistry-contract is able to store certain blockhashes and their corresponding numbers. On the one hand it's possible to do either a `snapshot()` (i.e. storing the previous blockhash of the chain), or calling `saveBlockNumber(uint _blockNumber)` (i.e. storing one of the latest 256 blocks). 
 
-In addition, the smart contract is also able to store blockhashes that are (way) older then the latest blocks using the function `recreateBlockheaders(uint _blockNumber, bytes[] memory _blockheaders)`. The user has to provide a blockNumber of an already stored blockhash and it's corresponding serialized blockheader together with more serialized blockheaders in reversed order (e.g. blockNumber #100, blockNumber #99, blockNumber #98).
+In addition, the smart contract is also able to store blockhashes that are (way) older then the latest blocks using the function `recreateBlockheaders(uint _blockNumber, bytes[] memory _blockheaders)`. The user has to provide a blockNumber of an already stored blockhash and its corresponding serialized blockheader together with more serialized blockheaders in reversed order (e.g. blockNumber #100, blockNumber #99, blockNumber #98).
 
 The smart contract will use the serialized headers to both extract the blockhash of the parentBlock, and also hash the header in order to receive the blockhash. This calculated blockhash is then compared to the previous parent blockhash(or the starting blockhash). Repeating this action enables the smart contract to check for the validity of the provided chain and securely store blockhashes that are way older then the latest blocks. 
 
@@ -171,31 +211,5 @@ In order to achieve the described functionality, there are multiple helper funct
 *  `searchForAvailableBlock(uint _startNumber, uint _numBlocks)` allows to search for an already stored blockNumber within the smart contract within the provided range. It will return either 0 (when no blockNumber had been found), or it will return the closest blockNumber that allows the recreation of the chain. 
 
 
-### Running an in3-node
 
-To run a incubed node, you simply use docker-compose:
-
-```yml
-version: '2'
-services:
-  incubed-server:
-    image: .
-    volumes:
-    - $PWD/keys:/secure                                     # directory where the private key is stored 
-    ports:
-    - 8500:8500/tcp                                         # open the port 8500 to be accessed by public
-    command:
-    - --privateKey=/secure/myKey.json                       # internal path to the key
-    - --privateKeyPassphrase=dummy                          # passphrase to unlock the key
-    - --chain=0x1                                           # chain (mainnet)
-    - --rpcUrl=http://incubed-parity:8545                   # url of the kovan-client
-    - --registry=0xFdb0eA8AB08212A1fFfDB35aFacf37C3857083ca # url of the incubed-registry 
-    - --autoRegistry-url=http://in3.server:8500             # check or register this node for this url
-    - --autoRegistry-deposit=2                              # deposit to use when registering
-
-  incubed-parity:
-    image: parity/parity                                    # parity-image with the getProof-function implemented
-    command:
-    - --auto-update=none                                    # do not automaticly update the client
-```
 
