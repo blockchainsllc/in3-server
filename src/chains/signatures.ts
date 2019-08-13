@@ -21,7 +21,10 @@ import BaseHandler from './BaseHandler'
 import { BlockData, RPCRequest, RPCResponse, Signature, util, serialize, ServerList, IN3NodeConfig } from 'in3'
 import { keccak, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
+import { LRUCache } from '../util/cache'
+import * as logger from '../util/logger'
 import { toBuffer } from 'in3/js/src/util/util';
+
 
 const toHex = util.toHex
 const toMinHex = util.toMinHex
@@ -30,34 +33,57 @@ const bytes32 = serialize.bytes32
 const address = serialize.address
 const bytes = serialize.bytes
 
+export const signatureCaches: LRUCache = new LRUCache();
+
 export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
   // nothing to do?
   if (!addresses || !addresses.length || !requestedBlocks || !requestedBlocks.length) return []
 
   // make sure the 
-  const blocks = await Promise.all(requestedBlocks.map(async b => ({
+  let blocks = await Promise.all(requestedBlocks.map(async b => ({
     blockNumber: toNumber(b.blockNumber),
     hash: toHex(b.hash || await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })
       .then(_ => _.result && _.result.hash), 32)
   }))).then(allBlocks => !verifiedHashes ? allBlocks : allBlocks.filter(_ => verifiedHashes.indexOf(_.hash) < 0))
 
+
   if (!blocks.length) return []
 
   // get our own nodeList
   const nodes = await handler.getNodeList(false)
-  return Promise.all(addresses.map(async adr => {
-
+  const uniqueAddresses = [...new Set(addresses.map(item => item))];
+  return Promise.all(uniqueAddresses.slice(0, nodes.nodes.length).map(async adr => {
     // find the requested address in our list
     const config = nodes.nodes.find(_ => _.address.toLowerCase() === adr.toLowerCase())
     if (!config) // TODO do we need to throw here or is it ok to simply not deliver the signature?
-      throw new Error('The requested signature ' + adr + ' does not exist within the current nodeList!')
+      throw new Error('The ' + adr + ' does not exist within the current registered active nodeList!')
+
+    // get cache signatures and remaining blocks that have no signatures
+    const cachedSignatures: Signature[] = []
+    const blocksToRequest = blocks.filter(b => {
+      const s = signatureCaches.get(b.hash) && false
+      return s ? cachedSignatures.push(s) * 0 : true
+    })
 
     // send the sign-request
-    const response = await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: [...blocks] }) as RPCResponse
-    if (response.error)
-      throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+    let response: RPCResponse
+    try {
+      response = (blocksToRequest.length
+        ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest })
+        : { result: [] }) as RPCResponse
+      if (response.error) {
+        //throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+        logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+        return null
+      }
+    } catch (error) {
+      logger.error(error.toString())
+      return null
+    }
 
-    const signatures = response.result as Signature[]
+
+    const signatures = [...cachedSignatures, ...response.result] as Signature[]
+
 
     // if there are signature, we only return the valid ones
     if (signatures && signatures.length)
@@ -85,8 +111,14 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
 
         // is the blockhash correct all is fine
-        if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash)))
+        if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash))) {
+          // add signature entry in cache
+          if (!signatureCaches.has(expectedBlock.hash))
+            signatureCaches.set(expectedBlock.hash, { ...s })
+
           return s
+        }
+
 
         const latestBlockNumber = handler.watcher.block.number
 
@@ -122,9 +154,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       }))
 
     return signatures
-
-    // merge all signatures
   })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c], []))
+
 }
 
 export function sign(pk: string, blocks: { blockNumber: number, hash: string, registryId: string }[]): Signature[] {
@@ -169,7 +200,7 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
 async function handleRecreation(handler: BaseHandler, nodes: ServerList, singingNode: IN3NodeConfig, s: Signature, diffBlocks: number): Promise<any> {
 
   // we have to find the blockHashRegistry
-  const blockHashRegistry = "0x" + (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0].toString("hex")
+  const blockHashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
 
   // we have to calculate whether it's worth convicting a server
   const [, deposit, , , , , , ,] = await callContract(handler.config.rpcUrl, nodes.contract, 'nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', [toNumber(singingNode.index)])
@@ -179,6 +210,8 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
   const costs = blocksMissing * costPerBlock * 1.25
 
   if (costs > (deposit / 2)) {
+
+    console.log("not worth it")
     //it's not worth it
     return
   }

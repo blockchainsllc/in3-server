@@ -25,8 +25,8 @@ import { TestTransport, getTestClient } from '../utils/transport'
 import { deployChainRegistry, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
 import * as logger from 'in3/js/test/util/memoryLogger'
-import { simpleEncode } from 'ethereumjs-abi'
 import { toMinHex } from 'in3/js/src/util/util';
+
 const toHex = util.toHex
 const getAddress = util.getAddress
 
@@ -752,12 +752,6 @@ describe('ETH Standard JSON-RPC', () => {
     assert.isTrue(failed, 'The manipulated block must fail!')
   })
 
-
-
-
-
-
-
   it('eth_call', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
     let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
@@ -793,7 +787,8 @@ describe('ETH Standard JSON-RPC', () => {
       to: adr,
       data: '0x61bc221a'
     }
-    const b1 = await client.sendRPC('eth_call', [{ from: txArgs.from, to: adr2, data: '0x' + simpleEncode('add(address)', adr).toString('hex') }, 'latest'], null, { keepIn3: true, includeCode: true })
+
+    const b1 = await client.sendRPC('eth_call', [{ from: txArgs.from, to: adr2, data: '0x' + tx.encodeFunction('add(address)', [adr]) }, 'latest'], null, { keepIn3: true, includeCode: true })
     const result1 = b1.result as string
     assert.exists(b1.in3)
     assert.exists(b1.in3.proof)

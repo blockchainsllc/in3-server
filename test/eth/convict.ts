@@ -28,6 +28,8 @@ import Watcher from '../../src/chains/watch'
 import { registerNodes, deployNodeRegistry } from '../../src/util/registry'
 import { toBN, toBuffer } from 'in3/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
+import { signatureCaches } from '../../src/chains/signatures'
+
 
 const address = serialize.address
 const bytes32 = serialize.bytes32
@@ -101,7 +103,7 @@ describe('Convict', () => {
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'urlIndex(bytes32):(bool,address)', [hashurl], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
 
     assert.isTrue(urlIndex[0])
-    assert.equal(util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase(), "0x" + urlIndex[1].toLowerCase())
+    assert.equal(util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase(), urlIndex[1].toLowerCase())
 
     const newServerReg = await deployNodeRegistry(test.getHandlerConfig(0).privateKey, test.url)
 
@@ -109,11 +111,11 @@ describe('Convict', () => {
 
     const registryId = (await tx.callContract(test.url, newServerReg, 'registryId():(bytes32)', []))[0]
 
-    const tsDeployment = await tx.callContract(test.url, newServerReg, 'blockTimeStampDeployment():(uint)', [0])
+    const tsDeployment = await tx.callContract(test.url, newServerReg, 'blockTimeStampDeployment():(uint)', [])
     assert.equal(tsDeployment.toString(), Number(currentBlock.timestamp).toString())
 
-    await tx.callContract(test.url, newServerReg, 'blockTimeStampDeployment():(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
-    assert.isFalse(await tx.callContract(test.url, newServerReg, 'blockTimeStampDeployment():(uint)', [0], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
+    await tx.callContract(test.url, newServerReg, 'blockTimeStampDeployment():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
+    assert.isFalse(await tx.callContract(test.url, newServerReg, 'blockTimeStampDeployment():(uint)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
 
     const blockBefore = await test.getFromServer('eth_getBlockByNumber', toHex(Number(currentBlock.number) - 1), false) as BlockData
 
@@ -122,7 +124,7 @@ describe('Convict', () => {
       bytes32(blockBefore.hash)
     ]))
 
-    assert.equal(calcReg.toString(), registryId.toString())
+    assert.equal("0x" + calcReg.toString("hex"), registryId.toString())
 
     await tx.callContract(test.url, newServerReg, 'registerNode(string,uint64,uint64,uint64)', ['abc', 1000, 10000, 2000], {
       privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 50000000, to: newServerReg
@@ -142,7 +144,7 @@ describe('Convict', () => {
     assert.equal(server[4].toString(), "1000")
 
     assert.equal(server[5].toString(), "2000")
-    assert.equal("0x" + server[6].toLowerCase(), util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase())
+    assert.equal(server[6].toLowerCase(), util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase())
 
     const calcHashContract = ethUtil.keccak(
       Buffer.concat([
@@ -150,11 +152,11 @@ describe('Convict', () => {
         uint64(server[2]),
         uint64(server[3]),
         toBuffer(server[4], 16),
-        address("0x" + server[6].toLowerCase()),
+        address(server[6].toLowerCase()),
         serialize.bytes(server[0])
       ])
     )
-    assert.equal(calcHashContract.toString(), server[7].toString())
+    assert.equal("0x" + calcHashContract.toString("hex"), server[7].toString())
 
     const calcHash = ethUtil.keccak(
       Buffer.concat([
@@ -198,7 +200,7 @@ describe('Convict', () => {
     const registryId = (await tx.callContract(test.url, test.nodeList.contract, 'registryId():(bytes32)', []))[0]
     await tx.callContract(test.url, test.nodeList.contract, 'registryId():(bytes32)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 50000000 })
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registryId():(bytes32)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
-    const blockHashRegAddress = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString('hex')
+    const blockHashRegAddress = (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString('hex')
     await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 0, confirm: true, gas: 50000000 })
     assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: blockHashRegAddress, value: 10, confirm: true, gas: 50000000 }).catch(_ => false))
 
@@ -343,7 +345,7 @@ describe('Convict', () => {
     const [lockedTimeBefore, ownerBefore, stageBefore, depositAmountBefore, indexBefore] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
     assert.equal(lockedTimeBefore.toString(), "0")
-    assert.equal(ownerBefore, convictOwner.toLowerCase().substr(2))
+    assert.equal(ownerBefore, convictOwner)
     assert.equal(stageBefore.toString(), "1")
     assert.equal(depositAmountBefore.toString(), "0")
     assert.equal(indexBefore.toString(), "0")
@@ -357,7 +359,7 @@ describe('Convict', () => {
     const [lockedTimeAfter, ownerAfter, stageAfter, depositAmountAfter, indexAfter] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
     assert.equal(lockedTimeAfter.toString(), "0")
-    assert.equal(ownerAfter, convictOwner.toLowerCase().substr(2))
+    assert.equal(ownerAfter, convictOwner)
     assert.equal(stageAfter.toString(), "2")
     assert.equal(depositAmountAfter.toString(), "0")
     assert.equal(indexAfter.toString(), "0")
@@ -459,7 +461,7 @@ describe('Convict', () => {
 
 
     const [, ownerBefore, stageBefore, depositAmountBefore, indexBefore] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
-    assert.equal(ownerBefore, util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase().substr(2))
+    assert.equal(ownerBefore, util.getAddress(test.getHandlerConfig(0).privateKey))
     assert.equal(stageBefore.toString(), "3")
     assert.equal(depositAmountBefore.toString(), toBN("10000000000000000"))
     assert.equal(indexBefore.toString(), "0")
@@ -475,7 +477,7 @@ describe('Convict', () => {
     const [lockedTimeAfter, ownerAfter, stageAfter, depositAmountAfter, indexAfter] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
     assert.equal(lockedTimeAfter.toString(), "0")
-    assert.equal(ownerAfter, util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase().substr(2))
+    assert.equal(ownerAfter, util.getAddress(test.getHandlerConfig(0).privateKey))
     assert.equal(stageAfter.toString(), "2")
     assert.equal(depositAmountAfter.toString(), "0")
     assert.equal(indexAfter.toString(), "0")
@@ -555,7 +557,7 @@ describe('Convict', () => {
       await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), "#1", 0, 0, 0], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
       await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(1).privateKey), "#2", 0, 0, 0], { privateKey: test.getHandlerConfig(1).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false)
 
-      const blockHashRegistry = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
+      const blockHashRegistry = (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
 
       const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 }))
 
@@ -617,7 +619,7 @@ describe('Convict', () => {
       await test.createAccount()
       let events = await watcher.update()
 
-      if (events.length == 0) events = await watcher2.update()
+      if (!events) events = await watcher2.update()
 
       assert.equal(events.length, 2)
       assert.equal(await test.getNodeCountFromContract(), 1)
@@ -630,7 +632,7 @@ describe('Convict', () => {
     const test = await TestTransport.createWithRegisteredNodes(2)
 
 
-    const blockHashRegistry = "0x" + (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
+    const blockHashRegistry = (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
     await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerConfig(0).privateKey, to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
 
     const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 }))
@@ -658,7 +660,7 @@ describe('Convict', () => {
     assert.isDefined(res.in3.proof.signatures[0])
     test.injectRandom([0.01, 0.9])
     test.injectRandom([0.02, 0.8])
-
+    signatureCaches.clear()
     let manipulated = false
     test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
       const index = parseInt(url.substr(1)) - 1
@@ -720,7 +722,7 @@ describe('Convict', () => {
     const [lockedTimeBefore, ownerBefore, stageBefore, depositAmountBefore, indexBefore] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(1).privateKey)])
 
     assert.equal(lockedTimeBefore.toString(), '0')
-    assert.equal(ownerBefore, util.getAddress(test.getHandlerConfig(1).privateKey).toLowerCase().substr(2))
+    assert.equal(ownerBefore, util.getAddress(test.getHandlerConfig(1).privateKey))
     assert.equal(stageBefore.toString(), '1')
     assert.equal(depositAmountBefore.toString(), '0')
     assert.equal(indexBefore.toString(), '1')
@@ -732,7 +734,7 @@ describe('Convict', () => {
 
     assert.equal(lockedTimeAfter.toString(), toBN(block.timestamp).add(toBN(3600)).toString())
 
-    assert.equal(ownerAfter, util.getAddress(test.getHandlerConfig(1).privateKey).toLowerCase().substr(2))
+    assert.equal(ownerAfter, util.getAddress(test.getHandlerConfig(1).privateKey))
     assert.equal(stageAfter.toString(), '3')
     assert.equal(depositAmountAfter.toString(), '10000000000000000')
     assert.equal(indexAfter.toString(), '0')
@@ -767,7 +769,7 @@ describe('Convict', () => {
     const [lockedTimeBefore, ownerBefore, stageBefore, depositAmountBefore, indexBefore] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
     assert.equal(lockedTimeBefore.toString(), '0')
-    assert.equal(ownerBefore, util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase().substr(2))
+    assert.equal(ownerBefore, util.getAddress(test.getHandlerConfig(0).privateKey))
     assert.equal(stageBefore.toString(), '1')
     assert.equal(depositAmountBefore.toString(), '0')
     assert.equal(indexBefore.toString(), '0')
@@ -783,7 +785,7 @@ describe('Convict', () => {
     const [lockedTimeAfter, ownerAfter, stageAfter, depositAmountAfter, indexAfter] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
     assert.equal(lockedTimeAfter.toString(), toBN(block.timestamp).add(toBN(3600)).toString())
 
-    assert.equal(ownerAfter, util.getAddress(test.getHandlerConfig(0).privateKey).toLowerCase().substr(2))
+    assert.equal(ownerAfter, util.getAddress(test.getHandlerConfig(0).privateKey))
     assert.equal(stageAfter.toString(), '3')
     assert.equal(depositAmountAfter.toString(), '10000000000000000')
     assert.equal(indexAfter.toString(), '0')
@@ -839,7 +841,7 @@ describe('Convict', () => {
     const [lockedTimeEnd, ownerEnd, stageEnd, depositAmountEnd, indexEnd] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(test.getHandlerConfig(0).privateKey)])
 
     assert.equal(lockedTimeEnd.toString(), '0')
-    assert.equal(ownerEnd, '0000000000000000000000000000000000000000')
+    assert.equal(ownerEnd, '0x0000000000000000000000000000000000000000')
     assert.equal(stageEnd.toString(), '0')
     assert.equal(depositAmountEnd.toString(), '0')
     assert.equal(indexEnd.toString(), '0')
@@ -964,12 +966,12 @@ describe('Convict', () => {
     assert.equal(server.registerTime.toString(), Number(currentBlock.timestamp).toString())
     assert.equal(server.props.toString(), '1000')
     assert.equal(server.weight.toString(), '2000')
-    assert.equal(server.signer.toLowerCase(), util.getAddress(signerAccount).substr(2).toLowerCase())
-    assert.equal(server.proofHash.toString('hex'), proofcalc.toString('hex'))
+    assert.equal(server.signer, util.getAddress(signerAccount))
+    assert.equal(server.proofHash.toString('hex'), "0x" + proofcalc.toString('hex'))
 
     const [lockedTime, owner, stage, depositAmount, index] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(signerAccount)])
     assert.equal(lockedTime.toString(), '0')
-    assert.equal(owner, util.getAddress(ownerAccount).substr(2).toLowerCase())
+    assert.equal(owner, util.getAddress(ownerAccount))
     assert.equal(stage.toString(), '1')
     assert.equal(depositAmount.toString(), '0')
     assert.equal(index.toString(), '1')
@@ -992,7 +994,7 @@ describe('Convict', () => {
 
     const [, ownerNew, , , indexnew] = await tx.callContract(test.url, test.nodeList.contract, 'signerIndex(address):(uint64,address,uint,uint,uint)', [util.getAddress(signerAccount)])
 
-    assert.equal(ownerNew, util.getAddress(newOwner).substr(2).toLowerCase())
+    assert.equal(ownerNew, util.getAddress(newOwner))
     assert.equal(indexnew.toString(), '1')
 
     // assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'registerNodeFor(string,uint64,uint64,address,uint64)', ['timeout', 1000, 86400 * 365 * 1 + 1, util.getAddress(timeoutAccount), 2000], { privateKey: ownerAccount, value: toBN('4900000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false))
@@ -1045,11 +1047,11 @@ describe('Convict', () => {
         uint64(serverAfter.timeout),
         uint64(serverAfter.registerTime),
         toBuffer(serverAfter.props, 16),
-        address("0x" + serverAfter.signer.toLowerCase()),
+        address(serverAfter.signer.toLowerCase()),
         serialize.bytes(serverAfter.url)
       ])
     )
-    assert.equal(calcHashContract.toString(), serverAfter.proofHash.toString())
+    assert.equal("0x" + calcHashContract.toString("hex"), serverAfter.proofHash)
 
     await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(pk1), "test3.com", 0x0fff, 14400, 2000], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     serverAfter = await test.getNodeFromContract(2)
@@ -1062,11 +1064,11 @@ describe('Convict', () => {
         uint64(serverAfter.timeout),
         uint64(serverAfter.registerTime),
         toBuffer(serverAfter.props, 16),
-        address("0x" + serverAfter.signer.toLowerCase()),
+        address(serverAfter.signer.toLowerCase()),
         serialize.bytes(serverAfter.url)
       ])
     )
-    assert.equal(calcHashContract.toString(), serverAfter.proofHash.toString())
+    assert.equal("0x" + calcHashContract.toString("hex"), serverAfter.proofHash)
 
     await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(pk1), "test3.com", 0xffff, 16400, 2000], { privateKey: pk1, value: 0, confirm: true, gas: 3000000 })
     serverAfter = await test.getNodeFromContract(2)
@@ -1079,11 +1081,11 @@ describe('Convict', () => {
         uint64(serverAfter.timeout),
         uint64(serverAfter.registerTime),
         toBuffer(serverAfter.props, 16),
-        address("0x" + serverAfter.signer.toLowerCase()),
+        address(serverAfter.signer.toLowerCase()),
         serialize.bytes(serverAfter.url)
       ])
     )
-    assert.equal(calcHashContract.toString(), serverAfter.proofHash.toString())
+    assert.equal("0x" + calcHashContract.toString("hex"), serverAfter.proofHash)
 
     const randomAccount = await test.createAccount(null, '0x27147114878000')
 

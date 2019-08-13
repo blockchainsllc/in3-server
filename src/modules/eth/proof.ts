@@ -26,6 +26,8 @@ import { collectSignatures } from '../../chains/signatures'
 import * as evm from './evm_trace'
 import { analyseCall } from './evm_run'
 
+
+const ThreadPool = require('./threadPool')
 const toHex = util.toHex
 const toMinHex = util.toMinHex
 const bytes32 = serialize.bytes32
@@ -71,14 +73,14 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
   if (txIndex < 0) throw new Error('tx not found')
 
   const txProof = (await createMerkleProof(
-      block.transactions.map((t, i) => ({
-        key: rlp.encode(i),
-        value: serialize.serialize(serialize.toTransaction(t))
-      })),
-      rlp.encode(txIndex),
-      bytes32(block.transactionsRoot),
-      handler
-    )).map(toHex)
+    block.transactions.map((t, i) => ({
+      key: rlp.encode(i),
+      value: serialize.serialize(serialize.toTransaction(t))
+    })),
+    rlp.encode(txIndex),
+    bytes32(block.transactionsRoot),
+    handler
+  )).map(toHex)
 
   // create prove
   return {
@@ -94,7 +96,7 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
   // create trie
   const trie = new In3Trie()
   // fill in all transactions
-  for(const tx of block.transactions)
+  for (const tx of block.transactions)
     await trie.setValue(rlp.encode(parseInt(tx.transactionIndex)), serialize.serialize(serialize.toTransaction(tx)))
 
   // check roothash
@@ -166,28 +168,54 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
 
 
 export async function createMerkleProof(values: { key: Buffer, value: Buffer }[], key: Buffer, expectedRoot: Buffer, handler: EthHandler) {
-  let trie = (handler.cache && expectedRoot)? handler.cache.getTrie(toMinHex(expectedRoot)): undefined
 
-  if(!trie) {
-    trie = new Trie()
-    // fill in all values
-    await Promise.all(values.map(val => new Promise((resolve, reject) =>
-      trie.put(val.key, val.value, error => error ? reject(error) : resolve(true))
-    )))
+  let trie = (handler.cache && expectedRoot) ? handler.cache.getTrie(toMinHex(expectedRoot)) : undefined
 
-    if (expectedRoot && !expectedRoot.equals(trie.root))
-      throw new Error('The rootHash is wrong! : ' + toHex(expectedRoot) + '!==' + toHex(trie.root))
-    else if(handler.cache)
-      handler.cache.putTrie(toMinHex(trie.root), trie)
+  if (!trie) {
+
+    if (handler.config.maxThreads) {
+      try {
+        const threadPool = new ThreadPool()
+        const merkleProof = threadPool.getMerkleProof(values, key, expectedRoot)
+
+        return await merkleProof.then(data => {
+          let proof = new Array
+          data.forEach(element => {
+            let buffer = Buffer.alloc(element.length)
+            let view = new Uint8Array(element)
+            for (let i = 0; i < buffer.length; i++) {
+              buffer[i] = view[i]
+            }
+            proof.push(buffer)
+          });
+          return proof
+        })
+
+      } catch (error) {
+        throw new Error(error)
+      }
+    }
+    else {
+      trie = new Trie()
+      await Promise.all(values.map(val => new Promise((resolve, reject) =>
+        trie.put(Buffer.from(val.key), Buffer.from(val.value), error => error ? reject(error) : resolve(true))
+      )))
+
+      if (expectedRoot && !expectedRoot.equals(trie.root))
+        throw new Error('The rootHash is wrong! : ' + toHex(expectedRoot) + '!==' + toHex(trie.root))
+
+      if (handler.cache)
+        handler.cache.putTrie(toMinHex(expectedRoot), trie)
+    }
   }
 
-  // create prove
   return new Promise<Buffer[]>((resolve, reject) =>
     Trie.prove(trie, key, (err, prove) => {
       if (err) return reject(err)
       resolve(prove as Buffer[])
     })
   )
+
 }
 
 
@@ -485,8 +513,12 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
   ], request)
 
   // error checking
-  if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
-  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] }, null, 2))
+  if (blockResponse.error) 
+    throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
+
+  if (proof.error) 
+    throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] }, null, 2))
+
 
   // make sure we use minHex for the proof-keys
   if (proof.result && proof.result.storageProof)

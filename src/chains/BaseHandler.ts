@@ -26,6 +26,7 @@ import { checkPrivateKey, checkRegistry } from './initHandler'
 import { collectSignatures, handleSign } from './signatures'
 import { RPCHandler } from '../server/rpc'
 import { SimpleCache } from '../util/cache'
+import * as logger from '../util/logger'
 import { toMinHex } from 'in3/js/src/util/util';
 
 /**
@@ -53,18 +54,15 @@ export default abstract class BaseHandler implements RPCHandler {
     // check that we have a valid private key and if needed decode it
     checkPrivateKey(this.config)
 
-
     // create watcher checking the registry-contract for events
     this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock)
 
     // start the watcher in the background
-    if (interval > 0) {
-      this.watcher.check()
-      if ((this.config as any).useCache) {
-        this.cache = new SimpleCache()
-        this.watcher.on('newBlock', () => this.cache.clear())
-      }
+    if (interval > 0 && (this.config as any).useCache) {
+      this.cache = new SimpleCache()
+      this.watcher.on('newBlock', () => this.cache.clear())
     }
+
   }
 
   handleWithCache(request: RPCRequest): Promise<RPCResponse> {
@@ -100,8 +98,10 @@ export default abstract class BaseHandler implements RPCHandler {
     }
 
     return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
+      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
     }).then(res => {
+      logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       if (r) {
         r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
         r.rpcCount = (r.rpcCount || 0) + 1
@@ -115,8 +115,10 @@ export default abstract class BaseHandler implements RPCHandler {
     const startTime = Date.now()
     return request.length
       ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
+        logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
         throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
       }).then(res => {
+        logger.trace('   ... send ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
         if (r) {
           r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
           r.rpcCount = (r.rpcCount || 0) + 1
