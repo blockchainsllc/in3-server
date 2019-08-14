@@ -21,6 +21,21 @@
 
 import * as logger from '../util/logger'
 import {SentryError} from '../util/sentryError'
+//var njstrace = require('njstrace').inject();
+
+// tslint:disable-next-line:missing-jsdoc
+const Sentry = require('@sentry/node');
+
+import * as Koa from 'koa'
+import * as bodyParser from 'koa-bodyparser'
+import * as Router from 'koa-router'
+import { readCargs } from './config'
+const config = readCargs()
+import { RPC } from './rpc'
+import { cbor,  chainAliases } from 'in3-common'
+import { RPCRequest } from '../model/types'
+import { initConfig } from '../util/db'
+import { encodeObject } from '../util/binjson'
 
 // Hook to nodeJs events
 function handleExit(signal) {
@@ -38,23 +53,6 @@ process.on("uncaughtException", (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   logger.error("Unhandled promise rejection at " + promise,{ reason: reason, promise: promise});
 });
-
-
-//var njstrace = require('njstrace').inject();
-
-// tslint:disable-next-line:missing-jsdoc
-const Sentry = require('@sentry/node');
-
-import * as Koa from 'koa'
-import * as bodyParser from 'koa-bodyparser'
-import * as Router from 'koa-router'
-import { readCargs } from './config'
-const config = readCargs()
-import { RPC } from './rpc'
-import { cbor, RPCRequest, chainAliases } from 'in3'
-import { initConfig } from '../util/db'
-import { encodeObject } from '../util/binjson'
-
 
 let AUTO_REGISTER_FLAG: boolean
 

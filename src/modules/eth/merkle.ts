@@ -1,6 +1,6 @@
 import * as Trie from 'merkle-patricia-tree'
 import { parentPort } from 'worker_threads'
-import { util } from 'in3'
+import { util } from 'in3-common'
 
 let trie = undefined
 const toHex = util.toHex

@@ -17,16 +17,16 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig, ChainSpec, util as in3Util, serialize } from 'in3'
-
+import {  Transport, util as in3Util, serialize } from 'in3-common'
+import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, ChainSpec } from '../../model/types'
 import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
 import BaseHandler from '../../chains/BaseHandler'
 import { handleSign } from '../../chains/signatures';
 import { getValidatorHistory } from '../../server/poa'
-import { TxRequest, LogFilter } from 'in3/js/src/modules/eth/api';
+import { TxRequest, LogFilter } from './api';
 import * as tx from '../../../src/util/tx'
 
-const clientConf = require('in3/js/src/client/defaultConfig.json')
+const clientConf = require('in3-common/js/defaultConfig.json')
 const toHex = in3Util.toHex
 const toNumber = in3Util.toNumber
 

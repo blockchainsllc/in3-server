@@ -19,7 +19,8 @@
 
 import { methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
-import Client, { Transport, AxiosTransport, RPCResponse, util, transport } from 'in3'
+import { Transport, AxiosTransport,  util, transport } from 'in3-common'
+import  { RPCResponse} from '../model/types'
 import * as ETx from 'ethereumjs-tx'
 import { SentryError } from '../util/sentryError'
 import { AbiCoder } from '@ethersproject/abi'
@@ -39,12 +40,6 @@ export async function deployContract(url: string, bin: string, txargs?: {
   confirm?: boolean
 }, transport?: Transport) {
   return sendTransaction(url, { value: 0, ...txargs, data: bin }, transport)
-}
-
-export async function callContractWithClient(client: Client, contract: string, signature: string, ...args: any[]) {
-  const data = '0x' + encodeFunction(signature, args)
-
-  return client.sendRPC('eth_call', [{ to: contract, data }, 'latest'], client.defConfig.chainId)
 }
 
 export async function callContract(url: string, contract: string, signature: string, args: any[], txargs?: {

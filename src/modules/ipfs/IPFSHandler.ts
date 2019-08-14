@@ -17,7 +17,8 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, ServerList, Transport, IN3RPCHandlerConfig } from 'in3'
+import { Transport } from 'in3-common'
+import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../../model/types'
 import axios                                                                   from 'axios'
 import BaseHandler                                                             from '../../chains/BaseHandler'
 import * as FormData                                                           from 'form-data'
