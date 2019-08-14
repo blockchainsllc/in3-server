@@ -218,13 +218,13 @@ register-with-sentry-production:
   variables:
     CHAIN: goerli
     CHAIN_ID: "0x5"
-    RPC_ENDPOINT: http://lb.parity-rpc/goerli
+    RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
 
 .chain-tmpl-kovan:
   variables:
     CHAIN: kovan
     CHAIN_ID: "0x2a"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan/archive
 
 .chain-tmpl-mainnet:
   variables:
@@ -254,7 +254,7 @@ register-with-sentry-production:
   variables:
     CHAIN: ipfs
     CHAIN_ID: "0x7d0"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan/archive
 
 
 # Stage deployments
