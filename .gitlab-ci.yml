@@ -212,7 +212,7 @@ register-with-sentry-production:
     name: stage-${CHAIN}
   variables:
     TARGET: stage
-    REGISTRY_CONTRACT_ADDR: "0x2736D225f85740f42D17987100dc8d58e9e16252"
+    REGISTRY_CONTRACT_ADDR: "0xa412D519199C3c0ebaea3A9f73f1f89A935F9F14"
 
 .deploy-tmpl-production:
   extends: .deploy-tmpl
@@ -276,18 +276,17 @@ deploy-stage-kovan:
   extends: 
     - .deploy-tmpl-stage 
     - .chain-tmpl-kovan
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0x07965664f21abf0d615b734756f5f2b2b22a2a2b"
 
 deploy-stage-goerli:
   extends: 
     - .deploy-tmpl-stage 
     - .chain-tmpl-goerli
 
-deploy-stage-mainnet:
-  extends: 
-    - .deploy-tmpl-stage
-    - .chain-tmpl-mainnet
+# disable until v2 stage contract is deployed to mainnet
+#deploy-stage-mainnet:
+#  extends: 
+#    - .deploy-tmpl-stage
+#    - .chain-tmpl-mainnet
 
 # Production deployments
 deploy-production-mainnet:
