@@ -29,7 +29,7 @@ services:
     stdin_open: true
     tty: true
     environment:
-    - SENTRY_ENABLE='true'
+    - SENTRY_ENABLE=true
     - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
     - SENTRY_ENVIRONMENT="${TARGET}"
     - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
@@ -55,7 +55,7 @@ services:
     stdin_open: true
     tty: true
     environment:
-    - SENTRY_ENABLE='true'
+    - SENTRY_ENABLE=true
     - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
     - SENTRY_ENVIRONMENT="${TARGET}"
     - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
@@ -81,7 +81,7 @@ services:
     stdin_open: true
     tty: true
     environment:
-    - SENTRY_ENABLE='true'
+    - SENTRY_ENABLE=true
     - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
     - SENTRY_ENVIRONMENT="${TARGET}"
     - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
@@ -107,7 +107,7 @@ services:
     stdin_open: true
     tty: true
     environment:
-    - SENTRY_ENABLE='true'
+    - SENTRY_ENABLE=true
     - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
     - SENTRY_ENVIRONMENT="${TARGET}"
     - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
@@ -134,7 +134,7 @@ services:
     stdin_open: true
     tty: true
     environment:
-    - SENTRY_ENABLE='true'
+    - SENTRY_ENABLE=true
     - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
     - SENTRY_ENVIRONMENT="${TARGET}"
     - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
