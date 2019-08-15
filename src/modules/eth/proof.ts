@@ -26,7 +26,7 @@ import EthHandler from './EthHandler'
 import { collectSignatures } from '../../chains/signatures'
 import * as evm from './evm_trace'
 import { analyseCall } from './evm_run'
-
+import { in3ProtocolVersionStr } from '../../model/constants'
 
 const ThreadPool = require('./threadPool')
 const toHex = util.toHex
@@ -239,7 +239,8 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
       proof: {
         type: 'blockProof',
         signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: toNumber(blockData.number), hash: blockData.hash }], request.in3.verifiedHashes)
-      }
+      },
+      in3ProtocolVersion: in3ProtocolVersionStr
     }
 
     if (request.in3.useFullProof && blockData.uncles && blockData.uncles.length)
@@ -279,7 +280,8 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
       response.in3 = {
         proof: await createTransactionProof(block, request.params[0] as string,
           await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
-          request.in3.verifiedHashes, handler) as any
+          request.in3.verifiedHashes, handler) as any,
+      in3ProtocolVersion: in3ProtocolVersionStr
       }
     return addFinality(request, response, block, handler)
   }
@@ -309,7 +311,8 @@ export async function handeGetTransactionFromBlock(handler: EthHandler, request:
     response.in3 = {
       proof: await createTransactionFromBlockProof(block, parseInt(request.params[1]),
         await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
-        request.in3.verifiedHashes) as any
+        request.in3.verifiedHashes) as any,
+        in3ProtocolVersion: in3ProtocolVersionStr
     }
     return addFinality(request, response, block, handler)
   }
@@ -354,7 +357,8 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
           signatures,
           request.in3.verifiedHashes,
           handler
-        )
+        ),
+        in3ProtocolVersion: in3ProtocolVersionStr
       }
 
       return addFinality(request, response, block, handler)
@@ -423,7 +427,8 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
       proof: {
         type: 'logProof',
         logProof: proof
-      }
+      },
+      in3ProtocolVersion: in3ProtocolVersionStr
     }
   }
   return response
@@ -491,7 +496,8 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
           block: createBlock(block, request.in3.verifiedHashes),
           signatures,
           accounts: Object.keys(neededProof.accounts).reduce((p, v, i) => { p[v] = accountProofs[i].result; return p }, {})
-        }
+        },
+        in3ProtocolVersion: in3ProtocolVersionStr
       }
     }, block, handler)
 }
@@ -551,7 +557,8 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
           block: createBlock(block, request.in3.verifiedHashes),
           signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
           accounts: { [toChecksumAddress(address)]: proof.result }
-        }
+        },
+        in3ProtocolVersion: in3ProtocolVersionStr
       }
     }, block, handler)
 }

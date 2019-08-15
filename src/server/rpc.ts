@@ -28,6 +28,7 @@ import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
 import {SentryError} from '../util/sentryError'
+import { in3ProtocolVersionStr } from '../model/constants'
 
 
 export class RPC {
@@ -140,6 +141,7 @@ export class RPC {
           (in3 as any).rpcTime = (r as any).rpcTime || 0;
           (in3 as any).rpcCount = (r as any).rpcCount || 0;
           (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
+          (in3 as any).in3ProtocolVersion = in3ProtocolVersionStr
           return _
         })
       ])

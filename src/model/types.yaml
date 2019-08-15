@@ -371,6 +371,10 @@ definitions:
               description: the current blocknumber.
               type: number
               example: 320126478
+          in3ProtocolVersion:
+              description: IN3 protocol version
+              type: string
+              example: "1.0.0"
 
   IN3NodeConfig:
       description: a configuration of a in3-server.
