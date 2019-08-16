@@ -17,4 +17,4 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-export const in3ProtocolVersionStr = '1.0.0'
+export const in3ProtocolVersion = '1.0.0'

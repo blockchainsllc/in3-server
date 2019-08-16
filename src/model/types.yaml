@@ -371,7 +371,7 @@ definitions:
               description: the current blocknumber.
               type: number
               example: 320126478
-          in3ProtocolVersion:
+          version:
               description: IN3 protocol version
               type: string
               example: "1.0.0"
