@@ -21,8 +21,8 @@ import * as tx from './tx'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { Transport, util } from 'in3-common'
 import { readFileSync } from 'fs'
-import { padStart } from 'in3/js/src/util/util';
-import { padEnd } from 'in3/js/src/util/util';
+import { padStart } from 'in3-common/js/src/util/util';
+import { padEnd } from 'in3-common/js/src/util/util';
 const toHex = util.toHex
 
 const bin = JSON.parse(readFileSync('./contracts/contracts.json', 'utf8'))

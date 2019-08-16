@@ -23,7 +23,7 @@ import { util, BlockData, serialize } from 'in3-common'
 import * as tx from '../../src/util/tx'
 import { TestTransport } from '../utils/transport'
 import { deployBlockhashRegistry } from '../../src/util/registry'
-import { Block } from 'in3/js/src/modules/eth/serialize';
+import { Block } from 'in3-common/js/src/modules/eth/serialize';
 import * as fs from 'fs'
 import { toUtf8Bytes } from 'ethers/utils';
 

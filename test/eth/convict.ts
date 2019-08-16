@@ -27,7 +27,7 @@ import * as ethUtil from 'ethereumjs-util'
 import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
 import Watcher from '../../src/chains/watch'
 import { registerNodes, deployNodeRegistry } from '../../src/util/registry'
-import { toBN, toBuffer } from 'in3/js/src/util/util';
+import { toBN, toBuffer } from 'in3-common/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
 import { signatureCaches } from '../../src/chains/signatures'
 

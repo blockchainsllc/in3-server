@@ -24,7 +24,7 @@ import { keccak, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
 import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
-import { toBuffer } from 'in3/js/src/util/util';
+import { toBuffer } from 'in3-common/js/src/util/util';
 
 
 const toHex = util.toHex

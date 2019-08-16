@@ -27,7 +27,7 @@ import { collectSignatures, handleSign } from './signatures'
 import { RPCHandler } from '../server/rpc'
 import { SimpleCache } from '../util/cache'
 import * as logger from '../util/logger'
-import { toMinHex } from 'in3/js/src/util/util';
+import { toMinHex } from 'in3-common/js/src/util/util';
 
 /**
  * handles eth_sign and eth_nodelist

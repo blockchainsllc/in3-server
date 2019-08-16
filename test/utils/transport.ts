@@ -17,9 +17,9 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import  { Transport, AxiosTransport, util } from 'in3-common'
+import { Transport, AxiosTransport, util } from 'in3-common'
 import Client from 'in3'
-import  {  RPCRequest, RPCResponse, IN3NodeConfig, IN3Config,  ServerList, IN3RPCHandlerConfig } from '../../src/types/types'
+import { RPCRequest, RPCResponse, IN3NodeConfig, IN3Config, ServerList, IN3RPCHandlerConfig } from '../../src/types/types'
 
 import * as logger from '../../src/util/logger'
 import * as crypto from 'crypto'
@@ -27,7 +27,7 @@ import { sendTransaction, callContract } from '../../src/util/tx'
 import axios from 'axios'
 import { registerNodes } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
-import { toBN, toUtf8, toMinHex } from 'in3/js/src/util/util';
+import { toBN, toUtf8, toMinHex } from 'in3-common/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
 logger.setLogger('memory')
 
