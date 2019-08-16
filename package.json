@@ -112,6 +112,6 @@
     "njstrace": "^1.1.0",
     "pg-promise": "^8.6.4",
     "winston": "^3.2.1",
-    "in3-common": "^1.1.4"
+    "in3-common": "^1.1.5"
   }
 }
