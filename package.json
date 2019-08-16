@@ -86,7 +86,7 @@
     "ts-node": "^6.0.3",
     "typedoc": "^0.11.1",
     "typescript": "^3.4.3",
-    "in3": "^v2.0.0-beta.4"
+    "in3": "^v2.0.0-beta.5"
   },
   "dependencies": {
     "@ethersproject/abi": "^5.0.0-beta.133",
@@ -104,6 +104,7 @@
     "ethers": "^4.0.27",
     "ethjs-util": "0.1.4",
     "form-data": "^2.3.2",
+    "in3-common": "^2.0.0-beta.2",
     "in3-trie": "^0.1.2",
     "koa": "^2.7.0",
     "koa-bodyparser": "^4.2.0",
@@ -111,7 +112,6 @@
     "merkle-patricia-tree": "^2.3.1",
     "njstrace": "^1.1.0",
     "pg-promise": "^8.6.4",
-    "winston": "^3.2.1",
-    "in3-common": "^2.0.0-beta.2"
+    "winston": "^3.2.1"
   }
 }
