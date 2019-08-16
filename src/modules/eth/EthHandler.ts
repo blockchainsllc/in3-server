@@ -18,7 +18,7 @@
 ***********************************************************/
 
 import {  Transport, util as in3Util, serialize } from 'in3-common'
-import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, ChainSpec } from '../../model/types'
+import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, ChainSpec } from '../../types/types'
 import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
 import BaseHandler from '../../chains/BaseHandler'
 import { handleSign } from '../../chains/signatures';

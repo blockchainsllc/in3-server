@@ -21,7 +21,7 @@
 import { assert } from 'chai'
 import 'mocha'
 import { serialize, BlockData,  util, LogData,  } from 'in3-common'
-import {  RPCResponse,  Proof,  IN3Config, RPCRequest } from '../../src/model/types'
+import {  RPCResponse,  Proof,  IN3Config, RPCRequest } from '../../src/types/types'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployChainRegistry, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
@@ -72,11 +72,9 @@ describe('ETH Standard JSON-RPC', () => {
   it('eth_getTransactionByHash', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
     const client = await test.createClient({ proof: 'standard', requestCount: 1 })
-
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
     const pk2 = await test.createAccount('0x02')
-
     // send 1000 wei from a to b
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
@@ -94,7 +92,6 @@ describe('ETH Standard JSON-RPC', () => {
     const proof = res.in3.proof as any
     assert.equal(proof.type, 'transactionProof')
     assert.exists(proof.block)
-
 
     const b = await client.sendRPC('eth_getBlockByNumber', [result.blockNumber, true], null, { keepIn3: true })
     logger.info('found Block:', b.result)

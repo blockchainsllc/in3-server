@@ -17,8 +17,8 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import {  Transport, AxiosTransport, serialize, util as in3Util } from 'in3-common'
-import {RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig} from '../model/types'
+import { Transport, AxiosTransport, serialize, util as in3Util } from 'in3-common'
+import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
 import Watcher from './watch'
@@ -27,6 +27,7 @@ import { collectSignatures, handleSign } from './signatures'
 import { RPCHandler } from '../server/rpc'
 import { SimpleCache } from '../util/cache'
 import * as logger from '../util/logger'
+import { toMinHex } from 'in3-common/js/src/util/util';
 
 /**
  * handles eth_sign and eth_nodelist
@@ -87,6 +88,15 @@ export default abstract class BaseHandler implements RPCHandler {
     const startTime = Date.now()
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
+
+    for (let i = 0; i < request.params.length; i++) {
+      if (typeof request.params[i] === 'string' && request.params[i].startsWith("0x0")) {
+        if (request.params[i].substr(2).length % 32 != 0 && request.params[i].substr(2).length % 20 != 0) {
+          request.params[i] = toMinHex(request.params[i])
+        }
+      }
+    }
+
     return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
@@ -142,6 +152,14 @@ export default abstract class BaseHandler implements RPCHandler {
 
 
   toCleanRequest(request: Partial<RPCRequest>): RPCRequest {
+
+    for (let i = 0; i < request.params.length; i++) {
+      if (typeof request.params[i] === 'string' && request.params[i].startsWith("0x0")) {
+        if (request.params[i].substr(2).length % 32 != 0 && request.params[i].substr(2).length % 20 != 0) {
+          request.params[i] = toMinHex(request.params[i])
+        }
+      }
+    }
     return {
       id: request.id,
       method: request.method,

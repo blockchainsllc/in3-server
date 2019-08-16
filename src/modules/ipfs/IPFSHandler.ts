@@ -18,7 +18,7 @@
 ***********************************************************/
 
 import { Transport } from 'in3-common'
-import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../../model/types'
+import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../../types/types'
 import axios                                                                   from 'axios'
 import BaseHandler                                                             from '../../chains/BaseHandler'
 import * as FormData                                                           from 'form-data'

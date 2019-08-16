@@ -33,7 +33,7 @@ import { readCargs } from './config'
 const config = readCargs()
 import { RPC } from './rpc'
 import { cbor,  chainAliases } from 'in3-common'
-import { RPCRequest } from '../model/types'
+import { RPCRequest } from '../types/types'
 import { initConfig } from '../util/db'
 import { encodeObject } from '../util/binjson'
 

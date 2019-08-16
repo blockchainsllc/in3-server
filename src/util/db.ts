@@ -19,7 +19,7 @@
 
 import * as pg from 'pg-promise'
 import config from '../server/config'
-import { IN3RPCHandlerConfig, validationDef as typeDefs } from '../model/types'
+import { IN3RPCHandlerConfig, validationDef as typeDefs } from '../types/types'
 
 
 const db = config.id && config.db && (pg({}))(config.db)

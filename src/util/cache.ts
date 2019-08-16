@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse  } from "../model/types"
+import { RPCRequest, RPCResponse } from "../types/types"
 import * as Trie from 'merkle-patricia-tree'
 
 export class SimpleCache {
