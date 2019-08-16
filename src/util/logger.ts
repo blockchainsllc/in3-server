@@ -17,13 +17,14 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { } from 'in3'
+
 import { keccak } from 'ethereumjs-util'
 // Setup logger
 import * as winston from 'winston'
-import * as memoryLogger from 'in3/js/test/util/memoryLogger'
+import * as memoryLogger from 'in3-common/js/test/util/memoryLogger'
 import config from '../server/config'
 import * as color from 'cli-color'
+
 
 const nodeEnv: string = process.env.NODE_ENV || 'production'
 const logLevel = config.logging && config.logging.level
@@ -42,7 +43,8 @@ const winstonLogger = winston.createLogger({
 })
 
 
-let impl = winstonLogger
+
+  let impl = winstonLogger
 
 export function setLogger(val: 'winston' | 'memory') {
   impl = ((val === 'winston') ? winstonLogger : memoryLogger) as any

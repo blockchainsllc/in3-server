@@ -20,13 +20,13 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { serialize, BlockData, RPCResponse, util, Proof, LogData, IN3Config, RPCRequest, IN3Client } from 'in3'
+import { serialize, BlockData,  util, LogData,  } from 'in3-common'
+import {  RPCResponse,  Proof,  IN3Config, RPCRequest } from '../../src/model/types'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployChainRegistry, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
-import * as logger from 'in3/js/test/util/memoryLogger'
-import { simpleEncode } from 'ethereumjs-abi'
-import { toMinHex } from 'in3/js/src/util/util';
+import * as logger from 'in3-common/js/test/util/memoryLogger'
+
 const toHex = util.toHex
 const getAddress = util.getAddress
 
@@ -107,7 +107,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     logger.info('result', res)
 
-    await test.detectFraud(client,'eth_getTransactionByHash',[receipt.transactionHash],null,(req,re)=>{
+    await test.detectFraud(client, 'eth_getTransactionByHash', [receipt.transactionHash], null, (req, re) => {
       re.result.to = re.result.from
     })
 
@@ -131,7 +131,7 @@ describe('ETH Standard JSON-RPC', () => {
       confirm: true
     })
 
-    const res = await client.sendRPC('eth_getTransactionByBlockHashAndIndex', [receipt.blockHash ,receipt.transactionIndex], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getTransactionByBlockHashAndIndex', [receipt.blockHash, receipt.transactionIndex], null, { keepIn3: true })
     const result = res.result
     assert.exists(res.in3)
     assert.exists(res.in3.proof)
@@ -151,7 +151,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     logger.info('result', res)
 
-    await test.detectFraud(client,'eth_getTransactionByHash',[receipt.transactionHash],null,(req,re)=>{
+    await test.detectFraud(client, 'eth_getTransactionByHash', [receipt.transactionHash], null, (req, re) => {
       re.result.to = re.result.from
     })
 
@@ -175,7 +175,7 @@ describe('ETH Standard JSON-RPC', () => {
       confirm: true
     })
 
-    const res = await client.sendRPC('eth_getTransactionByBlockNumberAndIndex', [receipt.blockNumber ,receipt.transactionIndex], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getTransactionByBlockNumberAndIndex', [receipt.blockNumber, receipt.transactionIndex], null, { keepIn3: true })
     const result = res.result
     assert.exists(res.in3)
     assert.exists(res.in3.proof)
@@ -195,7 +195,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     logger.info('result', res)
 
-    await test.detectFraud(client,'eth_getTransactionByHash',[receipt.transactionHash],null,(req,re)=>{
+    await test.detectFraud(client, 'eth_getTransactionByHash', [receipt.transactionHash], null, (req, re) => {
       re.result.to = re.result.from
     })
 
@@ -219,7 +219,7 @@ describe('ETH Standard JSON-RPC', () => {
       confirm: true
     })
 
-    const res = await client.sendRPC('eth_getTransactionByBlockHashAndIndex', [receipt.blockHash ,receipt.transactionIndex + 1], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getTransactionByBlockHashAndIndex', [receipt.blockHash, receipt.transactionIndex + 1], null, { keepIn3: true })
     const result = res.result
     assert.isNull(result)
     assert.equal(res.in3.lastValidatorChange, 0)
@@ -250,7 +250,7 @@ describe('ETH Standard JSON-RPC', () => {
       confirm: true
     })
 
-    const res = await client.sendRPC('eth_getTransactionByBlockNumberAndIndex', [receipt.blockNumber ,receipt.transactionIndex + 1], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getTransactionByBlockNumberAndIndex', [receipt.blockNumber, receipt.transactionIndex + 1], null, { keepIn3: true })
     const result = res.result
     assert.isNull(result)
     assert.equal(res.in3.lastValidatorChange, 0)
@@ -304,11 +304,11 @@ describe('ETH Standard JSON-RPC', () => {
 
     logger.info('result', res)
 
-    await test.detectFraud(client,'eth_getTransactionReceipt',[receipt.transactionHash],null,(req,re)=>{
+    await test.detectFraud(client, 'eth_getTransactionReceipt', [receipt.transactionHash], null, (req, re) => {
       re.result.cumulativeGasUsed += '00'
     })
 
-    await test.detectFraud(client,'eth_getTransactionReceipt',[receipt.transactionHash],null,(req,re)=>{
+    await test.detectFraud(client, 'eth_getTransactionReceipt', [receipt.transactionHash], null, (req, re) => {
       re.result.gasUsed += '00'
     })
 
@@ -359,7 +359,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     assert.equal('0x' + block.hash().toString('hex').toLowerCase(), (b.result as any as BlockData).hash, 'the hash of the blockheader in the proof must be the same as the blockHash in the Transactiondata')
 
-    await test.detectFraud(client,'eth_getBlockByNumber',[(b.result as BlockData).number, true],null,(req,re)=>{
+    await test.detectFraud(client, 'eth_getBlockByNumber', [(b.result as BlockData).number, true], null, (req, re) => {
       (re.result as any).gasUsed = (re.result as any).gasLimit
     })
   })
@@ -755,12 +755,6 @@ describe('ETH Standard JSON-RPC', () => {
     assert.isTrue(failed, 'The manipulated block must fail!')
   })
 
-
-
-
-
-
-
   it('eth_call', async () => {
     let test = new TestTransport(1) // create a network of 3 nodes
     let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
@@ -796,7 +790,8 @@ describe('ETH Standard JSON-RPC', () => {
       to: adr,
       data: '0x61bc221a'
     }
-    const b1 = await client.sendRPC('eth_call', [{ from: txArgs.from, to: adr2, data: '0x' + simpleEncode('add(address)', adr).toString('hex') }, 'latest'], null, { keepIn3: true, includeCode: true })
+
+    const b1 = await client.sendRPC('eth_call', [{ from: txArgs.from, to: adr2, data: '0x' + tx.encodeFunction('add(address)', [adr]) }, 'latest'], null, { keepIn3: true, includeCode: true })
     const result1 = b1.result as string
     assert.exists(b1.in3)
     assert.exists(b1.in3.proof)
@@ -807,7 +802,7 @@ describe('ETH Standard JSON-RPC', () => {
     assert.equal(toHex(result1), '0x0000000000000000000000000000000000000000000000000000000000000002')
 
 
-    const b = await client.sendRPC('eth_call', [txArgs,'latest'], null, { keepIn3: true, includeCode: true })
+    const b = await client.sendRPC('eth_call', [txArgs, 'latest'], null, { keepIn3: true, includeCode: true })
 
     const result = b.result as string
     assert.exists(b.in3)
@@ -827,7 +822,7 @@ describe('ETH Standard JSON-RPC', () => {
         re.result = '0x09'
         return re
       })
-      await client.sendRPC('eth_call', [txArgs,'latest'])
+      await client.sendRPC('eth_call', [txArgs, 'latest'])
     }
     catch {
       failed = true
@@ -877,7 +872,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     assert.equal(receipt.logs.length, 1)
 
-    const res = await client.sendRPC('eth_getLogs', [{ fromBlock: toMinHex(receipt.blockNumber) }], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getLogs', [{ fromBlock: util.toMinHex(receipt.blockNumber) }], null, { keepIn3: true })
     const result = res.result as any
     assert.exists(res.in3)
     assert.exists(res.in3.proof)
@@ -895,7 +890,7 @@ describe('ETH Standard JSON-RPC', () => {
         ((re.result as any)[0] as LogData).address = getAddress(pk1)
         return re
       })
-      await client.sendRPC('eth_getLogs', [{ fromBlock: toMinHex(receipt.blockNumber) }])
+      await client.sendRPC('eth_getLogs', [{ fromBlock: util.toMinHex(receipt.blockNumber) }])
     }
     catch {
       failed = true

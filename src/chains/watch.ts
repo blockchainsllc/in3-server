@@ -19,9 +19,8 @@
 
 import * as fs from 'fs'
 import { EventEmitter } from 'events'
-import { util, LogData } from 'in3'
+import { util, LogData } from 'in3-common'
 import { keccak, toChecksumAddress } from 'ethereumjs-util'
-import { rawDecode } from 'ethereumjs-abi'
 
 import { RPCHandler } from '../server/rpc';
 import { getABI } from '../util/registry'
@@ -198,7 +197,8 @@ function fixType(type: string, val: any) {
 }
 
 function decodeData(data: any, inputs: { type: string, name: string }[]) {
-  const vals: any[] = rawDecode(inputs.map(_ => _.type), toBuffer(data))
+  const vals: any[] = tx.decodeFunction(inputs.map(_ => _.type), toBuffer(data))
+
   return inputs.reduce((p, c, i) => {
     p[c.name] = fixType(c.type, vals[i])
     return p

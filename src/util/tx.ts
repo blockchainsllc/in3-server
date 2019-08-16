@@ -1,27 +1,30 @@
 /***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+ * This file is part of the Slock.it IoT Layer.             *
+ * The Slock.it IoT Layer contains:                         *
+ *   - USN (Universal Sharing Network)                      *
+ *   - INCUBED (Trustless INcentivized remote Node Network) *
+ ************************************************************
+ * Copyright (C) 2016 - 2018 Slock.it GmbH                  *
+ * All Rights Reserved.                                     *
+ ************************************************************
+ * You may use, distribute and modify this code under the   *
+ * terms of the license contract you have concluded with    *
+ * Slock.it GmbH.                                           *
+ * For information about liability, maintenance etc. also   *
+ * refer to the contract concluded with Slock.it GmbH.      *
+ ************************************************************
+ * For more information, please refer to https://slock.it   *
+ * For questions, please contact info@slock.it              *
+ ***********************************************************/
 
-import { simpleEncode, simpleDecode, methodID } from 'ethereumjs-abi'
-import { toBuffer, toChecksumAddress, privateToAddress, BN, keccak256 } from 'ethereumjs-util'
-import Client, { Transport, AxiosTransport, RPCResponse, util, transport } from 'in3'
+import { methodID } from 'ethereumjs-abi'
+import { toBuffer, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
+import { Transport, AxiosTransport,  util, transport } from 'in3-common'
+import  { RPCResponse} from '../model/types'
 import * as ETx from 'ethereumjs-tx'
-
+import { SentryError } from '../util/sentryError'
+import { AbiCoder } from '@ethersproject/abi'
+const BN = require('bn.js')
 
 const toHex = util.toHex
 
@@ -39,12 +42,6 @@ export async function deployContract(url: string, bin: string, txargs?: {
   return sendTransaction(url, { value: 0, ...txargs, data: bin }, transport)
 }
 
-export async function callContractWithClient(client: Client, contract: string, signature: string, ...args: any[]) {
-  const data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
-
-  return client.sendRPC('eth_call', [{ to: contract, data }, 'latest'], client.defConfig.chainId)
-}
-
 export async function callContract(url: string, contract: string, signature: string, args: any[], txargs?: {
   privateKey: string
   gas: number
@@ -56,12 +53,12 @@ export async function callContract(url: string, contract: string, signature: str
   confirm?: boolean
 }, transport?: Transport) {
   if (!transport) transport = new AxiosTransport()
-  const data = '0x' + (signature.indexOf('()') >= 0 ? methodID(signature.substr(0, signature.indexOf('(')), []) : simpleEncode(signature, ...args)).toString('hex')
+  const data = '0x' + encodeFunction(signature, args)
 
   if (txargs)
     return sendTransaction(url, { ...txargs, to: contract, data }, transport)
 
-  return simpleDecode(signature.replace('()', '(uint)'), toBuffer(await transport.handle(url, {
+  return decodeFunction(signature.replace('()', '(uint)'), toBuffer(await transport.handle(url, {
     jsonrpc: '2.0',
     id: idCount++,
     method: 'eth_call', params: [{
@@ -70,10 +67,11 @@ export async function callContract(url: string, contract: string, signature: str
     },
       'latest']
   }).then((_: RPCResponse) => _.error
-    ? Promise.reject(new Error('Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
+    ? Promise.reject(new SentryError('Could not call contract', 'contract_call_error', 'Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
     : _.result + ''
   )))
 }
+
 
 export async function sendTransaction(url: string, txargs: {
   privateKey: string
@@ -138,7 +136,7 @@ export async function sendTransaction(url: string, txargs: {
     id: idCount++,
     method: 'eth_sendRawTransaction',
     params: [toHex(tx.serialize())]
-  }).then((_: RPCResponse) => _.error ? Promise.reject(new Error('Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
+  }).then((_: RPCResponse) => _.error ? Promise.reject(new SentryError('Error sending tx', 'tx_error', 'Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
 
   return txargs.confirm ? waitForReceipt(url, txHash, 30, txargs.gas, transport) : txHash
 }
@@ -157,13 +155,13 @@ export async function waitForReceipt(url: string, txHash: string, timeout = 10, 
       params: [txHash]
     }) as RPCResponse
 
-    if (r.error) throw new Error('Error fetching the receipt for ' + txHash + ' : ' + JSON.stringify(r.error))
+    if (r.error) throw new SentryError('Error fetching receipt', 'error_fetching_tx', 'Error fetching the receipt for ' + txHash + ' : ' + JSON.stringify(r.error))
     if (r.result) {
       const receipt = r.result as any
       if (sentGas && parseInt(sentGas as any) === parseInt(receipt.gasUsed))
-        throw new Error('Transaction failed and all gas was used up')
+        throw new SentryError('Transaction failed and all gas was used up', 'gas_error', sentGas + ' not enough')
       if (receipt.status && receipt.status == '0x0')
-        throw new Error('The Transaction failed because it returned status=0')
+        throw new SentryError('tx failed', 'tx_failed', 'The Transaction failed because it returned status=0')
       return receipt
     }
 
@@ -171,8 +169,45 @@ export async function waitForReceipt(url: string, txHash: string, timeout = 10, 
     await new Promise(_ => setTimeout(_, Math.min(timeout * 200, steps *= 2)))
   }
 
-  throw new Error('Error waiting for the transaction to confirm')
+  throw new SentryError('Error waiting for the transaction to confirm')
 
 
 
+}
+
+function encodeEtheresBN(val: any) {
+  return val && BN.isBN(val) ? toHex(val) : val
+}
+
+export function encodeFunction(signature: string, args: any[]): string {
+  const inputParams = signature.split(':')[0]
+
+  const abiCoder = new AbiCoder()
+
+  const typeTemp = inputParams.substring(inputParams.indexOf('(') + 1, (inputParams.indexOf(')')))
+
+  const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
+  const methodHash = (methodID(signature.substr(0, signature.indexOf('(')), typeArray)).toString('hex')
+
+  return methodHash + abiCoder.encode(typeArray, args.map(encodeEtheresBN)).substr(2)
+
+}
+
+function fixBN(val: any) {
+  if (val && val._isBigNumber) return new BN.BN(val.toHexString().substr(2), 'hex')
+  if (Array.isArray(val)) return val.map(fixBN)
+  return val
+}
+
+export function decodeFunction(signature: string | string[], args: Buffer): any {
+
+  const outputParams = Array.isArray(signature) ? "(" + signature.toString() + ")" : signature.split(':')[1]
+
+  const abiCoder = new AbiCoder()
+
+  const typeTemp = outputParams.substring(outputParams.indexOf('(') + 1, (outputParams.indexOf(')')))
+
+  const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
+
+  return fixBN(abiCoder.decode(typeArray, args))
 }

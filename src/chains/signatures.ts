@@ -18,10 +18,12 @@
 ***********************************************************/
 
 import BaseHandler from './BaseHandler'
-import { BlockData, RPCRequest, RPCResponse, Signature, util, serialize } from 'in3'
+import { BlockData, util, serialize } from 'in3-common'
+import {  RPCRequest, RPCResponse, Signature } from '../model/types'
 import { keccak, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
 import { LRUCache } from '../util/cache'
+import * as logger from '../util/logger'
 
 const toHex = util.toHex
 const toMinHex = util.toMinHex
@@ -48,12 +50,12 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
   // get our own nodeList
   const nodes = await handler.getNodeList(false)
-  return Promise.all(addresses.map(async adr => {
+  const uniqueAddresses =   [...new Set(addresses.map(item => item))];
+  return Promise.all(uniqueAddresses.slice(0, nodes.nodes.length).map(async adr => {
     // find the requested address in our list
     const config = nodes.nodes.find(_ => _.address.toLowerCase() === adr.toLowerCase())
     if (!config) // TODO do we need to throw here or is it ok to simply not deliver the signature?
-      throw new Error('The requested signature ' + adr + ' does not exist within the current nodeList!')
-
+      throw new Error('The ' + adr + ' does not exist within the current registered active nodeList!')
 
     // get cache signatures and remaining blocks that have no signatures
     const cachedSignatures: Signature[] = []
@@ -63,11 +65,24 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
     })
 
     // send the sign-request
-    const response = (blocksToRequest.length ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest }) : { result: [] }) as RPCResponse
-    if (response.error)
-      throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+    let response:RPCResponse
+    try{
+      response = (blocksToRequest.length 
+        ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest }) 
+        : { result: [] }) as RPCResponse
+      if (response.error){
+        //throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+        logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+        return null
+      }
+    }catch(error) {
+      logger.error(error.toString())
+      return null
+    }
 
+    
     const signatures = [...cachedSignatures, ...response.result] as Signature[]
+
 
     // if there are signature, we only return the valid ones
     if (signatures && signatures.length)
@@ -147,12 +162,20 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
 
   const blockHeight = handler.config.minBlockHeight === undefined ? 6 : handler.config.minBlockHeight
   const tooYoungBlock = blockData.find(block => toNumber(blockNumber) - toNumber(block.number) < blockHeight)
-  if (tooYoungBlock)
-    throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
+  //if (tooYoungBlock)
+    //throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
 
-  return {
-    id: request.id,
-    jsonrpc: request.jsonrpc,
-    result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash })))
-  }
+  if(tooYoungBlock)
+    return {
+      id: request.id,
+      jsonrpc: request.jsonrpc,
+      error: 'Cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight 
+    }
+  else
+    return {
+      id: request.id,
+      jsonrpc: request.jsonrpc,
+      result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash }))) 
+    }
+  
 }

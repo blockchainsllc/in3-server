@@ -23,9 +23,9 @@ WORKDIR /app
 
 ARG NPM_REGISTRY_TOKEN
 ARG CI_COMMIT_SHA
-
 ENV VERSION_SHA=$CI_COMMIT_SHA
 #ENV IN3_SRC_PATH='./js'
+
 
 #COPY tsconfig.json  ./
 #COPY src  ./src/

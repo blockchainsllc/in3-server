@@ -18,15 +18,16 @@
 ***********************************************************/
 
 
-import { RPCRequest, header, serialize, BlockData, Proof, LogData, util } from 'in3'
+import {  getSigner as utilSigner, serialize, BlockData,  LogData, util } from 'in3-common'
+import { RPCRequest,  Proof} from '../model/types'
 import { RPCHandler } from './rpc'
 import EthHandler from '../modules/eth/EthHandler'
 import { recover } from 'secp256k1'
-import { rawDecode } from 'ethereumjs-abi'
 import { publicToAddress, rlp } from 'ethereumjs-util'
 import { handleLogs } from '../modules/eth/proof'
 import * as logger from '../util/logger'
-const chains = require('in3/js/src/client/defaultConfig.json').servers
+import { decodeFunction } from '../util/tx';
+const chains = require('in3-common/js/defaultConfig.json').servers
 /**
  * a Object holding proofs for validator logs. The key is the blockNumber as hex
  */
@@ -94,33 +95,97 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
 
     const chain = chains[handler.chainId]
     const spec = chain && chain.chainSpec
-    const engine = spec && spec.engine as string
+    //    const engine = spec && spec.engine as string
     const history: ValidatorHistory = !chain ? null : (chain.history || (chain.history = { states: [], lastCheckedBlock: 0, lastValidatorChange: 0 }))
     const currentBlock = handler.watcher ? handler.watcher.block.number : parseInt((await handler.getFromServer({ method: 'eth_blockNumber', params: [] })).result)
 
     if (!history || history.lastCheckedBlock >= currentBlock) return history || {} as any
 
-    if (engine == 'authorityRound') {
-        if (!history.states.length) {
-            if (spec.validatorList)
-                history.states.push({ block: 0, validators: spec.validatorList, proof: [] })
-            else
-                history.states.push({ block: 0, validators: [], proof: [] })
-        }
+    if (!history.states.length) {
+        // initial fill
+        if (spec && spec.length) {
+            for (const s of spec) {
+                if (s.list && !s.requiresFinality) {
+                    history.states.push({
+                        block: s.block,
+                        validators: s.list,
+                        proof: []
+                    })
+                    history.lastCheckedBlock = s.block
+                }
+                const nextBlock = (spec[spec.indexOf(s) + 1] || { block: currentBlock }).block
 
-        if (spec.validatorContract)
-            await updateAuraHistory(spec.validatorContract, handler, history, currentBlock)
+                // if transition is contract based and there has been another
+                // transition on top of it then pull in all the validator
+                // changes for this transition segment
+                if (s.contract && s.engine === 'authorityRound' && s.list && s.requiresFinality) {
+                    const b = await handler.getFromServer({
+                        method: 'eth_getBlockByNumber',
+                        params: [toMinHex(s.block), false]
+                    })
 
-    }
-    else if (engine == 'clique') {
-        if (!history.states.length) {
-            if (spec.genesisValidatorList) {
-                history.states.push({ block: 0, validators: spec.genesisValidatorList, proof: [] })
-                history.lastEpoch = { block: 0, epochValidators: spec.genesisValidatorList, validators: [...spec.genesisValidatorList], header: null, pendingVotes: {} }
+                    if (!b || b.error || !b.result)
+                        throw new Error("Couldn't get the block at transition")
+
+                    const transitionBlockSigner = utilSigner(new serialize.Block(b.result))
+
+
+                    const finalityBlocks = await addFinalityForTransition(
+                        toNumber(b.result.number),
+                        transitionBlockSigner,
+                        history.states[history.states.length - 1].validators.length,
+                        null,
+                        handler
+                    )
+
+                    const lastFinalityBlock = serialize.blockFromHex(finalityBlocks[finalityBlocks.length - 1])
+
+                    /*
+                    * Stitch the proof
+                    */
+                    let validatorProof = {
+                        /* IMPORTANT:
+                        * Since this proof is just to prove the finality of
+                        * the transition we need not include txIndex, merkle
+                        * proof and log index. Just the transition block and
+                        * the finality blocks over it would do.
+                        */
+                        txIndex: null,
+                        proof: null,
+                        block: serialize.blockToHex(b.result),
+                        logIndex: null,
+                        finalityBlocks
+                    }
+
+                    history.states.push({
+                        block: toNumber(lastFinalityBlock.number) + 1,//s.block,
+                        validators: s.list,
+                        proof: validatorProof as AuraValidatoryProof
+                    })
+
+                    history.lastCheckedBlock = toNumber(lastFinalityBlock.number) + 1
+                    history.lastValidatorChange = toNumber(lastFinalityBlock.number) + 1
+
+                    await updateAuraHistory(s.contract, handler, history, nextBlock)
+                }
+                else if (s.engine === 'clique') {
+                    if (!history.lastEpoch) history.lastEpoch = { block: s.block, epochValidators: s.list, validators: [...s.list], header: null, pendingVotes: {} }
+                    await updateCliqueHistory(s.epoch || 30000, handler, history, nextBlock)
+                }
             }
         }
+        else
+            history.states.push({ block: 0, validators: [], proof: [] })
+    }
+    else if (spec && spec.length) {
+        // just update the history
+        const latestTransition = spec[spec.length - 1]
 
-        await updateCliqueHistory(spec.epoch || 30000, handler, history, currentBlock)
+        //update only if the trnasition is contract based
+        if (latestTransition.contract && latestTransition.engine === 'authorityRound')
+            await updateAuraHistory(latestTransition.contract, handler, history, currentBlock)
+        else if (latestTransition.engine === 'clique')
+            await updateCliqueHistory(latestTransition.epoch || 30000, handler, history, currentBlock)
     }
 
     return history
@@ -231,6 +296,50 @@ async function updateCliqueHistory(epoch: number, handler: RPCHandler, history: 
 
 }
 
+/*
+* Returns a list of finality blocks over a specified block
+*/
+async function addFinalityForTransition(
+    blockNumber: number,
+    blockSigner: Buffer,
+    numValidators: number,
+    maxBlock: number,
+    handler: RPCHandler) {
+
+    let bn = blockNumber
+
+    //The maximum number of blocks it will check is curBlock + 2 times the
+    //number of validators
+    const twoRoundsNumber = (bn + (2 * numValidators))
+    const maxNumber = maxBlock > twoRoundsNumber || !maxBlock ? twoRoundsNumber : maxBlock
+
+    const signers = [blockSigner]
+
+    //Hardcoded 51% finality // TODO for now we do not use finality yet, but we
+    //must fix it!
+    const minSigners = Math.ceil((numValidators + 1) / 2)
+
+    const finalityBlocks = []
+
+    while (signers.length < minSigners && bn < maxNumber) {
+        bn = bn + 1
+
+        const b = await handler.getFromServer({
+            method: 'eth_getBlockByNumber',
+            params: [toMinHex(bn), false]
+        })
+
+        if (!b || b.error || !b.result) break
+        const currentSigner = utilSigner(new serialize.Block(b.result))
+        if (!signers.find(_ => _.equals(currentSigner)))
+            signers.push(currentSigner)
+
+        finalityBlocks.push(serialize.blockToHex(b.result))
+    }
+
+    return finalityBlocks
+}
+
 
 async function updateAuraHistory(validatorContract: string, handler: RPCHandler, history: ValidatorHistory, currentBlock: number) {
     logger.info('check for aura validator changes starting with block ' + currentBlock)
@@ -255,30 +364,20 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
     })
 
     for (const log of logs.result) {
-        const validatorList = rawDecode(['address[]'], util.toBuffer(log.data))[0]
+        const validatorList = decodeFunction(['address[]'], util.toBuffer(log.data))[0]
         const receipts = logs.in3.proof.logProof[toHex(log.blockNumber)].receipts
 
-        /*
-        * Fetch the finality blocks
-        */
-        let bn = parseInt(log.blockNumber)
-        const numValidators = history.states[history.states.length - 1].validators.length
-        const maxNumber = bn + 2 * numValidators //The maximum number of blocks it will check is curBlock + 2 times the number of validators
-        const signers = [header.getSigner(serialize.blockFromHex(logs.in3.proof.logProof[toHex(log.blockNumber)].block))]
-        const minSigners = 1 || Math.ceil((numValidators + 1) / 2) //Hardcoded 51% finality // TODO for now we do not use finality yet, but we must fix it!
-        const finalityBlocks = []
+        const block = serialize.blockFromHex(logs.in3.proof.logProof[toHex(log.blockNumber)].block)
 
-        while (signers.length < minSigners && bn < maxNumber) {
-            bn = bn + 1
-            if (currentBlock < bn) break
-            const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), false] })
+        // Fetch the finality blocks
+        const finalityBlocks = await addFinalityForTransition(
+            toNumber(block.number),
+            utilSigner(block),
+            history.states[history.states.length - 1].validators.length,
+            currentBlock,
+            handler)
 
-            if (!b || b.error || !b.result) break
-            const currentSigner = header.getSigner(new serialize.Block(b.result))
-            if (!signers.find(_ => _.equals(currentSigner)))
-                signers.push(currentSigner)
-            finalityBlocks.push(serialize.blockToHex(b.result))
-        }
+        const lastFinalityBlock = serialize.blockFromHex(finalityBlocks[finalityBlocks.length - 1])
 
         /*
         * Stitch the proof
@@ -299,7 +398,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         //update the history states
         history.states.push({
             validators: validatorList,
-            block: parseInt(log.blockNumber),
+            block: toNumber(lastFinalityBlock.number) + 1,
             proof: validatorProof as AuraValidatoryProof
         })
 

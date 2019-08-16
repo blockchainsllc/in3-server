@@ -17,7 +17,9 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import Client, { Transport, AxiosTransport, RPCRequest, RPCResponse, IN3NodeConfig, IN3Config, util, ServerList, IN3RPCHandlerConfig } from 'in3'
+import  { Transport, AxiosTransport, util } from 'in3-common'
+import Client from 'in3'
+import  {  RPCRequest, RPCResponse, IN3NodeConfig, IN3Config,  ServerList, IN3RPCHandlerConfig } from '../../src/model/types'
 
 import * as logger from '../../src/util/logger'
 import * as crypto from 'crypto'
@@ -118,21 +120,21 @@ export class TestTransport implements Transport {
     return p.then(_ => Promise.reject(new Error('Must have failed')), err => true)
   }
 
-  
-  detectFraud(client:Client, method:string, params:any[], conf:Partial<IN3Config>, fn:(req:RPCRequest, res:RPCResponse)=>any|RPCResponse, mustFail=true) : Promise<any>{
 
-    this.clearInjectedResponsed()  
+  detectFraud(client: Client, method: string, params: any[], conf: Partial<IN3Config>, fn: (req: RPCRequest, res: RPCResponse) => any | RPCResponse, mustFail = true): Promise<any> {
+
+    this.clearInjectedResponsed()
     // now manipulate the result
-    this.injectResponse({ method }, (req,res)=>fn(req,res) || res)
+    this.injectResponse({ method }, (req, res) => fn(req, res) || res)
     return client.sendRPC(method, params)
-    .then(()=>{
-      if (mustFail)
-        throw new Error('This rpc-call '+method+' must fail because it was manipulated, but did not')
+      .then(() => {
+        if (mustFail)
+          throw new Error('This rpc-call ' + method + ' must fail because it was manipulated, but did not')
 
-    },()=>{
-      if (!mustFail)
-        throw new Error('This rpc-call '+method+' must not fail even though it was manipulated, but did')
-    })
+      }, () => {
+        if (!mustFail)
+          throw new Error('This rpc-call ' + method + ' must not fail even though it was manipulated, but did')
+      })
   }
 
 
@@ -141,7 +143,7 @@ export class TestTransport implements Transport {
   }
 
   async getFromServer(method: string, ...params: any[]) {
-    const res = await axios.post(this.url, { id: 1, jsonrpc: '2.0', method, params },{ headers:{'Content-Type':'application/json'}})
+    const res = await axios.post(this.url, { id: 1, jsonrpc: '2.0', method, params }, { headers: { 'Content-Type': 'application/json' } })
     if (res.status !== 200) throw new Error('Wrong status! Error getting ' + method + ' ' + JSON.stringify(params))
     if (!res.data) throw new Error('No response! Error getting ' + method + ' ' + JSON.stringify(params))
     if (res.data.error) throw new Error('Error getting ' + method + ' ' + JSON.stringify(params) + ' : ' + JSON.stringify(res.data.error))
@@ -235,13 +237,14 @@ export class TestTransport implements Transport {
   }
 
   async getServerFromContract(index: number) {
-    const [url, owner, deposit, props, time, caller] = await callContract(this.url, this.nodeList.contract, 'servers(uint):(string,address,uint,uint,uint,address)', [index])
+    const [url, owner, deposit, props, time, caller] = await callContract(this.url, this.nodeList.contract, 'servers(uint):(string,address,uint,uint,uint128,uint128,address)', [index])
     return { url, owner, deposit, props, time, caller }
   }
 
   async getServerCountFromContract() {
     const [count] = await callContract(this.url, this.nodeList.contract, 'totalServers():(uint)', [])
-    return util.toNumber(count)
+    //return util.toNumber(count)
+    return count.toNumber()
   }
 
   getHandlerConfig(index: number): IN3RPCHandlerConfig {

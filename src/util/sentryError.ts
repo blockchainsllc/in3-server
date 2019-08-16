@@ -16,26 +16,27 @@
 * For more information, please refer to https://slock.it   *
 * For questions, please contact info@slock.it              *
 ***********************************************************/
-const Sentry = require('@sentry/node');
 
-if (process.env.SENTRY_ENABLE === 'true') {
-    Sentry.init({
-            dsn: process.env.SENTRY_DSN,
-            release: process.env.SENTRY_RELEASE,
-            environment: process.env.SENTRY_ENVIRONMENT,
-        });
+const Sentry = require('@sentry/node')
+
+/**
+ * creates a Error with the capability to report it to Sentry.
+ * Whether the error is reported depends on the enviroment variable `SENTRY_ENABLE`.
+ * 
+ * For more details, see 
+ * https://git.slock.it/documentation/developer-handbook/blob/master/docs/Error-handling-and-reporting-Sentry.md
+ */
+export class SentryError extends Error {
+    
+    constructor(message?: string, category_info?: string, breadcrumb_message?: string) {
+        super(message);
+        if (process.env.SENTRY_ENABLE === 'true') {
+            Sentry.addBreadcrumb({
+                category: category_info,
+                message: breadcrumb_message,
+            })
+
+            Sentry.captureException(message)
+        }
+    }
 }
-
-import *  as rpc from './server/rpc'
-import *  as server from './server/server'
-import _config from './server/config'
-import { IN3RPCConfig } from '../src/model/types'
-
-/** the default rpc-handler */
-export type RPC = rpc.RPC
-
-export const s = server.app
-
-/** the configuration */
-export const config: IN3RPCConfig = _config
-

@@ -20,7 +20,9 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util, serialize, ServerList, RPCResponse } from 'in3'
+import { util, serialize } from 'in3-common'
+import { ServerList } from '../../src/model/types'
+import { RPCResponse } from '../../src/model/types'
 import EthChainContext from 'in3/js/src/modules/eth/EthChainContext' 
 import { registerServers, deployContract } from '../../src/util/registry';
 import { TestTransport, getTestClient } from '../utils/transport';
@@ -28,6 +30,7 @@ import Watcher from '../../src/chains/watch'
 import EventWatcher from '../utils/EventWatcher';
 import * as tx from '../../src/util/tx'
 import { RPC } from '../../src/server/rpc';
+import * as clientRPC from '../utils/clientRPC'
 
 const toNumber = util.toNumber
 const getAddress = util.getAddress
@@ -226,7 +229,7 @@ describe('Features', () => {
     const ctx = client.getChainContext(client.defConfig.chainId) as EthChainContext
 
     assert.equal(ctx.codeCache.data.size, 0)
-    const response = await tx.callContractWithClient(client, adr, 'counter()')
+    const response = await clientRPC.callContractWithClient(client, adr, 'counter()')
 
     assert.equal(ctx.codeCache.data.size, 1)
 

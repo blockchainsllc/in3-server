@@ -1,6 +1,7 @@
 import { Worker } from 'worker_threads'
 import { cpus } from 'os'
 
+
 let workers = []
 let firstTime = true
 let openThreads = 0
@@ -40,7 +41,6 @@ class ThreadPool {
         }
 
     }
-
     private async getMerkleProofWorker() {
         if (this.hasWorkers()) {
             return await workers.shift()

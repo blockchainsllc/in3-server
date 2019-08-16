@@ -20,9 +20,10 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import Client, { chainData, util } from 'in3'
+import  { util } from 'in3-common'
+import Client, {chainData} from 'in3'
 import { registerServers } from '../../src/util/registry';
-import * as logger from 'in3/js/test/util/memoryLogger'
+import * as logger from '../../src/util/logger'
 import { LoggingAxiosTransport, getTestClient } from '../utils/transport'
 
 describe('Deploying Contracts', () => {
