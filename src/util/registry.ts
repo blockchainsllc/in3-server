@@ -19,7 +19,7 @@
 
 import * as tx from './tx'
 import { toChecksumAddress } from 'ethereumjs-util'
-import { Transport, util, RPCResponse } from 'in3'
+import { Transport, util } from 'in3-common'
 import { readFileSync } from 'fs'
 import { padStart } from 'in3/js/src/util/util';
 import { padEnd } from 'in3/js/src/util/util';

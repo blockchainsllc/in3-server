@@ -20,7 +20,8 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util, BlockData, serialize, Signature, RPCRequest, RPCResponse, transport } from 'in3'
+import { util, BlockData, serialize } from 'in3-common'
+import { Signature, RPCRequest, RPCResponse } from '../../src/model/types'
 import * as tx from '../../src/util/tx'
 import * as ethUtil from 'ethereumjs-util'
 import { TestTransport, LoggingAxiosTransport } from '../utils/transport'

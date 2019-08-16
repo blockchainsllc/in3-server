@@ -18,7 +18,8 @@
 ***********************************************************/
 
 import * as fs from 'fs'
-import { IN3RPCConfig, IN3RPCHandlerConfig, util, typeDefs } from 'in3'
+import {  util } from 'in3-common'
+import { IN3RPCConfig, IN3RPCHandlerConfig, validationDef as typeDefs } from '../model/types'
 import * as cargs from 'args'
 
 // defaults for the config

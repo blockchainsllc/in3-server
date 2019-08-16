@@ -18,7 +18,8 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { RPCRequest, RPCResponse, Transport, AxiosTransport, IN3ResponseConfig, IN3RPCRequestConfig, util, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from 'in3'
+import {  Transport, AxiosTransport,  util } from 'in3-common'
+import { RPCRequest, RPCResponse,  IN3ResponseConfig, IN3RPCRequestConfig,  ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../model/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour } from './stats'

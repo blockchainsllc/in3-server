@@ -20,7 +20,9 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util, serialize, ServerList, RPCResponse } from 'in3'
+import { util, serialize } from 'in3-common'
+import { ServerList } from '../../src/model/types'
+import { RPCResponse } from '../../src/model/types'
 import EthChainContext from 'in3/js/src/modules/eth/EthChainContext'
 import { registerNodes, deployContract } from '../../src/util/registry';
 import { TestTransport, getTestClient } from '../utils/transport';
@@ -28,7 +30,7 @@ import Watcher from '../../src/chains/watch'
 import EventWatcher from '../utils/EventWatcher';
 import * as tx from '../../src/util/tx'
 import { RPC } from '../../src/server/rpc';
-import { toBN } from 'in3/js/src/util/util';
+import * as clientRPC from '../utils/clientRPC'
 
 const toNumber = util.toNumber
 const getAddress = util.getAddress
@@ -76,7 +78,7 @@ describe('Features', () => {
       url: '#3',
       pk,
       props: '0xffff',
-      deposit: toBN('10000000000000000'),
+      deposit: util.toBN('10000000000000000'),
       timeout: 7200,
     }], test.chainRegistry, test.chainRegistry, test.url)
     lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 1
@@ -146,7 +148,7 @@ describe('Features', () => {
     await watcher.update()
 
     const client = await test.createClient({ requestCount: 1 })
-    const pk = await test.createAccount(null, toBN('100000000000000000'))
+    const pk = await test.createAccount(null, util.toBN('100000000000000000'))
     const rpc = new RPC({
       port: 1,
       chains: {
@@ -155,7 +157,7 @@ describe('Features', () => {
           minBlockHeight: 0,
           autoRegistry: {
             url: 'dummy',
-            deposit: toBN('10000000000000000'),
+            deposit: util.toBN('10000000000000000'),
             depositUnit: 'wei',
             capabilities: {
               proof: true,
@@ -177,7 +179,7 @@ describe('Features', () => {
     assert.equal(events[0].signer, getAddress(pk))
     assert.equal(events[0].url, 'dummy')
     assert.equal(events[0].props, 3)
-    assert.equal(events[0].deposit, toBN('10000000000000000'))
+    assert.equal(events[0].deposit, util.toBN('10000000000000000'))
 
     const nl = await rpc.getHandler().getNodeList(false)
     assert.equal(nl.totalServers, 3)
@@ -224,7 +226,7 @@ describe('Features', () => {
     const ctx = client.getChainContext(client.defConfig.chainId) as EthChainContext
 
     assert.equal(ctx.codeCache.data.size, 0)
-    const response = await tx.callContractWithClient(client, adr, 'counter()')
+    const response = await clientRPC.callContractWithClient(client, adr, 'counter()')
 
     assert.equal(ctx.codeCache.data.size, 1)
 

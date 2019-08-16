@@ -20,19 +20,19 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import Client, { chainData, util } from 'in3'
+import { util } from 'in3-common'
+import Client, { chainData } from 'in3'
 import { registerNodes } from '../../src/util/registry';
-import * as logger from 'in3/js/test/util/memoryLogger'
-import { TestTransport, LoggingAxiosTransport, getTestClient } from '../utils/transport'
-import { toBN } from 'in3/js/src/util/util';
+import * as logger from '../../src/util/logger'
+import { LoggingAxiosTransport, getTestClient, TestTransport } from '../utils/transport'
 
 describe('Deploying Contracts', () => {
   it('deploy and register servers', async () => {
 
     const test = await TestTransport.createWithRegisteredNodes(1)
 
-    const pk = await test.createAccount('0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238', toBN('500000000000000000'))
-    const pk2 = await test.createAccount('0xaaaa239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238', toBN('500000000000000000'))
+    const pk = await test.createAccount('0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238', util.toBN('500000000000000000'))
+    const pk2 = await test.createAccount('0xaaaa239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238', util.toBN('500000000000000000'))
 
     // const pk = '0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
     //  const pk2 = '0xaaaa239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
@@ -42,14 +42,14 @@ describe('Deploying Contracts', () => {
       url: '#1',
       pk,
       props: '0xFF',
-      deposit: toBN('10000000000000000'),
+      deposit: util.toBN('10000000000000000'),
       timeout: 3600
     },
     {
       url: '#2',
       pk: pk2,
       props: '0xFF',
-      deposit: toBN('10000000000000000'),
+      deposit: util.toBN('10000000000000000'),
       timeout: 3600
     }], '0x99', null, getTestClient(), new LoggingAxiosTransport())
 
@@ -68,7 +68,7 @@ describe('Deploying Contracts', () => {
             address: util.getAddress(pk),
             url: getTestClient(),
             chainIds: ['0x99'],
-            deposit: toBN('10000000000000000')
+            deposit: util.toBN('10000000000000000')
           }]
         }
       }

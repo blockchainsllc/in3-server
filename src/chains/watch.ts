@@ -19,7 +19,7 @@
 
 import * as fs from 'fs'
 import { EventEmitter } from 'events'
-import { util, LogData } from 'in3'
+import { util, LogData } from 'in3-common'
 import { keccak, toChecksumAddress } from 'ethereumjs-util'
 
 import { RPCHandler } from '../server/rpc';

@@ -20,11 +20,12 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { BlockData, RPCResponse, util, Proof, LogData } from 'in3'
+import { BlockData,  util,  LogData } from 'in3-common'
+import {  RPCResponse,  Proof } from '../../src/model/types'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
-import { toBuffer } from 'in3/js/src/util/util';
+import * as clientRPC from '../utils/clientRPC'
 const toHex = util.toHex
 const getAddress = util.getAddress
 const toNumber = util.toNumber
@@ -49,7 +50,7 @@ describe('eth_call', () => {
 
     const balance = toNumber(await test.getFromServer('eth_getBalance', user, 'latest'))
 
-    const response = await tx.callContractWithClient(client, adr, 'getBalance(address)', user)
+    const response = await clientRPC.callContractWithClient(client, adr, 'getBalance(address)', user)
 
     assert.equal(balance, 500)
     assert.equal(toNumber(response.result), 500)
@@ -61,7 +62,7 @@ describe('eth_call', () => {
       return re
     })
 
-    await test.mustFail(tx.callContractWithClient(client, adr, 'getBalance(address)', user))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'getBalance(address)', user))
 
 
     client.clearStats()
@@ -75,7 +76,7 @@ describe('eth_call', () => {
       return re
     })
 
-    await test.mustFail(tx.callContractWithClient(client, adr, 'getBalance(address)', user))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'getBalance(address)', user))
 
     client.clearStats()
     test.clearInjectedResponsed()
@@ -88,7 +89,7 @@ describe('eth_call', () => {
       return re
     })
 
-    await test.mustFail(tx.callContractWithClient(client, adr, 'getBalance(address)', user))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'getBalance(address)', user))
 
   })
 
@@ -116,7 +117,7 @@ describe('eth_call', () => {
     //    function testInternCall(TestContract adr)  public view returns(uint){
     //      return adr.counter();
     //    }
-    const response = await tx.callContractWithClient(client, adr2, 'testInternCall(address)', adr1)
+    const response = await clientRPC.callContractWithClient(client, adr2, 'testInternCall(address)', adr1)
     assert.equal(toNumber(response.result), 1)
 
     // now manipulate the result
@@ -125,7 +126,7 @@ describe('eth_call', () => {
       re.result = '0x09'
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr2, 'testInternCall(address)', adr1))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr2, 'testInternCall(address)', adr1))
 
 
     client.clearStats()
@@ -138,7 +139,7 @@ describe('eth_call', () => {
       delete ac[Object.keys(ac)[1]]
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr2, 'testInternCall(address)', adr1))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr2, 'testInternCall(address)', adr1))
 
 
   })
@@ -152,7 +153,7 @@ describe('eth_call', () => {
     const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
     const block = (await test.getFromServer('eth_getBlockByNumber', 'latest', false)) as BlockData
 
-    const response = await tx.callContractWithClient(client, adr, 'getBlockHash(uint)', toNumber(block.number))
+    const response = await clientRPC.callContractWithClient(client, adr, 'getBlockHash(uint)', toNumber(block.number))
 
     // TODO why is this returning 0x0?
     //    assert.equal(toHex(response.result, 32), toHex(block.hash, 32))
@@ -170,13 +171,13 @@ describe('eth_call', () => {
     const adr = await deployContract('TestContract', pk, getTestClient())
     const adr2 = await deployContract('TestContract', pk, getTestClient())
 
-    const response = await tx.callContractWithClient(client, adr, 'getCodeAt(address)', adr2)
+    const response = await clientRPC.callContractWithClient(client, adr, 'getCodeAt(address)', adr2)
 
     // make sure the proof included the accountProof for adr2, since this was referenced
     assert.isTrue(response.in3.proof.accounts[toHex(adr2.toLowerCase(), 20)].accountProof.length > 0)
 
     // try to get the code from a non-existent account, so the merkleTree should prove it's not esiting
-    const responseEmpty = await tx.callContractWithClient(client, adr, 'getCodeAt(address)', "0x" + toBuffer(123, 20).toString('hex'))
+    const responseEmpty = await clientRPC.callContractWithClient(client, adr, 'getCodeAt(address)', "0x" + util.toBuffer(123, 20).toString('hex'))
 
 
     client.clearStats()
@@ -189,7 +190,7 @@ describe('eth_call', () => {
       delete ac[Object.keys(ac)[1]]
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr, 'getCodeAt(address)', adr2))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'getCodeAt(address)', adr2))
 
 
     client.clearStats()
@@ -204,7 +205,7 @@ describe('eth_call', () => {
       re.result = '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000'
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr, 'getCodeAt(address)', adr2))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'getCodeAt(address)', adr2))
 
 
 
@@ -220,7 +221,7 @@ describe('eth_call', () => {
     const adr = await deployContract('TestContract', pk, getTestClient())
     const adr2 = await deployContract('TestContract', pk, getTestClient())
 
-    const response = await tx.callContractWithClient(client, adr, 'testDelegateCall(address)', adr2)
+    const response = await clientRPC.callContractWithClient(client, adr, 'testDelegateCall(address)', adr2)
 
     // make sure the proof included the accountProof for adr2, since this was referenced
     assert.isTrue(response.in3.proof.accounts[toHex(adr2.toLowerCase(), 20)].accountProof.length > 0)
@@ -239,7 +240,7 @@ describe('eth_call', () => {
       re.result = '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000'
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr, 'testDelegateCall(address)', adr2))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'testDelegateCall(address)', adr2))
 
 
   })
@@ -256,7 +257,7 @@ describe('eth_call', () => {
     const adr = await deployContract('TestContract', pk, getTestClient())
     const adr2 = await deployContract('TestContract', pk, getTestClient())
 
-    const response = await tx.callContractWithClient(client, adr, 'testCall(address)', adr2)
+    const response = await clientRPC.callContractWithClient(client, adr, 'testCall(address)', adr2)
 
     // make sure the proof included the accountProof for adr2, since this was referenced
     assert.isTrue(response.in3.proof.accounts[toHex(adr2.toLowerCase(), 20)].accountProof.length > 0)
@@ -275,7 +276,7 @@ describe('eth_call', () => {
       re.result = '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000'
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr, 'testCall(address)', adr2))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'testCall(address)', adr2))
 
 
   })
@@ -291,7 +292,7 @@ describe('eth_call', () => {
     const adr = await deployContract('TestContract', pk, getTestClient())
     const adr2 = await deployContract('TestContract', pk, getTestClient())
 
-    const response = await tx.callContractWithClient(client, adr, 'testCallCode(address)', adr2)
+    const response = await clientRPC.callContractWithClient(client, adr, 'testCallCode(address)', adr2)
 
     // make sure the proof included the accountProof for adr2, since this was referenced
     assert.isTrue(response.in3.proof.accounts[toHex(adr2.toLowerCase(), 20)].accountProof.length > 0)
@@ -310,7 +311,7 @@ describe('eth_call', () => {
       re.result = '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000'
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr, 'testCallCode(address)', adr2))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'testCallCode(address)', adr2))
 
 
   })

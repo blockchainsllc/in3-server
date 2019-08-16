@@ -19,7 +19,7 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util, BlockData, serialize } from 'in3'
+import { util, BlockData, serialize } from 'in3-common'
 import * as tx from '../../src/util/tx'
 import { TestTransport } from '../utils/transport'
 import { deployBlockhashRegistry } from '../../src/util/registry'
