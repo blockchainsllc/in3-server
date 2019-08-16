@@ -18,7 +18,6 @@ build-server:
     - npm install
     - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@git.slock.it/in3/ts/in3.git
     - cd in3
-    - git checkout 45-update-in3-for-the-new-contracts
     - npm install
     - npm run build
     - cp -r js/* ../node_modules/in3/js/
