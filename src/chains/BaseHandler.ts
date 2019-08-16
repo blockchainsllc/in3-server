@@ -17,8 +17,8 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import {  Transport, AxiosTransport, serialize, util as in3Util } from 'in3-common'
-import {RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig} from '../model/types'
+import { Transport, AxiosTransport, serialize, util as in3Util } from 'in3-common'
+import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
 import Watcher from './watch'

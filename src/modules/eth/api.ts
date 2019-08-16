@@ -4,7 +4,7 @@ import { toChecksumAddress, privateToAddress, keccak, ecsign } from 'ethereumjs-
 import {  util  } from 'in3-common'
 import BN = require('bn.js')
 import { AbiCoder, Interface, Fragment } from '@ethersproject/abi'
-import { RPCResponse } from '../../model/types';
+import { RPCResponse } from '../../types/types';
 
 export type BlockType = number | 'latest' | 'earliest' | 'pending'
 export type Hex = string

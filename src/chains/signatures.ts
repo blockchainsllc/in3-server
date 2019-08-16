@@ -19,7 +19,7 @@
 
 import BaseHandler from './BaseHandler'
 import { BlockData, util, serialize } from 'in3-common'
-import { RPCRequest, RPCResponse, Signature, ServerList, IN3NodeConfig } from '../model/types'
+import { RPCRequest, RPCResponse, Signature, ServerList, IN3NodeConfig } from '../types/types'
 import { keccak, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
 import { LRUCache } from '../util/cache'

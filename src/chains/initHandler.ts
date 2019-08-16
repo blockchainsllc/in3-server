@@ -19,7 +19,7 @@
 
 import BaseHandler from './BaseHandler'
 import { util } from 'in3-common'
-import { IN3RPCHandlerConfig } from '../model/types'
+import { IN3RPCHandlerConfig } from '../types/types'
 import * as fs from 'fs'
 import * as scryptsy from 'scrypt.js'
 import * as cryp from 'crypto'

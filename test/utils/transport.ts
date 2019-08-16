@@ -19,7 +19,7 @@
 
 import  { Transport, AxiosTransport, util } from 'in3-common'
 import Client from 'in3'
-import  {  RPCRequest, RPCResponse, IN3NodeConfig, IN3Config,  ServerList, IN3RPCHandlerConfig } from '../../src/model/types'
+import  {  RPCRequest, RPCResponse, IN3NodeConfig, IN3Config,  ServerList, IN3RPCHandlerConfig } from '../../src/types/types'
 
 import * as logger from '../../src/util/logger'
 import * as crypto from 'crypto'

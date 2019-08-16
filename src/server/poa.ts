@@ -19,7 +19,7 @@
 
 
 import {  getSigner as utilSigner, serialize, BlockData,  LogData, util } from 'in3-common'
-import { RPCRequest,  Proof} from '../model/types'
+import { RPCRequest,  Proof} from '../types/types'
 import { RPCHandler } from './rpc'
 import EthHandler from '../modules/eth/EthHandler'
 import { recover } from 'secp256k1'

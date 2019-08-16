@@ -21,8 +21,8 @@
 import { assert } from 'chai'
 import 'mocha'
 import { util, serialize } from 'in3-common'
-import { ServerList } from '../../src/model/types'
-import { RPCResponse } from '../../src/model/types'
+import { ServerList } from '../../src/types/types'
+import { RPCResponse } from '../../src/types/types'
 import EthChainContext from 'in3/js/src/modules/eth/EthChainContext'
 import { registerNodes, deployContract } from '../../src/util/registry';
 import { TestTransport, getTestClient } from '../utils/transport';
