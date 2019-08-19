@@ -18,7 +18,7 @@
 ***********************************************************/
 
 import {  LogData, BlockData, ReceiptData, serialize, util, TransactionData, getSigner } from 'in3-common'
-import { LogProof,  RPCRequest, RPCResponse,  Signature, Proof } from '../../model/types'
+import { LogProof,  RPCRequest, RPCResponse,  Signature, Proof } from '../../types/types'
 import { rlp, toChecksumAddress } from 'ethereumjs-util'
 import * as Trie from 'merkle-patricia-tree'
 import In3Trie from 'in3-trie'
@@ -26,7 +26,7 @@ import EthHandler from './EthHandler'
 import { collectSignatures } from '../../chains/signatures'
 import * as evm from './evm_trace'
 import { analyseCall } from './evm_run'
-import { in3ProtocolVersion } from '../../model/constants'
+import { in3ProtocolVersion } from '../../types/constants'
 
 const ThreadPool = require('./threadPool')
 const toHex = util.toHex

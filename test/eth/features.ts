@@ -21,10 +21,10 @@
 import { assert } from 'chai'
 import 'mocha'
 import { util, serialize } from 'in3-common'
-import { ServerList } from '../../src/model/types'
-import { RPCResponse } from '../../src/model/types'
-import EthChainContext from 'in3/js/src/modules/eth/EthChainContext' 
-import { registerServers, deployContract } from '../../src/util/registry';
+import { ServerList } from '../../src/types/types'
+import { RPCResponse } from '../../src/types/types'
+import EthChainContext from 'in3/js/src/modules/eth/EthChainContext'
+import { registerNodes, deployContract } from '../../src/util/registry';
 import { TestTransport, getTestClient } from '../utils/transport';
 import Watcher from '../../src/chains/watch'
 import EventWatcher from '../utils/EventWatcher';
@@ -43,7 +43,7 @@ describe('Features', () => {
     const pk = await new TestTransport().createAccount()
 
 
-    const test = await TestTransport.createWithRegisteredServers(2)
+    const test = await TestTransport.createWithRegisteredNodes(2)
     let lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 2
     const client = await test.createClient({ requestCount: 1 })
     const watcher: Watcher = test.handlers['#1'].getHandler().watcher
@@ -74,11 +74,12 @@ describe('Features', () => {
     events.clear()
 
     // now we register another server
-    await registerServers(pk, test.nodeList.contract, [{
+    await registerNodes(pk, test.nodeList.contract, [{
       url: '#3',
       pk,
       props: '0xffff',
-      deposit: 20000
+      deposit: util.toBN('10000000000000000'),
+      timeout: 7200,
     }], test.chainRegistry, test.chainRegistry, test.url)
     lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 1
 
@@ -86,10 +87,10 @@ describe('Features', () => {
     // the watcher will find an register-event and triggers an update of the server-nodelist
     const logs = await watcher.update()
     assert.equal(logs.length, 1)
-    assert.equal(logs[0].event, 'LogServerRegistered')
+    assert.equal(logs[0].event, 'LogNodeRegistered')
     assert.equal(logs[0].url, '#3')
     assert.equal(logs[0].props, 0xffff)
-    assert.equal(logs[0].owner, util.getAddress(pk))
+    assert.equal(logs[0].signer, util.getAddress(pk))
 
     // we still have only 2 nodes since the watchers has not been triggered yet
     assert.equal(client.defConfig.servers[test.chainId].nodeList.length, 2)
@@ -141,13 +142,13 @@ describe('Features', () => {
 
   it('autoregister', async () => {
 
-    const test = await TestTransport.createWithRegisteredServers(2)
+    const test = await TestTransport.createWithRegisteredNodes(2)
     const watcher = test.getHandler(0).watcher
     // update the nodelist
     await watcher.update()
 
     const client = await test.createClient({ requestCount: 1 })
-    const pk = await test.createAccount()
+    const pk = await test.createAccount(null, util.toBN('100000000000000000'))
     const rpc = new RPC({
       port: 1,
       chains: {
@@ -156,12 +157,12 @@ describe('Features', () => {
           minBlockHeight: 0,
           autoRegistry: {
             url: 'dummy',
-            deposit: 100,
+            deposit: util.toBN('10000000000000000'),
             depositUnit: 'wei',
             capabilities: {
               proof: true,
               multiChain: true
-            }
+            },
           },
           privateKey: pk,
           rpcUrl: test.url,
@@ -174,11 +175,11 @@ describe('Features', () => {
 
     const events = await watcher.update()
     assert.equal(events.length, 1)
-    assert.equal(events[0].event, 'LogServerRegistered')
-    assert.equal(events[0].owner, getAddress(pk))
+    assert.equal(events[0].event, 'LogNodeRegistered')
+    assert.equal(events[0].signer, getAddress(pk))
     assert.equal(events[0].url, 'dummy')
     assert.equal(events[0].props, 3)
-    assert.equal(events[0].deposit, 100)
+    assert.equal(events[0].deposit, util.toBN('10000000000000000'))
 
     const nl = await rpc.getHandler().getNodeList(false)
     assert.equal(nl.totalServers, 3)
@@ -189,7 +190,7 @@ describe('Features', () => {
   it('partial Server List', async () => {
 
     // create  10 nodes
-    const test = await TestTransport.createWithRegisteredServers(10)
+    const test = await TestTransport.createWithRegisteredNodes(10)
 
     const client = await test.createClient({ nodeLimit: 6, requestCount: 1, proof: 'standard' })
 
@@ -212,19 +213,15 @@ describe('Features', () => {
 
   })
 
-
-
   it('code cache', async () => {
 
     // create  10 nodes
     const test = new TestTransport(2)
     const client = await test.createClient({ maxCodeCache: 100000, requestCount: 1, proof: 'standard', includeCode: false })
 
-
     // deploy testcontract
     const pk = await test.createAccount()
     const adr = await deployContract('TestContract', pk, getTestClient())
-
 
     const ctx = client.getChainContext(client.defConfig.chainId) as EthChainContext
 
@@ -234,7 +231,7 @@ describe('Features', () => {
     assert.equal(ctx.codeCache.data.size, 1)
 
   })
-
+  // TODO: remove
   it('block cache', async () => {
 
     // create  10 nodes

@@ -19,7 +19,7 @@
 ***********************************************************/
 
 import {  Transport, AxiosTransport,  util } from 'in3-common'
-import { RPCRequest, RPCResponse,  IN3ResponseConfig, IN3RPCRequestConfig,  ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../model/types'
+import { RPCRequest, RPCResponse,  IN3ResponseConfig, IN3RPCRequestConfig,  ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour } from './stats'
@@ -28,7 +28,7 @@ import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
 import {SentryError} from '../util/sentryError'
-import { in3ProtocolVersion } from '../model/constants'
+import { in3ProtocolVersion } from '../types/constants'
 
 
 export class RPC {

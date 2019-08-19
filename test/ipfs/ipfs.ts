@@ -21,7 +21,7 @@
 import { assert } from 'chai'
 import 'mocha'
 import { TestTransport, getTestClient } from '../utils/transport'
-import { RPCResponse } from '../../src/model/types';
+import { RPCResponse } from '../../src/types/types';
 
 // our test private key
 const pk = '0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'

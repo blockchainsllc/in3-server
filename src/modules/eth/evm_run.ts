@@ -23,7 +23,7 @@ import * as Block from 'ethereumjs-block'
 import * as Trie from 'merkle-patricia-tree'
 import { rlp } from 'ethereumjs-util'
 import { util, serialize } from 'in3-common'
-import {  RPCRequest, RPCResponse } from '../../model/types'
+import {  RPCRequest, RPCResponse } from '../../types/types'
 
 /** executes a transaction-call to a smart contract */
 export async function analyseCall(args: {

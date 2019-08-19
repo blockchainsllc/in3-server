@@ -3,6 +3,7 @@ variables:
   COMMIT_IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
   RELEASE_IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
 stages:
+  - lint
   - build
   - test
   - package
@@ -15,11 +16,35 @@ build-server:
   script:
     - sh /prepare.sh
     - npm install
+    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@git.slock.it/in3/ts/in3.git
+    - cd in3
+    - npm install
+    - npm run build
+    - cp -r js/* ../node_modules/in3/js/
+    - cd ..
     - npm run build
   artifacts:
     paths:
       - node_modules/
       - js/
+
+lint-contracts-solium:
+  stage: lint
+  tags:
+    - short-jobs
+  script: 
+    - sh /prepare.sh
+    - npm i ethlint
+    - npm run lint:solium
+
+lint-contracts-solhint:
+  stage: lint
+  tags:
+    - short-jobs
+  script: 
+    - sh /prepare.sh
+    - npm i solhint
+    - npm run lint:solhint
 
 compile-contracts:
   stage: build
@@ -29,7 +54,7 @@ compile-contracts:
     - docker:dind
   image: jonaskello/docker-and-compose:latest
   script:
-    - docker run --rm -v $(pwd)/contracts:/contracts ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/ServerRegistry.sol /contracts/ChainRegistry.sol > contracts/contracts.json
+    - docker run -v $(pwd)/contracts:/contracts ethereum/solc:0.5.10 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/NodeRegistry.sol /contracts/ChainRegistry.sol /contracts/BlockhashRegistry.sol > contracts/contracts.json; docker run -v $(pwd)/test:/test ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /test/contracts/TestContract.sol > test/contracts/contracts.json
   artifacts:
     paths:
       - contracts/contracts.json
@@ -47,19 +72,7 @@ test-parity:
         - daemon
         - --offline
       alias: ipfs
-    - name: slockit/parity-in3:v2.3
-      command:
-        - --jsonrpc-experimental
-        - --jsonrpc-apis=all
-        - --logging=3
-        - --jsonrpc-interface=all
-        - --ws-interface=all
-        - --chain=dev
-        - --gas-cap=8000000
-        - --gasprice=0
-        - --reseal-min-period=0
-        - --gas-floor-target=8700000
-        - --tracing=on
+    - name: docker.slock.it/core-technology/parity-timemachine:master
       alias: parity
   script:
     - sh /prepare.sh
@@ -86,12 +99,12 @@ test-geth:
         - daemon
         - --offline
       alias: ipfs
-    - name: docker.slock.it/build-images/geth:v1.8.18
+    - name: docker.slock.it/core-technology/geth-timemachine:master
       alias: geth
   script:
     - sh /prepare.sh
-    - npm install
-  #        - npm run testCoverage             just for now geth seems to have some issues
+    - npm install 
+    - npm run testCoverage 
   dependencies:
     - build-server
     - compile-contracts
@@ -184,7 +197,7 @@ register-with-sentry-production:
     name: stage-${CHAIN}
   variables:
     TARGET: stage
-    REGISTRY_CONTRACT_ADDR: "0x2736D225f85740f42D17987100dc8d58e9e16252"
+    REGISTRY_CONTRACT_ADDR: "0xa412D519199C3c0ebaea3A9f73f1f89A935F9F14"
 
 .deploy-tmpl-production:
   extends: .deploy-tmpl
@@ -204,13 +217,13 @@ register-with-sentry-production:
   variables:
     CHAIN: goerli
     CHAIN_ID: "0x5"
-    RPC_ENDPOINT: http://lb.parity-rpc/goerli
+    RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
 
 .chain-tmpl-kovan:
   variables:
     CHAIN: kovan
     CHAIN_ID: "0x2a"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan/archive
 
 .chain-tmpl-mainnet:
   variables:
@@ -240,7 +253,7 @@ register-with-sentry-production:
   variables:
     CHAIN: ipfs
     CHAIN_ID: "0x7d0"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan
+    RPC_ENDPOINT: http://lb.parity-rpc/kovan/archive
 
 
 # Stage deployments
@@ -248,18 +261,17 @@ deploy-stage-kovan:
   extends: 
     - .deploy-tmpl-stage 
     - .chain-tmpl-kovan
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0x07965664f21abf0d615b734756f5f2b2b22a2a2b"
 
 deploy-stage-goerli:
   extends: 
     - .deploy-tmpl-stage 
     - .chain-tmpl-goerli
 
-deploy-stage-mainnet:
-  extends: 
-    - .deploy-tmpl-stage
-    - .chain-tmpl-mainnet
+# disable until v2 stage contract is deployed to mainnet
+#deploy-stage-mainnet:
+#  extends: 
+#    - .deploy-tmpl-stage
+#    - .chain-tmpl-mainnet
 
 # Production deployments
 deploy-production-mainnet:

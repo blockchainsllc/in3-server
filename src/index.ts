@@ -29,7 +29,7 @@ if (process.env.SENTRY_ENABLE === 'true') {
 import *  as rpc from './server/rpc'
 import *  as server from './server/server'
 import _config from './server/config'
-import { IN3RPCConfig } from '../src/model/types'
+import { IN3RPCConfig } from './types/types'
 
 /** the default rpc-handler */
 export type RPC = rpc.RPC
