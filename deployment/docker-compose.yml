@@ -9,18 +9,6 @@ services:
       io.rancher.container.agent.role: environmentAdmin,agent
       io.rancher.container.agent_service.drain_provider: 'true'
       io.rancher.container.create_agent: 'true'
-  
-  lb-monitor:
-    image: docker.slock.it/it/rancher-lb-monitor:master
-    environment:
-      TG_HOST: in3-lb-${TARGET}-${CHAIN}
-      TG_INFLUXURL: http://10.142.1.1:8086
-      TG_LBNAME: lb.in3-server-${TARGET}-${CHAIN}
-    stdin_open: true
-    tty: true
-    labels:
-      io.rancher.container.pull_image: always
-      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
 
   nd-1:
     image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
@@ -29,10 +17,10 @@ services:
     stdin_open: true
     tty: true
     environment:
-    - SENTRY_ENABLE="true"
-    - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
-    - SENTRY_ENVIRONMENT="${TARGET}"
-    - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
+    - SENTRY_ENABLE=true
+    - SENTRY_DSN=https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+    - SENTRY_ENVIRONMENT=${TARGET}
+    - SENTRY_RELEASE=in3-server@${CI_COMMIT_REF_NAME}
     command:
     - --privateKey=${SRV_PK1}
     - --registry=${REGISTRY_CONTRACT_ADDR}
@@ -56,9 +44,9 @@ services:
     tty: true
     environment:
     - SENTRY_ENABLE=true
-    - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
-    - SENTRY_ENVIRONMENT="${TARGET}"
-    - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
+    - SENTRY_DSN=https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+    - SENTRY_ENVIRONMENT=${TARGET}
+    - SENTRY_RELEASE=in3-server@${CI_COMMIT_REF_NAME}
     command:
     - --privateKey=${SRV_PK2}
     - --registry=${REGISTRY_CONTRACT_ADDR}
@@ -82,9 +70,9 @@ services:
     tty: true
     environment:
     - SENTRY_ENABLE=true
-    - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
-    - SENTRY_ENVIRONMENT="${TARGET}"
-    - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
+    - SENTRY_DSN=https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+    - SENTRY_ENVIRONMENT=${TARGET}
+    - SENTRY_RELEASE=in3-server@${CI_COMMIT_REF_NAME}
     command:
     - --privateKey=${SRV_PK3}
     - --registry=${REGISTRY_CONTRACT_ADDR}
@@ -108,9 +96,9 @@ services:
     tty: true
     environment:
     - SENTRY_ENABLE=true
-    - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
-    - SENTRY_ENVIRONMENT="${TARGET}"
-    - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
+    - SENTRY_DSN=https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+    - SENTRY_ENVIRONMENT=${TARGET}
+    - SENTRY_RELEASE=in3-server@${CI_COMMIT_REF_NAME}
     command:
     - --privateKey=${SRV_PK4}
     - --registry=${REGISTRY_CONTRACT_ADDR}
@@ -135,9 +123,9 @@ services:
     tty: true
     environment:
     - SENTRY_ENABLE=true
-    - SENTRY_DSN="https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2"
-    - SENTRY_ENVIRONMENT="${TARGET}"
-    - SENTRY_RELEASE="in3-server@${CI_COMMIT_REF_NAME}"
+    - SENTRY_DSN=https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+    - SENTRY_ENVIRONMENT=${TARGET}
+    - SENTRY_RELEASE=in3-server@${CI_COMMIT_REF_NAME}
     command:
     - --privateKey=${SRV_PK5}
     - --registry=${REGISTRY_CONTRACT_ADDR}
