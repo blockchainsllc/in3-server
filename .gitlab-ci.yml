@@ -195,6 +195,7 @@ register-with-sentry-production:
     - branches
   environment:
     name: stage-${CHAIN}
+  when: manual
   variables:
     TARGET: stage
     REGISTRY_CONTRACT_ADDR: "0xa412D519199C3c0ebaea3A9f73f1f89A935F9F14"
