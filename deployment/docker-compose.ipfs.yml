@@ -5,7 +5,7 @@ services:
     expose:
     - 80:80/tcp
     labels:
-      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
       io.rancher.container.agent.role: environmentAdmin,agent
       io.rancher.container.agent_service.drain_provider: 'true'
       io.rancher.container.create_agent: 'true'
@@ -34,7 +34,7 @@ services:
     - --ipfsUrl=http://ipfs.iotlayer-deploy:5001
 
     labels:
-      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
       io.rancher.container.hostname_override: container_name
       io.rancher.container.pull_image: always
   nd-2:
@@ -60,7 +60,7 @@ services:
     - --handler=ipfs
     - --ipfsUrl=http://ipfs.iotlayer-deploy:5001
     labels:
-      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
       io.rancher.container.hostname_override: container_name
       io.rancher.container.pull_image: always
   nd-3:
@@ -86,7 +86,7 @@ services:
     - --handler=ipfs
     - --ipfsUrl=http://ipfs.iotlayer-deploy:5001
     labels:
-      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
       io.rancher.container.hostname_override: container_name
       io.rancher.container.pull_image: always
   nd-4:
@@ -112,7 +112,7 @@ services:
     - --handler=ipfs
     - --ipfsUrl=http://ipfs.iotlayer-deploy:5001
     labels:
-      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
       io.rancher.container.hostname_override: container_name
       io.rancher.container.pull_image: always
 
@@ -139,7 +139,7 @@ services:
     - --handler=ipfs
     - --ipfsUrl=http://ipfs.iotlayer-deploy:5001
     labels:
-      io.rancher.scheduler.affinity:host_label: environment=${TARGET}
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
       io.rancher.container.hostname_override: container_name
       io.rancher.container.pull_image: always
       
