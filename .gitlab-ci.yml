@@ -52,7 +52,7 @@ compile-contracts:
     - short-jobs
   services:
     - docker:dind
-  image: jonaskello/docker-and-compose:latest
+  image: docker.slock.it/build-images/deployment
   script:
     - docker run -v $(pwd)/contracts:/contracts ethereum/solc:0.5.10 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/NodeRegistry.sol /contracts/ChainRegistry.sol /contracts/BlockhashRegistry.sol > contracts/contracts.json; docker run -v $(pwd)/test:/test ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /test/contracts/TestContract.sol > test/contracts/contracts.json
   artifacts:
@@ -136,7 +136,7 @@ package-docker:
     - short-jobs
   services:
     - docker:dind
-  image: jonaskello/docker-and-compose:latest
+  image: docker.slock.it/build-images/deployment
   script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
     - docker build --build-arg NPM_REGISTRY_TOKEN=${NPM_REGISTRY_TOKEN} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} -t $COMMIT_IMAGE_TAG .
@@ -145,6 +145,24 @@ package-docker:
     - docker push $COMMIT_IMAGE_TAG
 
 # Deployment Section
+dockerhub-deploy:
+  stage: deploy
+  only:
+    - /^v[0-9]+.[0-9]+.[0-9]+$/
+  except:
+    - branches
+  tags:
+    - short-jobs
+  services:
+    - docker:dind
+  image: docker.slock.it/build-images/deployment
+  variables:
+    IMAGE_TAG: slockit/in3:$CI_COMMIT_TAG
+  before_script:
+    - docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} ${DOCKERHUB_REGISTRY}
+  script:
+    - docker build --build-arg NPM_REGISTRY_TOKEN=${NPM_REGISTRY_TOKEN} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} -t $COMMIT_IMAGE_TAG .
+    - docker push $IMAGE_TAG
 
 .register-with-sentry:
   stage: deploy
