@@ -16,7 +16,7 @@ build-server:
   script:
     - sh /prepare.sh
     - npm install
-    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@git.slock.it/in3/ts/in3.git
+    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@git.slock.it/in3/ts/in3.git -b 63-include-in3-version-in-types --single-branch
     - cd in3
     - npm install
     - npm run build
