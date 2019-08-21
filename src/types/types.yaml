@@ -69,6 +69,10 @@ definitions:
                 items:
                     type: string
                     format: address
+            version:
+                description: IN3 protocol version that client can specify explicitly in request
+                type: string
+                example: "1.0.0"
 
     LogProof:
         type: object
@@ -397,27 +401,31 @@ definitions:
               example: 3
 
     ServerList:
-          type: object
-          description: a List of nodes
-          required: [nodes]
-          properties:
-              lastBlockNumber:
-                  type: integer
-                  description: last Block number
-              nodes:
-                  type: array
-                  description: the list of nodes
-                  items:
-                      $ref: "#/definitions/IN3NodeConfig"
-              contract:
-                  type: string
-                  description: IN3 Registry
-                  pattern: ^0x[0-9a-fA-F]+$
-              totalServers:
-                  type: integer
-                  description: number of servers
-              proof:
-                  $ref: "#/definitions/Proof"
+        type: object
+        description: a List of nodes
+        required: [nodes]
+        properties:
+            lastBlockNumber:
+                type: integer
+                description: last Block number
+            nodes:
+                type: array
+                description: the list of nodes
+                items:
+                    $ref: "#/definitions/IN3NodeConfig"
+            contract:
+                type: string
+                description: IN3 Registry
+                pattern: ^0x[0-9a-fA-F]+$
+            registryId: 
+                type: string
+                description: registryId of the contract for signing requests
+                pattern:  ^0x[0-9a-fA-F]+$
+            totalServers:
+                type: integer
+                description: number of servers
+            proof:
+                $ref: "#/definitions/Proof"
 
     IN3RPCHandlerConfig:
       type: object
@@ -821,6 +829,30 @@ definitions:
               description: blacklisted because of failed requests until the timestamp
               type: integer
               example: 1529074639623
+    RPCRequest:
+        type: object
+        description: a JSONRPC-Request with N3-Extension
+        required: [jsonrpc, method]
+        properties:
+            jsonrpc:
+                description: the version
+                type: string
+                enum: ["2.0"]
+            method:
+                description: the method to call
+                type: string
+                example: eth_getBalance
+            id:
+                description: the identifier of the request
+                type: [number, string]
+                example: 2
+            params:
+                description: the params
+                type: array
+                example: ["0xe36179e2286ef405e929C90ad3E70E649B22a945", latest]
+            in3:
+                description: the IN3-Config
+                $ref: "#/definitions/IN3RPCRequestConfig"
 
 
 

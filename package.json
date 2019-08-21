@@ -4,6 +4,7 @@
   "description": "Typescript-version of the in3 server",
   "main": "js/src/server/server.js",
   "scripts": {
+    "updateTypes": "npm install slockit-generator; slockit-types ; npm uninstall slockit-generator",
     "docu": "typedoc  --exclude test --excludePrivate  --readme none --ignoreCompilerErrors --target ES6  --mode 'modules' --json doc.json src/index.ts ; cat  doc.json | slockit-docu index slockit/in3-server/blob/master/src \"#INCUBED API\" >  src/README.md ; rm doc.json",
     "updateIn3": "rm -rf node_modules/in3 package-lock.json; npm install",
     "build": "tsc -p .",
@@ -112,3 +113,5 @@
     "in3-common": "0.0.1-beta.7"
   }
 }
+
+  
