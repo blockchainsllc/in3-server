@@ -70,7 +70,7 @@ export function deployBlockhashRegistry(pk: string, url = 'http://localhost:8545
     privateKey: pk,
     gas: 8000000,
     confirm: true
-  }, transport, 3000).then(_ => toChecksumAddress(_.contractAddress) as string)
+  }, transport, 300000).then(_ => toChecksumAddress(_.contractAddress) as string)
 }
 
 export async function registerNodes(pk: string, registry: string, data: {
