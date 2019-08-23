@@ -25,6 +25,7 @@ import { handleSign } from '../../chains/signatures';
 import { getValidatorHistory } from '../../server/poa'
 import { TxRequest, LogFilter } from './api';
 import * as tx from '../../../src/util/tx'
+import * as logger from '../../util/logger'
 
 const clientConf = require('in3-common/js/defaultConfig.json')
 const toHex = in3Util.toHex
@@ -34,9 +35,12 @@ const toNumber = in3Util.toNumber
  * handles EVM-Calls
  */
 export default class EthHandler extends BaseHandler {
+  conf: IN3RPCHandlerConfig
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     super(config, transport, nodeList)
+
+    this.conf = config
   }
 
   /** main method to handle a request */
@@ -72,10 +76,14 @@ export default class EthHandler extends BaseHandler {
   }
 
   private checkPerformanceLimits(request: RPCRequest) {
+    const maxAllowedGas:number = 10000000
+
     if (request.method === 'eth_call') {
       if (!request.params || request.params.length < 2) throw new Error('eth_call must have a transaction and a block as parameters')
       const tx = request.params as TxRequest
-      if (!tx || (tx.gas && toNumber(tx.gas) > 10000000)) throw new Error('eth_call with a gaslimit > 10M are not allowed')
+      if (!tx || (tx.gas && toNumber(tx.gas) > (this.conf.maxGasLimit || maxAllowedGas))) {
+        logger.error('eth_call with a gaslimit > '+(this.conf.maxGasLimit || maxAllowedGas)+' are not allowed')
+        throw new Error('eth_call with a gaslimit > '+(this.conf.maxGasLimit || maxAllowedGas)+' are not allowed')}
     }
     else if (request.method === 'eth_getLogs') {
       if (!request.params || request.params.length < 1) throw new Error('eth_getLogs must have a filter as parameter')
