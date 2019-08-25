@@ -123,7 +123,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
 
   // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
   const address = nodeList.contract
-  const lastBlock = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result))
+  const lastBlock = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, handler.config.registryRPC).then(_ => parseInt(_.result))
   const blockNr = lastBlock ? '0x' + Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0)).toString(16) : 'latest'
   let req: any = ''
 
@@ -131,7 +131,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
   const [blockResponse, proof] = await handler.getAllFromServer(req = [
     { method: 'eth_getBlockByNumber', params: [blockNr, false] },
     { method: 'eth_getProof', params: [toHex(address, 20), keys.map(_ => toHex(_, 32)), blockNr] }
-  ])
+  ], undefined, handler.config.registryRPC)
 
   // console.log(proof.result.storageProof.map(_ => _.key + ' = ' + _.value).join('\n'))
   // error checking
@@ -179,25 +179,13 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   }
 
   if (!list.registryId) {
-
-    const registryIdRequest: RPCRequest = {
-      jsonrpc: '2.0',
-      id: 0,
-      method: 'eth_call', params: [{
-        to: list.contract,
-        data: '0x' + abi.simpleEncode('registryId()').toString('hex')
-      },
-        'latest']
-    }
-
-    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string);
-    list.registryId = registryId
-
+    const [registryId] = await tx.callContract(handler.config.registryRPC, list.contract, 'registryId():(bytes32)', [])
+    list.registryId = toHex(registryId)
   }
 
   // number of registered servers
-  const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [])
-  list.lastBlockNumber = lastBlockNumber || parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
+  const [serverCount] = await tx.callContract(handler.config.registryRPC, list.contract, 'totalNodes():(uint)', [])
+  list.lastBlockNumber = lastBlockNumber || parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, handler.config.registryRPC).then(_ => _.result as string))
   list.totalServers = serverCount.toNumber()
 
   // build the requests per server-entry
@@ -213,7 +201,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
         'latest']
     })
 
-  list.nodes = await handler.getAllFromServer(nodeRequests).then(all => all.map((n, i) => {
+  list.nodes = await handler.getAllFromServer(nodeRequests, undefined, handler.config.registryRPC).then(all => all.map((n, i) => {
     // invalid requests must be filtered out
     if (n.error) return null
     const [url, deposit, timeout, registerTime, props, weight, signer, proofHash] = abi.simpleDecode('nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', toBuffer(n.result))

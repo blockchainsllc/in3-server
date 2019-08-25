@@ -142,7 +142,7 @@ export default class Watcher extends EventEmitter {
     let res = null
     const [nodeList, currentBlock] = await Promise.all([
       this.handler.getNodeList(false),
-      this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => toNumber(_.result))
+      this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, this.handler.config.registryRPC).then(_ => toNumber(_.result))
     ])
 
     if (this.block.number == currentBlock) return
@@ -156,7 +156,7 @@ export default class Watcher extends EventEmitter {
     ... (nodeList && nodeList.contract ? [{
       method: 'eth_getLogs', params: [{ fromBlock: toMinHex(this.block.number + 1), toBlock: toMinHex(currentBlock), address: nodeList.contract }]
     }] : [])
-    ])
+    ], undefined, this.handler.config.registryRPC)
 
     if (blockResponse.error) throw new Error('Error getting the block ' + currentBlock + ': ' + blockResponse.error)
     if (!blockResponse.result) throw new Error('Invalid Response getting the block ' + currentBlock + ': ' + JSON.stringify(blockResponse))

@@ -18,16 +18,17 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import {  Transport, AxiosTransport,  util } from 'in3-common'
-import { RPCRequest, RPCResponse,  IN3ResponseConfig, IN3RPCRequestConfig,  ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
+import { Transport, AxiosTransport, util } from 'in3-common'
+import { RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour } from './stats'
 
+import BTCHandler from '../modules/btc/BTCHandler'
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
-import {SentryError} from '../util/sentryError'
+import { SentryError } from '../util/sentryError'
 
 
 export class RPC {
@@ -54,6 +55,9 @@ export class RPC {
         case 'ipfs':
           h = new IPFSHandler({ ...rpcConf }, transport, nodeList)
           break
+        case 'btc':
+          h = new BTCHandler({ ...rpcConf }, transport, nodeList)
+          break
         // TODO implement other handlers later
         default:
           h = new EthHandler({ ...rpcConf }, transport, nodeList)
@@ -72,7 +76,7 @@ export class RPC {
       const in3: IN3ResponseConfig = {} as any
       const start = Date.now()
 
-      if(!handler)
+      if (!handler)
         throw new Error("Unable to connect Ethereum and/or invalid chainId give.")
 
       // update stats
@@ -189,8 +193,8 @@ export interface RPCHandler {
   chainId: string
   handle(request: RPCRequest): Promise<RPCResponse>
   handleWithCache(request: RPCRequest): Promise<RPCResponse>
-  getFromServer(request: Partial<RPCRequest>, r?: any): Promise<RPCResponse>
-  getAllFromServer(request: Partial<RPCRequest>[], r?: any): Promise<RPCResponse[]>
+  getFromServer(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse>
+  getAllFromServer(request: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[]): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
@@ -223,12 +227,12 @@ export class HandlerTransport extends AxiosTransport {
       const res = await axios.post(url, requests, { headers: { 'Content-Type': 'application/json' } })
 
       // throw if the status is an error
-      if (res.status > 200) throw new SentryError('Invalid status','status_error',res.status.toString())
+      if (res.status > 200) throw new SentryError('Invalid status', 'status_error', res.status.toString())
 
       // if this was not given as array, we need to convert it back to a single object
       return Array.isArray(data) ? res.data : res.data[0]
     } catch (err) {
-      throw new SentryError(err,'status_error','Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
+      throw new SentryError(err, 'status_error', 'Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
     }
   }
 
