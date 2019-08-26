@@ -118,6 +118,20 @@ describe('Convict', () => {
 
   }).timeout(6000000)
 
+  it("should increase the # of blocks to at least 260", async () => {
+
+    const test = await TestTransport.createWithRegisteredNodes(2)
+
+    let currentBlock = await test.getFromServer('eth_getBlockByNumber', "latest", false) as BlockData
+
+    while (toNumber(currentBlock.number) < 260) {
+      await test.createAccount(null, '1')
+      currentBlock = await test.getFromServer('eth_getBlockByNumber', "latest", false) as BlockData
+
+    }
+
+  }).timeout(600000)
+
   it('verify and convict (block older then 256 blocks) - worth it', async () => {
 
 
@@ -130,7 +144,7 @@ describe('Convict', () => {
 
     const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 }))
 
-    const wrongBlock = txReceipt.blockNumber - 0x12C
+    const wrongBlock = txReceipt.blockNumber - 0x104
     const watcher = test.getHandler(0).watcher
 
     const watcher2 = test.getHandler(1).watcher
@@ -140,7 +154,7 @@ describe('Convict', () => {
 
     const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
 
-    assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 300)
+    assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 260)
 
     const client = await test.createClient()
 
@@ -198,20 +212,6 @@ describe('Convict', () => {
   }).timeout(6000000)
 
 
-  it("should increase the # of blocks to at least 260", async () => {
-
-    const test = await TestTransport.createWithRegisteredNodes(2)
-
-    let currentBlock = await test.getFromServer('eth_getBlockByNumber', "latest", false) as BlockData
-
-    while (toNumber(currentBlock.number) < 260) {
-      await test.createAccount(null, '1')
-      currentBlock = await test.getFromServer('eth_getBlockByNumber', "latest", false) as BlockData
-
-    }
-
-  })
-
   it('verify and convict (block older then 256 blocks) - not worth it', async () => {
     const test = await TestTransport.createWithRegisteredNodes(2)
 
@@ -220,7 +220,7 @@ describe('Convict', () => {
 
     const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 }))
 
-    const wrongBlock = txReceipt.blockNumber - 0x12C
+    const wrongBlock = txReceipt.blockNumber - 0x104
 
     const watcher = test.getHandler(0).watcher
     const watcher2 = test.getHandler(1).watcher
@@ -231,7 +231,7 @@ describe('Convict', () => {
 
     const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
 
-    assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 300)
+    assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 260)
 
     const client = await test.createClient()
 
@@ -282,82 +282,5 @@ describe('Convict', () => {
     assert.equal(events2, undefined)
 
   })
-  it('verify and convict (block older then 256 blocks) - worth it', async () => {
-
-    const test = await TestTransport.createWithRegisteredNodes(2)
-
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(0).privateKey), "#1", 0, 0, 0], { privateKey: test.getHandlerConfig(0).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [util.getAddress(test.getHandlerConfig(1).privateKey), "#2", 0, 0, 0], { privateKey: test.getHandlerConfig(1).privateKey, value: toBN('490000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false)
-
-    const blockHashRegistry = (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
-
-    const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerConfig(1).privateKey, value: 0, confirm: true, gas: 5000000 }))
-
-    const wrongBlock = txReceipt.blockNumber - 0x12C
-    const watcher = test.getHandler(0).watcher
-
-    const watcher2 = test.getHandler(1).watcher
-
-    const pk1 = test.getHandlerConfig(0).privateKey
-    const pk2 = test.getHandlerConfig(1).privateKey
-
-    const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
-
-    assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 300)
-
-    const client = await test.createClient()
-
-    // this is a correct signature and should not fail.
-    const res = await client.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
-      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
-    })
-
-    assert.isDefined(res.in3.proof.signatures[0])
-    test.injectRandom([0.01, 0.9])
-    test.injectRandom([0.02, 0.8])
-
-    let manipulated = false
-    test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
-      const index = parseInt(url.substr(1)) - 1
-      // we change it to a wrong signature
-      if (!manipulated) {
-        re.result = [sign(block, test.registryId, test.getHandlerConfig(index).privateKey, pk1)]
-        manipulated = true
-      }
-      return re
-    })
-
-
-    assert.equal(await test.getNodeCountFromContract(), 2)
-
-    // we create a new client because the old one may have different weights now
-    const client2 = await test.createClient()
-
-    // just read all events
-    await watcher.update()
-    await watcher2.update()
-
-    // this is a correct signature and should not fail.
-    const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
-      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
-    })
-
-    // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
-    await test.createAccount()
-    // just read all events
-    await watcher.update()
-    await watcher2.update()
-
-    await test.createAccount()
-    let events = await watcher.update()
-
-    if (!events) events = await watcher2.update()
-
-    assert.equal(events.length, 2)
-    assert.equal(await test.getNodeCountFromContract(), 1)
-
-    assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
-
-  }).timeout(6000000)
 
 })
