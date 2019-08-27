@@ -26,6 +26,7 @@ import { getValidatorHistory } from '../../server/poa'
 import { TxRequest, LogFilter } from './api';
 import * as tx from '../../../src/util/tx'
 import * as logger from '../../util/logger'
+import {TestTransport} from "../../../test/utils/transport";
 
 const clientConf = require('in3-common/js/defaultConfig.json')
 const toHex = in3Util.toHex
@@ -79,11 +80,18 @@ export default class EthHandler extends BaseHandler {
     const maxAllowedGas:number = 10000000
 
     if (request.method === 'eth_call') {
-      if (!request.params || request.params.length < 2) throw new Error('eth_call must have a transaction and a block as parameters')
-      const tx = request.params as TxRequest
-      if (!tx || (tx.gas && toNumber(tx.gas) > (this.conf.maxGasLimit || maxAllowedGas))) {
-        logger.error('eth_call with a gaslimit > '+(this.conf.maxGasLimit || maxAllowedGas)+' are not allowed')
-        throw new Error('eth_call with a gaslimit > '+(this.conf.maxGasLimit || maxAllowedGas)+' are not allowed')}
+      if (!request.params /*|| request.params.length < 2*/)
+        throw new Error('eth_call must have a transaction and a block as parameters')
+
+      const tx = request.params
+      tx.forEach(function(element) {
+        const params = element as TxRequest
+
+        //checking this is not undefined because in TestTransport EthHandler is not getting this.conf
+        if (!params || (params.gas && toNumber(params.gas) > (this && this.conf && this.conf.maxGasLimit || maxAllowedGas))) {
+          logger.error('eth_call with a gaslimit > '+(this.conf.maxGasLimit || maxAllowedGas)+' are not allowed')
+          throw new Error('eth_call with a gaslimit > '+(this.conf.maxGasLimit || maxAllowedGas)+' are not allowed')}
+      });
     }
     else if (request.method === 'eth_getLogs') {
       if (!request.params || request.params.length < 1) throw new Error('eth_getLogs must have a filter as parameter')
