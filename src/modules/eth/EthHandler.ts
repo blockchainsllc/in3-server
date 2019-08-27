@@ -77,20 +77,22 @@ export default class EthHandler extends BaseHandler {
   }
 
   private checkPerformanceLimits(request: RPCRequest) {
-    const maxAllowedGas:number = 10000000
+    const maxAllowedGas:number = 10000000  //max default allowed gas 10M
 
     if (request.method === 'eth_call') {
       if (!request.params /*|| request.params.length < 2*/)
         throw new Error('eth_call must have a transaction and a block as parameters')
 
+      //checking this is not undefined because in TestTransport EthHandler is not getting this.conf
+      const gasLimit = ((this && this.conf && this.conf.maxGasLimit && !isNaN(this.conf.maxGasLimit))?this.conf.maxGasLimit:maxAllowedGas)
+
       const tx = request.params
       tx.forEach(function(element) {
         const params = element as TxRequest
 
-        //checking this is not undefined because in TestTransport EthHandler is not getting this.conf
-        if (!params || (params.gas && toNumber(params.gas) > (this && this.conf && this.conf.maxGasLimit || maxAllowedGas))) {
-          logger.error('eth_call with a gaslimit > '+(this.conf.maxGasLimit || maxAllowedGas)+' are not allowed')
-          throw new Error('eth_call with a gaslimit > '+(this.conf.maxGasLimit || maxAllowedGas)+' are not allowed')}
+        if (!params || (params.gas && toNumber(params.gas) > gasLimit)) {
+          logger.error('eth_call with a gaslimit > '+gasLimit+' are not allowed')
+          throw new Error('eth_call with a gaslimit > '+gasLimit+' are not allowed')}
       });
     }
     else if (request.method === 'eth_getLogs') {
