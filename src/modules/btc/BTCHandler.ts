@@ -47,8 +47,16 @@ export default class BTCHandler extends BaseHandler {
 
       case 'getblock':
         return toRes(await this.getBlock(request.params[0], request.params[1], request.in3 && request.in3.finality, request))
+      case 'getblockheader':
+        return toRes(await this.getBlockHeader(request.params[0], request.params[1], request.in3 && request.in3.finality, request))
       case 'gettransaction':
         return toRes(await this.getTransaction(request.params[0], request.params[1], request.in3 && request.in3.finality, request))
+      case 'scantxoutset':
+        // https://bitcoincore.org/en/doc/0.18.0/rpc/blockchain/scantxoutset/
+        return this.getFromServer(request)
+      case 'gettxout':
+        // https://bitcoincore.org/en/doc/0.18.0/rpc/blockchain/gettxout/
+        return this.getFromServer(request)
 
       default:
         return this.getFromServer(request)
@@ -77,6 +85,12 @@ export default class BTCHandler extends BaseHandler {
 
   async getBlock(hash: string, json: boolean = true, finality: number = 0, r: any) {
     const block = await this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult)
+    const proof: any = {}
+    if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
+    return { result: block, in3: { proof } }
+  }
+  async getBlockHeader(hash: string, json: boolean = true, finality: number = 0, r: any) {
+    const block = await this.getFromServer({ method: "getblockheader", params: [hash, json] }, r).then(asResult)
     const proof: any = {}
     if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
     return { result: block, in3: { proof } }
