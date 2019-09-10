@@ -26,6 +26,8 @@ import { padEnd } from 'in3-common/js/src/util/util';
 const toHex = util.toHex
 
 const bin = JSON.parse(readFileSync('./contracts/contracts.json', 'utf8'))
+
+const in3ContractBin = JSON.parse(readFileSync('node_modules/in3-contracts/contracts/contracts.json', 'utf8'))
 try {
   const binTest = JSON.parse(readFileSync('./test/contracts/contracts.json', 'utf8'))
   Object.assign(bin.contracts, binTest.contracts)
@@ -34,7 +36,7 @@ try {
 }
 
 export function getABI(name: string) {
-  return JSON.parse(bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf(name) >= 0)].abi)
+  return JSON.parse(in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf(name) >= 0)].abi)
 }
 
 export function deployContract(name: string, pk: string, url = 'http://localhost:8545', transport?: Transport) {
@@ -58,7 +60,7 @@ export function deployChainRegistry(pk: string, url = 'http://localhost:8545', t
 export async function deployNodeRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
 
   const blockHashAddress = (await deployBlockhashRegistry(pk, url, transport)).substr(2)
-  return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('NodeRegistry') >= 0)].bin + padStart(blockHashAddress, 64, "0"), {
+  return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/NodeRegistry.sol:NodeRegistry') >= 0)].bin + padStart(blockHashAddress, 64, "0"), {
     privateKey: pk,
     gas: 8000000,
     confirm: true
@@ -66,7 +68,7 @@ export async function deployNodeRegistry(pk: string, url = 'http://localhost:854
 }
 
 export function deployBlockhashRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
-  return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('BlockhashRegistry') >= 0)].bin, {
+  return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/BlockhashRegistry.sol:BlockhashRegistry') >= 0)].bin, {
     privateKey: pk,
     gas: 8000000,
     confirm: true
