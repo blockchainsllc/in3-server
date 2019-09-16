@@ -16,6 +16,7 @@
 * For more information, please refer to https://slock.it   *
 * For questions, please contact info@slock.it              *
 ***********************************************************/
+const Sentry = require('@sentry/node')
 
 import { RPCHandler, HandlerTransport } from '../server/rpc'
 import * as tx from '../util/tx'
@@ -32,6 +33,17 @@ const bytes32 = serialize.bytes32
 
 /** returns a nodelist filtered by the given params and proof. */
 export async function getNodeList(handler: RPCHandler, nodeList: ServerList, includeProof = false, limit = 0, seed?: string, addresses: string[] = []): Promise<ServerList> {
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "getNodeList",
+      data: {
+        includeProof: includeProof,
+        limit: limit,
+        seed: seed,
+        addresses: addresses
+      }
+    })
+  }
 
   // TODO check blocknumber of last event.
   if (!nodeList.nodes)
@@ -49,8 +61,22 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
         'latest']
     }
 
+    if (process.env.SENTRY_ENABLE === 'true') {
 
-    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string);
+      Sentry.addBreadcrumb({
+        category: "registryId request",
+        data: registryIdRequest
+      })
+    }
+    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string).catch(_ => {
+
+      Sentry.configureScope((scope) => {
+        scope.setTag("NodeListFunction", "registryId");
+        scope.setTag("NodeList-address", nodeList.contract)
+        scope.setExtra("NodeList-response", _)
+      });
+      throw new Error(_)
+    });
     if (registryId != undefined) nodeList.registryId = registryId
   }
 
@@ -60,8 +86,8 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
 
     // try to find the addresses in the node list
     const result = addresses.map(adr => nodes.findIndex(_ => _.address === adr))
-    if (result.indexOf(-1) >= 0) throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist')
-
+    if (result.indexOf(-1) >= 0)// throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist', "getNodeList")
+      throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist')
     createRandomIndexes(nodes.length, limit, bytes32(seed), result)
 
     const nl: ServerList = {
@@ -190,6 +216,13 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
         'latest']
     }
 
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.addBreadcrumb({
+        category: "registryId request",
+        data: registryIdRequest
+      })
+    }
+
     const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string);
     list.registryId = registryId
 
@@ -197,6 +230,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
   // number of registered servers
   const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [])
+
   list.lastBlockNumber = lastBlockNumber || parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
   list.totalServers = serverCount.toNumber()
 

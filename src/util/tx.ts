@@ -16,6 +16,7 @@
  * For more information, please refer to https://slock.it   *
  * For questions, please contact info@slock.it              *
  ***********************************************************/
+const Sentry = require('@sentry/node')
 
 import { methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
@@ -57,6 +58,23 @@ export async function callContract(url: string, contract: string, signature: str
 
   if (txargs)
     return sendTransaction(url, { ...txargs, to: contract, data }, transport)
+  if (process.env.SENTRY_ENABLE === 'true') {
+
+    Sentry.addBreadcrumb({
+      category: "encoding call",
+      data: {
+        jsonrpc: '2.0',
+        id: idCount++,
+        method: 'eth_call', params: [{
+          to: contract,
+          data
+        }],
+        signature: signature,
+        args: args
+      },
+
+    })
+  }
 
   return decodeFunction(signature.replace('()', '(uint)'), toBuffer(await transport.handle(url, {
     jsonrpc: '2.0',
@@ -67,7 +85,8 @@ export async function callContract(url: string, contract: string, signature: str
     },
       'latest']
   }).then((_: RPCResponse) => _.error
-    ? Promise.reject(new SentryError('Could not call contract', 'contract_call_error', 'Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
+    //   ? Promise.reject(new SentryError('Could not call contract', 'contract_call_error', 'Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
+    ? Promise.reject(new Error('Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
     : _.result + ''
   )))
 }
@@ -130,6 +149,12 @@ export async function sendTransaction(url: string, txargs: {
   })
   tx.sign(key)
 
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "sending tx",
+      data: tx
+    })
+  }
 
   const txHash = await transport.handle(url, {
     jsonrpc: '2.0',

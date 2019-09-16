@@ -16,6 +16,7 @@
 * For more information, please refer to https://slock.it   *
 * For questions, please contact info@slock.it              *
 ***********************************************************/
+const Sentry = require('@sentry/node')
 
 import BaseHandler from './BaseHandler'
 import { BlockData, util, serialize } from 'in3-common'
@@ -25,6 +26,7 @@ import { callContract } from '../util/tx'
 import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
 import { toBuffer } from 'in3-common/js/src/util/util';
+import { SentryError } from '../util/sentryError'
 
 
 const toHex = util.toHex
@@ -37,6 +39,7 @@ const bytes = serialize.bytes
 export const signatureCaches: LRUCache = new LRUCache();
 
 export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
+
   // nothing to do?
   if (!addresses || !addresses.length || !requestedBlocks || !requestedBlocks.length) return []
 
@@ -56,9 +59,18 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
   return Promise.all(uniqueAddresses.slice(0, nodes.nodes.length).map(async adr => {
     // find the requested address in our list
     const config = nodes.nodes.find(_ => _.address.toLowerCase() === adr.toLowerCase())
-    if (!config) // TODO do we need to throw here or is it ok to simply not deliver the signature?
-      throw new Error('The ' + adr + ' does not exist within the current registered active nodeList!')
+    if (!config) { // TODO do we need to throw here or is it ok to simply not deliver the signature?
 
+      Sentry.configureScope((scope) => {
+        scope.setTag("NodeListFunction", "collectSignatures");
+        scope.setExtra("required signature addresses", addresses)
+        scope.setTag("contract address", nodes.contract)
+        scope.setExtra("nodes", nodes.nodes)
+        scope.setExtra("requestedBlocks", requestedBlocks)
+      });
+
+      throw new Error('The address ' + adr + ' does not exist within the current registered active nodeList!')
+    }
     // get cache signatures and remaining blocks that have no signatures
     const cachedSignatures: Signature[] = []
     const blocksToRequest = blocks.filter(b => {
@@ -73,7 +85,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest })
         : { result: [] }) as RPCResponse
       if (response.error) {
-        //throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+        //sthrow new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         return null
       }

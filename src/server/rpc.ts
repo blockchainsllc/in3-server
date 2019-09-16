@@ -17,9 +17,10 @@
 * For more information, please refer to https://slock.it   *
 * For questions, please contact info@slock.it              *
 ***********************************************************/
+const Sentry = require('@sentry/node')
 
-import {  Transport, AxiosTransport,  util } from 'in3-common'
-import { RPCRequest, RPCResponse,  IN3ResponseConfig, IN3RPCRequestConfig,  ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
+import { Transport, AxiosTransport, util } from 'in3-common'
+import { RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour } from './stats'
@@ -27,7 +28,7 @@ import { getStats, currentHour } from './stats'
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
-import {SentryError} from '../util/sentryError'
+import { SentryError } from '../util/sentryError'
 
 
 export class RPC {
@@ -66,18 +67,18 @@ export class RPC {
   }
 
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
+
     return Promise.all(request.map(r => {
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
       const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
       const in3: IN3ResponseConfig = {} as any
       const start = Date.now()
 
-      if(!handler)
+      if (!handler)
         throw new Error("Unable to connect Ethereum and/or invalid chainId give.")
 
       // update stats
       currentHour.update(r)
-
 
       if (r.method === 'in3_nodeList')
         return manageRequest(handler, Promise.all([handler.getNodeList(
@@ -102,6 +103,7 @@ export class RPC {
           }
           return res as RPCResponse
         }))
+
 
       else if (r.method === 'in3_validatorlist')
         return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
@@ -144,7 +146,14 @@ export class RPC {
         })
       ])
         .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })))
-    }))
+    })).catch(e => {
+      Sentry.configureScope((scope) => {
+        scope.setExtra("request", request)
+      })
+      throw new Error(e)
+
+    })
+
   }
 
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest {
@@ -175,12 +184,13 @@ export class RPC {
 
 function manageRequest<T>(handler: RPCHandler, p: Promise<T>): Promise<T> {
   handler.openRequests++
+
   return p.then((r: T) => {
     handler.openRequests--
     return r
   }, err => {
     handler.openRequests--
-    throw err
+    throw new SentryError(err, "manageRequest", "error handling request")
   })
 }
 
@@ -223,12 +233,12 @@ export class HandlerTransport extends AxiosTransport {
       const res = await axios.post(url, requests, { headers: { 'Content-Type': 'application/json' } })
 
       // throw if the status is an error
-      if (res.status > 200) throw new SentryError('Invalid status','status_error',res.status.toString())
+      if (res.status > 200) throw new SentryError('Invalid status', 'status_error', res.status.toString())
 
       // if this was not given as array, we need to convert it back to a single object
       return Array.isArray(data) ? res.data : res.data[0]
     } catch (err) {
-      throw new SentryError(err,'status_error','Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
+      throw new SentryError(err, 'status_error', 'Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
     }
   }
 

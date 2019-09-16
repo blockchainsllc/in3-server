@@ -16,6 +16,7 @@
 * For more information, please refer to https://slock.it   *
 * For questions, please contact info@slock.it              *
 ***********************************************************/
+const Sentry = require('@sentry/node')
 
 import { Transport, AxiosTransport, serialize, util as in3Util } from 'in3-common'
 import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
@@ -85,6 +86,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** returns the result directly from the server */
   getFromServer(request: Partial<RPCRequest>, r?: any): Promise<RPCResponse> {
+
     const startTime = Date.now()
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
@@ -98,11 +100,35 @@ export default abstract class BaseHandler implements RPCHandler {
     }
 
     return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
+
+      if (process.env.SENTRY_ENABLE === 'true') {
+
+        Sentry.addBreadcrumb({
+          category: "get from server",
+          data: {
+            request: request,
+            error: err
+          }
+        })
+      }
+
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
     }).then(res => {
       logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
+
+      if (process.env.SENTRY_ENABLE === 'true') {
+        Sentry.addBreadcrumb({
+          category: "getFromServer",
+          data: {
+            request: request,
+            response: res.result || res
+          }
+        })
+      }
+
       if (r) {
+
         r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
         r.rpcCount = (r.rpcCount || 0) + 1
       }
@@ -112,13 +138,33 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** returns a array of requests from the server */
   getAllFromServer(request: Partial<RPCRequest>[], r?: any): Promise<RPCResponse[]> {
+
     const startTime = Date.now()
     return request.length
       ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
+        if (process.env.SENTRY_ENABLE === 'true') {
+          Sentry.addBreadcrumb({
+            category: "getAllFromServerError",
+            data: {
+              request: request,
+              error: err
+            }
+          })
+        }
         logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
         throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
       }).then(res => {
+
         logger.trace('   ... send ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
+        if (process.env.SENTRY_ENABLE === 'true') {
+          Sentry.addBreadcrumb({
+            category: "getAllFromServer response",
+            data: {
+              request: request,
+              response: res.result || res
+            }
+          })
+        }
         if (r) {
           r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
           r.rpcCount = (r.rpcCount || 0) + 1
@@ -135,6 +181,9 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** get the current nodeList */
   async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[]): Promise<ServerList> {
+
+
+
     const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
     if (nl.proof && signers && signers.length) {
       let blockNumber = nl.lastBlockNumber
