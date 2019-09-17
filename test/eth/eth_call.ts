@@ -354,8 +354,9 @@ describe('eth_call', () => {
           from: user,
           to: adr,
           data: data,
-          gas: "0x989680" //boundar check, 10M
-        }
+          gas: "0x989680" //boundary check, 10M
+        },
+        "latest"
       ],
       id: 1
     }) as RPCResponse
@@ -370,7 +371,8 @@ describe('eth_call', () => {
           from: user,
           to: adr,
           data: data
-        }
+        },
+        "latest"
       ],
       id: 1
     }) as RPCResponse
