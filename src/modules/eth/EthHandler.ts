@@ -82,15 +82,12 @@ export default class EthHandler extends BaseHandler {
       if (!request.params /*|| request.params.length < 2*/)
         throw new Error('eth_call must have a transaction and a block as parameters')
 
-      //checking this is not undefined because in TestTransport EthHandler is not getting this.conf
-      const gasLimit = ((this && this.conf && this.conf.maxGasLimit && !isNaN(this.conf.maxGasLimit))?this.conf.maxGasLimit:maxAllowedGas)
+      const gasLimit = this.conf.maxGasLimit || maxAllowedGas
 
-      const tx = request.params
-      tx.forEach(function(element) {
+      request.params.forEach(function(element) {
         const params = element as TxRequest
 
         if (!params || (params.gas && toNumber(params.gas) > gasLimit)) {
-          logger.error('eth_call with a gaslimit > '+gasLimit+' are not allowed')
           throw new Error('eth_call with a gaslimit > '+gasLimit+' are not allowed')}
       });
     }
