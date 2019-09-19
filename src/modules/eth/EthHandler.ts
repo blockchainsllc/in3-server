@@ -26,7 +26,6 @@ import { getValidatorHistory } from '../../server/poa'
 import { TxRequest, LogFilter } from './api';
 import * as tx from '../../../src/util/tx'
 import * as logger from '../../util/logger'
-import {TestTransport} from "../../../test/utils/transport";
 
 const clientConf = require('in3-common/js/defaultConfig.json')
 const toHex = in3Util.toHex
