@@ -129,11 +129,11 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         if (diffBlocks < 255) {
 
-          await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+          await callContract(handler.config.rpcUrl, nodes.contract, 'convict(bytes32)', [convictSignature], {
             privateKey: handler.config.privateKey,
             gas: 500000,
             value: 0,
-            confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+            confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
           })
 
           handler.watcher.futureConvicts.push({
@@ -249,7 +249,7 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
     const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
     try {
-      await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
+      await callContract(handler.config.rpcUrl, nodes.contract, 'convict(bytes32)', [convictSignature], {
         privateKey: handler.config.privateKey,
         gas: 500000,
         value: 0,
@@ -267,7 +267,6 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
       })
 
     } catch (e) {
-      console.log(e)
     }
 
     for (const txArray of transactionArrays) {
@@ -276,7 +275,7 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
           privateKey: handler.config.privateKey,
           gas: 8000000,
           value: 0,
-          confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+          confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
         })
         diffBlock += txArray.length
       } catch (e) {
