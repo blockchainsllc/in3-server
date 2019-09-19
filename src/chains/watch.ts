@@ -187,11 +187,11 @@ export default class Watcher extends EventEmitter {
       if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone) {
         await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
           [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
-            privateKey: this.handler.config.privateKey,
-            gas: 600000,
-            value: 0,
-            confirm: true
-          }).catch(_ => logger.error('Error sending revealConvict ', _))
+          privateKey: this.handler.config.privateKey,
+          gas: 600000,
+          value: 0,
+          confirm: false
+        }).catch(_ => logger.error('Error sending revealConvict ', _))
         this.futureConvicts.pop()
       }
     }
