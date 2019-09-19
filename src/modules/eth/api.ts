@@ -1,7 +1,8 @@
 
+const Sentry = require('@sentry/node')
 import { methodID } from 'ethereumjs-abi'
 import { toChecksumAddress, privateToAddress, keccak, ecsign } from 'ethereumjs-util'
-import {  util  } from 'in3-common'
+import { util } from 'in3-common'
 import BN = require('bn.js')
 import { AbiCoder, Interface, Fragment } from '@ethersproject/abi'
 import { RPCResponse } from '../../types/types';
@@ -269,7 +270,19 @@ function convertToType(solType: string, v: any): any {
 function decodeResult(types: string[], result: Buffer): any {
     const abiCoder = new AbiCoder()
 
-    return abiCoder.decode(types, result).map((v, i) => convertToType(types[i], v))
+    try {
+        return abiCoder.decode(types, result).map((v, i) => convertToType(types[i], v))
+    } catch (e) {
+        if (process.env.SENTRY_ENABLE === 'true') {
+
+            Sentry.configureScope((scope) => {
+                scope.setTag("ABIError", "decode");
+                scope.setExtra("tyoes", types)
+                scope.setExtra("result", result)
+            });
+        }
+        throw new Error("ABI-encoding error")
+    }
 }
 
 function createCallParams(method: string, values: any[]): { txdata: string, convert: (a: any) => any } {
@@ -379,7 +392,19 @@ export function encodeFunction(signature: string, args: any[]): string {
     const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
     const methodHash = (methodID(signature.substr(0, signature.indexOf('(')), typeArray)).toString('hex')
 
-    return methodHash + abiCoder.encode(typeArray, args.map(encodeEtheresBN)).substr(2)
+    try {
+        return methodHash + abiCoder.encode(typeArray, args.map(encodeEtheresBN)).substr(2)
+    } catch (e) {
+        if (process.env.SENTRY_ENABLE === 'true') {
+
+            Sentry.configureScope((scope) => {
+                scope.setTag("ABIError", "encode");
+                scope.setExtra("signature", signature)
+                scope.setExtra("args", args)
+            });
+        }
+        throw new Error("ABI-encoding error")
+    }
 }
 
 export function decodeFunction(signature: string, args: Buffer | RPCResponse): any {
@@ -391,5 +416,17 @@ export function decodeFunction(signature: string, args: Buffer | RPCResponse): a
 
     const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
 
-    return abiCoder.decode(typeArray, util.toBuffer(args))
+    try {
+        return abiCoder.decode(typeArray, util.toBuffer(args))
+    } catch (e) {
+        if (process.env.SENTRY_ENABLE === 'true') {
+
+            Sentry.configureScope((scope) => {
+                scope.setTag("ABIError", "decode");
+                scope.setExtra("signature", signature)
+                scope.setExtra("args", args)
+            });
+        }
+        throw new Error("ABI-encoding error")
+    }
 }

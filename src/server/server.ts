@@ -41,8 +41,7 @@ if (process.env.SENTRY_ENABLE === 'true') {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     release: process.env.SENTRY_RELEASE || "v0.0.0",
-    environment: process.env.SENTRY_ENVIRONMENT || "local",
-    attachStacktrace: true
+    environment: process.env.SENTRY_ENVIRONMENT || "local"
   });
 }
 
@@ -186,7 +185,7 @@ initConfig().then(() => {
       logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
 
       setTimeout(() => { doInit(retryCount - 1) }, 20000)
-      throw new SentryError(err.message, "server_status", "Error initializing the server" + err.stack)
+      throw new SentryError(err, "server_status", "Error initializing the server" + err.stack)
 
     })
   }

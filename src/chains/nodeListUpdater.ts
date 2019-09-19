@@ -71,7 +71,7 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
     const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string).catch(_ => {
 
       Sentry.configureScope((scope) => {
-        scope.setTag("NodeListFunction", "registryId");
+        scope.setTag("nodeListUpdater", "registryId");
         scope.setTag("NodeList-address", nodeList.contract)
         scope.setExtra("NodeList-response", _)
       });
@@ -159,11 +159,43 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
     { method: 'eth_getProof', params: [toHex(address, 20), keys.map(_ => toHex(_, 32)), blockNr] }
   ])
 
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "createNodeListProof",
+      data: {
+        blockResponse: blockResponse,
+        proof: proof
+      }
+    })
+  }
+
   // console.log(proof.result.storageProof.map(_ => _.key + ' = ' + _.value).join('\n'))
   // error checking
-  if (blockResponse.error) throw new Error('Could not get the block for ' + blockNr + ':' + JSON.stringify(blockResponse.error) + ' req: ' + JSON.stringify(req, null, 2))
-  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), keys.map(toHex), blockNr] }, null, 2))
+  if (blockResponse.error) {
+    if (process.env.SENTRY_ENABLE === 'true') {
 
+      Sentry.configureScope((scope) => {
+        scope.setTag("nodeListUpdater", "createNodeListProof");
+        scope.setTag("nodeList-contract", this.config.registry)
+        scope.setExtra("params", blockNr)
+        scope.setExtra("blockResponse", blockResponse)
+      });
+    }
+    throw new Error('Could not get the block for ' + blockNr + ':' + JSON.stringify(blockResponse.error) + ' req: ' + JSON.stringify(req, null, 2))
+  }
+  if (proof.error) {
+
+    if (process.env.SENTRY_ENABLE === 'true') {
+
+      Sentry.configureScope((scope) => {
+        scope.setTag("nodeListUpdater", "createNodeListProof");
+        scope.setTag("nodeList-contract", this.config.registry)
+        scope.setExtra("params", [toHex(address, 20), keys.map(_ => toHex(_, 32)), blockNr])
+        scope.setExtra("proof", proof)
+      });
+    }
+    throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), keys.map(toHex), blockNr] }, null, 2))
+  }
 
   // make sure we use minHex for the proof-keys
   if (proof.result && proof.result.storageProof)
@@ -196,6 +228,16 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
   const start = Date.now()
   logger.info('updating nodelist ....')
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "updateNodeList",
+      data: {
+        list: list,
+        lastBlockNumber: lastBlockNumber,
+        contract: handler.config.registry
+      }
+    })
+  }
 
   // first get the registry
   if (!list.contract) {
@@ -250,20 +292,34 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   list.nodes = await handler.getAllFromServer(nodeRequests).then(all => all.map((n, i) => {
     // invalid requests must be filtered out
     if (n.error) return null
-    const [url, deposit, timeout, registerTime, props, weight, signer, proofHash] = abi.simpleDecode('nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', toBuffer(n.result))
 
-    return {
-      url,
-      address: toChecksumAddress(signer),
-      index: i,
-      deposit: deposit.toString(),
-      props: props.toString(),
-      chainIds: [handler.chainId],
-      timeout: timeout.toString(),
-      registerTime: registerTime.toString(),
-      weight: weight.toString(),
-      proofHash: (proofHash).toString('hex')
-    } as IN3NodeConfig
+    try {
+      const [url, deposit, timeout, registerTime, props, weight, signer, proofHash] = abi.simpleDecode('nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', toBuffer(n.result))
+
+      return {
+        url,
+        address: toChecksumAddress(signer),
+        index: i,
+        deposit: deposit.toString(),
+        props: props.toString(),
+        chainIds: [handler.chainId],
+        timeout: timeout.toString(),
+        registerTime: registerTime.toString(),
+        weight: weight.toString(),
+        proofHash: (proofHash).toString('hex')
+      } as IN3NodeConfig
+    } catch (e) {
+      if (process.env.SENTRY_ENABLE === 'true') {
+
+        Sentry.configureScope((scope) => {
+          scope.setTag("nodeListUpdater", "updateNodeList");
+          scope.setTag("ABIError", "decode");
+          scope.setTag("nodeList-contract", handler.config.registry)
+          scope.setExtra("node", n.result)
+        });
+      }
+      throw new Error(e)
+    }
 
   })).then(_ => _)
 

@@ -213,9 +213,27 @@ export function encodeFunction(signature: string, args: any[]): string {
 
   const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
   const methodHash = (methodID(signature.substr(0, signature.indexOf('(')), typeArray)).toString('hex')
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "encodeFunction",
+      data: {
+        signature: signature,
+        args: args
+      }
+    })
+  }
+  try {
+    return methodHash + abiCoder.encode(typeArray, args.map(encodeEtheresBN)).substr(2)
+  } catch (e) {
+    if (process.env.SENTRY_ENABLE === 'true') {
 
-  return methodHash + abiCoder.encode(typeArray, args.map(encodeEtheresBN)).substr(2)
+      Sentry.configureScope((scope) => {
+        scope.setTag("ABIError", "encode");
+      });
+    }
+    throw new Error("ABI-encoding error")
 
+  }
 }
 
 function fixBN(val: any) {
@@ -234,5 +252,30 @@ export function decodeFunction(signature: string | string[], args: Buffer): any 
 
   const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
 
-  return fixBN(abiCoder.decode(typeArray, args))
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "decodeFunction",
+      data: {
+        signature: signature,
+        args: args
+      }
+    })
+  }
+
+  try {
+    return fixBN(abiCoder.decode(typeArray, args))
+  } catch (e) {
+
+    if (process.env.SENTRY_ENABLE === 'true') {
+
+      Sentry.configureScope((scope) => {
+        scope.setTag("ABIError", "decode");
+        scope.setExtra("outputParams", outputParams)
+        scope.setExtra("signature", signature)
+        scope.setExtra("args", args)
+      });
+    }
+
+    throw new Error("ABI-decoding error")
+  }
 }

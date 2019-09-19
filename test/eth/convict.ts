@@ -17,6 +17,7 @@
 * For more information, please refer to https://slock.it   *
 * For questions, please contact info@slock.it              *
 ***********************************************************/
+const Sentry = require('@sentry/node');
 
 import { assert } from 'chai'
 import 'mocha'
@@ -24,20 +25,22 @@ import { util, BlockData, serialize } from 'in3-common'
 import { Signature, RPCRequest, RPCResponse } from '../../src/types/types'
 import * as tx from '../../src/util/tx'
 import * as ethUtil from 'ethereumjs-util'
-import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
-import Watcher from '../../src/chains/watch'
-import { registerNodes, deployNodeRegistry } from '../../src/util/registry'
-import { toBN, toBuffer } from 'in3-common/js/src/util/util';
-import { BigNumber } from 'ethers/utils';
+import { TestTransport, } from '../utils/transport'
+import { toBN } from 'in3-common/js/src/util/util';
 import { signatureCaches } from '../../src/chains/signatures'
 
-
-const address = serialize.address
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 const toHex = util.toHex
-const uint64 = serialize.uint64
-const uint = serialize.uint
+
+if (process.env.SENTRY_ENABLE === 'true') {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    release: process.env.SENTRY_RELEASE || "v0.0.0",
+    environment: process.env.SENTRY_ENVIRONMENT || "local"
+  });
+}
+
 
 const sign = (b: BlockData, registryId: string, pk: string, blockHash?: string) => {
   const msgHash = ethUtil.keccak(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number), bytes32(registryId)]))
@@ -222,6 +225,9 @@ describe('Convict', () => {
 
     const wrongBlock = txReceipt.blockNumber - 0x104
 
+    console.log("address", test.nodeList.contract)
+    console.log("privateKey", test.getHandlerConfig(0).privateKey)
+
     const watcher = test.getHandler(0).watcher
     const watcher2 = test.getHandler(1).watcher
 
@@ -249,12 +255,11 @@ describe('Convict', () => {
       const index = parseInt(url.substr(1)) - 1
       // we change it to a wrong signature
       if (!manipulated) {
-        re.result = [sign(block, test.getHandlerConfig(index).privateKey, pk1)]
+        re.result = [sign(block, test.registryId, test.getHandlerConfig(index).privateKey, pk1)]
         manipulated = true
       }
       return re
     })
-
 
     assert.equal(await test.getNodeCountFromContract(), 2)
 
@@ -272,14 +277,26 @@ describe('Convict', () => {
     })
 
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
-    assert.equal(await test.getNodeCountFromContract(), 2)
-
+    await test.createClient()
     // just read all events
-    const events = await watcher.update()
-    const events2 = await watcher2.update()
+    let events = await watcher.update()
+    let events2 = await watcher2.update()
+    assert.equal(await test.getNodeCountFromContract(), 2)
 
     assert.equal(events, undefined)
     assert.equal(events2, undefined)
+
+
+    // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
+    await test.createClient()
+    // just read all events
+    events = await watcher.update()
+    events2 = await watcher2.update()
+    assert.equal(await test.getNodeCountFromContract(), 2)
+
+    assert.equal(events, undefined)
+    assert.equal(events2, undefined)
+
 
   })
 

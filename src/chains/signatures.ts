@@ -26,8 +26,6 @@ import { callContract } from '../util/tx'
 import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
 import { toBuffer } from 'in3-common/js/src/util/util';
-import { SentryError } from '../util/sentryError'
-
 
 const toHex = util.toHex
 const toMinHex = util.toMinHex
@@ -63,8 +61,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
       Sentry.configureScope((scope) => {
         scope.setTag("NodeListFunction", "collectSignatures");
-        scope.setExtra("required signature addresses", addresses)
-        scope.setTag("contract address", nodes.contract)
+        scope.setTag("nodeList-contract", this.config.registry)
         scope.setExtra("nodes", nodes.nodes)
         scope.setExtra("requestedBlocks", requestedBlocks)
       });
@@ -85,12 +82,17 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest })
         : { result: [] }) as RPCResponse
       if (response.error) {
+
+        Sentry.captureMessage('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+
         //sthrow new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         return null
       }
     } catch (error) {
       logger.error(error.toString())
+      Sentry.captureMessage(error.toString())
+
       return null
     }
 
@@ -133,6 +135,22 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         }
 
 
+        if (process.env.SENTRY_ENABLE === 'true') {
+
+          Sentry.addBreadcrumb({
+            category: "convict",
+            data: {
+              singingNode: singingNode,
+              signature: s,
+              expected: expectedBlock,
+              chainId: handler.chainId,
+              registryRPC: handler.config.registryRPC || handler.config.rpcUrl,
+            }
+          })
+        }
+
+        Sentry.captureMessage(`detected wrong blockResponse`)
+
         const latestBlockNumber = handler.watcher.block.number
 
         const diffBlocks = toNumber(latestBlockNumber) - s.block
@@ -140,6 +158,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
         if (diffBlocks < 255) {
+
+          console.log("diffBlocks", diffBlocks)
 
           await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
             privateKey: handler.config.privateKey,
@@ -212,6 +232,17 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
 
 async function handleRecreation(handler: BaseHandler, nodes: ServerList, singingNode: IN3NodeConfig, s: Signature, diffBlocks: number): Promise<any> {
 
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "handleRecreation",
+      data: {
+        signingNode: singingNode,
+        signature: s,
+        diffBlocks: diffBlocks
+      }
+    })
+  }
+
   // we have to find the blockHashRegistry
   const blockHashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
 
@@ -220,12 +251,25 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
   const latestSS = toNumber((await callContract(handler.config.rpcUrl, blockHashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [s.block, diffBlocks]))[0])
   const costPerBlock = 86412400000000
   const blocksMissing = latestSS - s.block
-  const costs = blocksMissing * costPerBlock * 1.25
+  const costs = util.toBN(blocksMissing).mul(util.toBN(costPerBlock)).mul(util.toBN(1.25))
 
   if (costs > (deposit / 2)) {
 
-    console.log("not worth it")
-    //it's not worth it
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.addBreadcrumb({
+        category: "handleRecreation",
+        data: {
+          singingNode: singingNode,
+          deposit: deposit,
+          latestSnapshot: latestSS,
+          costPerBlock: costPerBlock,
+          blocksMissing: blocksMissing,
+          costs: costs
+        }
+      })
+    }
+
+    Sentry.captureMessage(`not worth convicting`)
     return
   }
   else {
@@ -267,6 +311,7 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
         value: 0,
         confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
       })
+
       handler.watcher.futureConvicts.push({
         convictBlockNumber: handler.watcher.block.number,
         signer: singingNode.address,
@@ -279,7 +324,26 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
       })
 
     } catch (e) {
-      console.log(e)
+
+
+      if (process.env.SENTRY_ENABLE === 'true') {
+
+        Sentry.configureScope((scope) => {
+          scope.setTag("signatures", "convictError");
+          scope.setTag("nodeList-contract", this.config.registry)
+          scope.setExtra("convictInformation", {
+            convictBlockNumber: handler.watcher.block.number,
+            signer: singingNode.address,
+            wrongBlockHash: s.blockHash,
+            wrongBlockNumber: s.block,
+            v: s.v,
+            r: s.r,
+            s: s.s,
+            recreationDone: false
+          })
+        });
+      }
+      throw new Error(e)
     }
 
     for (const txArray of transactionArrays) {
@@ -292,7 +356,19 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
         })
         diffBlock += txArray.length
       } catch (e) {
-        console.log(e)
+        if (process.env.SENTRY_ENABLE === 'true') {
+
+          Sentry.configureScope((scope) => {
+            scope.setTag("signatures", "recreationError");
+            scope.setTag("nodeList-contract", this.config.registry)
+            scope.setTag("blockHashRegistry-contract", blockHashRegistry)
+            scope.setExtra("recreationData", {
+              data: [latestSS - diffBlock, txArray]
+            })
+          });
+        }
+
+        throw new Error(e)
       }
     }
     handler.watcher.futureConvicts.find(_ => (_.signer === singingNode.address && _.wrongBlockHash === s.blockHash)).recreationDone = true

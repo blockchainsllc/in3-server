@@ -101,18 +101,16 @@ export default abstract class BaseHandler implements RPCHandler {
 
     return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
 
+      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       if (process.env.SENTRY_ENABLE === 'true') {
 
-        Sentry.addBreadcrumb({
-          category: "get from server",
-          data: {
-            request: request,
-            error: err
-          }
-        })
+        Sentry.configureScope((scope) => {
+          scope.setTag("BaseHandler", "getFromServer");
+          scope.setTag("nodeList-contract", this.config.registry)
+          scope.setExtra("request", request)
+        });
       }
 
-      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
     }).then(res => {
       logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
@@ -143,14 +141,13 @@ export default abstract class BaseHandler implements RPCHandler {
     return request.length
       ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
         if (process.env.SENTRY_ENABLE === 'true') {
-          Sentry.addBreadcrumb({
-            category: "getAllFromServerError",
-            data: {
-              request: request,
-              error: err
-            }
-          })
+          Sentry.configureScope((scope) => {
+            scope.setTag("BaseHanlder", "getAllFromServer");
+            scope.setTag("nodeList-contract", this.config.registry)
+            scope.setExtra("request", request)
+          });
         }
+
         logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
         throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
       }).then(res => {
@@ -181,8 +178,6 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** get the current nodeList */
   async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[]): Promise<ServerList> {
-
-
 
     const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
     if (nl.proof && signers && signers.length) {
