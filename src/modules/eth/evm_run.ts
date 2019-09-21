@@ -17,13 +17,13 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import * as VM from 'ethereumjs-vm'
+import VM from 'ethereumjs-vm'
 import * as Account from 'ethereumjs-account'
 import * as Block from 'ethereumjs-block'
 import * as Trie from 'merkle-patricia-tree'
 import { rlp } from 'ethereumjs-util'
 import { util, serialize } from 'in3-common'
-import {  RPCRequest, RPCResponse } from '../../types/types'
+import { RPCRequest, RPCResponse } from '../../types/types'
 
 /** executes a transaction-call to a smart contract */
 export async function analyseCall(args: {
@@ -143,9 +143,9 @@ export async function analyseCall(args: {
   })
 
   // run the tx
-  const result = await util.promisify(vm, vm.runTx, { tx, block: new Block([block, [], []]) })
+  const result = await vm.runTx({ tx, block: new Block([block, [], []]) })
 
   if (err) throw err
-  res.result = result.vm.return as Buffer
+  res.result = result.execResult.returnValue
   return res as any
 }
