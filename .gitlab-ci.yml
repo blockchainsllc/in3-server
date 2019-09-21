@@ -84,8 +84,8 @@ test-geth:
       alias: geth
   script:
     - sh /prepare.sh
-    - npm install 
-    - npm run testCoverage 
+    - npm install
+    - npm run testCoverage
   dependencies:
     - build-server
     - compile-contracts
@@ -184,7 +184,7 @@ register-with-sentry-production:
     - cd deployment
     - rancher -w up -d --prune -p -s in3-server-${TARGET}-${CHAIN} -c --force-upgrade
 
-## Environments 
+## Environments
 .deploy-tmpl-stage:
   extends: .deploy-tmpl
   only:
@@ -242,55 +242,58 @@ register-with-sentry-production:
     CHAIN_ID: "0x7d0"
     RPC_ENDPOINT: http://lb.parity-rpc/kovan/archive
 
-
 # Stage deployments
 deploy-stage-kovan:
-  extends: 
-    - .deploy-tmpl-stage 
+  extends:
+    - .deploy-tmpl-stage
     - .chain-tmpl-kovan
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x0604014f2a5fdfafce3f2ec10c77c31d8e15ce6f"
 
 deploy-stage-goerli:
-  extends: 
-    - .deploy-tmpl-stage 
+  extends:
+    - .deploy-tmpl-stage
     - .chain-tmpl-goerli
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0xd7a42d93eab96fabb9a481ea36fa2f72df8741cb"
 
 # disable until v2 stage contract is deployed to mainnet
 #deploy-stage-mainnet:
-#  extends: 
+#  extends:
 #    - .deploy-tmpl-stage
 #    - .chain-tmpl-mainnet
 
 # Production deployments
 deploy-production-mainnet:
-  extends: 
+  extends:
     - .deploy-tmpl-production
     - .chain-tmpl-mainnet
   variables:
     REGISTRY_CONTRACT_ADDR: "0x2736D225f85740f42D17987100dc8d58e9e16252"
 
 deploy-production-kovan:
-  extends: 
+  extends:
     - .deploy-tmpl-production
     - .chain-tmpl-kovan
   variables:
     REGISTRY_CONTRACT_ADDR: "0x27a37a1210df14f7e058393d026e2fb53b7cf8c1"
 
 deploy-production-goerli:
-  extends: 
+  extends:
     - .deploy-tmpl-production
     - .chain-tmpl-goerli
   variables:
     REGISTRY_CONTRACT_ADDR: "0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e"
 
 deploy-production-volta:
-  extends: 
+  extends:
     - .deploy-tmpl-production
     - .chain-tmpl-volta
   variables:
     REGISTRY_CONTRACT_ADDR: "0x8d8Fd38311d57163524478404C75008fBEaACccB"
 
 deploy-production-ipfs:
-  extends: 
+  extends:
     - .deploy-tmpl-production
     - .chain-tmpl-ipfs
   script:
@@ -298,5 +301,3 @@ deploy-production-ipfs:
     - rancher -w up -f docker-compose.ipfs.yml -d --prune -p -s in3-server-${TARGET}-${CHAIN} -c --force-upgrade
   variables:
     REGISTRY_CONTRACT_ADDR: "0xf0fb87f4757c77ea3416afe87f36acaa0496c7e9"
-
-  
