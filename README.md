@@ -15,14 +15,13 @@
   Using this technique an in3-client has an insurance that it will receive a valid response, allowing it to query
   nodes that it might not be affiliated with. 
     
+  ![in3_image](in3_image.png)
+  
   A more detailed explanation of in3 can be found [here](https://in3.readthedocs.io/en/develop/intro.html).
  
   For information on the in3 typescript client, please go [here](https://github.com/slockit/in3).
 
  For information on the in3 C client, please go [here](https://github.com/slockit/in3-c).
-
- Topics to include:
- 1. image of how in3 works
  
  
  ## Installation and Usage
