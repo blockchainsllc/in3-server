@@ -1,7 +1,7 @@
 # INCUBED Server
  [![Forks](https://img.shields.io/github/forks/slockit/in3-server)](https://github.com/slockit/in3-server/network/members)
   [![Stars](https://img.shields.io/github/stars/slockit/in3-server)](https://github.com/slockit/in3-server/stargazers)
-  [![License](https://img.shields.io/github/license/slockit/in3-server)](NEED TO UPDATE)
+  [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/slockit/in3-server/blob/master/LICENSE.AGPL)
  
  INCUBED (in3) is a minimal verification client for blockchain networks, this version of the in3 node is written
  in typescript. The in3-node provides the data and proof used by the client for verification.
@@ -17,6 +17,10 @@
     
   A more detailed explanation of in3 can be found [here](https://in3.readthedocs.io/en/develop/intro.html).
  
+  For information on the in3 typescript client, please go [here](https://github.com/slockit/in3).
+
+ For information on the in3 C client, please go [here](https://github.com/slockit/in3-c).
+
  Topics to include:
  1. image of how in3 works
  
@@ -75,6 +79,8 @@
  
  * [in3-Node API reference](https://in3.readthedocs.io/en/develop/api-node.html)
  * [Registering your node](https://in3.readthedocs.io/en/develop/api-node.html#registering-your-own-incubed-node)
+ * [in3 typescript client](https://github.com/slockit/in3)
+ * [in3 C client](https://github.com/slockit/in3-c)
  * [Website](https://slock.it/incubed/) 
  * [ReadTheDocs](https://in3.readthedocs.io/en/develop/)
  * [Blog](https://blog.slock.it/)
@@ -82,9 +88,7 @@
  * [Ethereum verification explained by Simon Jentzsch](https://www.youtube.com/watch?v=wlUlypmt6Oo)
  
  ## Contributors welcome!
- [![GitHub issues](https://img.shields.io/github/issues/slockit/in3-server)](https://github.com/slockit/in3-server/issues)
- [![GitHub contributors](https://img.shields.io/github/contributors/slockit/in3-server)](https://github.com/slockit/in3-server/graph/contributors)
- 
+
  We at Slock.it believe in the power of the open source community. Feel free to open any issues you may come across, fork
   the repository and integrate in your own projects. You can reach us on various social media platforms for any questions
   and suggestions.  
