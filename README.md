@@ -32,8 +32,8 @@
  
  
  |         | package manager           | Link  | Use case |
- | ------------- |:-------------:| -----:| ----:|
- | in3-node (ts)      | Docker Hub | https://hub.docker.com/r/slockit/in3-node | To run the in3-node, which the in3-client can use to connect to the in3 network |
+ | ------------- |:-------------:| -----:| :----:|
+ | in3-node (ts)      | Docker Hub | [![DockerHub](https://img.shields.io/badge/DockerHub-image-blue)](https://hub.docker.com/r/slockit/in3-node)| To run the in3-node, which the in3-client can use to connect to the in3 network |
 
  ### Docker Hub
 1. Pull the image from docker using ```docker pull slockit/in3-node```
