@@ -206,9 +206,9 @@ register-with-sentry-production:
   except:
     - branches
   environment:
-    name: production-v2-${CHAIN}
+    name: production-${CHAIN}
   variables:
-    TARGET: production-v2
+    TARGET: production
   when: manual
   allow_failure: false
 
@@ -299,6 +299,6 @@ deploy-production-ipfs:
     - .chain-tmpl-ipfs
   script:
     - cd deployment
-    - rancher -w up -f docker-compose.ipfs.yml -d --prune -p -s in3-server-${TARGET}-${CHAIN} -c --force-upgrade
+    - rancher -w up -f docker-compose.ipfs.yml -d --prune -p -s in3-server-v2-${TARGET}-${CHAIN} -c --force-upgrade
   variables:
     REGISTRY_CONTRACT_ADDR: "0xf0fb87f4757c77ea3416afe87f36acaa0496c7e9"
