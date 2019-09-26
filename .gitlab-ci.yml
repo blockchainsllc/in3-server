@@ -128,6 +128,7 @@ package-docker:
 # Deployment Section
 dockerhub-deploy:
   stage: deploy
+  when: manual
   only:
     - /^v[0-9]+.[0-9]+.[0-9]+$/
   except:
