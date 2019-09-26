@@ -17,16 +17,18 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import  { Transport, AxiosTransport, util } from 'in3-common'
+import { Transport, AxiosTransport, util } from 'in3-common'
 import Client from 'in3'
-import  {  RPCRequest, RPCResponse, IN3NodeConfig, IN3Config,  ServerList, IN3RPCHandlerConfig } from '../../src/model/types'
+import { RPCRequest, RPCResponse, IN3NodeConfig, IN3Config, ServerList, IN3RPCHandlerConfig } from '../../src/types/types'
 
 import * as logger from '../../src/util/logger'
 import * as crypto from 'crypto'
 import { sendTransaction, callContract } from '../../src/util/tx'
 import axios from 'axios'
-import { registerServers } from '../../src/util/registry'
+import { registerNodes } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
+import { toBN, toUtf8, toMinHex } from 'in3-common/js/src/util/util';
+import { BigNumber } from 'ethers/utils';
 logger.setLogger('memory')
 
 let testClient = (process && process.env && process.env.RPCURL) || 'http://localhost:8545'
@@ -55,7 +57,7 @@ export class TestTransport implements Transport {
 
   chainRegistry: string
   chainId: string
-
+  registryId: string
 
   nodeList: ServerList
   randomList: number[][]
@@ -76,8 +78,9 @@ export class TestTransport implements Transport {
     this.nodeList = {
       nodes,
       contract: registry,
-      lastBlockNumber: 0
-    }
+      lastBlockNumber: 0,
+      registryId: '0x'
+    } as any
     for (let i = 0; i < count; i++) {
       const privateKey = pks ? pks[i] : '0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i
       const url = '#' + (i + 1)
@@ -143,6 +146,15 @@ export class TestTransport implements Transport {
   }
 
   async getFromServer(method: string, ...params: any[]) {
+
+    for (let i = 0; i < params.length; i++) {
+      if (typeof params[i] === 'string' && params[i].startsWith("0x0")) {
+        if (params[i].substr(2).length % 32 != 0 && params[i].substr(2).length % 20 != 0) {
+          params[i] = toMinHex(params[i])
+        }
+      }
+    }
+
     const res = await axios.post(this.url, { id: 1, jsonrpc: '2.0', method, params }, { headers: { 'Content-Type': 'application/json' } })
     if (res.status !== 200) throw new Error('Wrong status! Error getting ' + method + ' ' + JSON.stringify(params))
     if (!res.data) throw new Error('No response! Error getting ' + method + ' ' + JSON.stringify(params))
@@ -203,8 +215,9 @@ export class TestTransport implements Transport {
       servers: {
         [this.chainId]: {
           contract: this.nodeList.contract || 'dummy',
-          nodeList: this.nodeList.nodes
-        }
+          nodeList: this.nodeList.nodes,
+          registryId: this.registryId || '0x'
+        } as any
       },
       ...(conf || {})
     }, this)
@@ -213,7 +226,7 @@ export class TestTransport implements Transport {
   }
 
   /** creates a random private key and transfers some ether to this address */
-  async createAccount(seed?: string, eth = 100000): Promise<string> {
+  async createAccount(seed?: string, eth = toBN('50000000000000000000')): Promise<string> {
     const pkBuffer = seed
       ? seed.startsWith('0x')
         ? Buffer.from(seed.substr(2).padStart(64, '0'), 'hex')
@@ -236,15 +249,14 @@ export class TestTransport implements Transport {
     return pk
   }
 
-  async getServerFromContract(index: number) {
-    const [url, owner, deposit, props, time, caller] = await callContract(this.url, this.nodeList.contract, 'servers(uint):(string,address,uint,uint,uint128,uint128,address)', [index])
-    return { url, owner, deposit, props, time, caller }
+  async getNodeFromContract(index: number) {
+    const [url, deposit, timeout, registerTime, props, weight, signer, proofHash] = await callContract(this.url, this.nodeList.contract, 'nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', [index])
+    return { url, deposit, timeout, registerTime, props, weight, signer, proofHash }
   }
 
-  async getServerCountFromContract() {
-    const [count] = await callContract(this.url, this.nodeList.contract, 'totalServers():(uint)', [])
-    //return util.toNumber(count)
-    return count.toNumber()
+  async getNodeCountFromContract() {
+    const [count] = await callContract(this.url, this.nodeList.contract, 'totalNodes():(uint)', [])
+    return util.toNumber(count)
   }
 
   getHandlerConfig(index: number): IN3RPCHandlerConfig {
@@ -255,7 +267,25 @@ export class TestTransport implements Transport {
     return this.handlers['#' + (index + 1)].getHandler()
   }
 
-  static async createWithRegisteredServers(count: number) {
+  async getErrorReason(txHash?: string): Promise<string> {
+
+    const clientVersion = await this.getFromServer('web3_clientVersion')
+
+    if (!txHash) {
+      txHash = (await this.getFromServer('eth_getBlockByNumber', 'latest', false)).transactions[0]
+    }
+
+    if (clientVersion.includes("Parity")) {
+      const trace = await this.getFromServer('trace_replayTransaction', txHash, ['trace'])
+      return toUtf8(trace.output)
+    }
+    if (clientVersion.includes("Geth")) {
+      const trace = await this.getFromServer('debug_traceTransaction', txHash)
+      return toUtf8("0x" + trace.returnValue)
+    }
+  }
+
+  static async createWithRegisteredNodes(count: number) {
     const test = new TestTransport(1)
 
     const pks: string[] = []
@@ -263,24 +293,28 @@ export class TestTransport implements Transport {
 
     // create accounts
     for (let i = 0; i < count; i++) {
-      pks.push(await test.createAccount())
+
+      pks.push(await test.createAccount(null, toBN('5000000000000000000')))
       servers.push({
         url: '#' + (i + 1),
         pk: pks[i],
         props: '0xffff',
-        deposit: 10000
+        deposit: toBN('10000000000000000'),
+        timeout: 3600
       })
     }
 
     //  register 1 server
-    const registers = await registerServers(pks[0], null, servers, test.chainId, null, test.url, new LoggingAxiosTransport())
-
+    const registers = await registerNodes(pks[0], null, servers, test.chainId, null, test.url, new LoggingAxiosTransport())
     const res = new TestTransport(count, registers.registry, pks)
     res.chainRegistry = registers.chainRegistry
+    res.registryId = registers.regId
     return res
   }
 
-
+  async increaseTime(secondsToIncrease) {
+    await axios.post(this.url, { id: 1, jsonrpc: '2.0', method: 'evm_increaseTime', params: [secondsToIncrease] }, { headers: { 'Content-Type': 'application/json' } })
+  }
 
 }
 

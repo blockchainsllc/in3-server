@@ -48,11 +48,12 @@ export async function deployAll() {
 
 
   // register kovan-servers
-  const registers = await reg.registerServers(ownerPK, kovanRegistry, [{
+  const registers = await reg.registerNodes(ownerPK, kovanRegistry, [{
     url: 'https://in3-kovan1.slock.it',
     pk: ownerPK,
     props: '0xFFFF',
-    deposit: 0
+    deposit: 0,
+    timeout: 3600,
   }], '0x000000000000000000000000000000000000000000000000000000000000002a', chainRegistry, kovanClient, new LoggingAxiosTransport())
 
   console.log('kovan-registry ' + JSON.stringify(registers, null, 2))

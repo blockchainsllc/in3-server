@@ -18,7 +18,7 @@
 ***********************************************************/
 
 
-import { RPCRequest } from '../model/types'
+import { RPCRequest } from '../types/types'
 
 export class Stat {
 

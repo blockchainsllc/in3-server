@@ -21,9 +21,13 @@ import * as tx from './tx'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { Transport, util } from 'in3-common'
 import { readFileSync } from 'fs'
+import { padStart } from 'in3-common/js/src/util/util';
+import { padEnd } from 'in3-common/js/src/util/util';
 const toHex = util.toHex
 
 const bin = JSON.parse(readFileSync('./contracts/contracts.json', 'utf8'))
+
+const in3ContractBin = JSON.parse(readFileSync('node_modules/in3-contracts/contracts/contracts.json', 'utf8'))
 try {
   const binTest = JSON.parse(readFileSync('./test/contracts/contracts.json', 'utf8'))
   Object.assign(bin.contracts, binTest.contracts)
@@ -32,7 +36,7 @@ try {
 }
 
 export function getABI(name: string) {
-  return JSON.parse(bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf(name) >= 0)].abi)
+  return JSON.parse(in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf(name) >= 0)].abi)
 }
 
 export function deployContract(name: string, pk: string, url = 'http://localhost:8545', transport?: Transport) {
@@ -53,29 +57,41 @@ export function deployChainRegistry(pk: string, url = 'http://localhost:8545', t
 
 }
 
-export function deployServerRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
-  return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('ServerRegistry') >= 0)].bin, {
+export async function deployNodeRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
+
+  const blockHashAddress = (await deployBlockhashRegistry(pk, url, transport)).substr(2)
+  return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/NodeRegistry.sol:NodeRegistry') >= 0)].bin + padStart(blockHashAddress, 64, "0"), {
     privateKey: pk,
-    gas: 3000000,
+    gas: 8000000,
     confirm: true
   }, transport).then(_ => toChecksumAddress(_.contractAddress) as string)
-
 }
 
+export function deployBlockhashRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
+  return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/BlockhashRegistry.sol:BlockhashRegistry') >= 0)].bin, {
+    privateKey: pk,
+    gas: 8000000,
+    confirm: true
+  }, transport).then(_ => toChecksumAddress(_.contractAddress) as string)
+}
 
-export async function registerServers(pk: string, registry: string, data: {
+export async function registerNodes(pk: string, registry: string, data: {
   url: string,
   pk: string
   props: string
   deposit: number
+  timeout: number
+  weight?: number
 }[], chainId: string, chainRegistry?: string, url = 'http://localhost:8545', transport?: Transport, registerChain = true) {
   if (!registry)
-    registry = await deployServerRegistry(pk, url, transport)
+    registry = await deployNodeRegistry(pk, url, transport)
 
   for (const c of data)
-    await tx.callContract(url, registry, 'registerServer(string,uint)', [
+    await tx.callContract(url, registry, 'registerNode(string,uint64,uint64,uint64)', [
       c.url,
-      toHex(c.props, 32)
+      toHex(c.props, 32),
+      c.timeout,
+      c.weight ? c.weight : 0
     ], {
         privateKey: c.pk,
         gas: 3000000,
@@ -92,10 +108,13 @@ export async function registerServers(pk: string, registry: string, data: {
       contractChain: chainId
     }], url, transport)
 
+  const regId = toHex((await tx.callContract(url, registry, "registryId():(bytes32)", []))[0])
+
   return {
     chainRegistry,
     chainId,
-    registry
+    registry,
+    regId
   }
 
 
@@ -111,12 +130,15 @@ export async function registerChains(pk: string, chainRegistry: string, data: {
   if (!chainRegistry)
     chainRegistry = await deployChainRegistry(pk, url, transport)
 
-  for (const c of data)
-    await tx.callContract(url, chainRegistry, 'registerChain(bytes32,string,string,address,bytes32)', [
+  for (const c of data) {
+    //   const regId = await tx.callContract(url, c.registryContract, "registryId():(bytes32)", [])
+
+    const registerTx = await tx.callContract(url, chainRegistry, 'registerChain(bytes32,string,string,address,bytes32)', [
       toHex(c.chainId, 32),
       c.bootNodes.join(','),
       c.meta,
       c.registryContract,
+      //   regId,
       toHex(c.contractChain, 32)
     ], {
         privateKey: pk,
@@ -124,7 +146,7 @@ export async function registerChains(pk: string, chainRegistry: string, data: {
         confirm: true,
         value: 0
       }, transport)
-
+  }
 
 
   return chainRegistry

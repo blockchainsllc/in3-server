@@ -16,20 +16,10 @@
 * For more information, please refer to https://slock.it   *
 * For questions, please contact info@slock.it              *
 ***********************************************************/
-const Sentry = require('@sentry/node');
-
-if (process.env.SENTRY_ENABLE === 'true') {
-    Sentry.init({
-            dsn: process.env.SENTRY_DSN,
-            release: process.env.SENTRY_RELEASE,
-            environment: process.env.SENTRY_ENVIRONMENT,
-        });
-}
-
 import *  as rpc from './server/rpc'
 import *  as server from './server/server'
 import _config from './server/config'
-import { IN3RPCConfig } from '../src/model/types'
+import { IN3RPCConfig } from './types/types'
 
 /** the default rpc-handler */
 export type RPC = rpc.RPC

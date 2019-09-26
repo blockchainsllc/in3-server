@@ -17,8 +17,8 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import {  Transport, util as in3Util, serialize } from 'in3-common'
-import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, ChainSpec } from '../../model/types'
+import { Transport, util as in3Util, serialize } from 'in3-common'
+import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, ChainSpec } from '../../types/types'
 import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
 import BaseHandler from '../../chains/BaseHandler'
 import { handleSign } from '../../chains/signatures';
@@ -56,13 +56,13 @@ export default class EthHandler extends BaseHandler {
       request.in3.verification = 'never'
 
     // execute it
-    try{
+    try {
       const result = await this.handleRPCMethod(request)
       if ((request as any).convert)
         (request as any).convert(result)
       return result
     }
-    catch(error){
+    catch (error) {
       return {
         jsonrpc: '2.0',
         id: request.id,
@@ -81,7 +81,7 @@ export default class EthHandler extends BaseHandler {
       if (!request.params || request.params.length < 1) throw new Error('eth_getLogs must have a filter as parameter')
       const filter: LogFilter = request.params[0]
       let toB = filter && filter.toBlock
-      if (toB === 'latest' || !toB) toB = this.watcher && this.watcher.block && this.watcher.block.number
+      if (toB === 'latest' || toB === 'pending' || !toB) toB = this.watcher && this.watcher.block && this.watcher.block.number
       let fromB = toB && filter && filter.fromBlock
       if (fromB === 'earliest') fromB = 1;
       const range = fromB && (toNumber(toB) - toNumber(fromB))

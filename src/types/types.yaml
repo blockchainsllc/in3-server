@@ -19,7 +19,8 @@
 $schema: http://json-schema.org/schema#
 description: configuration-data for the Incubed-client / server
 definitions:
-  IN3RPCRequestConfig:
+
+    IN3RPCRequestConfig:
         description: additional config for a IN3 RPC-Request
         required: [chainId]
         properties:
@@ -69,57 +70,7 @@ definitions:
                     type: string
                     format: address
 
-  IN3RPCRequestConfig:
-        description: additional config for a IN3 RPC-Request
-        required: [chainId]
-        properties:
-            chainId:
-                description: the requested chainId
-                type: string
-                example: "0x1"
-                format: hex
-            includeCode:
-                description: if true, the request should include the codes of all accounts. otherwise only the the codeHash is returned. In this case the client may ask by calling eth_getCode() afterwards
-                type: boolean
-                example: true
-            verifiedHashes:
-                description: if the client sends a array of blockhashes the server will not deliver any signatures or blockheaders for these blocks, but only return a string with a number.
-                type: array
-                items:
-                    type: string
-                    format: bytes32
-            latestBlock:
-                description: if specified, the blocknumber *latest* will be replaced by blockNumber- specified value
-                type: integer
-                example: 6
-            useRef:
-                description: if true binary-data (starting with a 0x) will be refered if occuring again.
-                type: boolean
-            useBinary:
-                description: if true binary-data will be used.
-                type: boolean
-            useFullProof:
-                description: if true all data in the response will be proven, which leads to a higher payload.
-                type: boolean
-            finality:
-                description: if given the server will deliver the blockheaders of the following blocks until at least the number in percent of the validators is reached.
-                type: number
-            verification:
-                description: defines the kind of proof the client is asking for
-                type: string
-                enum: [never, proof, proofWithSignature]
-                example: "proof"
-            clientSignature:
-                description: the signature of the client
-            signatures:
-                description: a list of addresses requested to sign the blockhash
-                type: array
-                example: ["0x6C1a01C2aB554930A937B0a2E8105fB47946c679"]
-                items:
-                    type: string
-                    format: address
-
-  LogProof:
+    LogProof:
         type: object
         description: a Object holding proofs for event logs. The key is the blockNumber as hex
         additionalProperties:
@@ -162,7 +113,7 @@ definitions:
                                     type: string
                                     pattern: ^0x[0-9a-fA-F]+$
 
-  AccountProof:
+    AccountProof:
         type: object
         description: the Proof-for a single Account
         required:
@@ -228,7 +179,7 @@ definitions:
                             description: the stored value
                             pattern: ^0x[0-9a-fA-F]+$
 
-  Signature:
+    Signature:
         description: Verified ECDSA Signature. Signatures are a pair (r, s). Where r is computed as the X coordinate of a point R, modulo the curve order n.
         type: object
         required: [r, s, v, msgHash, block, blockHash]
@@ -268,7 +219,7 @@ definitions:
                 format: hex
                 example: 28
 
-  Proof:
+    Proof:
         type: object
         description: the Proof-data as part of the in3-section
         required: [type]
@@ -353,7 +304,7 @@ definitions:
                 items:
                     $ref: "#/definitions/Signature"
 
-  IN3ResponseConfig:
+    IN3ResponseConfig:
       type: object
       description: additional data returned from a IN3 Server
       properties:
@@ -372,49 +323,7 @@ definitions:
               type: number
               example: 320126478
 
-  IN3NodeConfig:
-      description: a configuration of a in3-server.
-      type: object
-      required: [address, url, deposit, chainIds]
-      properties:
-          index:
-              description: the index within the contract
-              type: integer
-              example: 13
-          address:
-              description: the address of the node, which is the public address it iis signing with.
-              type: string
-              format: address
-              example: "0x6C1a01C2aB554930A937B0a2E8105fB47946c679"
-          timeout:
-              description: the time (in seconds) until an owner is able to receive his deposit back after he unregisters himself
-              type: integer
-              example: 3600
-          url:
-              description: the endpoint to post to
-              type: string
-              example: "https://in3.slock.it"
-          chainIds:
-              description: the list of supported chains
-              example: ["0x1"]
-              type: array
-              items:
-                  type: string
-                  format: hex
-          deposit:
-              description: the deposit of the node in wei
-              type: integer
-              example: 12350000
-          capacity:
-              description: the capacity of the node.
-              type: integer
-              example: 100
-          props:
-              description: the properties of the node.
-              type: integer
-              example: 3
-
-  RPCResponse:
+    RPCResponse:
       type: object
       description: a JSONRPC-Responset with N3-Extension
       required: [jsonrpc, id]
@@ -441,7 +350,7 @@ definitions:
               description: the node handling this response (internal only)
               $ref: "#/definitions/IN3NodeConfig"
 
-  IN3NodeConfig:
+    IN3NodeConfig:
       description: a configuration of a in3-server.
       type: object
       required: [address, url, deposit, chainIds]
@@ -483,7 +392,7 @@ definitions:
               type: integer
               example: 3
 
-  ServerList:
+    ServerList:
           type: object
           description: a List of nodes
           required: [nodes]
@@ -506,7 +415,7 @@ definitions:
               proof:
                   $ref: "#/definitions/Proof"
 
-  IN3RPCHandlerConfig:
+    IN3RPCHandlerConfig:
       type: object
       description: the configuration for the rpc-handler
       required: [rpcUrl, privateKey, registry]
@@ -589,7 +498,7 @@ definitions:
                               description: if true, this node is able to deliver multiple chains
                               flag: 2
 
-  ChainSpec:
+    ChainSpec:
       type: object
       description: describes the chainspecific consensus params
       properties:
@@ -618,7 +527,7 @@ definitions:
               type: number
               example: bypassFinality = 10960502 -> will skip the finality check and add the list at block 10960502
 
-  IN3RPCConfig:
+    IN3RPCConfig:
           type: object
           description: the configuration for the rpc-handler
           properties:
@@ -701,7 +610,7 @@ definitions:
                   additionalProperties:
                       $ref: "#/definitions/IN3RPCHandlerConfig"
 
-  IN3Config:
+    IN3Config:
         description: the iguration of the IN3-Client. This can be paritally overriden for every request.
         type: object
         required: [minDeposit, requestCount, chainId]
@@ -881,7 +790,7 @@ definitions:
                             additionalProperties:
                                 $ref: "#/definitions/IN3NodeWeight"
 
-  IN3NodeWeight:
+    IN3NodeWeight:
       description: a local weight of a n3-node. (This is used internally to weight the requests)
       type: object
       properties:

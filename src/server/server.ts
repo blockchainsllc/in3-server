@@ -33,9 +33,17 @@ import { readCargs } from './config'
 const config = readCargs()
 import { RPC } from './rpc'
 import { cbor,  chainAliases } from 'in3-common'
-import { RPCRequest } from '../model/types'
+import { RPCRequest } from '../types/types'
 import { initConfig } from '../util/db'
 import { encodeObject } from '../util/binjson'
+
+if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.init({
+            dsn: process.env.SENTRY_DSN,
+            release: process.env.SENTRY_RELEASE,
+            environment: process.env.SENTRY_ENVIRONMENT,
+        });
+}
 
 // Hook to nodeJs events
 function handleExit(signal) {
@@ -48,10 +56,16 @@ process.on('SIGTERM', handleExit);
 
 process.on("uncaughtException", (err) => {
   logger.error("Unhandled error: " + err,{ error: err});
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.captureException(err);
+  }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error("Unhandled promise rejection at " + promise,{ reason: reason, promise: promise});
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.captureException(new Error("Unhandled promise rejection at " + promise));
+  }
 });
 
 let AUTO_REGISTER_FLAG: boolean

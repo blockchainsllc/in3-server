@@ -19,8 +19,8 @@
 
 import { methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
-import { Transport, AxiosTransport,  util, transport } from 'in3-common'
-import  { RPCResponse} from '../model/types'
+import { Transport, AxiosTransport, util, transport } from 'in3-common'
+import { RPCResponse } from '../types/types'
 import * as ETx from 'ethereumjs-tx'
 import { SentryError } from '../util/sentryError'
 import { AbiCoder } from '@ethersproject/abi'

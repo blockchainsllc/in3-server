@@ -21,7 +21,7 @@
 import { assert } from 'chai'
 import 'mocha'
 import { util, BlockData, serialize } from 'in3-common'
-import {  Signature, RPCRequest, RPCResponse } from '../../src/model/types'
+import {  Signature, RPCRequest, RPCResponse } from '../../src/types/types'
 import { encodeObject } from '../../src/util/binjson'
 
 

@@ -18,7 +18,7 @@
 ***********************************************************/
 
 import {  LogData, BlockData, ReceiptData, serialize, util, TransactionData, getSigner } from 'in3-common'
-import { LogProof,  RPCRequest, RPCResponse,  Signature, Proof } from '../../model/types'
+import { LogProof,  RPCRequest, RPCResponse,  Signature, Proof } from '../../types/types'
 import { rlp, toChecksumAddress } from 'ethereumjs-util'
 import * as Trie from 'merkle-patricia-tree'
 import In3Trie from 'in3-trie'

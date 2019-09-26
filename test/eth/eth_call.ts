@@ -21,7 +21,7 @@
 import { assert } from 'chai'
 import 'mocha'
 import { BlockData,  util,  LogData } from 'in3-common'
-import {  RPCResponse,  Proof } from '../../src/model/types'
+import {  RPCResponse,  Proof } from '../../src/types/types'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'

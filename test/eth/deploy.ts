@@ -20,29 +20,37 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import  { util } from 'in3-common'
-import Client, {chainData} from 'in3'
-import { registerServers } from '../../src/util/registry';
+import { util } from 'in3-common'
+import Client, { chainData } from 'in3'
+import { registerNodes } from '../../src/util/registry';
 import * as logger from '../../src/util/logger'
-import { LoggingAxiosTransport, getTestClient } from '../utils/transport'
+import { LoggingAxiosTransport, getTestClient, TestTransport } from '../utils/transport'
 
 describe('Deploying Contracts', () => {
   it('deploy and register servers', async () => {
-    const pk = '0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
-    const pk2 = '0xaaaa239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
+
+    const test = await TestTransport.createWithRegisteredNodes(1)
+
+    const pk = await test.createAccount('0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238', util.toBN('500000000000000000'))
+    const pk2 = await test.createAccount('0xaaaa239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238', util.toBN('500000000000000000'))
+
+    // const pk = '0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
+    //  const pk2 = '0xaaaa239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
 
     //  deploy cainRegkstry and ServerRegistry for 0x99-chainId with 2 Nodes
-    const registers = await registerServers(pk, null, [{
+    const registers = await registerNodes(pk, null, [{
       url: '#1',
       pk,
       props: '0xFF',
-      deposit: 0
+      deposit: util.toBN('10000000000000000'),
+      timeout: 3600
     },
     {
       url: '#2',
       pk: pk2,
       props: '0xFF',
-      deposit: 0
+      deposit: util.toBN('10000000000000000'),
+      timeout: 3600
     }], '0x99', null, getTestClient(), new LoggingAxiosTransport())
 
 
@@ -60,7 +68,7 @@ describe('Deploying Contracts', () => {
             address: util.getAddress(pk),
             url: getTestClient(),
             chainIds: ['0x99'],
-            deposit: 0
+            deposit: util.toBN('10000000000000000')
           }]
         }
       }

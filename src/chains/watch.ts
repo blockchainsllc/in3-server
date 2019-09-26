@@ -48,6 +48,18 @@ export default class Watcher extends EventEmitter {
   persistFile: string
   running: boolean
 
+  _convictInformation: {
+    convictBlockNumber: number,
+    signer: string,
+    wrongBlockHash: string,
+    wrongBlockNumber: string,
+    v: number,
+    r: string,
+    s: string,
+    recreationDone: boolean
+  }
+
+  futureConvicts: any[]
 
   constructor(handler: RPCHandler, interval = 5, persistFile = 'false', startBlock?: number) {
     super()
@@ -57,8 +69,9 @@ export default class Watcher extends EventEmitter {
     if (startBlock)
       this._lastBlock = { number: startBlock, hash: toHex(0, 32) }
 
+    this.futureConvicts = []
     // regsiter Cancel-Handler for 
-    this.on('LogServerUnregisterRequested', handleUnregister)
+    this.on('LogNodeUnregisterRequested', handleUnregister)
 
   }
 
@@ -170,6 +183,19 @@ export default class Watcher extends EventEmitter {
     // update validators
     await updateValidatorHistory(this.handler)
 
+    for (const ci of this.futureConvicts) {
+      if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone) {
+        await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
+          [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
+          privateKey: this.handler.config.privateKey,
+          gas: 600000,
+          value: 0,
+          confirm: false
+        }).catch(_ => logger.error('Error sending revealConvict ', _))
+        this.futureConvicts.pop()
+      }
+    }
+
     return res
   }
 
@@ -205,7 +231,7 @@ function decodeData(data: any, inputs: { type: string, name: string }[]) {
   }, {})
 }
 
-const abi = getABI('ServerRegistry').filter(_ => _.type === 'event') as {
+const abi = getABI('NodeRegistry').filter(_ => _.type === 'event') as {
   name: string
   inputs: any[]
   hash: string
