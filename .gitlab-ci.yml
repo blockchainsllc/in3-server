@@ -205,9 +205,9 @@ register-with-sentry-production:
   except:
     - branches
   environment:
-    name: production-${CHAIN}
+    name: production-v2-${CHAIN}
   variables:
-    TARGET: production
+    TARGET: production-v2
   when: manual
   allow_failure: false
 
