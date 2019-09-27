@@ -1,7 +1,7 @@
 version: '2'
 services:
   lb:
-    image: rancher/lb-service-haproxy:v0.9.6
+    image: rancher/lb-service-haproxy:v0.9.13
     expose:
     - 80:80/tcp
     labels:
