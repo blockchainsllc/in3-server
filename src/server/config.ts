@@ -25,6 +25,7 @@ import * as cargs from 'args'
 // defaults for the config
 const config: IN3RPCConfig = {
   port: 8500,
+  maxPointsPerMinute: 60 * 100, // per scond max a 100 points request
   chains: {
     '0x2a': {
       rpcUrl: 'https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX',   //'http://localhost:8545',
