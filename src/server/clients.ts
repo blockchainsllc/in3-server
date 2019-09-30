@@ -3,7 +3,7 @@ import { RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, Server
 
 const MAX_BLOCKS = 1000
 
-function toBlockumber(blk: string) {
+function toBlockNumber(blk: string) {
     if (!blk) return 0
     if (blk == 'latest' || blk == 'pending') return MAX_BLOCKS
     if (blk == 'earliest') return 0
@@ -19,7 +19,7 @@ export function calculateCosts(request: RPCRequest): number {
             return 50
         case 'eth_getLogs':
             const filter = request.params && request.params[0]
-            return Math.round(Math.min(1000, 1 + Math.max(filter ? toBlockumber(filter.toBlock) - toBlockumber(filter.fromBlock) : MAX_BLOCKS, 0)) * 0.9 + 10)
+            return Math.round(Math.min(1000, 1 + Math.max(filter ? toBlockNumber(filter.toBlock) - toBlockNumber(filter.fromBlock) : MAX_BLOCKS, 0)) * 0.9 + 10)
         case 'in3_sign':
             return (request.params && request.params[0] && request.params[0].length || 0) * 20
         case 'in3_stats':
