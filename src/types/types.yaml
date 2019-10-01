@@ -536,6 +536,12 @@ definitions:
             maxPointsPerMinute:
                 type: number
                 description: max number of request points a client is able to handle before getting rejected.
+            maxBlocksSigned:
+                type: number
+                description: max number of blocks signed per in3_sign-request
+            maxSignatures:
+                type: number
+                description: max number of signatures to request
             proxy:
                 type: boolean
                 description: accepts x-forward-headers
