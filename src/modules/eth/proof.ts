@@ -253,7 +253,7 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
     response.in3 = {
       proof: {
         type: 'blockProof',
-        signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: toNumber(blockData.number), hash: blockData.hash }], request.in3.verifiedHashes)
+        signatures: await collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(blockData.number), hash: blockData.hash }], request.in3.verifiedHashes)
       }
     }
 
@@ -293,7 +293,7 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
       // create the proof
       response.in3 = {
         proof: await createTransactionProof(block, request.params[0] as string,
-          await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
+          await collectSignatures(handler, request.in3.signers, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
           request.in3.verifiedHashes, handler) as any
       }
     return addFinality(request, response, block, handler)
@@ -323,7 +323,7 @@ export async function handeGetTransactionFromBlock(handler: EthHandler, request:
     // create the proof
     response.in3 = {
       proof: await createTransactionFromBlockProof(block, parseInt(request.params[1]),
-        await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
+        await collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
         request.in3.verifiedHashes) as any
     }
     return addFinality(request, response, block, handler)
@@ -344,7 +344,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
 
       const [signatures, receipts] = await Promise.all([
         // signatures for the block of the transaction
-        collectSignatures(handler, request.in3.signatures, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes),
+        collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes),
 
         // get all receipts, because we need to build the MerkleTree
         handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })), request)
@@ -398,7 +398,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
     // fetch in parallel
     await Promise.all([
       // collect signatures for all the blocks
-      collectSignatures(handler, request.in3.signatures, blocks.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash })), request.in3.verifiedHashes),
+      collectSignatures(handler, request.in3.signers, blocks.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash })), request.in3.verifiedHashes),
       // and get all receipts in all blocks and afterwards reasign them to their block
       handler.getAllFromServer(
         blocks.map(_ => _.transactions).reduce((p, c) => [...p, ...c], []).map(t => ({ method: 'eth_getTransactionReceipt', params: [t.hash] })), request
@@ -475,7 +475,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
       { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
     )), request),
-    collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes)
+    collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes)
   ])
 
   // add the codes to the accounts
@@ -564,7 +564,7 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
         proof: {
           type: 'accountProof',
           block: createBlock(block, request.in3.verifiedHashes),
-          signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
+          signatures: await collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
           accounts: { [toChecksumAddress(address)]: proof.result }
         }
       }

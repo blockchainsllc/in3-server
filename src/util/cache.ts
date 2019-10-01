@@ -92,7 +92,7 @@ export class SimpleCache {
     if (res) {
       const r: RPCResponse = { ...res, id: request.id }
       if (request.in3 && r.in3 && r.in3.proof) {
-        if (!request.in3.signatures || request.in3.signatures.length === 0) {
+        if (!request.in3.signers || request.in3.signers.length === 0) {
           if (r.in3 && r.in3.proof && r.in3.proof.signatures)
             delete r.in3.proof.signatures
           return r
@@ -108,7 +108,7 @@ export class SimpleCache {
             ...r.in3,
             proof: {
               ...r.in3.proof,
-              signatures: await collectSignature(request.in3.signatures, blockNumbers, request.in3.verifiedHashes || [])
+              signatures: await collectSignature(request.in3.signers, blockNumbers, request.in3.verifiedHashes || [])
             }
           }
         }

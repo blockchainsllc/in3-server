@@ -100,7 +100,7 @@ export class RPC {
           r.params[0] || 0,
           r.params[1],
           r.params[2] || [],
-          in3Request.signatures,
+          in3Request.signers || in3Request.signatures,
           in3Request.verifiedHashes
         ),
         getValidatorHistory(handler)]).then(async ([result, validators]) => {
@@ -118,7 +118,7 @@ export class RPC {
           return res as RPCResponse
         }))
 
-      else if (r.method === 'in3_validatorlist')
+      else if (r.method === 'in3_validatorList' || r.method === 'in3_validatorlist') // 'in3_validatorlist' is only supported for legacy, but deprecated
         return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
 
           const startIndex: number = (r.params && r.params.length > 0) ? util.toNumber(r.params[0]) : 0
