@@ -220,6 +220,13 @@ describe('Convict', () => {
 
     if (!events) events = await watcher2.update()
 
+
+    for (let i = 0; i < 5; i++) {
+      await test.createAccount()
+      await watcher.update()
+      await watcher2.update()
+    }
+
     assert.equal(events.length, 2)
     assert.equal(await test.getNodeCountFromContract(), 1)
 

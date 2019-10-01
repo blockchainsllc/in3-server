@@ -67,6 +67,17 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
   // get our own nodeList
   const nodes = await handler.getNodeList(false)
+
+  // checking for all the nodes that return a wrong block already and remove them from the nodeRegistry
+  for (const convictInfo of handler.watcher.futureConvicts) {
+    const convictedNode = nodes.nodes.find(_ => _.address.toLowerCase() === convictInfo.signer.toLowerCase())
+
+    if (convictedNode) {
+      const convictedNodeIndex = nodes.nodes.indexOf(convictedNode)
+      delete nodes.nodes[convictedNodeIndex]
+    }
+  }
+
   const uniqueAddresses = [...new Set(addresses.map(item => item))];
   return Promise.all(uniqueAddresses.slice(0, nodes.nodes.length).map(async adr => {
     // find the requested address in our list
@@ -135,38 +146,42 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
           return s
         }
 
-
+        // we detected a wrong signature
         const latestBlockNumber = handler.watcher.block.number
 
         const diffBlocks = toNumber(latestBlockNumber) - s.block
 
         const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-        if (diffBlocks < 255) {
+        const foundAlready = handler.watcher.futureConvicts.find(({ signer, wrongBlockHash }) => {
+          return (signer === singingNode.address && wrongBlockHash === s.blockHash)
+        })
 
-          await callContract(handler.config.rpcUrl, nodes.contract, 'convict(bytes32)', [convictSignature], {
-            privateKey: handler.config.privateKey,
-            gas: 500000,
-            value: 0,
-            confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-          })
+        if (foundAlready) return
 
-          handler.watcher.futureConvicts.push({
-            convictBlockNumber: latestBlockNumber,
-            signer: singingNode.address,
-            wrongBlockHash: s.blockHash,
-            wrongBlockNumber: s.block,
-            v: s.v,
-            r: s.r,
-            s: s.s,
-            recreationDone: true
-          })
+        if (!handler.watcher.blockhashRegistry) {
+          handler.watcher.blockhashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
         }
-        else {
-          await handleRecreation(handler, nodes, singingNode, s, diffBlocks)
-        }
-        return
 
+        await callContract(handler.config.rpcUrl, nodes.contract, 'convict(bytes32)', [convictSignature], {
+          privateKey: handler.config.privateKey,
+          gas: 500000,
+          value: 0,
+          confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+        })
+
+        handler.watcher.futureConvicts.push({
+          startTime: Date.now(),
+          diffBlocks: diffBlocks,
+          convictBlockNumber: latestBlockNumber,
+          signer: singingNode.address,
+          wrongBlockHash: s.blockHash,
+          wrongBlockNumber: s.block,
+          v: s.v,
+          r: s.r,
+          s: s.s,
+          recreationDone: true
+        })
       }))
 
     return signatures
@@ -213,21 +228,28 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
   }
 }
 
-async function handleRecreation(handler: BaseHandler, nodes: ServerList, singingNode: IN3NodeConfig, s: Signature, diffBlocks: number): Promise<any> {
+export async function handleRecreation(handler: BaseHandler, nodes: ServerList, singingNode: IN3NodeConfig, s: Signature, diffBlocks: number): Promise<any> {
 
+  console.log("handleRecreation")
   // we have to find the blockHashRegistry
   const blockHashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
 
   // we have to calculate whether it's worth convicting a server
   const [, deposit, , , , , , ,] = await callContract(handler.config.rpcUrl, nodes.contract, 'nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', [toNumber(singingNode.index)])
-  const latestSS = toNumber((await callContract(handler.config.rpcUrl, blockHashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [s.block, diffBlocks]))[0])
+  let latestSS = toNumber((await callContract(handler.config.rpcUrl, blockHashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [s.block, diffBlocks]))[0])
+
+  // we did not found an entry in the registry yet, so we would have to create one
+  if (latestSS === 0) {
+    latestSS = handler.watcher._lastBlock.number
+  }
+
   const costPerBlock = 86412400000000
+
+
   const blocksMissing = latestSS - s.block
   const costs = blocksMissing * costPerBlock * 1.25
 
   if (costs > (deposit / 2)) {
-
-    console.log("not worth it")
     //it's not worth it
     return
   }
@@ -254,35 +276,11 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
 
     const transactionArrays = []
 
-    // splitting the blocks in array with the size of 235 (sweet spot)
     while (serialzedBlocks.length) {
       transactionArrays.push(serialzedBlocks.splice(0, 45));
     }
 
     let diffBlock = 0;
-
-    const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
-
-    try {
-      await callContract(handler.config.rpcUrl, nodes.contract, 'convict(bytes32)', [convictSignature], {
-        privateKey: handler.config.privateKey,
-        gas: 500000,
-        value: 0,
-        confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-      })
-      handler.watcher.futureConvicts.push({
-        convictBlockNumber: handler.watcher.block.number,
-        signer: singingNode.address,
-        wrongBlockHash: s.blockHash,
-        wrongBlockNumber: s.block,
-        v: s.v,
-        r: s.r,
-        s: s.s,
-        recreationDone: false
-      })
-
-    } catch (e) {
-    }
 
     for (const txArray of transactionArrays) {
       try {

@@ -34,7 +34,7 @@
 
 import * as fs from 'fs'
 import { EventEmitter } from 'events'
-import { util, LogData } from 'in3-common'
+import { util, LogData, serialize } from 'in3-common'
 import { keccak, toChecksumAddress } from 'ethereumjs-util'
 
 import { RPCHandler } from '../server/rpc';
@@ -49,6 +49,8 @@ const toNumber = util.toNumber
 const toHex = util.toHex
 const toMinHex = util.toMinHex
 const toBuffer = util.toBuffer
+const address = serialize.address
+
 
 export default class Watcher extends EventEmitter {
 
@@ -62,8 +64,15 @@ export default class Watcher extends EventEmitter {
   interval: number
   persistFile: string
   running: boolean
+  blockhashRegistry: string
 
   _convictInformation: {
+    starttime: number,
+    diffBlocks: number,
+    blocksToRecreate?: {
+      bNr: number,
+      firstSeen: boolean
+    }[],
     convictBlockNumber: number,
     signer: string,
     wrongBlockHash: string,
@@ -199,6 +208,57 @@ export default class Watcher extends EventEmitter {
     await updateValidatorHistory(this.handler)
 
     for (const ci of this.futureConvicts) {
+
+      if (ci.diffBlocks) {
+
+        if (!ci.blocksToRecreate) {
+          const singingNode = nodeList.nodes.find(_ => _.address.toLowerCase() === (ci.signer.toLowerCase()))
+
+          ci.blocksToRecreate = []
+          let latestSS = toNumber((await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [ci.wrongBlockNumber, ci.diffBlocks]))[0])
+
+          if (latestSS === 0) latestSS == this.block.number
+
+          const blocksMissing = latestSS - ci.wrongBlockNumber
+          const costPerBlock = 86412400000000
+          const costs = blocksMissing * costPerBlock * 1.25
+
+          let worthIt = costs < singingNode.deposit / 2
+          // we did not found an entry in the registry yet, so we would have to create one
+          if (latestSS === this.block.number && worthIt) {
+
+            await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'saveBlockNumber(uint):()', [this.block.number], {
+              privateKey: this.handler.config.privateKey,
+              gas: 600000,
+              value: 0,
+              confirm: false
+            })
+          }
+
+          let currentRecreateBlock = latestSS
+
+          // due to geth, we can only recreate 45 blocks at once
+          while (currentRecreateBlock - 45 > ci.wrongBlockNumber) {
+            currentRecreateBlock -= 45
+            ci.blocksToRecreate.push({ number: currentRecreateBlock, firstSeen: null })
+          }
+          ci.blocksToRecreate[0].firstSeen = this.block.number
+
+          ci.blocksToRecreate.push({ number: ci.wrongBlockNumber, firstSeen: null })
+        }
+
+        for (const blocksToRecreate of ci.blocksToRecreate) {
+
+          if (blocksToRecreate.firstSeen) {
+            const blockHashInContract = (await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'blockhashMapping(uint):(bytes32)', [blocksToRecreate.number]))[0]
+
+            if (blockHashInContract === "0x0000000000000000000000000000000000000000000000000000000000000000") blocksToRecreate.firstSeen++
+          }
+
+        }
+
+      }
+
       if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone) {
         await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
           [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
