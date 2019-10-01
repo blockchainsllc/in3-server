@@ -46,7 +46,7 @@ function toBlockNumber(blk: string) {
 
 export function calculateCosts(request: RPCRequest): number {
     if (!request || !request.method) return 0
-    const signatures = (request.in3 && request.in3.signatures && request.in3.signatures.length || 0) * 20
+    const signatures = (request.in3 && (request.in3.signers || request.in3.signatures || []).length || 0) * 20
     switch (request.method) {
         case 'eth_call':
         case 'in3_call':

@@ -111,10 +111,17 @@ export interface IN3RPCRequestConfig {
      */
     clientSignature?: any
     /**
+     * 
+     * a list of addresses requested to sign the blockhash
+     * example: 0x6C1a01C2aB554930A937B0a2E8105fB47946c679
+     * @deprecated since 2.0 use signers instead
+     */
+    signatures?: string /* address */[]
+    /**
      * a list of addresses requested to sign the blockhash
      * example: 0x6C1a01C2aB554930A937B0a2E8105fB47946c679
      */
-    signatures?: string /* address */[]
+    signers?: string /* address */[]
 }
 /**
  * a Object holding proofs for event logs. The key is the blockNumber as hex

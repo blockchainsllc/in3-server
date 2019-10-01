@@ -61,7 +61,7 @@ definitions:
                 example: "proof"
             clientSignature:
                 description: the signature of the client
-            signatures:
+            signers:
                 description: a list of addresses requested to sign the blockhash
                 type: array
                 example: ["0x6C1a01C2aB554930A937B0a2E8105fB47946c679"]

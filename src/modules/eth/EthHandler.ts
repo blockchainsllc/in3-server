@@ -105,20 +105,26 @@ export default class EthHandler extends BaseHandler {
     }
   }
 
-  private async handleRPCMethod(request: RPCRequest) {
-
+  private fixLegacySupport(request: RPCRequest) {
     // handle shortcut-functions
     if (request.method === 'in3_call') {
       request.method = 'eth_call'
       request.params = createCallParams(request)
     }
+    if (request.in3 && request.in3.signatures && !request.in3.signers)
+      request.in3.signers = request.in3.signatures
+  }
+
+  private async handleRPCMethod(request: RPCRequest) {
+
+    this.fixLegacySupport(request)
 
     // check performancelimits
     this.checkPerformanceLimits(request)
 
 
     // handle special jspn-rpc
-    if (request.in3.verification.startsWith('proof'))
+    if (request.in3.verification == 'proof' || request.in3.verification == 'proofWithSignature') // proofWithSignature is only supported for legacy, since only the request for signers is relveant
       switch (request.method) {
         case 'eth_getBlockByNumber':
         case 'eth_getBlockByHash':
