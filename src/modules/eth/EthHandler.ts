@@ -42,6 +42,13 @@ export default class EthHandler extends BaseHandler {
   /** main method to handle a request */
   async handle(request: RPCRequest): Promise<RPCResponse> {
     // replace the latest BlockNumber
+
+    /**
+     * add 
+     *  fromBlock
+     *  toBlock
+     *  getLogs with empty 
+     */
     if (request.in3 && request.in3.latestBlock && Array.isArray(request.params)) {
       const i = request.params.indexOf('latest')
       if (i >= 0)
@@ -81,8 +88,14 @@ export default class EthHandler extends BaseHandler {
       if (!request.params || request.params.length < 1) throw new Error('eth_getLogs must have a filter as parameter')
       const filter: LogFilter = request.params[0]
       let toB = filter && filter.toBlock
+
+      if (toB === 'pending' && request.in3.verification.startsWith('proof')) throw new Error("proof on pending not supported")
+
       if (toB === 'latest' || toB === 'pending' || !toB) toB = this.watcher && this.watcher.block && this.watcher.block.number
       let fromB = toB && filter && filter.fromBlock
+
+      if (fromB === 'pending' && request.in3.verification.startsWith('proof')) throw new Error("proof on pending not supported")
+
       if (fromB === 'earliest') fromB = 1;
       const range = fromB && (toNumber(toB) - toNumber(fromB))
       if (range > (request.in3.verification.startsWith('proof') ? 1000 : 10000))

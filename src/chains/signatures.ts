@@ -90,16 +90,19 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         return null
       }
     } catch (error) {
+
       logger.error(error.toString())
-      Sentry.captureMessage(error.toString())
+      Sentry.configureScope((scope) => {
+        scope.setTag("signatures", "collectSignatures");
+        scope.setExtra("addresses", addresses)
+        scope.setExtra("requestedBlocks", requestedBlocks)
+      });
+      Sentry.captureException(error);
 
       return null
     }
 
-
     const signatures = [...cachedSignatures, ...response.result] as Signature[]
-
-
     // if there are signature, we only return the valid ones
     if (signatures && signatures.length)
       return Promise.all(signatures.map(async s => {

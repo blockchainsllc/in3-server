@@ -238,7 +238,17 @@ export class HandlerTransport extends AxiosTransport {
       // if this was not given as array, we need to convert it back to a single object
       return Array.isArray(data) ? res.data : res.data[0]
     } catch (err) {
-      throw new SentryError(err, 'status_error', 'Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
+
+      if (process.env.SENTRY_ENABLE === 'true') {
+        Sentry.configureScope((scope) => {
+          scope.setTag("rpc", "handle");
+          scope.setTag("status_error", "invalid response");
+          scope.setExtra("url", url)
+          scope.setExtra("data", data)
+        });
+        Sentry.captureException(err);
+      }
+      throw new SentryError(err, 'status_error', 'Invalid response')
     }
   }
 

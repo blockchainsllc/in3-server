@@ -176,7 +176,16 @@ initConfig().then(() => {
   const doInit = (retryCount: number) => {
     if (retryCount <= 0) {
       logger.error('Error initializing the server : Maxed out retries')
-      throw new SentryError("server initialization error", "server_status", "maxed out retries")
+      // throw new SentryError("server initialization error", "server_status", "maxed out retries")
+      if (process.env.SENTRY_ENABLE === 'true') {
+        Sentry.configureScope((scope) => {
+          scope.setTag("server", "initConfig");
+          scope.setTag("server_status", "Error initializing the server");
+          scope.setExtra("config", config)
+
+        });
+        Sentry.captureException(new Error("Maxed out retries"));
+      }
       INIT_ERROR = true
       return;
     }
@@ -185,8 +194,15 @@ initConfig().then(() => {
       logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
 
       setTimeout(() => { doInit(retryCount - 1) }, 20000)
-      throw new SentryError(err, "server_status", "Error initializing the server" + err.stack)
 
+      if (process.env.SENTRY_ENABLE === 'true') {
+        Sentry.configureScope((scope) => {
+          scope.setTag("server", "initConfig");
+          scope.setTag("server_status", "Error initializing the server");
+          scope.setExtra("config", config)
+        });
+        Sentry.captureException(err);
+      }
     })
   }
 
@@ -203,7 +219,15 @@ initConfig().then(() => {
 }).catch(err => {
   //console.error('Error starting the server : ' + err.message, config)
   logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
-  throw new SentryError(err, "server_status", "Error starting the server")
+  // throw new SentryError(err, "server_status", "Error starting the server")
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.configureScope((scope) => {
+      scope.setTag("server", "initConfig");
+      scope.setTag("server_status", "Error starting the server");
+      scope.setExtra("config", config)
+    });
+    Sentry.captureException(err);
+  }
 
   process.exit(1)
 })
@@ -218,7 +242,15 @@ async function checkHealth(ctx: Router.IRouterContext) {
   else if (INIT_ERROR) {
     ctx.body = { status: 'unhealthy', message: "server initialization error" }
     ctx.status = 500
-    throw new SentryError("server initialization error", "server_status", "unhealthy")
+    //  throw new SentryError("server initialization error", "server_status", "unhealthy")
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.configureScope((scope) => {
+        scope.setTag("server", "checkHealth");
+        scope.setTag("unhealthy", "server initialization error");
+        scope.setExtra("ctx", ctx)
+      });
+      Sentry.captureException(new Error("init error"));
+    }
   }
   else {
     await Promise.all(
@@ -238,7 +270,15 @@ async function initError(ctx: Router.IRouterContext) {
   //lies to the rancher that it is healthy to avoid restart loop
   ctx.body = "Server uninitialized"
   ctx.status = 200
-  throw new SentryError("server initialization error", "server_status", "unhealthy")
+  // throw new SentryError("server initialization error", "server_status", "unhealthy")
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.configureScope((scope) => {
+      scope.setTag("server", "initError");
+      scope.setTag("server_status", "Server uninitialized");
+      scope.setExtra("ctx", ctx)
+    });
+    Sentry.captureException(new Error("Server uninitialized"));
+  }
 
 }
 
@@ -251,8 +291,15 @@ async function getVersion(ctx: Router.IRouterContext) {
   else {
     ctx.body = "Unknown Version"
     ctx.status = 500
-    throw new SentryError("server unknown version", "server_status", "unknown version")
 
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.configureScope((scope) => {
+        scope.setTag("server", "getVersion");
+        scope.setTag("server_status", "unknown version");
+        scope.setExtra("ctx", ctx)
+      });
+      Sentry.captureException(new Error("server unknown version"));
+    }
   }
 }
 
