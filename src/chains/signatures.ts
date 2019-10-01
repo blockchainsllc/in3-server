@@ -54,8 +54,8 @@ export const signatureCaches: LRUCache = new LRUCache();
 
 export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
   // DOS-Protection
-  if (address && addresses.length > config.maxSignatures) throw new Error('Too many signatures requested!')
-  if (requestedBlocks && requestedBlocks.length > config.maxBlocksSigned) throw new Error('Too many blocks to sign! Try to reduce the blockrange!')
+  //  if (address && addresses.length > config.maxSignatures) throw new Error('Too many signatures requested!')
+  //  if (requestedBlocks && requestedBlocks.length > config.maxBlocksSigned) throw new Error('Too many blocks to sign! Try to reduce the blockrange!')
   // nothing to do?
   if (!addresses || !addresses.length || !requestedBlocks || !requestedBlocks.length) return []
 
