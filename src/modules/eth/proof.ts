@@ -396,7 +396,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
     const blocks = await handler.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), true] })), request).then(all => all.map(_ => _.result as BlockData))
 
     // fetch in parallel
-    await Promise.all([
+    const [signatures] = await Promise.all([
       // collect signatures for all the blocks
       collectSignatures(handler, request.in3.signers, blocks.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash })), request.in3.verifiedHashes),
       // and get all receipts in all blocks and afterwards reasign them to their block
@@ -423,7 +423,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
 
       // create receipt-proofs for all these transactions
       return Promise.all(toProof.map(th =>
-        createTransactionReceiptProof(b, allReceipts, th, [], request.in3.verifiedHashes, handler)
+        createTransactionReceiptProof(b, allReceipts, th, signatures, request.in3.verifiedHashes, handler)
           .then(p => blockProof.receipts[th] = {
             txHash: th,
             txIndex: parseInt(allReceipts.find(_ => _.transactionHash == th).transactionIndex),
@@ -437,7 +437,8 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
     response.in3 = {
       proof: {
         type: 'logProof',
-        logProof: proof
+        logProof: proof,
+        signatures
       }
     }
   }
