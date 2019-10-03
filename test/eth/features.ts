@@ -172,7 +172,7 @@ describe('Features', () => {
           minBlockHeight: 0,
           autoRegistry: {
             url: 'dummy',
-            deposit: util.toBN('10000000000000000'),
+            deposit: util.toBN('10000000000000000') as any,
             depositUnit: 'wei',
             capabilities: {
               proof: true,

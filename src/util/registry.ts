@@ -95,7 +95,7 @@ export async function registerNodes(pk: string, registry: string, data: {
   url: string,
   pk: string
   props: string
-  deposit: number
+  deposit: any
   timeout: number
   weight?: number
 }[], chainId: string, chainRegistry?: string, url = 'http://localhost:8545', transport?: Transport, registerChain = true) {
