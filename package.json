@@ -26,7 +26,7 @@
     "lint:solium:fix": "node node_modules/ethlint/bin/solium.js -d contracts/ --fix",
     "lint:solhint": "node node_modules/solhint/solhint.js \"contracts/**/*.sol\" -w 0",
     "local-env": "export NODE_ENV=0 && npm run build && node ./js/src/server/server.js --privateKey=0xD9210C20A0ED0F78F250FE94B38F34D90ACEFC391A0718FFB5EBE0B3C282C1A6 --chain=0x111 --rpcUrl=http://localhost:8545 --minBlockHeight=6 --registry=0x6dA43E64F8CC2427477178145C747E670733dEE7 --persistentFile=false --autoRegistry-url=http://127.0.0.1:8500 --autoRegistry-capabilities-proof=true --autoRegistry-capabilities-multiChain=true --autoRegistry-deposit=10"
- },
+  },
   "nyc": {
     "include": [
       "node_modules/in3/src/**/*.ts",
@@ -102,7 +102,7 @@
     "ethers": "^4.0.27",
     "ethjs-util": "0.1.4",
     "form-data": "^2.3.2",
-    "in3-common": "^2.0.1-RC1",
+    "in3-common": "^2.0.2-RC1",
     "in3-contracts": "^0.0.2-beta.2",
     "in3-trie": "^0.1.2",
     "koa": "^2.7.0",
