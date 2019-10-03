@@ -243,7 +243,7 @@ export class TestTransport implements Transport {
   }
 
   /** creates a random private key and transfers some ether to this address */
-  async createAccount(seed?: string, eth = toBN('50000000000000000000')): Promise<string> {
+  async createAccount(seed?: string, eth: any = toBN('50000000000000000000')): Promise<string> {
     const pkBuffer = seed
       ? seed.startsWith('0x')
         ? Buffer.from(seed.substr(2).padStart(64, '0'), 'hex')

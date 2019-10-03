@@ -66,7 +66,7 @@ export async function callContract(url: string, contract: string, signature: str
   gasPrice?: number
   to?: string
   data?: string
-  value: number
+  value: any
   confirm?: boolean
 }, transport?: Transport) {
   if (!transport) transport = new AxiosTransport()
@@ -97,7 +97,7 @@ export async function sendTransaction(url: string, txargs: {
   gasPrice?: number
   to?: string
   data: string
-  value: number
+  value: any
   confirm?: boolean
 }, transport?: Transport): Promise<{
   blockHash: string,
