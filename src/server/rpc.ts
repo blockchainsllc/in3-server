@@ -1,25 +1,40 @@
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
 
-import {  Transport, AxiosTransport,  util } from 'in3-common'
-import { RPCRequest, RPCResponse,  IN3ResponseConfig, IN3RPCRequestConfig,  ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
+import { Transport, AxiosTransport, util } from 'in3-common'
+import { RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour } from './stats'
@@ -27,7 +42,7 @@ import { getStats, currentHour } from './stats'
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
-import {SentryError} from '../util/sentryError'
+import { SentryError } from '../util/sentryError'
 
 
 export class RPC {
@@ -72,7 +87,7 @@ export class RPC {
       const in3: IN3ResponseConfig = {} as any
       const start = Date.now()
 
-      if(!handler)
+      if (!handler)
         throw new Error("Unable to connect Ethereum and/or invalid chainId give.")
 
       // update stats
@@ -85,7 +100,7 @@ export class RPC {
           r.params[0] || 0,
           r.params[1],
           r.params[2] || [],
-          in3Request.signatures,
+          in3Request.signers || in3Request.signatures,
           in3Request.verifiedHashes
         ),
         getValidatorHistory(handler)]).then(async ([result, validators]) => {
@@ -103,7 +118,7 @@ export class RPC {
           return res as RPCResponse
         }))
 
-      else if (r.method === 'in3_validatorlist')
+      else if (r.method === 'in3_validatorList' || r.method === 'in3_validatorlist') // 'in3_validatorlist' is only supported for legacy, but deprecated
         return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
 
           const startIndex: number = (r.params && r.params.length > 0) ? util.toNumber(r.params[0]) : 0
@@ -223,12 +238,12 @@ export class HandlerTransport extends AxiosTransport {
       const res = await axios.post(url, requests, { headers: { 'Content-Type': 'application/json' } })
 
       // throw if the status is an error
-      if (res.status > 200) throw new SentryError('Invalid status','status_error',res.status.toString())
+      if (res.status > 200) throw new SentryError('Invalid status', 'status_error', res.status.toString())
 
       // if this was not given as array, we need to convert it back to a single object
       return Array.isArray(data) ? res.data : res.data[0]
     } catch (err) {
-      throw new SentryError(err,'status_error','Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
+      throw new SentryError(err, 'status_error', 'Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
     }
   }
 

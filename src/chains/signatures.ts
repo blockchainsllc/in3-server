@@ -1,21 +1,36 @@
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
 import BaseHandler from './BaseHandler'
 import { BlockData, util, serialize } from 'in3-common'
@@ -24,6 +39,7 @@ import { keccak, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
 import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
+import config from '../server/config'
 import { toBuffer } from 'in3-common/js/src/util/util';
 
 
@@ -37,6 +53,9 @@ const bytes = serialize.bytes
 export const signatureCaches: LRUCache = new LRUCache();
 
 export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
+  // DOS-Protection
+  if (addresses && addresses.length > config.maxSignatures) throw new Error('Too many signatures requested!')
+  if (requestedBlocks && requestedBlocks.length > config.maxBlocksSigned) throw new Error('Too many blocks to sign! Try to reduce the blockrange!')
   // nothing to do?
   if (!addresses || !addresses.length || !requestedBlocks || !requestedBlocks.length) return []
 

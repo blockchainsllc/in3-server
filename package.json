@@ -25,11 +25,8 @@
     "lint:solium": "node node_modules/ethlint/bin/solium.js -d contracts/",
     "lint:solium:fix": "node node_modules/ethlint/bin/solium.js -d contracts/ --fix",
     "lint:solhint": "node node_modules/solhint/solhint.js \"contracts/**/*.sol\" -w 0",
-    "local-env": "export NODE_ENV=0 && npm run build && node ./js/src/server/server.js --privateKey=0x9e53e6933d69a28a737943e227ad013c7489e366f33281d350c77f089d8411a6 --chain=0x111 --rpcUrl=http://localhost:8545 --minBlockHeight=6 --registry=0x31636f91297C14A8f1E7Ac271f17947D6A5cE098 --persistentFile=false --autoRegistry-url=http://127.0.0.1:8500 --autoRegistry-capabilities-proof=true --autoRegistry-capabilities-multiChain=true --autoRegistry-deposit=0",
-    "local-env2": "export NODE_ENV=0 && npm run build && node ./js/src/server/server.js --privateKey=0xf7db260e6edcdfe396d75f8283aad5aed835815f7d1db4458896310553a8a1a9 --chain=0x111 --rpcUrl=http://localhost:8545 --minBlockHeight=6 --registry=0x31636f91297C14A8f1E7Ac271f17947D6A5cE098 --persistentFile=false --autoRegistry-url=http://127.0.0.1:8501 --autoRegistry-capabilities-proof=true --autoRegistry-capabilities-multiChain=true --autoRegistry-deposit=0",
-    "local-env3": "export NODE_ENV=0 && npm run build && node ./js/src/server/server.js --privateKey=0xf7db260e6edcdfe396d75f8283aad5aed835815f7d1db4458896310553a8a1a9 --chain=0x5 --rpcUrl=https://rpc.slock.it/goerli --minBlockHeight=6 --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e --persistentFile=false",
-    "local-env4": "export NODE_ENV=0 && npm run build && node ./js/src/server/server.js --privateKey=0xf7db260e6edcdfe396d75f8283aad5aed835815f7d1db4458896310553a8a1a9 --chain=0x2a --rpcUrl=https://rpc.slock.it/kovan --minBlockHeight=6 --registry=0x27a37a1210df14f7e058393d026e2fb53b7cf8c1 --persistentFile=false"
-  },
+    "local-env": "export NODE_ENV=0 && npm run build && node ./js/src/server/server.js --privateKey=0xD9210C20A0ED0F78F250FE94B38F34D90ACEFC391A0718FFB5EBE0B3C282C1A6 --chain=0x111 --rpcUrl=http://localhost:8545 --minBlockHeight=6 --registry=0x6dA43E64F8CC2427477178145C747E670733dEE7 --persistentFile=false --autoRegistry-url=http://127.0.0.1:8500 --autoRegistry-capabilities-proof=true --autoRegistry-capabilities-multiChain=true --autoRegistry-deposit=10"
+ },
   "nyc": {
     "include": [
       "node_modules/in3/src/**/*.ts",
@@ -59,7 +56,7 @@
     "url": "git+https://github.com/slockit/in3-server.git"
   },
   "author": "Simon Jentzsch",
-  "license": "in3",
+  "license": "(AGPL-3.0-or-later OR commercial)",
   "bugs": {
     "url": "https://github.com/slockit/in3-server/issues"
   },

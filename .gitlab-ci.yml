@@ -130,7 +130,7 @@ dockerhub-deploy:
   stage: deploy
   when: manual
   only:
-    - /^v[0-9]+.[0-9]+.[0-9]+$/
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
   except:
     - branches
   tags:
@@ -168,7 +168,7 @@ register-with-sentry-stage:
 register-with-sentry-production:
   extends: .register-with-sentry
   only:
-    - /^v[0-9]+.[0-9]+.[0-9]+$/
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
   except:
     - branches
   variables:
@@ -198,12 +198,13 @@ register-with-sentry-production:
   variables:
     TARGET: stage
     STACKNAME: server
+    BLOCKHEIGHT: "0"
     REGISTRY_CONTRACT_ADDR: "0xa412D519199C3c0ebaea3A9f73f1f89A935F9F14"
 
 .deploy-tmpl-production:
   extends: .deploy-tmpl
   only:
-    - /^v[0-9]+.[0-9]+.[0-9]+$/
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
   except:
     - branches
   environment:
@@ -211,6 +212,7 @@ register-with-sentry-production:
   variables:
     STACKNAME: server-v2
     TARGET: production
+    BLOCKHEIGHT: "0"
   when: manual
   allow_failure: false
 
@@ -272,21 +274,22 @@ deploy-production-mainnet:
     - .deploy-tmpl-production
     - .chain-tmpl-mainnet
   variables:
-    REGISTRY_CONTRACT_ADDR: "0x40f1929b349107a65e705cdbe13c496840e12d51"
+    BLOCKHEIGHT: "6"
+    REGISTRY_CONTRACT_ADDR: "0x64abe24afbba64cae47e3dc3ced0fcab95e4edd5"
 
 deploy-production-kovan:
   extends:
     - .deploy-tmpl-production
     - .chain-tmpl-kovan
   variables:
-    REGISTRY_CONTRACT_ADDR: "0x102561587b165a9cb4cbb41d4f65981e66a86aed"
+    REGISTRY_CONTRACT_ADDR: "0x33f55122c21cc87b539e7003f7ab16229bc3af69"
 
 deploy-production-goerli:
   extends:
     - .deploy-tmpl-production
     - .chain-tmpl-goerli
   variables:
-    REGISTRY_CONTRACT_ADDR: "0xc5fb30ebfabc3171c0f6406d3fbacdc78dea102c"
+    REGISTRY_CONTRACT_ADDR: "0xfea298b288d232a256ae0ad5941e5c890b1db691"
 
 deploy-production-volta:
   extends:

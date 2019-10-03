@@ -27,7 +27,7 @@ services:
     - --registryRPC=${RPC_ENDPOINT}
     - --rpcUrl=${RPC_ENDPOINT}
     - --chain=${CHAIN_ID}
-    - --minBlockHeight=0
+    - --minBlockHeight=${BLOCKHEIGHT}
     - --profile-name=Slockit1
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -53,7 +53,7 @@ services:
     - --registryRPC=${RPC_ENDPOINT}
     - --rpcUrl=${RPC_ENDPOINT}
     - --chain=${CHAIN_ID}
-    - --minBlockHeight=0
+    - --minBlockHeight=${BLOCKHEIGHT}
     - --profile-name=Slockit2
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -79,7 +79,7 @@ services:
     - --registryRPC=${RPC_ENDPOINT}
     - --rpcUrl=${RPC_ENDPOINT}
     - --chain=${CHAIN_ID}
-    - --minBlockHeight=0
+    - --minBlockHeight=${BLOCKHEIGHT}
     - --profile-name=Slockit3
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -105,7 +105,7 @@ services:
     - --registryRPC=${RPC_ENDPOINT}
     - --rpcUrl=${RPC_ENDPOINT}
     - --chain=${CHAIN_ID}
-    - --minBlockHeight=0
+    - --minBlockHeight=${BLOCKHEIGHT}
     - --profile-name=Slockit4
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
@@ -132,7 +132,7 @@ services:
     - --registryRPC=${RPC_ENDPOINT}
     - --rpcUrl=${RPC_ENDPOINT}
     - --chain=${CHAIN_ID}
-    - --minBlockHeight=0
+    - --minBlockHeight=${BLOCKHEIGHT}
     - --profile-name=Slockit5
     - --profile-icon=https://slock.it/assets/slock_logo.png
     - --profile-url=https://slock.it
