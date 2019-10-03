@@ -130,7 +130,7 @@ dockerhub-deploy:
   stage: deploy
   when: manual
   only:
-    - /^v[0-9]+.[0-9]+.[0-9]+$/
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
   except:
     - branches
   tags:
@@ -168,7 +168,7 @@ register-with-sentry-stage:
 register-with-sentry-production:
   extends: .register-with-sentry
   only:
-    - /^v[0-9]+.[0-9]+.[0-9]+$/
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
   except:
     - branches
   variables:
@@ -204,7 +204,7 @@ register-with-sentry-production:
 .deploy-tmpl-production:
   extends: .deploy-tmpl
   only:
-    - /^v[0-9]+.[0-9]+.[0-9]+$/
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
   except:
     - branches
   environment:
