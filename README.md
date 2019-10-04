@@ -76,8 +76,8 @@
  
  ## Resources 
  
- * [in3-Node API reference](https://in3.readthedocs.io/en/develop/api-node.html)
- * [Registering your node](https://in3.readthedocs.io/en/develop/api-node.html#registering-your-own-incubed-node)
+ * [in3-Node API reference](https://in3.readthedocs.io/en/develop/api-node-server.html)
+ * [Registering your node](https://in3.readthedocs.io/en/develop/api-node-server.html#registering-your-own-incubed-node)
  * [in3 typescript client](https://github.com/slockit/in3)
  * [in3 C client](https://github.com/slockit/in3-c)
  * [Website](https://slock.it/incubed/) 
