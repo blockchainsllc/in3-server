@@ -1,24 +1,39 @@
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *‚
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-import {  LogData, BlockData, ReceiptData, serialize, util, TransactionData, getSigner } from 'in3-common'
-import { LogProof,  RPCRequest, RPCResponse,  Signature, Proof } from '../../types/types'
+import { LogData, BlockData, ReceiptData, serialize, util, TransactionData, getSigner } from 'in3-common'
+import { LogProof, RPCRequest, RPCResponse, Signature, Proof } from '../../types/types'
 import { rlp, toChecksumAddress } from 'ethereumjs-util'
 import * as Trie from 'merkle-patricia-tree'
 import In3Trie from 'in3-trie'
@@ -332,7 +347,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
 
       const [signatures, receipts] = await Promise.all([
         // signatures for the block of the transaction
-        collectSignatures(handler, request.in3.signatures, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes),
+        collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes),
 
         // get all receipts, because we need to build the MerkleTree
         handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })), request)
@@ -385,9 +400,9 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
     const blocks = await handler.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), true] })), request).then(all => all.map(_ => _.result as BlockData))
 
     // fetch in parallel
-    await Promise.all([
+    const [signatures] = await Promise.all([
       // collect signatures for all the blocks
-      collectSignatures(handler, request.in3.signatures, blocks.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash })), request.in3.verifiedHashes),
+      collectSignatures(handler, request.in3.signers, blocks.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash })), request.in3.verifiedHashes),
       // and get all receipts in all blocks and afterwards reasign them to their block
       handler.getAllFromServer(
         blocks.map(_ => _.transactions).reduce((p, c) => [...p, ...c], []).map(t => ({ method: 'eth_getTransactionReceipt', params: [t.hash] })), request
@@ -412,7 +427,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
 
       // create receipt-proofs for all these transactions
       return Promise.all(toProof.map(th =>
-        createTransactionReceiptProof(b, allReceipts, th, [], request.in3.verifiedHashes, handler)
+        createTransactionReceiptProof(b, allReceipts, th, signatures, request.in3.verifiedHashes, handler)
           .then(p => blockProof.receipts[th] = {
             txHash: th,
             txIndex: parseInt(allReceipts.find(_ => _.transactionHash == th).transactionIndex),
@@ -426,11 +441,13 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
     response.in3 = {
       proof: {
         type: 'logProof',
-        logProof: proof
+        logProof: proof,
+        signatures
       },
       version: in3ProtocolVersion
+      }
     }
-  }
+  
   return response
 }
 
@@ -465,7 +482,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
       { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
     )), request),
-    collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes)
+    collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes)
   ])
 
   // add the codes to the accounts
@@ -520,10 +537,10 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
   ], request)
 
   // error checking
-  if (blockResponse.error) 
+  if (blockResponse.error)
     throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
 
-  if (proof.error) 
+  if (proof.error)
     throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] }, null, 2))
 
 
@@ -555,7 +572,7 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
         proof: {
           type: 'accountProof',
           block: createBlock(block, request.in3.verifiedHashes),
-          signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
+          signatures: await collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
           accounts: { [toChecksumAddress(address)]: proof.result }
         },
         version: in3ProtocolVersion
