@@ -102,8 +102,7 @@ export async function analyseCall(args: {
   function setCode(ad: string) {
     const a = getAccount(util.toHex(ad, 20))
     return getFromServer({ method: 'eth_getCode', params: [a.address, block] })
-      .then(_ => util.promisify(a.ac, a.ac.setCode, state, util.toBuffer(a.code = _.result)))
-      .then(_ => util.promisify(state, state.put, util.toBuffer(a.address, 20), a.ac.serialize()))
+      .then(_ => util.promisify(vm.stateManager, vm.stateManager.putContractCode, util.toBuffer(a.address, 20), util.toBuffer(a.code = _.result)))
   }
 
   // get the code of the contract
@@ -145,9 +144,8 @@ export async function analyseCall(args: {
 
         if (ac.storage[mKey] === undefined)
           return handle(getFromServer({ method: 'eth_getStorageAt', params: [ac.address, '0x' + key.toString('hex'), block] }).then(_ => {
-            // set the storage data
-            return util.promisify(ac.ac, ac.ac.setStorage, state, key, rlp.encode(util.toBuffer(ac.storage[mKey] = _.result, 32)))
-              .then(() => util.promisify(state, state.put, util.toBuffer(ac.address, 20), ac.ac.serialize()))
+            return util.promisify(ev.stateManager, ev.stateManager.putContractStorage, util.toBuffer(ac.address, 20), key, util.toBuffer(ac.storage[mKey] = _.result, 32))
+
           }), next)
         break
 
