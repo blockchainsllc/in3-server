@@ -67,3 +67,6 @@ dev
 
 #npmrc
 .npmrc
+
+#compiled contracts
+contracts/contracts.json

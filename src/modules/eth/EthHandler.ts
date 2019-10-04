@@ -1,23 +1,38 @@
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-import {  Transport, util as in3Util, serialize } from 'in3-common'
+import { Transport, util as in3Util, serialize } from 'in3-common'
 import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, ChainSpec } from '../../types/types'
 import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
 import BaseHandler from '../../chains/BaseHandler'
@@ -60,13 +75,13 @@ export default class EthHandler extends BaseHandler {
       request.in3.verification = 'never'
 
     // execute it
-    try{
+    try {
       const result = await this.handleRPCMethod(request)
       if ((request as any).convert)
         (request as any).convert(result)
       return result
     }
-    catch(error){
+    catch (error) {
       return {
         jsonrpc: '2.0',
         id: request.id,
@@ -95,7 +110,7 @@ export default class EthHandler extends BaseHandler {
       if (!request.params || request.params.length < 1) throw new Error('eth_getLogs must have a filter as parameter')
       const filter: LogFilter = request.params[0]
       let toB = filter && filter.toBlock
-      if (toB === 'latest' || !toB) toB = this.watcher && this.watcher.block && this.watcher.block.number
+      if (toB === 'latest' || toB === 'pending' || !toB) toB = this.watcher && this.watcher.block && this.watcher.block.number
       let fromB = toB && filter && filter.fromBlock
       if (fromB === 'earliest') fromB = 1;
       const range = fromB && (toNumber(toB) - toNumber(fromB))
@@ -104,20 +119,26 @@ export default class EthHandler extends BaseHandler {
     }
   }
 
-  private async handleRPCMethod(request: RPCRequest) {
-
+  private fixLegacySupport(request: RPCRequest) {
     // handle shortcut-functions
     if (request.method === 'in3_call') {
       request.method = 'eth_call'
       request.params = createCallParams(request)
     }
+    if (request.in3 && request.in3.signatures && !request.in3.signers)
+      request.in3.signers = request.in3.signatures
+  }
+
+  private async handleRPCMethod(request: RPCRequest) {
+
+    this.fixLegacySupport(request)
 
     // check performancelimits
     this.checkPerformanceLimits(request)
 
 
     // handle special jspn-rpc
-    if (request.in3.verification.startsWith('proof'))
+    if (request.in3.verification == 'proof' || request.in3.verification == 'proofWithSignature') // proofWithSignature is only supported for legacy, since only the request for signers is relveant
       switch (request.method) {
         case 'eth_getBlockByNumber':
         case 'eth_getBlockByHash':
