@@ -1,7 +1,7 @@
 version: '2'
 services:
   incubed-server:
-    image: slockit/in3-server:0.1
+    image: slockit/in3-node:latest
     volumes:
     - $PWD/keys:/secure                                     # directory where the private key is stored 
     ports:
@@ -16,7 +16,7 @@ services:
     - --autoRegistry-deposit=2                              # deposit to use when registering
 
   incubed-parity:
-    image: slockit/parity-in3:v1.11.7                       # parity-image with the getProof-function implemented
+    image: slockit/parity-time-maschine:v0.0.1              # parity-image with the getProof-function implemented
     command:
     - --auto-update=none                                    # do not automaticly update the client
     - --pruning=archive 
