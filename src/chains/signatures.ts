@@ -41,6 +41,7 @@ import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
 import config from '../server/config'
 import { toBuffer } from 'in3-common/js/src/util/util';
+import { SentryError } from '../util/sentryError'
 
 
 const toHex = util.toHex
@@ -139,6 +140,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
           return s
         }
 
+        logger.info("Trying to convict node(" + singingNode.address + ") " + singingNode.url + ' because it signed wrong blockhash  with ' + JSON.stringify(s) + ' but the correct hash should be ' + expectedBlock.hash)
 
         const latestBlockNumber = handler.watcher.block.number
 
@@ -286,6 +288,11 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
       })
 
     } catch (e) {
+      logger.error('Error trying to recreate blocks and convict : ' + e)
+      // if we are here this means we failed to convict (maybe not enough balance)
+      // so there is no point in recreating blocks now.
+      // so we return
+      throw new SentryError('Error trying to recreate blocks and convict : ', 'convict_failed', 'nodeToConvict:' + singingNode.url + ' signature: ' + JSON.stringify(s, null, 2) + '\n  internal error = ' + e)
     }
 
     for (const txArray of transactionArrays) {
