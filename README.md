@@ -40,7 +40,7 @@
 2. In order to run your own in3-node, you must first register the node. The information for registering a node can be found 
 [here](https://in3.readthedocs.io/en/develop/getting_started.html#registering-an-incubed-node)
 3. Run the in3-node image using a direct docker command or a docker-compose file, the parameters for which are explained 
-[here](https://in3.readthedocs.io/en/develop/api-node.html)
+[here](https://in3.readthedocs.io/en/develop/api-node-server.html)
 
  ## Example 
  ### POST Request
