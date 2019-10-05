@@ -145,7 +145,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         if (checkBlockHash(s.blockHash, expectedBlock.hash, s)) return s
 
         // so we have a different hash, let's double check if got the wrong hash
-        s.blockHash = toHex(await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(s.block), false] })
+        expectedBlock.hash = toHex(await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(s.block), false] })
           .then(_ => _.result && _.result.hash), 32)
 
         // recheck again, if this is still wrong
