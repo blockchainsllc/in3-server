@@ -33,7 +33,8 @@
  *******************************************************************************/
 
 
-import { RPCRequest } from '../types/types'
+import { RPCRequest, IN3RPCConfig } from '../types/types'
+import PromUpdater from '../util/prometheus'
 
 export class Stat {
 
@@ -44,8 +45,6 @@ export class Stat {
   }
   parent: Stat
   id: number
-
-
 
   constructor(parent?: Stat) {
     this.data = { requests: 0, lastRequest: 0, methods: {} }
@@ -77,7 +76,8 @@ export class Stat {
 
 
 
-export const currentMonth = new Stat()
+export const currentTotal = new Stat()
+export const currentMonth = new Stat(currentTotal)
 export const currentDay = new Stat(currentMonth)
 export const currentHour = new Stat(currentDay)
 
@@ -86,6 +86,7 @@ const stats = {
   currentMonth: currentMonth.data,
   currentDay: currentDay.data,
   currentHour: currentHour.data,
+  currentTotal: currentTotal.data
 }
 
 export function getStats() {
@@ -97,6 +98,7 @@ function check() {
   currentHour.check(d.getHours())
   currentDay.check(d.getDate())
   currentMonth.check(d.getMonth())
+  // currentTotal.check(1) : not needed since no reset required
 
   setTimeout(check, 3600000 - ((d.getSeconds() + d.getMinutes() * 60) * 1000 + d.getMilliseconds()))
 
@@ -104,3 +106,16 @@ function check() {
 
 check()
 
+/**
+ * Schedule pushing to prometheus with the current total stats every 10 sec
+ * - Name has to be set, noStats has to be false
+ * @param config 
+ */
+export function schedulePrometheus(config: IN3RPCConfig) {
+  if(config.profile && config.profile.noStats) return // saves power
+  if(config.profile.name) return 
+  const prometheus = new PromUpdater(config.profile.name /* 'http://127.0.0.1:9091' */)
+  setInterval(() => {
+    prometheus.update(stats.currentTotal)
+  }, 10*1000)
+}
