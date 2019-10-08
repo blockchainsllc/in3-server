@@ -1,5 +1,3 @@
-import { Stat } from "../server/stats"
-
 /*******************************************************************************
  * This file is part of the Incubed project.
  * Sources: https://github.com/slockit/in3-server

@@ -1,4 +1,8 @@
 {
   "privateKey": "PATH_TO_KEYSTORE-FILE",
-  "rpcUrl": "http://localhost:8545"
+  "rpcUrl": "http://localhost:8545",
+
+  "profile": {
+    "name": "test-env"
+  }
 }
