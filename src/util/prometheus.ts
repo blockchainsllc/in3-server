@@ -33,6 +33,7 @@
  *******************************************************************************/
 
 import * as client from 'prom-client'
+import Client from 'in3'
 
 export default class PromUpdater {
 
@@ -40,8 +41,13 @@ export default class PromUpdater {
   registry: client.Registry
   gateway: string
 
+  requests: client.Counter
+  requests_proof: client.Counter
+  requests_sig: client.Counter
+  lastrequest: client.Gauge
+
   /**
-   * PromUpdater contructor
+   * PromUpdater constructor
    * @param name
    * @param gateway 
    */
@@ -50,6 +56,11 @@ export default class PromUpdater {
     else this.gateway = 'http://127.0.0.1:9091'
     this.jobName = name
     this.registry = new client.Registry()
+
+    this.requests = new client.Counter({ name: 'requests', help: 'Total requests since starting the node.' })
+    this.requests_proof = new client.Counter({ name: 'requests_proof', help: 'Total requests with proof.' })
+    this.requests_sig = new client.Counter({ name: 'requests_signature', help: 'Total requests with signatures.' })
+    this.lastrequest = new client.Gauge({ name: 'last_request', help: 'Last Unix time when a request was recieved.' })
   }
 
   /**
@@ -65,17 +76,20 @@ export default class PromUpdater {
    * Converts Stats to Metrics and adds them to the registry
    */
   private convert(stats: any) {
-    const requests = new client.Counter({ name: 'requests', help: 'total requests since starting the node.' })
-    const lastrequest = new client.Gauge({ name: 'last_request', help: 'Last Unix time when a request was recieved.' })
+    this.requests.reset()
+    this.requests_proof.reset()
+    this.requests_sig.reset()
+    this.lastrequest.reset()
     
-    requests.reset()
-    lastrequest.reset()
+    this.requests.inc(stats.requests)
+    this.requests_proof.inc(stats.requests_proof)
+    this.requests_sig.inc(stats.requests_sig)
+    this.lastrequest.set(stats.lastRequest)
 
-    requests.inc(stats.requests)
-    lastrequest.set(stats.lastRequest)
-
-    this.registry.registerMetric(requests)
-    this.registry.registerMetric(lastrequest)
+    this.registry.registerMetric(this.requests)
+    this.registry.registerMetric(this.requests_proof)
+    this.registry.registerMetric(this.requests_sig)
+    this.registry.registerMetric(this.lastrequest)
   }
 
   /**

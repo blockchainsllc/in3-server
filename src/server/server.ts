@@ -157,6 +157,11 @@ router.post(/.*/, async ctx => {
 })
 
 router.get(/.*/, async ctx => {
+  if(ctx.path === '/favicon.ico') {
+    ctx.status = 404
+    return
+  } // Some browsers ask for it -> prevent it
+
   //  '/:chain/:method/:args'
   const path = ctx.path.split('/')
 

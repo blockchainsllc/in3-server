@@ -40,6 +40,8 @@ export class Stat {
 
   data: {
     requests: number
+    requests_proof: number
+    requests_sig: number
     lastRequest: number
     methods: { [name: string]: number }
   }
@@ -47,7 +49,7 @@ export class Stat {
   id: number
 
   constructor(parent?: Stat) {
-    this.data = { requests: 0, lastRequest: 0, methods: {} }
+    this.data = { requests: 0, requests_proof: 0, requests_sig: 0, lastRequest: 0, methods: {} }
     this.parent = parent
   }
 
