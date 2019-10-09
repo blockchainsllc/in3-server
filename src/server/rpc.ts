@@ -86,7 +86,7 @@ export class RPC {
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
       // Handle the request itself
-      function process(handlers, conf) : Promise<RPCResponse> | RPCResponse {
+      function process(handlers, conf) : PromiseLike<RPCResponse> | RPCResponse {
         const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
         const handler = handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
         const in3: IN3ResponseConfig = {} as any
