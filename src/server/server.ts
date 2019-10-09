@@ -134,6 +134,7 @@ router.post(/.*/, async ctx => {
 
 
     const result = await rpc.handle(requests)
+
     const res = requests.length && requests[0].in3 && requests[0].in3.useRef ? cbor.createRefs(result) : result
     let body = Array.isArray(ctx.request.body) ? res : res[0]
     if (requests.length && requests[0].in3 && requests[0].in3.useBinary) {

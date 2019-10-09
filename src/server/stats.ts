@@ -53,13 +53,15 @@ export class Stat {
     this.parent = parent
   }
 
-  update(r: RPCRequest) {
+  update(r: RPCRequest, proof: boolean = false, sig: boolean = false) {
     if (r.in3 && ((r.in3 as any).noStats)) return
     this.data.requests++
+    if(proof) this.data.requests_proof++
+    if(sig) this.data.requests_sig++
     this.data.methods[r.method] = (this.data.methods[r.method] || 0) + 1
     this.data.lastRequest = Date.now()
     if (this.parent)
-      this.parent.update(r)
+      this.parent.update(r, proof, sig)
   }
 
   check(id) {

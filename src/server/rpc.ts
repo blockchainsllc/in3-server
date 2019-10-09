@@ -85,83 +85,96 @@ export class RPC {
 
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
-      const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
-      const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
-      const in3: IN3ResponseConfig = {} as any
-      const start = Date.now()
+      // Handle the request itself
+      function process(handlers, conf) : Promise<RPCResponse> | RPCResponse {
+        const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
+        const handler = handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
+        const in3: IN3ResponseConfig = {} as any
+        const start = Date.now()
 
-      if (!handler)
-        throw new Error("Unable to connect Ethereum and/or invalid chainId give.")
+        if (!handler)
+          throw new Error("Unable to connect Ethereum and/or invalid chainId give.")
 
-      // update stats
-      currentHour.update(r)
+        // update stats (moved to server.ts)
+        // currentHour.update(r)
 
+        if (r.method === 'in3_nodeList')
+          return manageRequest(handler, Promise.all([handler.getNodeList(
+            in3Request.verification && in3Request.verification.startsWith('proof'),
+            r.params[0] || 0,
+            r.params[1],
+            r.params[2] || [],
+            in3Request.signers || in3Request.signatures,
+            in3Request.verifiedHashes
+          ),
+          getValidatorHistory(handler)]).then(async ([result, validators]) => {
+            const res = {
+              id: r.id,
+              result: result as any,
+              jsonrpc: r.jsonrpc,
+              in3: { ...in3, execTime: Date.now() - start, lastValidatorChange: validators.lastValidatorChange }
+            }
+            const proof = res.result.proof
+            if (proof) {
+              delete res.result.proof
+              res.in3.proof = proof
+            }
+            return res as RPCResponse
+          }))
 
-      if (r.method === 'in3_nodeList')
-        return manageRequest(handler, Promise.all([handler.getNodeList(
-          in3Request.verification && in3Request.verification.startsWith('proof'),
-          r.params[0] || 0,
-          r.params[1],
-          r.params[2] || [],
-          in3Request.signers || in3Request.signatures,
-          in3Request.verifiedHashes
-        ),
-        getValidatorHistory(handler)]).then(async ([result, validators]) => {
-          const res = {
-            id: r.id,
-            result: result as any,
-            jsonrpc: r.jsonrpc,
-            in3: { ...in3, execTime: Date.now() - start, lastValidatorChange: validators.lastValidatorChange }
-          }
-          const proof = res.result.proof
-          if (proof) {
-            delete res.result.proof
-            res.in3.proof = proof
-          }
-          return res as RPCResponse
-        }))
+        else if (r.method === 'in3_validatorList' || r.method === 'in3_validatorlist') // 'in3_validatorlist' is only supported for legacy, but deprecated
+          return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
 
-      else if (r.method === 'in3_validatorList' || r.method === 'in3_validatorlist') // 'in3_validatorlist' is only supported for legacy, but deprecated
-        return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
+            const startIndex: number = (r.params && r.params.length > 0) ? util.toNumber(r.params[0]) : 0
+            const limit: number = (r.params && r.params.length > 1) ? util.toNumber(r.params[1]) : 0
 
-          const startIndex: number = (r.params && r.params.length > 0) ? util.toNumber(r.params[0]) : 0
-          const limit: number = (r.params && r.params.length > 1) ? util.toNumber(r.params[1]) : 0
-
-          return ({
-            id: r.id,
-            result: {
-              states: limit ? result.states.slice(startIndex, startIndex + limit) : result.states.slice(startIndex),
-              lastCheckedBlock: result.lastCheckedBlock
-            },
-            jsonrpc: r.jsonrpc,
-            in3: { ...in3, lastValidatorChange: result.lastValidatorChange, execTime: Date.now() - start }
+            return ({
+              id: r.id,
+              result: {
+                states: limit ? result.states.slice(startIndex, startIndex + limit) : result.states.slice(startIndex),
+                lastCheckedBlock: result.lastCheckedBlock
+              },
+              jsonrpc: r.jsonrpc,
+              in3: { ...in3, lastValidatorChange: result.lastValidatorChange, execTime: Date.now() - start }
+            })
           })
-        })
 
-      else if (r.method === 'in3_stats') {
-        const p = this.conf.profile || {}
-        return {
-          id: r.id,
-          jsonrpc: r.jsonrpc,
-          result: {
-            profile: p,
-            ...(p.noStats ? {} : { stats: getStats() })
-          }
-        } as RPCResponse
+        else if (r.method === 'in3_stats') {
+          const p = conf.profile || {}
+          return {
+            id: r.id,
+            jsonrpc: r.jsonrpc,
+            result: {
+              profile: p,
+              ...(p.noStats ? {} : { stats: getStats() })
+            }
+          } as RPCResponse
+        }
+
+        return manageRequest(handler, Promise.all([
+          handler.getNodeList(false).then(_ => in3.lastNodeList = _.lastBlockNumber),
+          getValidatorHistory(handler).then(_ => in3.lastValidatorChange = _.lastValidatorChange),
+          handler.handle(r).then(_ => {
+            (in3 as any).execTime = Date.now() - start;
+            (in3 as any).rpcTime = (r as any).rpcTime || 0;
+            (in3 as any).rpcCount = (r as any).rpcCount || 0;
+            (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
+            return _
+          })
+        ])
+          .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })))
       }
 
-      return manageRequest(handler, Promise.all([
-        handler.getNodeList(false).then(_ => in3.lastNodeList = _.lastBlockNumber),
-        getValidatorHistory(handler).then(_ => in3.lastValidatorChange = _.lastValidatorChange),
-        handler.handle(r).then(_ => {
-          (in3 as any).execTime = Date.now() - start;
-          (in3 as any).rpcTime = (r as any).rpcTime || 0;
-          (in3 as any).rpcCount = (r as any).rpcCount || 0;
-          (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
-          return _
+      const res = process(this.handlers, this.conf)
+
+      if(res instanceof Promise) {
+        (res as Promise<RPCResponse>).then((res) => {
+          this.updateStats(r, res)
         })
-      ])
-        .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })))
+      }
+      else this.updateStats(r, res)
+
+      return res
     }))
   }
 
@@ -187,6 +200,14 @@ export class RPC {
 
   getHandler(chainId?: string) {
     return this.handlers[util.toMinHex(chainId || this.conf.defaultChain)]
+  }
+
+  private updateStats(r: RPCRequest, resp: RPCResponse) {
+    let proof = false
+    let sig = false
+    if(resp.in3) if(resp.in3.proof) proof = true
+
+    currentHour.update(r, proof, sig)
   }
 
 }
