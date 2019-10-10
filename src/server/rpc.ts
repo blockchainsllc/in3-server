@@ -118,10 +118,10 @@ export class RPC {
             res.in3.proof = proof
           }
           return res as RPCResponse
-        }))
+        }), r)
 
       else if (r.method === 'in3_validatorList' || r.method === 'in3_validatorlist') // 'in3_validatorlist' is only supported for legacy, but deprecated
-        return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
+        return manageRequest(handler, getValidatorHistory(handler), r).then(async (result) => {
 
           const startIndex: number = (r.params && r.params.length > 0) ? util.toNumber(r.params[0]) : 0
           const limit: number = (r.params && r.params.length > 1) ? util.toNumber(r.params[1]) : 0
@@ -139,6 +139,7 @@ export class RPC {
 
         else if (r.method === 'in3_stats') {
           const p = this.conf.profile || {}
+          updateStats(r)
           return {
             id: r.id,
             jsonrpc: r.jsonrpc,
@@ -195,7 +196,7 @@ function manageRequest<T>(handler: RPCHandler, p: Promise<T>, req?: RPCRequest):
     handler.openRequests--
 
      // Update stats
-    if(req) if((r as unknown as RPCResponse).in3) updateStats(req, (r as unknown as RPCResponse))
+    if(req) updateStats(req, (r as unknown as RPCResponse))
 
     return r
   }, err => {
@@ -204,10 +205,16 @@ function manageRequest<T>(handler: RPCHandler, p: Promise<T>, req?: RPCRequest):
   })
 }
 
-function updateStats(r: RPCRequest, resp: RPCResponse) {
+function updateStats(r: RPCRequest, resp?: RPCResponse) {
   let proof = false
   let sig = false
-  if(resp.in3) if(resp.in3.proof) proof = true
+  if(resp && resp.in3) {
+    if(resp.in3.proof) {
+      proof = true
+      if(resp.in3.proof.signatures 
+      && resp.in3.proof.signatures.length !== 0) sig = true 
+    }
+  }
 
   currentHour.update(r, proof, sig)
 }
