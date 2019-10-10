@@ -46,7 +46,7 @@ import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
 import { readCargs } from './config'
 const config = readCargs()
-import { RPC } from './rpc'
+import { RPC, submitRequestTime } from './rpc'
 import { cbor, chainAliases } from 'in3-common'
 import { RPCRequest } from '../types/types'
 import { initConfig } from '../util/db'
@@ -96,6 +96,9 @@ export const app = new Koa()
 const router = new Router()
 let rpc: RPC = null
 
+// Add 'x-Request-Time' to the header
+app.use(requestTime(submitRequestTime))
+
 // Hook up sentry if enabled
 if (process.env.SENTRY_ENABLE === 'true') {
   app.on('error', (err, ctx) => {
@@ -120,9 +123,6 @@ app.use(async (ctx, next) => {
   await next()
 })
 
-// Add 'x-Request-Time' to the header
-app.use(requestTime())
-
 // handle json
 app.use(bodyParser())
 
@@ -135,7 +135,6 @@ router.post(/.*/, async ctx => {
   try {
     // DOS protection
     checkBudget(ctx.ip || 'default', requests, config.maxPointsPerMinute);
-
 
     const result = await rpc.handle(requests)
 

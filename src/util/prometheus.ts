@@ -41,9 +41,12 @@ export default class PromUpdater {
   gateway: string
 
   requests: client.Counter
-  requests_proof: client.Counter
-  requests_sig: client.Counter
-  lastrequest: client.Gauge
+  requestsProof: client.Counter
+  requestsSig: client.Counter
+  lastRequest: client.Gauge
+  requestTime: client.Histogram
+
+  lastStats: any
 
   /**
    * PromUpdater constructor
@@ -57,13 +60,15 @@ export default class PromUpdater {
     this.registry = new client.Registry()
 
     this.requests = new client.Counter({ name: 'requests', help: 'Total requests since starting the node.' })
-    this.requests_proof = new client.Counter({ name: 'requests_proof', help: 'Total requests with proof.' })
-    this.requests_sig = new client.Counter({ name: 'requests_signature', help: 'Total requests with signatures.' })
-    this.lastrequest = new client.Gauge({ name: 'last_request', help: 'Last Unix time when a request was recieved.' })
+    this.requestsProof = new client.Counter({ name: 'requests_proof', help: 'Total requests with proof.' })
+    this.requestsSig = new client.Counter({ name: 'requests_signature', help: 'Total requests with signatures.' })
+    this.lastRequest = new client.Gauge({ name: 'last_request', help: 'Last Unix time when a request was recieved.' })
+    this.requestTime = new client.Histogram({ name: 'request_time', help: 'A histogram for request timings', 
+    buckets: [1, 3, 5, 8, 10, 12, 16] })
   }
 
   /**
-   * converts stats to metrics and pushes them to tge pushgateway
+   * converts stats to metrics and pushes them to the pushgateway
    * @param stats 
    */
   update(stats: object) {
@@ -76,20 +81,37 @@ export default class PromUpdater {
    * @param stats
    */
   private convert(stats: any) {
-    this.requests.reset()
-    this.requests_proof.reset()
-    this.requests_sig.reset()
-    this.lastrequest.reset()
+    if(this.lastStats) {
+      if(this.lastStats.requests <= stats.requests)
+        this.requests.inc(stats.requests - this.lastStats.requests)
+
+      if(this.lastStats.requests_proof <= stats.requests_proof)
+        this.requestsProof.inc(stats.requests_proof - this.lastStats.requests_proof)
+
+      if(this.lastStats.requests_sig <= stats.requests_sig)
+        this.requestsSig.inc(stats.requests_sig - this.lastStats.requests_sig)
+
+      if(this.lastStats.requests < stats.requests)
+        this.requestTime.observe(stats.request_time)  
+    }
+    else {
+      this.requests.inc(stats.requests)
+      this.requestsProof.inc(stats.requests_proof)
+      this.requestsSig.inc(stats.requests_sig)
+      if(stats.requests !== 0)
+        this.requestTime.observe(stats.request_time)  
+    }
+
+    this.lastRequest.set(stats.lastRequest)
     
-    this.requests.inc(stats.requests)
-    this.requests_proof.inc(stats.requests_proof)
-    this.requests_sig.inc(stats.requests_sig)
-    this.lastrequest.set(stats.lastRequest)
 
     this.registry.registerMetric(this.requests)
-    this.registry.registerMetric(this.requests_proof)
-    this.registry.registerMetric(this.requests_sig)
-    this.registry.registerMetric(this.lastrequest)
+    this.registry.registerMetric(this.requestsProof)
+    this.registry.registerMetric(this.requestsSig)
+    this.registry.registerMetric(this.lastRequest)
+    this.registry.registerMetric(this.requestTime)
+
+    this.lastStats = {...stats}
   }
 
   /**

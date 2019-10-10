@@ -44,6 +44,8 @@ import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
 import { SentryError } from '../util/sentryError'
 
+export { submitRequestTime } from './stats'
+
 
 export class RPC {
   conf: IN3RPCConfig
@@ -205,6 +207,11 @@ function manageRequest<T>(handler: RPCHandler, p: Promise<T>, req?: RPCRequest):
   })
 }
 
+/**
+ * Updates the stats
+ * @param r 
+ * @param resp 
+ */
 function updateStats(r: RPCRequest, resp?: RPCResponse) {
   let proof = false
   let sig = false
@@ -215,7 +222,6 @@ function updateStats(r: RPCRequest, resp?: RPCResponse) {
       && resp.in3.proof.signatures.length !== 0) sig = true 
     }
   }
-
   currentHour.update(r, proof, sig)
 }
 

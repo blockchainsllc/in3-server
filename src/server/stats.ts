@@ -110,6 +110,28 @@ function check() {
 
 check()
 
+
+let buffer: number[] = []
+/**
+ * Adds a request time to the buffer
+ * @param ms 
+ */
+export function submitRequestTime(ms: number) {
+  buffer.push(ms)
+}
+
+/**
+ * Calculates the average of the given numbers
+ * @param numbers 
+ */
+function calcAverage(numbers: number[]) {
+  if(numbers.length === 0) return 0
+  let sum = 0
+  for(let num of numbers)
+    sum += num
+  return parseFloat((sum / numbers.length).toFixed(2))
+}
+
 /**
  * Schedule pushing to prometheus with the current total stats every 10 sec
  * - Name has to be set, noStats has to be false
@@ -119,8 +141,14 @@ export function schedulePrometheus(config: IN3RPCConfig) {
   if(!config.profile) return
   if(config.profile && config.profile.noStats) return // saves power
   if(!config.profile.name) return 
-  const prometheus = new PromUpdater(config.profile.name /* 'http://127.0.0.1:9091' */)
+  const prometheus = new PromUpdater(config.profile.name /* , 'http://127.0.0.1:9091' */)
   setInterval(() => {
-    prometheus.update(stats.currentTotal)
+    let avgTime = calcAverage(buffer)
+    let push = {
+      ...stats.currentTotal,
+      request_time: avgTime
+    }
+    buffer = []
+    prometheus.update(push)
   }, 10*1000)
 }
