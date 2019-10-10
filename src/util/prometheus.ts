@@ -33,7 +33,6 @@
  *******************************************************************************/
 
 import * as client from 'prom-client'
-import Client from 'in3'
 
 export default class PromUpdater {
 
@@ -74,6 +73,7 @@ export default class PromUpdater {
 
   /**
    * Converts Stats to Metrics and adds them to the registry
+   * @param stats
    */
   private convert(stats: any) {
     this.requests.reset()

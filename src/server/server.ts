@@ -53,6 +53,8 @@ import { initConfig } from '../util/db'
 import { encodeObject } from '../util/binjson'
 import { checkBudget } from './clients'
 
+import requestTime from '../util/koa/requestTime'
+
 if (process.env.SENTRY_ENABLE === 'true') {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
@@ -118,6 +120,8 @@ app.use(async (ctx, next) => {
   await next()
 })
 
+// Add 'x-Request-Time' to the header
+app.use(requestTime())
 
 // handle json
 app.use(bodyParser())
