@@ -513,7 +513,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
 
   async function getFromParity() {
     const neededProof = evm.analyse((trace.result as any).vmTrace, request.params[0].to)
-    neededAccounts = Object.keys(neededProof)
+    neededAccounts = Object.keys(neededProof.accounts)
     return await handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
       { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
     )), request)
