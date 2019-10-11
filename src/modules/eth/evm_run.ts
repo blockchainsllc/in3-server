@@ -156,6 +156,10 @@ export async function analyseCall(args: {
 
   // keep track of each opcode in order to make sure, all storage-values are provided!
   vm.on('step', (ev, next) => {
+
+    //    console.log(ev.opcode.name + '   [ ' + ev.stack.map(_ => '0x' + _.toString('hex')).join(' | ') + ' ]')
+
+
     switch (ev.opcode.name) {
       case 'BALANCE':
       case 'EXTCODEHASH':
@@ -167,7 +171,7 @@ export async function analyseCall(args: {
           return handle(fetchBalance(acc.address).then(_ => {
             // set the account data
             acc.ac.balance = acc.balance = _
-            return util.promisify(vm.stateManager, vm.stateManager.putAccount, util.toBuffer(a.address, 20), acc.ac)
+            return util.promisify(vm.stateManager, vm.stateManager.putAccount, util.toBuffer(acc.address, 20), acc.ac)
           }), next)
         else if (ev.opcode.name !== 'BALANCE' && acc.code === undefined)
           return handle(setCode(acc.address), next)

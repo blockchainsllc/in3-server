@@ -484,7 +484,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
         const cache = getFromCache(adr)
         const a = neededProof.accounts[adr]
         const p = proof[i].result
-        if (a.code && !keccak(util.toBuffer(a.code)).equals(p.codeHash)) {
+        if (a.code && !keccak(util.toBuffer(a.code)).equals(util.toBuffer(p.codeHash, 32))) {
           delete cache.code
           isValid = false
         }
