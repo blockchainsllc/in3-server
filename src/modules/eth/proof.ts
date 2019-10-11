@@ -34,13 +34,13 @@
 
 import { LogData, BlockData, ReceiptData, serialize, util, TransactionData, getSigner } from 'in3-common'
 import { LogProof, RPCRequest, RPCResponse, Signature, Proof } from '../../types/types'
-import { rlp, toChecksumAddress } from 'ethereumjs-util'
+import { rlp, toChecksumAddress, keccak } from 'ethereumjs-util'
 import * as Trie from 'merkle-patricia-tree'
 import In3Trie from 'in3-trie'
 import EthHandler from './EthHandler'
 import { collectSignatures } from '../../chains/signatures'
 import * as evm from './evm_trace'
-import { analyseCall } from './evm_run'
+import { analyseCall, getFromCache, CacheAccount } from './evm_run'
 
 
 const ThreadPool = require('./threadPool')
@@ -467,15 +467,60 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
 
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as any
-  const neededProof = useTrace
-    ? evm.analyse((trace.result as any).vmTrace, request.params[0].to)
-    : await analyseCall(request.params[0], request.params[1] || 'latest', handler.getFromServer.bind(handler))
+  let neededAccounts = []
 
-  // ask for proof for the storage
-  const [accountProofs, signatures] = await Promise.all([
-    handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
+  async function getFromGeth(): Promise<any> {
+    for (let i = 0; i < 10; i++) {
+      const neededProof = await analyseCall(request.params[0], request.params[1] || 'latest', handler.getFromServer.bind(handler))
+      neededAccounts = Object.keys(neededProof.accounts)
+      const proof = await handler.getAllFromServer(neededAccounts.map(adr => (
+        { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
+      )), request)
+      const error = proof.find(_ => _.error)
+      if (error)
+        throw new Error('Error getting proof from node : ' + ((error.error as any).message || error.error))
+      let isValid = true
+      neededAccounts.forEach((adr, i) => {
+        const cache = getFromCache(adr)
+        const a = neededProof.accounts[adr]
+        const p = proof[i].result
+        if (a.code && !keccak(util.toBuffer(a.code)).equals(p.codeHash)) {
+          delete cache.code
+          isValid = false
+        }
+        if (util.toMinHex(a.balance || '0x00') != util.toMinHex(p.balance)) {
+          delete cache.balance
+          isValid = false
+        }
+        Object.keys(a.storage || []).forEach((k, i) => {
+          const val = util.toMinHex(a.storage[k])
+          const proofedKey = p.storageProof.find(_ => util.toMinHex(_.key) === util.toMinHex(k))
+          if (!proofedKey) {
+            delete cache.storage[k]
+            isValid = false
+            return
+          }
+          if (util.toMinHex(proofedKey.value) != val) {
+            delete cache.storage[k]
+            isValid = false
+          }
+        })
+      })
+      if (isValid) return proof
+    }
+    throw new Error('max retries of getting all values for eth_call exceeded')
+  }
+
+  async function getFromParity() {
+    const neededProof = evm.analyse((trace.result as any).vmTrace, request.params[0].to)
+    neededAccounts = Object.keys(neededProof)
+    return await handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
       { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
-    )), request),
+    )), request)
+  }
+
+  const [accountProofs, signatures] = await Promise.all([
+    useTrace ? getFromParity() : getFromGeth(),
     collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes)
   ])
 
@@ -506,7 +551,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
           type: 'callProof',
           block: createBlock(block, request.in3.verifiedHashes),
           signatures,
-          accounts: Object.keys(neededProof.accounts).reduce((p, v, i) => { p[v] = accountProofs[i].result; return p }, {})
+          accounts: neededAccounts.reduce((p, v, i) => { p[v] = accountProofs[i].result; return p }, {})
         }
       }
     }, block, handler)
