@@ -253,7 +253,7 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
     response.in3 = {
       proof: {
         type: 'blockProof',
-        signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: toNumber(blockData.number), hash: blockData.hash }], request.in3.verifiedHashes)
+        signatures: await collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(blockData.number), hash: blockData.hash }], request.in3.verifiedHashes)
       },
       version: in3ProtocolVersion
     }
@@ -294,7 +294,7 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
       // create the proof
       response.in3 = {
         proof: await createTransactionProof(block, request.params[0] as string,
-          await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
+          await collectSignatures(handler, request.in3.signers, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
           request.in3.verifiedHashes, handler) as any,
       version: in3ProtocolVersion
       }
@@ -325,7 +325,7 @@ export async function handeGetTransactionFromBlock(handler: EthHandler, request:
     // create the proof
     response.in3 = {
       proof: await createTransactionFromBlockProof(block, parseInt(request.params[1]),
-        await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
+        await collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
         request.in3.verifiedHashes) as any,
         version: in3ProtocolVersion
     }
