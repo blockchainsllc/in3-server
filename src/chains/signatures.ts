@@ -41,6 +41,7 @@ import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
 import config from '../server/config'
 import { toBuffer } from 'in3-common/js/src/util/util';
+import { SentryError } from '../util/sentryError'
 
 
 const toHex = util.toHex
@@ -51,6 +52,17 @@ const address = serialize.address
 const bytes = serialize.bytes
 
 export const signatureCaches: LRUCache = new LRUCache();
+
+function checkBlockHash(hash: any, expected: any, s: any) {
+  // is the blockhash correct all is fine
+  if (bytes32(hash).equals(bytes32(expected))) {
+    // add signature entry in cache
+    if (!signatureCaches.has(expected))
+      signatureCaches.set(expected, { ...s })
+    return s
+  }
+  return null
+}
 
 export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
   // DOS-Protection
@@ -129,21 +141,21 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
           return null
         }
 
+        // did we expect this?
+        if (checkBlockHash(s.blockHash, expectedBlock.hash, s)) return s
 
-        // is the blockhash correct all is fine
-        if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash))) {
-          // add signature entry in cache
-          if (!signatureCaches.has(expectedBlock.hash))
-            signatureCaches.set(expectedBlock.hash, { ...s })
+        // so we have a different hash, let's double check if got the wrong hash
+        expectedBlock.hash = toHex(await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(s.block), false] })
+          .then(_ => _.result && _.result.hash), 32)
 
-          return s
-        }
+        // recheck again, if this is still wrong
+        if (checkBlockHash(s.blockHash, expectedBlock.hash, s)) return s
 
+        // ok still wrong, so we start convicting the node...
+        logger.info("Trying to convict node(" + singingNode.address + ") " + singingNode.url + ' because it signed wrong blockhash  with ' + JSON.stringify(s) + ' but the correct hash should be ' + expectedBlock.hash)
 
         const latestBlockNumber = handler.watcher.block.number
-
         const diffBlocks = toNumber(latestBlockNumber) - s.block
-
         const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
         if (diffBlocks < 255) {
@@ -286,6 +298,11 @@ async function handleRecreation(handler: BaseHandler, nodes: ServerList, singing
       })
 
     } catch (e) {
+      logger.error('Error trying to recreate blocks and convict : ' + e)
+      // if we are here this means we failed to convict (maybe not enough balance)
+      // so there is no point in recreating blocks now.
+      // so we return
+      throw new SentryError('Error trying to recreate blocks and convict : ', 'convict_failed', 'nodeToConvict:' + singingNode.url + ' signature: ' + JSON.stringify(s, null, 2) + '\n  internal error = ' + e)
     }
 
     for (const txArray of transactionArrays) {
