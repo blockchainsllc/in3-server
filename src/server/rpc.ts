@@ -96,7 +96,7 @@ export class RPC {
       currentHour.update(r)
 
       //check if requested in3 protocol version is same as server is serving
-      if(in3Request.version && !(in3Request.version === in3ProtocolVersion)){
+      if(in3Request.version && !in3ProtocolVersion.startsWith(in3Request.version)){
         //throw new Error("Unable to serve request for protocol level "+in3Request.version+" Currently Server is at IN3 Protocol Version "+in3ProtocolVersion)
         const res = {
           id: r.id,
