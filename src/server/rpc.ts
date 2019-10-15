@@ -42,7 +42,8 @@ import { getStats, currentHour } from './stats'
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
-import { SentryError } from '../util/sentryError'
+import {SentryError} from '../util/sentryError'
+import { in3ProtocolVersion } from '../types/constants'
 
 
 export class RPC {
@@ -82,6 +83,7 @@ export class RPC {
 
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
+      
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
       const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
       const in3: IN3ResponseConfig = {} as any
@@ -93,6 +95,22 @@ export class RPC {
       // update stats
       currentHour.update(r)
 
+      //check if requested in3 protocol version is same as server is serving
+      if(in3Request.version && !in3ProtocolVersion.startsWith(in3Request.version)){
+        //throw new Error("Unable to serve request for protocol level "+in3Request.version+" Currently Server is at IN3 Protocol Version "+in3ProtocolVersion)
+        const res = {
+          id: r.id,
+          error: "Unable to serve request for protocol level "+in3Request.version+" currently Server is at IN3 Protocol Version "+in3ProtocolVersion,
+          jsonrpc: r.jsonrpc,
+          in3: { ...in3, 
+            execTime: Date.now() - start,   
+            rpcTime : (r as any).rpcTime || 0,
+            rpcCount : (r as any).rpcCount || 0,
+            currentBlock : handler.watcher && handler.watcher.block && handler.watcher.block.number,
+            version : in3ProtocolVersion }
+        }
+        return res as RPCResponse
+      }
 
       if (r.method === 'in3_nodeList')
         return manageRequest(handler, Promise.all([handler.getNodeList(
@@ -155,6 +173,7 @@ export class RPC {
           (in3 as any).rpcTime = (r as any).rpcTime || 0;
           (in3 as any).rpcCount = (r as any).rpcCount || 0;
           (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
+          (in3 as any).version = in3ProtocolVersion
           return _
         })
       ])
