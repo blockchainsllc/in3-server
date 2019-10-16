@@ -82,7 +82,8 @@ export default class Watcher extends EventEmitter {
     r: string,
     s: string,
     recreationDone: boolean,
-    latestBlock?: number
+    latestBlock?: number,
+    signingNode: any
   }
 
   futureConvicts: any[]
@@ -210,12 +211,12 @@ export default class Watcher extends EventEmitter {
     // update validators
     await updateValidatorHistory(this.handler)
 
-    await this.handleConvict(nodeList, currentBlock)
+    await this.handleConvict(currentBlock)
 
     return res
   }
 
-  async handleConvict(nodeList, currentBlock) {
+  async handleConvict(currentBlock) {
 
     for (const ci of this.futureConvicts) {
 
@@ -223,9 +224,8 @@ export default class Watcher extends EventEmitter {
 
       // adding 1 to prevent 0 costs
       const costs = ci.diffBlocks + 1 * costPerBlock * 1.25
-      const singingNode = nodeList.nodes.find(_ => _.address.toLowerCase() === (ci.signer.toLowerCase()))
 
-      const worthIt = costs < singingNode.deposit / 2
+      const worthIt = costs < ci.signingNode.deposit / 2
 
       if (ci.diffBlocks) {
 

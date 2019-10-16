@@ -74,7 +74,11 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
     if (convictedNode) {
       const convictedNodeIndex = nodes.nodes.indexOf(convictedNode)
-      delete nodes.nodes[convictedNodeIndex]
+
+      if (convictedNodeIndex > -1)
+        nodes.nodes.splice(convictedNodeIndex, 1)
+
+      //   delete nodes.nodes[convictedNodeIndex]
     }
   }
 
@@ -153,18 +157,20 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
+
+
         //    .find(_ => _.address.toLowerCase() === adr.toLowerCase())
-        const foundAlready = handler.watcher.futureConvicts.find(_ =>
-          _.signer.toLowerCase() === singingNode.address.toLowerCase()
+        const foundAlready = handler.watcher.futureConvicts.find(_ => {
+          console.log("_", _)
+          return _.signer.toLowerCase() === singingNode.address.toLowerCase()
+        }
         )
 
+        console.log("singingNode.address", singingNode.address)
+        console.log("fc", handler.watcher.futureConvicts)
 
         console.log("foundAlready", foundAlready)
 
-        if (foundAlready) {
-          console.log("found already")
-          return
-        }
 
         if (!handler.watcher.blockhashRegistry) {
           handler.watcher.blockhashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
@@ -187,8 +193,10 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
           v: s.v,
           r: s.r,
           s: s.s,
-          recreationDone: false
+          recreationDone: false,
+          signingNode: singingNode
         })
+
       }))
 
     return signatures
