@@ -212,9 +212,17 @@ export default class Watcher extends EventEmitter {
 
     for (const ci of this.futureConvicts) {
 
+      const costPerBlock = 86412400000000
+
+      // adding 1 to prevent 0 costs
+      const costs = ci.diffBlocks + 1 * costPerBlock * 1.25
+      const singingNode = nodeList.nodes.find(_ => _.address.toLowerCase() === (ci.signer.toLowerCase()))
+
+      const worthIt = costs < singingNode.deposit / 2
+
       if (ci.diffBlocks) {
+
         if (!ci.blocksToRecreate) {
-          const singingNode = nodeList.nodes.find(_ => _.address.toLowerCase() === (ci.signer.toLowerCase()))
 
           ci.blocksToRecreate = []
           let latestSS = toNumber((await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [ci.wrongBlockNumber, ci.diffBlocks]))[0])
@@ -222,12 +230,6 @@ export default class Watcher extends EventEmitter {
           if (latestSS === 0) latestSS == this.block.number
           ci.latestBlock = latestSS
 
-
-          const blocksMissing = latestSS - ci.wrongBlockNumber
-          const costPerBlock = 86412400000000
-          const costs = blocksMissing * costPerBlock * 1.25
-
-          let worthIt = costs < singingNode.deposit / 2
           // we did not found an entry in the registry yet, so we would have to create one
           if (latestSS === this.block.number && worthIt) {
 
@@ -256,7 +258,7 @@ export default class Watcher extends EventEmitter {
 
         for (const blocksToRecreate of ci.blocksToRecreate) {
 
-          if (blocksToRecreate.firstSeen) {
+          if (blocksToRecreate.firstSeen && worthIt) {
 
             const blockHashInContract = (await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'blockhashMapping(uint):(bytes32)', [blocksToRecreate.number]))[0]
 
@@ -327,7 +329,7 @@ export default class Watcher extends EventEmitter {
         ci.recreationDone = true
       }
 
-      if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone) {
+      if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone && worthIt) {
         await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
           [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
           privateKey: this.handler.config.privateKey,

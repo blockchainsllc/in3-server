@@ -191,8 +191,6 @@ describe('Convict', () => {
     test.injectRandom([0.02, 0.8])
 
     let manipulated = false
-
-    console.log("block", toNumber(block.number))
     test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
       const index = parseInt(url.substr(1)) - 1
       // we change it to a wrong signature
@@ -305,15 +303,21 @@ describe('Convict', () => {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
+    let events
+    let events2
+
+    for (let i = 0; i < 40; i++) {
+      await test.createAccount()
+
+      events = await watcher.update()
+      events2 = await watcher2.update()
+      assert.equal(events, undefined)
+      assert.equal(events2, undefined)
+
+    }
+
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
     assert.equal(await test.getNodeCountFromContract(), 2)
-
-    // just read all events
-    const events = await watcher.update()
-    const events2 = await watcher2.update()
-
-    assert.equal(events, undefined)
-    assert.equal(events2, undefined)
 
   })
 
