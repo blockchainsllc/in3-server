@@ -72,7 +72,7 @@ const sign = (b: BlockData, registryId: string, pk: string, blockHash?: string) 
 
 describe('Convict', () => {
 
-  it.skip('verify and convict (block within 256 blocks)', async () => {
+  it('verify and convict (block within 256 blocks)', async () => {
     const test = await TestTransport.createWithRegisteredNodes(2)
     const watcher = test.getHandler(0).watcher
     const watcher2 = test.getHandler(1).watcher
@@ -116,19 +116,26 @@ describe('Convict', () => {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
+    /*
     await test.createAccount()
     await test.createAccount()
     await test.createAccount()
     await watcher.update()
     await watcher2.update()
+    */
+
+    let events
+    for (let i = 0; i < 3; i++) {
+      await test.createAccount()
+      events = await watcher.update()
+      if (!events) events = await watcher2.update()
+    }
 
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
     assert.equal(await test.getNodeCountFromContract(), 1)
 
-    // just read all events
-    let events = await watcher.update()
 
-    if (events.length == 0) events = await watcher2.update()
+
     assert.equal(events.length, 2)
     assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
 

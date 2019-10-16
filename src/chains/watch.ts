@@ -213,7 +213,6 @@ export default class Watcher extends EventEmitter {
     for (const ci of this.futureConvicts) {
 
       if (ci.diffBlocks) {
-
         if (!ci.blocksToRecreate) {
           const singingNode = nodeList.nodes.find(_ => _.address.toLowerCase() === (ci.signer.toLowerCase()))
 
@@ -290,8 +289,7 @@ export default class Watcher extends EventEmitter {
                 }
 
                 try {
-                  console.log("recreating blocks", blockNumbers[0], "to", blockNumbers[blockNumbers.length - 1] - 1)
-                  const rtx = await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
+                  await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
                     privateKey: this.handler.config.privateKey,
                     gas: 8000000,
                     value: 0,
@@ -325,9 +323,11 @@ export default class Watcher extends EventEmitter {
         }
 
       }
+      if (ci.diffBlocks === 0) {
+        ci.recreationDone = true
+      }
 
       if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone) {
-        console.log("convicting")
         await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
           [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
           privateKey: this.handler.config.privateKey,
