@@ -153,11 +153,18 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-        const foundAlready = handler.watcher.futureConvicts.find(({ signer, wrongBlockHash }) => {
-          return (signer === singingNode.address && wrongBlockHash === s.blockHash)
-        })
+        //    .find(_ => _.address.toLowerCase() === adr.toLowerCase())
+        const foundAlready = handler.watcher.futureConvicts.find(_ =>
+          _.signer.toLowerCase() === singingNode.address.toLowerCase()
+        )
 
-        if (foundAlready) return
+
+        console.log("foundAlready", foundAlready)
+
+        if (foundAlready) {
+          console.log("found already")
+          return
+        }
 
         if (!handler.watcher.blockhashRegistry) {
           handler.watcher.blockhashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
@@ -225,76 +232,5 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
     id: request.id,
     jsonrpc: request.jsonrpc,
     result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
-  }
-}
-
-export async function handleRecreation(handler: BaseHandler, nodes: ServerList, singingNode: IN3NodeConfig, s: Signature, diffBlocks: number): Promise<any> {
-
-  console.log("handleRecreation")
-  // we have to find the blockHashRegistry
-  const blockHashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
-
-  // we have to calculate whether it's worth convicting a server
-  const [, deposit, , , , , , ,] = await callContract(handler.config.rpcUrl, nodes.contract, 'nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', [toNumber(singingNode.index)])
-  let latestSS = toNumber((await callContract(handler.config.rpcUrl, blockHashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [s.block, diffBlocks]))[0])
-
-  // we did not found an entry in the registry yet, so we would have to create one
-  if (latestSS === 0) {
-    latestSS = handler.watcher._lastBlock.number
-  }
-
-  const costPerBlock = 86412400000000
-
-
-  const blocksMissing = latestSS - s.block
-  const costs = blocksMissing * costPerBlock * 1.25
-
-  if (costs > (deposit / 2)) {
-    //it's not worth it
-    return
-  }
-  else {
-
-    // it's worth convicting the server
-    const blockrequest = []
-    for (let i = 0; i < blocksMissing; i++) {
-      blockrequest.push({
-        jsonrpc: '2.0',
-        id: i + 1,
-        method: 'eth_getBlockByNumber', params: [
-          toHex(latestSS - i), false
-        ]
-      })
-    }
-
-    const blockhashes = await handler.getAllFromServer(blockrequest)
-
-    const serialzedBlocks = []
-    for (const bresponse of blockhashes) {
-      serialzedBlocks.push(new serialize.Block(bresponse.result as any).serializeHeader());
-    }
-
-    const transactionArrays = []
-
-    while (serialzedBlocks.length) {
-      transactionArrays.push(serialzedBlocks.splice(0, 45));
-    }
-
-    let diffBlock = 0;
-
-    for (const txArray of transactionArrays) {
-      try {
-        await callContract(handler.config.rpcUrl, blockHashRegistry, 'recreateBlockheaders(uint,bytes[])', [latestSS - diffBlock, txArray], {
-          privateKey: handler.config.privateKey,
-          gas: 8000000,
-          value: 0,
-          confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-        })
-        diffBlock += txArray.length
-      } catch (e) {
-        console.log(e)
-      }
-    }
-    handler.watcher.futureConvicts.find(_ => (_.signer === singingNode.address && _.wrongBlockHash === s.blockHash)).recreationDone = true
   }
 }

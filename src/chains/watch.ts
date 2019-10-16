@@ -210,6 +210,13 @@ export default class Watcher extends EventEmitter {
     // update validators
     await updateValidatorHistory(this.handler)
 
+    await this.handleConvict(nodeList, currentBlock)
+
+    return res
+  }
+
+  async handleConvict(nodeList, currentBlock) {
+
     for (const ci of this.futureConvicts) {
 
       const costPerBlock = 86412400000000
@@ -244,7 +251,6 @@ export default class Watcher extends EventEmitter {
           let currentRecreateBlock = latestSS
 
           // due to geth, we can only recreate 45 blocks at once
-          //  while (ci.latestBlock > ci.wrongBlockNumber) {
           while (currentRecreateBlock - 45 > ci.wrongBlockNumber) {
             currentRecreateBlock -= 45
             ci.blocksToRecreate.push({ number: currentRecreateBlock, firstSeen: null, currentBnr: null })
@@ -306,11 +312,7 @@ export default class Watcher extends EventEmitter {
                     ci.blocksToRecreate[0].currentBnr = this.block.number
                   }
                   else {
-                    console.log("recreation finished")
-
-                    console.log(ci.latestBlock)
                     ci.recreationDone = true
-
                   }
 
                 } catch (e) {
@@ -318,6 +320,8 @@ export default class Watcher extends EventEmitter {
                 }
               }
 
+            } else {
+              ci.blocksToRecreate = ci.blocksToRecreate.length > 1 ? ci.blocksToRecreate.slice(1) : ci.blocksToRecreate = []
             }
 
           }
@@ -343,8 +347,6 @@ export default class Watcher extends EventEmitter {
         //   this.futureConvicts.pop()
       }
     }
-
-    return res
   }
 
 
@@ -408,3 +410,6 @@ function handleUnregister(ev, handler: RPCHandler) {
   }).catch(err => logger.error('Error handling LogServerUnregisterRequested : ', err))
 
 }
+
+
+
