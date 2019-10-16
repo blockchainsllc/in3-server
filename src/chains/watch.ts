@@ -71,7 +71,8 @@ export default class Watcher extends EventEmitter {
     diffBlocks: number,
     blocksToRecreate?: {
       bNr: number,
-      firstSeen: boolean
+      firstSeen: number,
+      currentBnr: number
     }[],
     convictBlockNumber: number,
     signer: string,
@@ -80,7 +81,8 @@ export default class Watcher extends EventEmitter {
     v: number,
     r: string,
     s: string,
-    recreationDone: boolean
+    recreationDone: boolean,
+    latestBlock?: number
   }
 
   futureConvicts: any[]
@@ -158,6 +160,7 @@ export default class Watcher extends EventEmitter {
   }
 
   async update(): Promise<any[]> {
+
     if (useDB && !this._lastBlock) {
       const last = await exec('select last_block, last_hash from nodes where id=$1', [config.id])
       if (last.length && last[0].last_block)
@@ -218,6 +221,8 @@ export default class Watcher extends EventEmitter {
           let latestSS = toNumber((await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [ci.wrongBlockNumber, ci.diffBlocks]))[0])
 
           if (latestSS === 0) latestSS == this.block.number
+          ci.latestBlock = latestSS
+
 
           const blocksMissing = latestSS - ci.wrongBlockNumber
           const costPerBlock = 86412400000000
@@ -238,21 +243,83 @@ export default class Watcher extends EventEmitter {
           let currentRecreateBlock = latestSS
 
           // due to geth, we can only recreate 45 blocks at once
+          //  while (ci.latestBlock > ci.wrongBlockNumber) {
           while (currentRecreateBlock - 45 > ci.wrongBlockNumber) {
             currentRecreateBlock -= 45
-            ci.blocksToRecreate.push({ number: currentRecreateBlock, firstSeen: null })
+            ci.blocksToRecreate.push({ number: currentRecreateBlock, firstSeen: null, currentBnr: null })
           }
           ci.blocksToRecreate[0].firstSeen = this.block.number
+          ci.blocksToRecreate[0].currentBnr = this.block.number
 
-          ci.blocksToRecreate.push({ number: ci.wrongBlockNumber, firstSeen: null })
+          ci.blocksToRecreate.push({ number: ci.wrongBlockNumber, firstSeen: null, currentBnr: null })
+
         }
 
         for (const blocksToRecreate of ci.blocksToRecreate) {
 
           if (blocksToRecreate.firstSeen) {
+
             const blockHashInContract = (await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'blockhashMapping(uint):(bytes32)', [blocksToRecreate.number]))[0]
 
-            if (blockHashInContract === "0x0000000000000000000000000000000000000000000000000000000000000000") blocksToRecreate.firstSeen++
+            if (blockHashInContract === "0x0000000000000000000000000000000000000000000000000000000000000000") {
+              blocksToRecreate.currentBnr++
+
+              if (blocksToRecreate.currentBnr >= blocksToRecreate.firstSeen + 5) {
+
+                const blockNumbers = []
+                for (let i = ci.latestBlock; i > blocksToRecreate.number; i--) {
+                  blockNumbers.push(i)
+                }
+
+                const blockrequest = []
+                for (let i = 0; i < blockNumbers.length; i++) {
+                  blockrequest.push({
+                    jsonrpc: '2.0',
+                    id: i + 1,
+                    method: 'eth_getBlockByNumber', params: [
+                      toHex(blockNumbers[i]), false
+                    ]
+                  })
+                }
+
+                const blockhashes = await this.handler.getAllFromServer(blockrequest)
+
+                const serialzedBlocks = []
+                for (const bresponse of blockhashes) {
+                  serialzedBlocks.push(new serialize.Block(bresponse.result as any).serializeHeader());
+                }
+
+                try {
+                  console.log("recreating blocks", blockNumbers[0], "to", blockNumbers[blockNumbers.length - 1] - 1)
+                  const rtx = await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
+                    privateKey: this.handler.config.privateKey,
+                    gas: 8000000,
+                    value: 0,
+                    confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+                  })
+
+                  ci.latestBlock = toNumber((await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [blocksToRecreate.number - 10, 20]))[0])
+                  ci.blocksToRecreate = ci.blocksToRecreate.length > 1 ? ci.blocksToRecreate.slice(1) : ci.blocksToRecreate = []
+
+                  if (ci.blocksToRecreate.length > 0) {
+                    ci.blocksToRecreate[0].firstSeen = this.block.number
+                    ci.blocksToRecreate[0].currentBnr = this.block.number
+                  }
+                  else {
+                    console.log("recreation finished")
+
+                    console.log(ci.latestBlock)
+                    ci.recreationDone = true
+
+                  }
+
+                } catch (e) {
+                  console.log(e)
+                }
+              }
+
+            }
+
           }
 
         }
@@ -260,14 +327,18 @@ export default class Watcher extends EventEmitter {
       }
 
       if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone) {
+        console.log("convicting")
         await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
           [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
           privateKey: this.handler.config.privateKey,
           gas: 600000,
           value: 0,
-          confirm: false
-        }).catch(_ => logger.error('Error sending revealConvict ', _))
+          confirm: true
+        })
+
         this.futureConvicts.pop()
+        //).catch(_ => logger.error('Error sending revealConvict ', _))
+        //   this.futureConvicts.pop()
       }
     }
 

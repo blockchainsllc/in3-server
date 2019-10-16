@@ -180,7 +180,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
           v: s.v,
           r: s.r,
           s: s.s,
-          recreationDone: true
+          recreationDone: false
         })
       }))
 

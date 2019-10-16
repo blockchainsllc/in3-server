@@ -72,7 +72,7 @@ const sign = (b: BlockData, registryId: string, pk: string, blockHash?: string) 
 
 describe('Convict', () => {
 
-  it('verify and convict (block within 256 blocks)', async () => {
+  it.skip('verify and convict (block within 256 blocks)', async () => {
     const test = await TestTransport.createWithRegisteredNodes(2)
     const watcher = test.getHandler(0).watcher
     const watcher2 = test.getHandler(1).watcher
@@ -184,6 +184,8 @@ describe('Convict', () => {
     test.injectRandom([0.02, 0.8])
 
     let manipulated = false
+
+    console.log("block", toNumber(block.number))
     test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
       const index = parseInt(url.substr(1)) - 1
       // we change it to a wrong signature
@@ -216,16 +218,18 @@ describe('Convict', () => {
     await watcher2.update()
 
     await test.createAccount()
-    let events = await watcher.update()
+    //   let events = await watcher.update()
 
-    if (!events) events = await watcher2.update()
+    //  if (!events) events = await watcher2.update()
+    let events
 
-
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 25; i++) {
       await test.createAccount()
-      await watcher.update()
-      await watcher2.update()
+
+      events = await watcher.update()
+      if (!events) await watcher2.update()
     }
+
 
     assert.equal(events.length, 2)
     assert.equal(await test.getNodeCountFromContract(), 1)
