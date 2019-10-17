@@ -44,6 +44,7 @@ import * as tx from '../util/tx'
 import { useDB, exec } from '../util/db'
 import config from '../server/config'
 import { updateValidatorHistory } from '../server/poa';
+import { SentryError } from '../util/sentryError';
 
 const toNumber = util.toNumber
 const toHex = util.toHex
@@ -233,7 +234,7 @@ export default class Watcher extends EventEmitter {
           privateKey: this.handler.config.privateKey,
           gas: 500000,
           value: 0,
-          confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+          confirm: true
         })
 
         ci.convictBlockNumber = this.block.number
@@ -256,6 +257,8 @@ export default class Watcher extends EventEmitter {
               gas: 600000,
               value: 0,
               confirm: false
+            }).catch(_ => {
+              new SentryError(_, "saveBlocknumber")
             })
           }
 
@@ -307,29 +310,27 @@ export default class Watcher extends EventEmitter {
                   serialzedBlocks.push(new serialize.Block(bresponse.result as any).serializeHeader());
                 }
 
-                try {
+                await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
+                  privateKey: this.handler.config.privateKey,
+                  gas: 8000000,
+                  value: 0,
+                  confirm: true
+                }).catch(_ => {
+                  new SentryError(_, "recreateBlockheaders")
+                })
 
-                  await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
-                    privateKey: this.handler.config.privateKey,
-                    gas: 8000000,
-                    value: 0,
-                    confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-                  })
+                ci.latestBlock = toNumber((await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [blocksToRecreate.number - 10, 20]))[0])
+                ci.blocksToRecreate = ci.blocksToRecreate.length > 1 ? ci.blocksToRecreate.slice(1) : ci.blocksToRecreate = []
 
-                  ci.latestBlock = toNumber((await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [blocksToRecreate.number - 10, 20]))[0])
-                  ci.blocksToRecreate = ci.blocksToRecreate.length > 1 ? ci.blocksToRecreate.slice(1) : ci.blocksToRecreate = []
-
-                  if (ci.blocksToRecreate.length > 0) {
-                    ci.blocksToRecreate[0].firstSeen = this.block.number
-                    ci.blocksToRecreate[0].currentBnr = this.block.number
-                  }
-                  else {
-                    ci.recreationDone = true
-                  }
-
-                } catch (e) {
-                  console.log(e)
+                if (ci.blocksToRecreate.length > 0) {
+                  ci.blocksToRecreate[0].firstSeen = this.block.number
+                  ci.blocksToRecreate[0].currentBnr = this.block.number
                 }
+                else {
+                  ci.recreationDone = true
+                }
+
+
               }
 
             } else {
@@ -346,17 +347,18 @@ export default class Watcher extends EventEmitter {
       }
 
       if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone && worthIt) {
+
         await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
           [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
           privateKey: this.handler.config.privateKey,
           gas: 600000,
           value: 0,
           confirm: true
+        }).catch(_ => {
+          new SentryError(_, "convict_error", "error reveal convict")
         })
 
         this.futureConvicts.pop()
-        //).catch(_ => logger.error('Error sending revealConvict ', _))
-        //   this.futureConvicts.pop()
       }
     }
   }

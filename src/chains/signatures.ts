@@ -93,8 +93,6 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
       if (convictedNodeIndex > -1)
         nodes.nodes.splice(convictedNodeIndex, 1)
-
-      //   delete nodes.nodes[convictedNodeIndex]
     }
   }
 
