@@ -83,7 +83,8 @@ export default class Watcher extends EventEmitter {
     s: string,
     recreationDone: boolean,
     latestBlock?: number,
-    signingNode: any
+    signingNode: any,
+    signature: string
   }
 
   futureConvicts: any[]
@@ -227,10 +228,20 @@ export default class Watcher extends EventEmitter {
 
       const worthIt = costs < ci.signingNode.deposit / 2
 
+      if (worthIt && ci.convictBlockNumber === 0) {
+        await tx.callContract(this.handler.config.rpcUrl, this.handler.config.registry, 'convict(bytes32)', [ci.signature], {
+          privateKey: this.handler.config.privateKey,
+          gas: 500000,
+          value: 0,
+          confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
+        })
+
+        ci.convictBlockNumber = this.block.number
+
+      }
+
       if (ci.diffBlocks) {
-
         if (!ci.blocksToRecreate) {
-
           ci.blocksToRecreate = []
           let latestSS = toNumber((await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [ci.wrongBlockNumber, ci.diffBlocks]))[0])
 
@@ -297,6 +308,7 @@ export default class Watcher extends EventEmitter {
                 }
 
                 try {
+
                   await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
                     privateKey: this.handler.config.privateKey,
                     gas: 8000000,

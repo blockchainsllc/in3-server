@@ -157,27 +157,20 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
+        // checking whether the signer is already in the process of being convicted
         const foundAlready = handler.watcher.futureConvicts.find(_ =>
           _.signer.toLowerCase() === singingNode.address.toLowerCase()
         )
-
         if (foundAlready) return
 
         if (!handler.watcher.blockhashRegistry) {
           handler.watcher.blockhashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
         }
 
-        await callContract(handler.config.rpcUrl, nodes.contract, 'convict(bytes32)', [convictSignature], {
-          privateKey: handler.config.privateKey,
-          gas: 500000,
-          value: 0,
-          confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-        })
-
         handler.watcher.futureConvicts.push({
           startTime: Date.now(),
           diffBlocks: diffBlocks,
-          convictBlockNumber: latestBlockNumber,
+          convictBlockNumber: 0,
           signer: singingNode.address,
           wrongBlockHash: s.blockHash,
           wrongBlockNumber: s.block,
@@ -185,7 +178,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
           r: s.r,
           s: s.s,
           recreationDone: false,
-          signingNode: singingNode
+          signingNode: singingNode,
+          signature: convictSignature
         })
 
       }))

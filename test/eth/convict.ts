@@ -116,16 +116,8 @@ describe('Convict', () => {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
-    /*
-    await test.createAccount()
-    await test.createAccount()
-    await test.createAccount()
-    await watcher.update()
-    await watcher2.update()
-    */
-
     let events
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       await test.createAccount()
       events = await watcher.update()
       if (!events) events = await watcher2.update()
