@@ -88,14 +88,14 @@ export function deployBlockhashRegistry(pk: string, url = 'http://localhost:8545
     privateKey: pk,
     gas: 8000000,
     confirm: true
-  }, transport).then(_ => toChecksumAddress(_.contractAddress) as string)
+  }, transport, 300000).then(_ => toChecksumAddress(_.contractAddress) as string)
 }
 
 export async function registerNodes(pk: string, registry: string, data: {
   url: string,
   pk: string
   props: string
-  deposit: number
+  deposit: any
   timeout: number
   weight?: number
 }[], chainId: string, chainRegistry?: string, url = 'http://localhost:8545', transport?: Transport, registerChain = true) {

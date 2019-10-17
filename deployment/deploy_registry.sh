@@ -3,15 +3,15 @@
 export IN3_CHAIN=local
 
 # a key with some ether
-IN3_PK=0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
+IN3_PK=`in3 key my_keyfile.json`
 BASE_URL=https://in3.slock.it/testnet/nd-
 
-# define the private keys of the nodes
-PK1=0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81680001
-PK2=0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81680002
-PK3=0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81680003
-PK4=0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81680004
-PK5=0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81680005
+# define the private keys of the nodes :
+PK1=0x...
+PK2=0x...
+PK3=0x...
+PK4=0x...
+PK5=0x...
 
 # calculate the address out of the keys
 NODE1=`in3 pk2address $PK1`

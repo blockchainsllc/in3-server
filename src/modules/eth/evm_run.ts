@@ -36,9 +36,36 @@ import VM from 'ethereumjs-vm'
 import * as Account from 'ethereumjs-account'
 import * as Block from 'ethereumjs-block'
 import * as Trie from 'merkle-patricia-tree'
-import { rlp } from 'ethereumjs-util'
 import { util, serialize } from 'in3-common'
 import { RPCRequest, RPCResponse } from '../../types/types'
+
+// cache structure holding the accounts and storage
+export interface CacheAccount {
+  code?: string,
+  balance?: string,
+  storage?: {
+    [key: string]: string
+  }
+  lastUsed?: number
+}
+
+const maxCacheSize = 100 // caceh max 100 Accounts
+const accountCache: { [adr: string]: CacheAccount } = {}
+
+/**returns a cacheObject for the  */
+export function getFromCache(adr: string): CacheAccount {
+  let ac = accountCache[adr]
+  if (!ac) {
+    // before we add a new entry to the cache we check size and remove the entry with the oldes lastUsed.
+    const keys = Object.keys(accountCache)
+    if (keys.length > maxCacheSize)
+      delete accountCache[keys.reduce((p, c) => accountCache[c].lastUsed < accountCache[p].lastUsed ? c : p, keys[0])]
+    ac = accountCache[adr] = {}
+  }
+  ac.lastUsed = Date.now()
+  return ac
+}
+
 
 /** executes a transaction-call to a smart contract */
 export async function analyseCall(args: {
@@ -60,6 +87,7 @@ export async function analyseCall(args: {
   }
 }> {
 
+  // create the result-structre
   const res: {
     blocks: string[],
     result?: Buffer,
@@ -78,20 +106,21 @@ export async function analyseCall(args: {
   } = { blocks: [], accounts: {} }
 
   // create new state for a vm
-  const state = new Trie()
-  const vm = new VM({ state })
+  const vm = new VM({ state: new Trie() })
 
   // create a transaction-object
   const tx = serialize.createTx({ gas: '0x5b8d80', gasLimit: '0x5b8d80', from: '0x0000000000000000000000000000000000000000', ...args })
 
-  function getAccount(address: string) {
-    if (!(res.accounts[address]))
-      res.accounts[address] = { address, storage: {}, ac: new Account() }
-    return res.accounts[address]
-  }
-
+  // keeps the error in case a error is discovered
   let err: any = null
 
+  // helper functions
+  // gets or creates an account in the result
+  function getAccount(address: string) {
+    return res.accounts[address] || (res.accounts[address] = { address, storage: {}, ac: new Account() })
+  }
+
+  // convert a promise into a callback
   function handle(res: Promise<any>, next) {
     res.then(_ => next(), error => {
       if (!err) err = error
@@ -99,11 +128,27 @@ export async function analyseCall(args: {
     })
   }
 
+  async function fetchCode(address: string, ): Promise<String> {
+    const ac = getFromCache(address)
+    if (ac.code) return ac.code
+    return getFromServer({ method: 'eth_getCode', params: [address, block] }).then(_ => ac.code = _.result)
+  }
+
+  async function fetchBalance(address: string): Promise<string> {
+    const ac = getFromCache(address)
+    if (ac.balance) return ac.balance
+    return getFromServer({ method: 'eth_getBalance', params: [address, block] }).then(_ => ac.balance = _.result)
+  }
+  async function fetchStorage(address: string, key: string): Promise<string> {
+    const ac = getFromCache(address)
+    if (!ac.storage) ac.storage = {}
+    if (ac.storage[key]) return ac.storage[key]
+    return getFromServer({ method: 'eth_getStorageAt', params: [address, key, block] }).then(_ => ac.storage[key] = _.result)
+  }
+
   function setCode(ad: string) {
     const a = getAccount(util.toHex(ad, 20))
-    return getFromServer({ method: 'eth_getCode', params: [a.address, block] })
-      .then(_ => util.promisify(a.ac, a.ac.setCode, state, util.toBuffer(a.code = _.result)))
-      .then(_ => util.promisify(state, state.put, util.toBuffer(a.address, 20), a.ac.serialize()))
+    return fetchCode(ad).then(_ => util.promisify(vm.stateManager, vm.stateManager.putContractCode, util.toBuffer(a.address, 20), util.toBuffer(a.code = _ as any)))
   }
 
   // get the code of the contract
@@ -111,6 +156,10 @@ export async function analyseCall(args: {
 
   // keep track of each opcode in order to make sure, all storage-values are provided!
   vm.on('step', (ev, next) => {
+
+    //    console.log(ev.opcode.name + '   [ ' + ev.stack.map(_ => '0x' + _.toString('hex')).join(' | ') + ' ]')
+
+
     switch (ev.opcode.name) {
       case 'BALANCE':
       case 'EXTCODEHASH':
@@ -119,10 +168,10 @@ export async function analyseCall(args: {
         const acc = getAccount(util.toHex('0x' + ev.stack[ev.stack.length - 1].toString(16), 20))
 
         if (ev.opcode.name === 'BALANCE' && acc.balance === undefined)
-          return handle(getFromServer({ method: 'eth_getBalance', params: [acc.address, block] }).then(_ => {
+          return handle(fetchBalance(acc.address).then(_ => {
             // set the account data
-            acc.ac.balance = acc.balance = _.result
-            return util.promisify(state, state.put, util.toBuffer(acc.address, 20), acc.ac.serialize())
+            acc.ac.balance = acc.balance = _
+            return util.promisify(vm.stateManager, vm.stateManager.putAccount, util.toBuffer(acc.address, 20), acc.ac)
           }), next)
         else if (ev.opcode.name !== 'BALANCE' && acc.code === undefined)
           return handle(setCode(acc.address), next)
@@ -135,7 +184,6 @@ export async function analyseCall(args: {
         const a = getAccount(util.toHex('0x' + ev.stack[ev.stack.length - 2].toString(16), 20))
         if (a.code === undefined)
           return handle(setCode(a.address), next)
-
         break
 
       case 'SLOAD':
@@ -144,10 +192,8 @@ export async function analyseCall(args: {
         const mKey = util.toMinHex('0x' + key.toString('hex'))
 
         if (ac.storage[mKey] === undefined)
-          return handle(getFromServer({ method: 'eth_getStorageAt', params: [ac.address, '0x' + key.toString('hex'), block] }).then(_ => {
-            // set the storage data
-            return util.promisify(ac.ac, ac.ac.setStorage, state, key, rlp.encode(util.toBuffer(ac.storage[mKey] = _.result, 32)))
-              .then(() => util.promisify(state, state.put, util.toBuffer(ac.address, 20), ac.ac.serialize()))
+          return handle(fetchStorage(ac.address, '0x' + key.toString('hex')).then(_ => {
+            return util.promisify(ev.stateManager, ev.stateManager.putContractStorage, util.toBuffer(ac.address, 20), key, util.toBuffer(ac.storage[mKey] = _, 32))
           }), next)
         break
 
@@ -164,3 +210,4 @@ export async function analyseCall(args: {
   res.result = result.execResult.returnValue
   return res as any
 }
+

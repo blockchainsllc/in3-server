@@ -39,8 +39,11 @@
 1. Pull the image from docker using ```docker pull slockit/in3-node```
 2. In order to run your own in3-node, you must first register the node. The information for registering a node can be found 
 [here](https://in3.readthedocs.io/en/develop/getting_started.html#registering-an-incubed-node)
-3. Run the in3-node image using a direct docker command or a docker-compose file, the parameters for which are explained 
-[here](https://in3.readthedocs.io/en/develop/api-node.html)
+3. Run the in3-node image using a direct docker command, a docker-compose file(the parameters for which are explained 
+[here](https://in3.readthedocs.io/en/develop/api-node-server.html)) or use our [online helper tool](https://in3-setup.slock.it/) to generate a docker-compose file with 
+all needed parameters. In case you want to run the server helper tool yourself, [here](https://hub.docker.com/r/slockit/in3-server-setup) is the docker image. 
+
+
 
  ## Example 
  ### POST Request

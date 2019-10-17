@@ -61,13 +61,17 @@ definitions:
                 example: "proof"
             clientSignature:
                 description: the signature of the client
-            signatures:
+            signers:
                 description: a list of addresses requested to sign the blockhash
                 type: array
                 example: ["0x6C1a01C2aB554930A937B0a2E8105fB47946c679"]
                 items:
                     type: string
                     format: address
+            version:
+                description: IN3 protocol version that client can specify explicitly in request
+                type: string
+                example: "1.0.0"
 
     LogProof:
         type: object
@@ -321,6 +325,10 @@ definitions:
                 description: the current blocknumber.
                 type: number
                 example: 320126478
+            version:
+                description: IN3 protocol version
+                type: string
+                example: "1.0.0"
 
     RPCResponse:
         type: object
@@ -536,6 +544,12 @@ definitions:
             maxPointsPerMinute:
                 type: number
                 description: max number of request points a client is able to handle before getting rejected.
+            maxBlocksSigned:
+                type: number
+                description: max number of blocks signed per in3_sign-request
+            maxSignatures:
+                type: number
+                description: max number of signatures to request
             proxy:
                 type: boolean
                 description: accepts x-forward-headers

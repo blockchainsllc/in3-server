@@ -46,14 +46,15 @@ function toBlockNumber(blk: string) {
 
 export function calculateCosts(request: RPCRequest): number {
     if (!request || !request.method) return 0
+    const signatures = (request.in3 && (request.in3.signers || request.in3.signatures || []).length || 0) * 20
     switch (request.method) {
         case 'eth_call':
         case 'in3_call':
         case 'eth_estimateGas':
-            return 50
+            return signatures + 50
         case 'eth_getLogs':
             const filter = request.params && request.params[0]
-            return Math.round(Math.min(1000, 1 + Math.max(filter ? toBlockNumber(filter.toBlock) - toBlockNumber(filter.fromBlock) : MAX_BLOCKS, 0)) * 0.9 + 10)
+            return signatures + Math.round(Math.min(1000, 1 + Math.max(filter ? toBlockNumber(filter.toBlock) - toBlockNumber(filter.fromBlock) : MAX_BLOCKS, 0)) + 10)
         case 'in3_sign':
             return (request.params && request.params[0] && request.params[0].length || 0) * 20
         case 'in3_stats':
@@ -64,13 +65,13 @@ export function calculateCosts(request: RPCRequest): number {
         case 'eth_getBalance':
         case 'eth_getTransactionCount':
         case 'eth_getStorageAt':
-            return 20
+            return signatures + 20
         case 'eth_getTransactionReceipt':
-            return 40
+            return signatures + 40
         case 'in3_nodeList':
-            return 5
+            return signatures + 5
         default:
-            return 10
+            return signatures + 10
     }
 
 }
