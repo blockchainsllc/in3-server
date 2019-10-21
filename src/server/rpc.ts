@@ -42,7 +42,7 @@ import { getStats, currentHour } from './stats'
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
-import {SentryError} from '../util/sentryError'
+import { SentryError } from '../util/sentryError'
 import { in3ProtocolVersion } from '../types/constants'
 
 
@@ -83,7 +83,7 @@ export class RPC {
 
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
-      
+
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
       const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
       const in3: IN3ResponseConfig = {} as any
@@ -96,18 +96,20 @@ export class RPC {
       currentHour.update(r)
 
       //check if requested in3 protocol version is same as server is serving
-      if(in3Request.version && !in3ProtocolVersion.startsWith(in3Request.version)){
+      if (in3Request.version && !in3ProtocolVersion.startsWith(in3Request.version)) {
         //throw new Error("Unable to serve request for protocol level "+in3Request.version+" Currently Server is at IN3 Protocol Version "+in3ProtocolVersion)
         const res = {
           id: r.id,
-          error: "Unable to serve request for protocol level "+in3Request.version+" currently Server is at IN3 Protocol Version "+in3ProtocolVersion,
+          error: "Unable to serve request for protocol level " + in3Request.version + " currently Server is at IN3 Protocol Version " + in3ProtocolVersion,
           jsonrpc: r.jsonrpc,
-          in3: { ...in3, 
-            execTime: Date.now() - start,   
-            rpcTime : (r as any).rpcTime || 0,
-            rpcCount : (r as any).rpcCount || 0,
-            currentBlock : handler.watcher && handler.watcher.block && handler.watcher.block.number,
-            version : in3ProtocolVersion }
+          in3: {
+            ...in3,
+            execTime: Date.now() - start,
+            rpcTime: (r as any).rpcTime || 0,
+            rpcCount: (r as any).rpcCount || 0,
+            currentBlock: handler.watcher && handler.watcher.block && handler.watcher.block.number,
+            version: in3ProtocolVersion
+          }
         }
         return res as RPCResponse
       }
@@ -251,10 +253,11 @@ export class HandlerTransport extends AxiosTransport {
     if (url === this.handler.config.rpcUrl) return this.handler.getAllFromServer(requests).then(_ => Array.isArray(data) ? _ : _[0])
 
     // add cbor-config
-    const conf = { headers: { 'Content-Type': 'application/json' } }
+    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
+    const conf = { headers }
     // execute request
     try {
-      const res = await axios.post(url, requests, { headers: { 'Content-Type': 'application/json' } })
+      const res = await axios.post(url, requests, conf)
 
       // throw if the status is an error
       if (res.status > 200) throw new SentryError('Invalid status', 'status_error', res.status.toString())

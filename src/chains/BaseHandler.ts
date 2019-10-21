@@ -112,7 +112,7 @@ export default abstract class BaseHandler implements RPCHandler {
         }
       }
     }
-    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node ' + in3ProtocolVersion }
+    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
     if (r && r.ip)
       headers['X-Origin-IP'] = r.ip
 
@@ -132,7 +132,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** returns a array of requests from the server */
   getAllFromServer(request: Partial<RPCRequest>[], r?: any): Promise<RPCResponse[]> {
-    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node ' + in3ProtocolVersion }
+    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
     if (r && r.ip)
       headers['X-Origin-IP'] = r.ip
     const startTime = Date.now()

@@ -130,7 +130,7 @@ router.post(/.*/, async ctx => {
 
   try {
 
-    const ip = ctx.headers['X-Origin-IP']
+    const ip = ctx.headers['x-origin-ip']
     if (ip) ctx.ip = ip
 
     // DOS protection
