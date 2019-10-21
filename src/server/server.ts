@@ -129,6 +129,10 @@ router.post(/.*/, async ctx => {
   const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
 
   try {
+
+    const ip = ctx.headers['X-Origin-IP']
+    if (ip) ctx.ip = ip
+
     // DOS protection
     checkBudget(ctx.ip || 'default', requests, config.maxPointsPerMinute);
 
