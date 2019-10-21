@@ -130,14 +130,13 @@ router.post(/.*/, async ctx => {
 
   try {
 
-    const ip = ctx.headers['x-origin-ip']
-    if (ip) ctx.ip = ip
+    const ip = ctx.headers['x-origin-ip'] || ctx.ip
 
     // DOS protection
-    checkBudget(ctx.ip || 'default', requests, config.maxPointsPerMinute);
+    checkBudget(ip || 'default', requests, config.maxPointsPerMinute);
 
     // assign ip
-    requests.forEach(_ => (_ as any).ip = ctx.ip)
+    requests.forEach(_ => (_ as any).ip = ip)
 
 
     const result = await rpc.handle(requests)
