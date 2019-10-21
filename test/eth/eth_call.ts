@@ -353,7 +353,8 @@ describe('eth_call', () => {
           to: adr,
           data: data,
           gas: "0x55D4A80"
-        }
+        },
+        "latest"
       ],
       id: 1
     }) as RPCResponse
