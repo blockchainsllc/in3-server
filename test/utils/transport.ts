@@ -44,6 +44,7 @@ import { sendTransaction, callContract } from '../../src/util/tx'
 import axios from 'axios'
 import { registerNodes } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
+import { in3ProtocolVersion } from '../../src/types/constants';
 import { toBN, toUtf8, toMinHex } from 'in3-common/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
 logger.setLogger('memory')
@@ -342,7 +343,7 @@ export class LoggingAxiosTransport extends AxiosTransport {
     try {
       const res = await super.handle(url, data, timeout)
       logger.debug('Result : ', res)
-      return res
+      return (res && Array.isArray(res))?(<RPCResponse[]>res): (res as RPCResponse)
     }
     catch (ex) {
       logger.error('Error handling the request :', ex)

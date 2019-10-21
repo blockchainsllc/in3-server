@@ -869,7 +869,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getLogs', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
-    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1, signatureCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')

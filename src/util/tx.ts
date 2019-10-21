@@ -55,8 +55,8 @@ export async function deployContract(url: string, bin: string, txargs?: {
   data?: string
   value?: number
   confirm?: boolean
-}, transport?: Transport) {
-  return sendTransaction(url, { value: 0, ...txargs, data: bin }, transport)
+}, transport?: Transport, timeout?: number) {
+  return sendTransaction(url, { value: 0, ...txargs, data: bin }, transport, timeout)
 }
 
 export async function callContract(url: string, contract: string, signature: string, args: any[], txargs?: {
@@ -99,7 +99,7 @@ export async function sendTransaction(url: string, txargs: {
   data: string
   value: any
   confirm?: boolean
-}, transport?: Transport): Promise<{
+}, transport?: Transport, timeout?: number): Promise<{
   blockHash: string,
   blockNumber: string,
   contractAddress: string,
@@ -155,7 +155,7 @@ export async function sendTransaction(url: string, txargs: {
     params: [toHex(tx.serialize())]
   }).then((_: RPCResponse) => _.error ? Promise.reject(new SentryError('Error sending tx', 'tx_error', 'Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
 
-  return txargs.confirm ? waitForReceipt(url, txHash, 30, txargs.gas, transport) : txHash
+  return txargs.confirm ? waitForReceipt(url, txHash, timeout || 30, txargs.gas, transport) : txHash
 }
 
 
