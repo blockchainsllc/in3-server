@@ -132,6 +132,9 @@ router.post(/.*/, async ctx => {
     // DOS protection
     checkBudget(ctx.ip || 'default', requests, config.maxPointsPerMinute);
 
+    // assign ip
+    requests.forEach(_ => (_ as any).ip = ctx.ip)
+
 
     const result = await rpc.handle(requests)
     const res = requests.length && requests[0].in3 && requests[0].in3.useRef ? cbor.createRefs(result) : result
