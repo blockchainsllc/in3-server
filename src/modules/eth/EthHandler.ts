@@ -50,12 +50,11 @@ const toNumber = in3Util.toNumber
  * handles EVM-Calls
  */
 export default class EthHandler extends BaseHandler {
-  conf: IN3RPCHandlerConfig
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
+
     super(config, transport, nodeList)
 
-    this.conf = config
   }
 
   /** main method to handle a request */
@@ -97,7 +96,7 @@ export default class EthHandler extends BaseHandler {
       if (!request.params /*|| request.params.length < 2*/)
         throw new Error('eth_call must have a transaction and a block as parameters')
 
-      const gasLimit = this.conf.maxGasLimit || maxAllowedGas
+      const gasLimit = this.config.maxGasLimit || maxAllowedGas
 
       request.params.forEach(function(element) {
         const params = element as TxRequest
