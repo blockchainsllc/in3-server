@@ -83,7 +83,7 @@ interface ClientInfo {
 const clients: { [id: string]: ClientInfo } = {}
 let lastCleanUp = 0;
 
-export function checkBudget(client: string, request: any, maxPoints: number) {
+export function checkBudget(client: string, request: any, maxPoints: number, throwError: boolean) {
     const now = Date.now()
     const state: ClientInfo = clients[client] || (clients[client] = { costs: 0, timeout: now + 60000 })
     if (state.timeout < now) {
@@ -99,6 +99,11 @@ export function checkBudget(client: string, request: any, maxPoints: number) {
         }, 0)
     }
 
-    if (maxPoints && state.costs > maxPoints)
-        throw new Error(client + ' used up too many requests per minute!')
+    if (maxPoints && state.costs > maxPoints) {
+        if (throwError)
+            throw new Error(client + ' used up too many requests per minute!')
+        else
+            return false
+    }
+    return true
 }
