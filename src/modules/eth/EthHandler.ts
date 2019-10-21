@@ -93,7 +93,7 @@ export default class EthHandler extends BaseHandler {
     const maxAllowedGas:number = 10000000  //max default allowed gas 10M
 
     if (request.method === 'eth_call') {
-      if (!request.params /*|| request.params.length < 2*/)
+      if (!request.params || request.params.length < 2)
         throw new Error('eth_call must have a transaction and a block as parameters')
 
       const gasLimit = this.config.maxGasLimit || maxAllowedGas
