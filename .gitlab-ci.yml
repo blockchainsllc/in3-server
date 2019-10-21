@@ -53,7 +53,7 @@ test-parity:
         - daemon
         - --offline
       alias: ipfs
-    - name: docker.slock.it/core-technology/parity-timemachine:master
+    - name: docker.slock.it/core-technology/parity-timemachine:v0.0.1
       alias: parity
   script:
     - sh /prepare.sh
