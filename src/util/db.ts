@@ -35,7 +35,7 @@
 
 
 import * as pg from 'pg-promise'
-import config, { MIN_BLOCK_HEIGHT } from '../server/config'
+import config, { getSafeMinBlockHeight } from '../server/config'
 import { IN3RPCHandlerConfig, validationDef as typeDefs } from '../types/types'
 
 
@@ -54,7 +54,7 @@ export async function initConfig() {
 
   const handler: IN3RPCHandlerConfig = {
     rpcUrl: 'http://localhost:8545',
-    minBlockHeight: MIN_BLOCK_HEIGHT,
+    minBlockHeight: getSafeMinBlockHeight('0x1'),
     privateKey: '',
     registry: '' // registry-contract
   }

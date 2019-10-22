@@ -44,7 +44,7 @@ import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
 import { SentryError } from '../util/sentryError'
 import { in3ProtocolVersion } from '../types/constants'
-import { MIN_BLOCK_HEIGHT } from './config';
+import { getSafeMinBlockHeight } from './config';
 import * as logger from '../util/logger'
 
 
@@ -77,11 +77,11 @@ export class RPC {
           h = new EthHandler({ ...rpcConf }, transport, nodeList)
           break
       }
-      if (rpcConf.minBlockHeight !== undefined && rpcConf.minBlockHeight < MIN_BLOCK_HEIGHT)
-        logger.error('Warning: You have configured a minBlockHeight of ' + rpcConf.minBlockHeight + ' which has a high risc of signing a wrong blockhash in case of an reorg. ' + MIN_BLOCK_HEIGHT + ' should be a safe value!')
       this.handlers[h.chainId = util.toMinHex(c)] = h
       if (!conf.defaultChain)
         conf.defaultChain = h.chainId
+      if (rpcConf.minBlockHeight !== undefined && rpcConf.minBlockHeight < getSafeMinBlockHeight(h.chainId))
+        logger.error('Warning: You have configured a minBlockHeight of ' + rpcConf.minBlockHeight + ' which has a high risc of signing a wrong blockhash in case of an reorg. ' + getSafeMinBlockHeight(h.chainId) + ' should be a safe value!')
     }
   }
 
