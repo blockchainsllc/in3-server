@@ -35,7 +35,7 @@
 
 
 import * as pg from 'pg-promise'
-import config from '../server/config'
+import config, { getSafeMinBlockHeight } from '../server/config'
 import { IN3RPCHandlerConfig, validationDef as typeDefs } from '../types/types'
 
 
@@ -53,10 +53,10 @@ export async function initConfig() {
   if (!node) throw new Error('There is no configuration for in db for id=' + config.id)
 
   const handler: IN3RPCHandlerConfig = {
-    rpcUrl: 'https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX', //'http://localhost:8545',
-    minBlockHeight: 6,
+    rpcUrl: 'http://localhost:8545',
+    minBlockHeight: getSafeMinBlockHeight('0x1'),
     privateKey: '',
-    registry: '0x013b82355a066A31427df3140C5326cdE9c64e3A' // registry-contract
+    registry: '' // registry-contract
   }
 
   const autoRegistry = { capabilities: { proof: true, multiChain: true } } as any

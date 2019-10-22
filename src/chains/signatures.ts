@@ -39,10 +39,9 @@ import { keccak, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
 import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
-import config from '../server/config'
+import config, { getSafeMinBlockHeight } from '../server/config'
 import { toBuffer } from 'in3-common/js/src/util/util';
 import { SentryError } from '../util/sentryError'
-
 
 const toHex = util.toHex
 const toMinHex = util.toMinHex
@@ -83,6 +82,19 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
   // get our own nodeList
   const nodes = await handler.getNodeList(false)
+
+  // checking for all the nodes that return a wrong block already and remove them from the nodeRegistry
+  for (const convictInfo of handler.watcher.futureConvicts) {
+    const convictedNode = nodes.nodes.find(_ => _.address.toLowerCase() === convictInfo.signer.toLowerCase())
+
+    if (convictedNode) {
+      const convictedNodeIndex = nodes.nodes.indexOf(convictedNode)
+
+      if (convictedNodeIndex > -1)
+        nodes.nodes.splice(convictedNodeIndex, 1)
+    }
+  }
+
   const uniqueAddresses = [...new Set(addresses.map(item => item))];
   return Promise.all(uniqueAddresses.slice(0, nodes.nodes.length).map(async adr => {
     // find the requested address in our list
@@ -158,30 +170,30 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         const diffBlocks = toNumber(latestBlockNumber) - s.block
         const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-        if (diffBlocks < 255) {
+        // checking whether the signer is already in the process of being convicted
+        const foundAlready = handler.watcher.futureConvicts.find(_ =>
+          _.signer.toLowerCase() === singingNode.address.toLowerCase()
+        )
+        if (foundAlready) return
 
-          await callContract(handler.config.rpcUrl, nodes.contract, 'convict(bytes32)', [convictSignature], {
-            privateKey: handler.config.privateKey,
-            gas: 500000,
-            value: 0,
-            confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-          })
+        if (!handler.watcher.blockhashRegistry) {
+          handler.watcher.blockhashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
+        }
 
-          handler.watcher.futureConvicts.push({
-            convictBlockNumber: latestBlockNumber,
-            signer: singingNode.address,
-            wrongBlockHash: s.blockHash,
-            wrongBlockNumber: s.block,
-            v: s.v,
-            r: s.r,
-            s: s.s,
-            recreationDone: true
-          })
-        }
-        else {
-          await handleRecreation(handler, nodes, singingNode, s, diffBlocks)
-        }
-        return
+        handler.watcher.futureConvicts.push({
+          startTime: Date.now(),
+          diffBlocks: diffBlocks,
+          convictBlockNumber: 0,
+          signer: singingNode.address,
+          wrongBlockHash: s.blockHash,
+          wrongBlockNumber: s.block,
+          v: s.v,
+          r: s.r,
+          s: s.s,
+          recreationDone: false,
+          signingNode: singingNode,
+          signature: convictSignature
+        })
 
       }))
 
@@ -217,7 +229,7 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
   if (!blockNumber) throw new Error('no current blocknumber detectable ')
   if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
 
-  const blockHeight = handler.config.minBlockHeight === undefined ? 6 : handler.config.minBlockHeight
+  const blockHeight = handler.config.minBlockHeight === undefined ? getSafeMinBlockHeight(handler.chainId) : handler.config.minBlockHeight
   const tooYoungBlock = blockData.find(block => toNumber(blockNumber) - toNumber(block.number) < blockHeight)
   if (tooYoungBlock)
     throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
@@ -226,98 +238,5 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
     id: request.id,
     jsonrpc: request.jsonrpc,
     result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
-  }
-}
-
-async function handleRecreation(handler: BaseHandler, nodes: ServerList, singingNode: IN3NodeConfig, s: Signature, diffBlocks: number): Promise<any> {
-
-  // we have to find the blockHashRegistry
-  const blockHashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
-
-  // we have to calculate whether it's worth convicting a server
-  const [, deposit, , , , , , ,] = await callContract(handler.config.rpcUrl, nodes.contract, 'nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', [toNumber(singingNode.index)])
-  const latestSS = toNumber((await callContract(handler.config.rpcUrl, blockHashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [s.block, diffBlocks]))[0])
-  const costPerBlock = 86412400000000
-  const blocksMissing = latestSS - s.block
-  const costs = blocksMissing * costPerBlock * 1.25
-
-  if (costs > (deposit / 2)) {
-
-    console.log("not worth it")
-    //it's not worth it
-    return
-  }
-  else {
-
-    // it's worth convicting the server
-    const blockrequest = []
-    for (let i = 0; i < blocksMissing; i++) {
-      blockrequest.push({
-        jsonrpc: '2.0',
-        id: i + 1,
-        method: 'eth_getBlockByNumber', params: [
-          toHex(latestSS - i), false
-        ]
-      })
-    }
-
-    const blockhashes = await handler.getAllFromServer(blockrequest)
-
-    const serialzedBlocks = []
-    for (const bresponse of blockhashes) {
-      serialzedBlocks.push(new serialize.Block(bresponse.result as any).serializeHeader());
-    }
-
-    const transactionArrays = []
-
-    // splitting the blocks in array with the size of 235 (sweet spot)
-    while (serialzedBlocks.length) {
-      transactionArrays.push(serialzedBlocks.splice(0, 45));
-    }
-
-    let diffBlock = 0;
-
-    const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
-
-    try {
-      await callContract(handler.config.rpcUrl, nodes.contract, 'convict(bytes32)', [convictSignature], {
-        privateKey: handler.config.privateKey,
-        gas: 500000,
-        value: 0,
-        confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-      })
-      handler.watcher.futureConvicts.push({
-        convictBlockNumber: handler.watcher.block.number,
-        signer: singingNode.address,
-        wrongBlockHash: s.blockHash,
-        wrongBlockNumber: s.block,
-        v: s.v,
-        r: s.r,
-        s: s.s,
-        recreationDone: false
-      })
-
-    } catch (e) {
-      logger.error('Error trying to recreate blocks and convict : ' + e)
-      // if we are here this means we failed to convict (maybe not enough balance)
-      // so there is no point in recreating blocks now.
-      // so we return
-      throw new SentryError('Error trying to recreate blocks and convict : ', 'convict_failed', 'nodeToConvict:' + singingNode.url + ' signature: ' + JSON.stringify(s, null, 2) + '\n  internal error = ' + e)
-    }
-
-    for (const txArray of transactionArrays) {
-      try {
-        await callContract(handler.config.rpcUrl, blockHashRegistry, 'recreateBlockheaders(uint,bytes[])', [latestSS - diffBlock, txArray], {
-          privateKey: handler.config.privateKey,
-          gas: 8000000,
-          value: 0,
-          confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-        })
-        diffBlock += txArray.length
-      } catch (e) {
-        console.log(e)
-      }
-    }
-    handler.watcher.futureConvicts.find(_ => (_.signer === singingNode.address && _.wrongBlockHash === s.blockHash)).recreationDone = true
   }
 }

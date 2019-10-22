@@ -116,19 +116,18 @@ describe('Convict', () => {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
-    await test.createAccount()
-    await test.createAccount()
-    await test.createAccount()
-    await watcher.update()
-    await watcher2.update()
+    let events
+    for (let i = 0; i < 4; i++) {
+      await test.createAccount()
+      events = await watcher.update()
+      if (!events) events = await watcher2.update()
+    }
 
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
     assert.equal(await test.getNodeCountFromContract(), 1)
 
-    // just read all events
-    let events = await watcher.update()
 
-    if (events.length == 0) events = await watcher2.update()
+
     assert.equal(events.length, 2)
     assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
 
@@ -204,8 +203,10 @@ describe('Convict', () => {
     await watcher.update()
     await watcher2.update()
 
+
+
     // this is a correct signature and should not fail.
-    const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
+    await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
@@ -216,14 +217,42 @@ describe('Convict', () => {
     await watcher2.update()
 
     await test.createAccount()
-    let events = await watcher.update()
 
-    if (!events) events = await watcher2.update()
+    manipulated = false
+    test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
+      const index = parseInt(url.substr(1)) - 1
+      // we change it to a wrong signature
+      if (!manipulated) {
+        re.result = [sign(block, test.registryId, test.getHandlerConfig(index).privateKey, pk1)]
+        manipulated = true
+      }
+      return re
+    })
 
-    assert.equal(events.length, 2)
+
+    assert.equal(await test.getNodeCountFromContract(), 2)
+
+    // this is a correct signature and should not fail.
+    await client.sendRPC('eth_getBalance', [util.getAddress(pk1), toHex(wrongBlock)], undefined, {
+      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
+    })
+    //   let events = await watcher.update()
+
+    //  if (!events) events = await watcher2.update()
+    let events
+
+    for (let i = 0; i < 25; i++) {
+      await test.createAccount()
+
+      events = await watcher.update()
+      if (!events) await watcher2.update()
+    }
+
+
+    //  assert.equal(events.length, 2)
     assert.equal(await test.getNodeCountFromContract(), 1)
 
-    assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
+    // assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
 
   }).timeout(6000000)
 
@@ -287,15 +316,21 @@ describe('Convict', () => {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
+    let events
+    let events2
+
+    for (let i = 0; i < 40; i++) {
+      await test.createAccount()
+
+      events = await watcher.update()
+      events2 = await watcher2.update()
+      assert.equal(events, undefined)
+      assert.equal(events2, undefined)
+
+    }
+
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
     assert.equal(await test.getNodeCountFromContract(), 2)
-
-    // just read all events
-    const events = await watcher.update()
-    const events2 = await watcher2.update()
-
-    assert.equal(events, undefined)
-    assert.equal(events2, undefined)
 
   })
 

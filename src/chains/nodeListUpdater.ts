@@ -116,13 +116,12 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
  */
 export function getStorageKeys(list: IN3NodeConfig[]) {
   // create the keys with the serverCount
-  const keys: Buffer[] = [storage.getStorageArrayKey(0)]
-
-  keys.push(storage.getStorageArrayKey(1))
-  for (const n of list) {
-
+  const keys: Buffer[] = [
+    storage.getStorageArrayKey(0),
+    storage.getStorageArrayKey(1)
+  ]
+  for (const n of list)
     keys.push(storage.getStorageArrayKey(0, n.index, 5, 4))
-  }
   return keys
 }
 

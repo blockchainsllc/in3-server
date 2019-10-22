@@ -37,6 +37,16 @@ import { util } from 'in3-common'
 import { IN3RPCConfig, IN3RPCHandlerConfig, validationDef as typeDefs } from '../types/types'
 import * as cargs from 'args'
 
+const safeMinBlockHeights = {
+  '0x1': 10,  // mainnet
+  '0x5': 5,   // goerli
+  '0x2a': 5   // kovan
+}
+
+export function getSafeMinBlockHeight(chainId: string) {
+  return safeMinBlockHeights[chainId || '0x1'] || safeMinBlockHeights['0x1']
+}
+
 // defaults for the config
 const config: IN3RPCConfig = {
   port: 8500,
@@ -44,11 +54,11 @@ const config: IN3RPCConfig = {
   maxBlocksSigned: 10,
   maxSignatures: 5,
   chains: {
-    '0x2a': {
-      rpcUrl: 'https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX',   //'http://localhost:8545',
+    '0x1': {
+      rpcUrl: 'http://localhost:8545',
       privateKey: '',
-      minBlockHeight: 6,
-      registry: '0x013b82355a066A31427df3140C5326cdE9c64e3A',     // registry-contract
+      minBlockHeight: getSafeMinBlockHeight('0x1'),
+      registry: '',     // registry-contract
       registryRPC: '',
     }
   }
