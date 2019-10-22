@@ -386,7 +386,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
 }
 
 export async function handleLogs(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
-  // ask the server for the tx
+  // ask the server for the logs
   const response = await handler.getFromServer(request, request)
   const logs = response && response.result as LogData[]
   // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
@@ -408,6 +408,16 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
         blocks.map(_ => _.transactions).reduce((p, c) => [...p, ...c], []).map(t => ({ method: 'eth_getTransactionReceipt', params: [t.hash] })), request
       ).then(a => a.forEach(r => proof[toHex(r.result.blockNumber)].allReceipts.push(r.result)))
     ])
+
+    // for geth we need to fic the missing transactionLogIndex
+    logs.forEach(l => {
+      if (l.transactionLogIndex === undefined) {
+        // now we need to find which log this may be
+        const p = proof[toHex(l.blockNumber)]
+        const tr: ReceiptData = p && p.allReceipts.find(_ => _.transactionHash == l.transactionHash) || p.allReceipts[toNumber(l.transactionIndex)]
+        if (tr) l.transactionLogIndex = toMinHex(Math.max(0, tr.logs.findIndex(ll => toNumber(ll.logIndex) === toNumber(l.logIndex))))
+      }
+    })
 
     // create the proof per block
     await Promise.all(blocks.map(b => {
