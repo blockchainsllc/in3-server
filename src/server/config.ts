@@ -37,6 +37,8 @@ import { util } from 'in3-common'
 import { IN3RPCConfig, IN3RPCHandlerConfig, validationDef as typeDefs } from '../types/types'
 import * as cargs from 'args'
 
+export const MIN_BLOCK_HEIGHT = 10
+
 // defaults for the config
 const config: IN3RPCConfig = {
   port: 8500,
@@ -45,10 +47,10 @@ const config: IN3RPCConfig = {
   maxSignatures: 5,
   chains: {
     '0x2a': {
-      rpcUrl: 'https://kovan.infura.io/HVtVmCIHVgqHGUgihfhX',   //'http://localhost:8545',
+      rpcUrl: 'http://localhost:8545',
       privateKey: '',
-      minBlockHeight: 6,
-      registry: '0x013b82355a066A31427df3140C5326cdE9c64e3A',     // registry-contract
+      minBlockHeight: MIN_BLOCK_HEIGHT,
+      registry: '',     // registry-contract
       registryRPC: '',
     }
   }

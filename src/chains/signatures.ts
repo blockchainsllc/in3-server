@@ -39,10 +39,9 @@ import { keccak, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
 import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
-import config from '../server/config'
+import config, { MIN_BLOCK_HEIGHT } from '../server/config'
 import { toBuffer } from 'in3-common/js/src/util/util';
 import { SentryError } from '../util/sentryError'
-
 
 const toHex = util.toHex
 const toMinHex = util.toMinHex
@@ -230,7 +229,7 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
   if (!blockNumber) throw new Error('no current blocknumber detectable ')
   if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
 
-  const blockHeight = handler.config.minBlockHeight === undefined ? 6 : handler.config.minBlockHeight
+  const blockHeight = handler.config.minBlockHeight === undefined ? MIN_BLOCK_HEIGHT : handler.config.minBlockHeight
   const tooYoungBlock = blockData.find(block => toNumber(blockNumber) - toNumber(block.number) < blockHeight)
   if (tooYoungBlock)
     throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
