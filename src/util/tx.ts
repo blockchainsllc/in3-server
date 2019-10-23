@@ -146,7 +146,7 @@ export async function sendTransaction(url: string, txargs: {
         to: txargs.to || undefined,
         data: txargs.data,
         value: txargs.value || "0x0"
-      }, "latest"]
+      }]
     }).then((_: RPCResponse) => {
       if (_.error) {
         throw new SentryError(_.error)
