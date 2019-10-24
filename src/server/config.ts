@@ -126,11 +126,12 @@ export function readCargs(): IN3RPCConfig {
   const processedArgs = vals.parse(process.argv, { mri: { string: options.map(_ => _.name) } })
 
   // fix chainIds to minHex and enable or disable cache
-  for (const c of Object.keys(config.chains)) {
+  for (let c of Object.keys(config.chains)) {
     const min = util.toMinHex(c)
     if (min != c) {
       config.chains[min] = config.chains[c]
       delete config.chains[c]
+      c = min
     }
 
     //explicit command must be specified to disable cache else it is enabled
