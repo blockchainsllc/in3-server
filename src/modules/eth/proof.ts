@@ -504,7 +504,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
           delete cache.code
           isValid = false
         }
-        if (util.toMinHex(a.balance || '0x00') != util.toMinHex(p.balance)) {
+        if (a.balance != undefined && util.toMinHex(a.balance || '0x00') != util.toMinHex(p.balance)) {
           delete cache.balance
           isValid = false
         }
