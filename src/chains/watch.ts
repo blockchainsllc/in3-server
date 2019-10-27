@@ -232,7 +232,6 @@ export default class Watcher extends EventEmitter {
       if (worthIt && ci.convictBlockNumber === 0) {
         await tx.callContract(this.handler.config.rpcUrl, this.handler.config.registry, 'convict(bytes32)', [ci.signature], {
           privateKey: this.handler.config.privateKey,
-          gas: 500000,
           value: 0,
           confirm: true
         })
@@ -254,7 +253,6 @@ export default class Watcher extends EventEmitter {
 
             await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'saveBlockNumber(uint):()', [this.block.number], {
               privateKey: this.handler.config.privateKey,
-              gas: 600000,
               value: 0,
               confirm: false
             }).catch(_ => {
@@ -312,7 +310,6 @@ export default class Watcher extends EventEmitter {
 
                 await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
                   privateKey: this.handler.config.privateKey,
-                  gas: 8000000,
                   value: 0,
                   confirm: true
                 }).catch(_ => {
