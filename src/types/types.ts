@@ -127,6 +127,8 @@ export interface IN3RPCRequestConfig {
      * example: 1.0.0
      */
     version?: string
+
+    whiteList?: string
 }
 /**
  * a Object holding proofs for event logs. The key is the blockNumber as hex
@@ -349,6 +351,8 @@ export interface IN3ResponseConfig {
      * example: 1.0.0
      */
     version?: string
+
+    lastWhiteList?:number
 }
 /**
  * a configuration of a in3-server.
