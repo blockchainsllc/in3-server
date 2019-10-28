@@ -290,7 +290,6 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
     const val = abiCoder.decode( ["bytes"], whiteListNodes.result as string)[0]
 
     let list: string[] = []
-    //TODO check if val is valid ( not null, etc)
     for(var i=1, s=2;i<=(val.length -2 )/40;i++){
       list.push(val.substr(s, 40))
       s = 40 * i + 2
