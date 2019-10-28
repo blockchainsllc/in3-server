@@ -53,6 +53,9 @@ const config: IN3RPCConfig = {
   maxPointsPerMinute: 60 * 100, // per scond max a 100 points request
   maxBlocksSigned: 10,
   maxSignatures: 5,
+  profile: {
+    noStats: true
+  },
   chains: {
     '0x1': {
       rpcUrl: 'http://localhost:8545',
