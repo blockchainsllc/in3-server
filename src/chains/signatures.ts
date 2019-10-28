@@ -35,13 +35,14 @@
 import BaseHandler from './BaseHandler'
 import { BlockData, util, serialize } from 'in3-common'
 import { RPCRequest, RPCResponse, Signature, ServerList, IN3NodeConfig } from '../types/types'
-import { keccak, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
+import { keccak, pubToAddress, ecrecover, ecsign, ECDSASignature, privateToAddress, toChecksumAddress, } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
 import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
 import config, { getSafeMinBlockHeight } from '../server/config'
 import { toBuffer } from 'in3-common/js/src/util/util';
 import { SentryError } from '../util/sentryError'
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
 const toHex = util.toHex
 const toMinHex = util.toMinHex
@@ -50,7 +51,30 @@ const bytes32 = serialize.bytes32
 const address = serialize.address
 const bytes = serialize.bytes
 
+
+const cipherAlgorithm = 'aes-192-ofb'
 export const signatureCaches: LRUCache = new LRUCache();
+export interface PK {
+  address: string
+  sign(data: Buffer): ECDSASignature
+}
+
+export function createPK(pk: Buffer | string): PK {
+  const decryptPW = randomBytes(24)
+  const iv = randomBytes(16)
+  const cipher = createCipheriv(cipherAlgorithm, decryptPW, iv)
+  const encryptedKey = Buffer.concat([cipher.update(bytes32(pk)), cipher.final()])
+
+  return {
+    address: toChecksumAddress('0x' + privateToAddress(bytes32(pk)).toString('hex')),
+    sign(hash: Buffer) {
+      const key = createDecipheriv(cipherAlgorithm, decryptPW, iv).update(encryptedKey)
+      const sig = ecsign(hash, key)
+      key.fill(0, 0, 32) // clean the private key in memory
+      return sig
+    }
+  }
+}
 
 function checkBlockHash(hash: any, expected: any, s: any) {
   // is the blockhash correct all is fine
@@ -202,10 +226,11 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
 }
 
-export function sign(pk: string, blocks: { blockNumber: number, hash: string, registryId: string }[]): Signature[] {
+export function sign(pk: PK, blocks: { blockNumber: number, hash: string, registryId: string }[]): Signature[] {
+  if (!pk) throw new Error('Missing private key')
   return blocks.map(b => {
     const msgHash = keccak('0x' + toHex(b.hash).substr(2).padStart(64, '0') + toHex(b.blockNumber).substr(2).padStart(64, '0') + toHex(b.registryId).substr(2).padStart(64, '0'))
-    const sig = ecsign(msgHash, bytes32(pk))
+    const sig = pk.sign(msgHash)
 
     return {
       blockHash: toHex(b.hash),
@@ -237,6 +262,6 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
   return {
     id: request.id,
     jsonrpc: request.jsonrpc,
-    result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
+    result: sign((handler.config as any)._pk, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
   }
 }

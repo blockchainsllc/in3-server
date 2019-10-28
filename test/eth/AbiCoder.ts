@@ -40,6 +40,7 @@ import * as tx from '../../src/util/tx'
 import * as clientRPC from '../utils/clientRPC'
 import { util } from 'in3-common'
 import { TestTransport, getTestClient } from '../utils/transport'
+import { createPK } from '../../src/chains/signatures'
 import { deployContract } from '../../src/util/registry';
 const getAddress = util.getAddress
 
@@ -95,7 +96,7 @@ describe('AbiCoder', () => {
     let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
 
     // create a account with 500 wei
-    const user = getAddress(await test.createAccount(undefined, 500))
+    const user = await test.createAccount(undefined, 500).then(_ => _.address)
 
 
     // check deployed code

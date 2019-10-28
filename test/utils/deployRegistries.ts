@@ -35,6 +35,7 @@
 
 
 import * as reg from '../../src/util/registry';
+import { createPK } from '../../src/chains/signatures';
 import { LoggingAxiosTransport } from '../utils/transport'
 
 const ownerPK = '0xb858a0f49ce12df65031ba0eb0b353abc74f93f8ccd43df9682fd2e2293a4db3'
@@ -49,7 +50,7 @@ export async function deployAll() {
   //  const chainRegistry = await deployChainRegistry(ownerPK, kovanClient)
   console.log('Chain Registry : ' + chainRegistry)
 
-  const r = await reg.registerChains(ownerPK, chainRegistry, [{
+  const r = await reg.registerChains(createPK(ownerPK), chainRegistry, [{
     chainId: '0x000000000000000000000000000000000000000000000000000000000000002a',
     bootNodes: ['0xa1bB1860c4aBF6F050F36cf672679d940c916a18:https://in3-kovan1.slock.it'],
     meta: 'about:blank',
@@ -65,9 +66,9 @@ export async function deployAll() {
 
 
   // register kovan-servers
-  const registers = await reg.registerNodes(ownerPK, kovanRegistry, [{
+  const registers = await reg.registerNodes(createPK(ownerPK), kovanRegistry, [{
     url: 'https://in3-kovan1.slock.it',
-    pk: ownerPK,
+    pk: createPK(ownerPK),
     props: '0xFFFF',
     deposit: 0,
     timeout: 3600,
