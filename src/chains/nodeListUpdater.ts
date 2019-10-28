@@ -264,8 +264,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
 }
 
-/** returns a nodelist filtered by the given params and proof. */
-//export async function getWhiteList(handler: BaseHandler, request: RPCRequest): Promise<RPCResponse> {
+/** returns a white listed nodes list. */
   export async function getWhiteList(handler: RPCHandler, includeProof = false, whiteListContractAddr, limit = 0): Promise<WhiteList> {
 
     if (!whiteListContractAddr)
