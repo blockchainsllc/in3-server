@@ -90,6 +90,8 @@ export default class Watcher extends EventEmitter {
 
   futureConvicts: any[]
 
+  whiteListEventsBlockNum: Map<string, number> //mapping of whitelist contract address and last block event
+
   constructor(handler: RPCHandler, interval = 5, persistFile = 'false', startBlock?: number) {
     super()
     this.handler = handler
@@ -102,9 +104,36 @@ export default class Watcher extends EventEmitter {
     // regsiter Cancel-Handler for 
     this.on('LogNodeUnregisterRequested', handleUnregister)
 
+    this.whiteListEventsBlockNum = new Map<string, number>(); 
+    //TODO
+    //this.whiteListEventsBlockNum.set(String("0x08e97ef0a92EB502a1D7574913E2a6636BeC557b".toLowerCase()),-1) // -1 means its not set yet
+    //validate contract before adding to map, attack vector of adding contract that doesnt exist, 
+    //limit num of contracts watch per server
   }
 
+  async addWhiteListWatch(whiteListContractAddr){
+    //validate
+    //TODO
+    if(!this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())){
+      this.whiteListEventsBlockNum.set(whiteListContractAddr.toLowerCase(),-1)
 
+      //first time added whitelist contract wee need to see from first block till current
+      const logResponse = await this.handler.getFromServer({
+        method: 'eth_getLogs', params: [{ fromBlock: toMinHex(0), toBlock: 
+          toMinHex(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => toNumber(_.result))),
+           address: whiteListContractAddr }]
+      })
+
+      logResponse.result.forEach( d => {
+        if( this.whiteListEventsBlockNum.get( d.address.toLowerCase()) < parseInt(d.blockNumber, 16) )
+          this.whiteListEventsBlockNum.set( String(d.address.toLowerCase()) , parseInt(d.blockNumber, 16) );
+      });
+    }
+  }
+
+  getWhiteListEventBlockNum(whiteListContractAddr){
+    return this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())
+  }
 
   get block(): {
     number: number,
@@ -180,21 +209,25 @@ export default class Watcher extends EventEmitter {
 
     this.emit('newBlock', currentBlock)
 
+    //const whitelistAddr: string [] = ['0x08e97ef0a92EB502a1D7574913E2a6636BeC557b', nodeList.contract]
     const [blockResponse, logResponse] = await this.handler.getAllFromServer([{
       method: 'eth_getBlockByNumber', params: [toMinHex(currentBlock), false]
     },
-    ... (nodeList && nodeList.contract ? [{
-      method: 'eth_getLogs', params: [{ fromBlock: toMinHex(this.block.number + 1), toBlock: toMinHex(currentBlock), address: nodeList.contract }]
+    ... ( (nodeList && nodeList.contract) || (this.whiteListEventsBlockNum.size > 0) ? [{
+      method: 'eth_getLogs', params: [{ fromBlock: toMinHex(this.block.number + 1), toBlock: toMinHex(currentBlock), address: [ ... this.whiteListEventsBlockNum.keys(), nodeList.contract] }]
     }] : [])
     ])
+
+    let nodeRegistryLogResponse = { ...logResponse }
+    nodeRegistryLogResponse.result = nodeRegistryLogResponse.result.filter(e => e.address === nodeList.contract)
 
     if (blockResponse.error) throw new Error('Error getting the block ' + currentBlock + ': ' + blockResponse.error)
     if (!blockResponse.result) throw new Error('Invalid Response getting the block ' + currentBlock + ': ' + JSON.stringify(blockResponse))
 
-    if (logResponse) {
-      if (logResponse.error) throw new Error('Error getting the logs : ' + logResponse.error)
+    if (nodeRegistryLogResponse) {
+      if (nodeRegistryLogResponse.error) throw new Error('Error getting the logs : ' + nodeRegistryLogResponse.error)
 
-      const logs = logResponse.result as LogData[]
+      const logs = nodeRegistryLogResponse.result as LogData[]
       if (logs.length) {
 
         // always update the list
@@ -206,6 +239,14 @@ export default class Watcher extends EventEmitter {
       }
 
     }
+
+    logResponse.result.filter(e => e.address !== nodeList.contract).forEach( d => {
+      if(this.whiteListEventsBlockNum.get( d.address ) == -1 || this.whiteListEventsBlockNum.get( d.address ) < parseInt(d.blockNumber, 16)){
+        //only put latest block num in which event occured
+        this.whiteListEventsBlockNum.set( String(d.address.toLowerCase()) , parseInt(d.blockNumber, 16) );
+      }
+    });
+    
 
     // save block
     this.block = { number: currentBlock, hash: toHex(blockResponse.result.hash, 32) }
