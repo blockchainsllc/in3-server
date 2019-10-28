@@ -143,7 +143,7 @@ export async function sendTransaction(url: string, txargs: {
       id: idCount++,
       method: 'eth_estimateGas',
       params: [{
-        from: util.getAddress(txargs.privateKey),
+        from: key.address,
         to: txargs.to || undefined,
         data: txargs.data,
         value: txargs.value || "0x0"
