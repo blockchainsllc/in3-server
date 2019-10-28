@@ -42,7 +42,7 @@ import * as logger from '../util/logger'
 import config, { getSafeMinBlockHeight } from '../server/config'
 import { toBuffer } from 'in3-common/js/src/util/util';
 import { SentryError } from '../util/sentryError'
-import { createCipher, createDecipher, randomBytes } from 'crypto'
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
 const toHex = util.toHex
 const toMinHex = util.toMinHex
@@ -60,13 +60,15 @@ export interface PK {
 }
 
 export function createPK(pk: Buffer | string): PK {
-  const decryptPW = randomBytes(32)
-  const encryptedKey = createCipher(cipherAlgorithm, decryptPW).update(bytes32(pk))
+  const decryptPW = randomBytes(24)
+  const iv = randomBytes(16)
+  const cipher = createCipheriv(cipherAlgorithm, decryptPW, iv)
+  const encryptedKey = Buffer.concat([cipher.update(bytes32(pk)), cipher.final()])
 
   return {
     address: toChecksumAddress('0x' + privateToAddress(bytes32(pk)).toString('hex')),
     sign(hash: Buffer) {
-      const key = createDecipher(cipherAlgorithm, decryptPW).update(encryptedKey)
+      const key = createDecipheriv(cipherAlgorithm, decryptPW, iv).update(encryptedKey)
       const sig = ecsign(hash, key)
       key.fill(0, 0, 32) // clean the private key in memory
       return sig
