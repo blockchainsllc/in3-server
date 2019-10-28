@@ -122,6 +122,10 @@ export default class EthHandler extends BaseHandler {
     // check performancelimits
     this.checkPerformanceLimits(request)
 
+    if(request.in3 && request.in3.whiteList){
+      //TODO basic validation here
+      this.watcher.addWhiteListWatch(request.in3.whiteList)
+    }
 
     // handle special jspn-rpc
     if (request.in3.verification == 'proof' || request.in3.verification == 'proofWithSignature') // proofWithSignature is only supported for legacy, since only the request for signers is relveant
