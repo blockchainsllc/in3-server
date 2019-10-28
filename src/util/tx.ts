@@ -62,7 +62,7 @@ export async function deployContract(url: string, bin: string, txargs?: {
 
 export async function callContract(url: string, contract: string, signature: string, args: any[], txargs?: {
   privateKey: PK
-  gas: number
+  gas?: number
   nonce?: number
   gasPrice?: number
   to?: string
@@ -73,8 +73,9 @@ export async function callContract(url: string, contract: string, signature: str
   if (!transport) transport = new AxiosTransport()
   const data = '0x' + encodeFunction(signature, args)
 
-  if (txargs)
-    return sendTransaction(url, { ...txargs, to: contract, data }, transport)
+  if (txargs) {
+    return sendTransaction(url, { to: contract, data: '0x' + encodeFunction(signature, args), ...txargs, }, transport)
+  }
 
   return decodeFunction(signature.replace('()', '(uint)'), toBuffer(await transport.handle(url, {
     jsonrpc: '2.0',
@@ -93,7 +94,7 @@ export async function callContract(url: string, contract: string, signature: str
 
 export async function sendTransaction(url: string, txargs: {
   privateKey: PK
-  gas: number
+  gas?: number
   nonce?: number
   gasPrice?: number
   to?: string
@@ -136,6 +137,24 @@ export async function sendTransaction(url: string, txargs: {
       params: []
     }).then((_: RPCResponse) => parseInt(_.result as any))
 
+  if (!txargs.gas)
+    txargs.gas = await transport.handle(url, {
+      jsonrpc: '2.0',
+      id: idCount++,
+      method: 'eth_estimateGas',
+      params: [{
+        from: util.getAddress(txargs.privateKey),
+        to: txargs.to || undefined,
+        data: txargs.data,
+        value: txargs.value || "0x0"
+      }]
+    }).then((_: RPCResponse) => {
+      if (_.error) {
+        throw new SentryError(_.error)
+      }
+      return Math.floor(parseInt(_.result as any) * 1.1)
+    })
+
   // create Transaction
   const tx = new ETx({
     nonce: toHex(txargs.nonce),
@@ -146,7 +165,6 @@ export async function sendTransaction(url: string, txargs: {
     value: toHex(txargs.value || 0),
     data: toHex(txargs.data)
   })
-
 
   // We clear any previous signature before signing it. Otherwise, _implementsEIP155's can give
   // different results if this tx was already signed.
