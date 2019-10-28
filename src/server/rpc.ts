@@ -210,7 +210,10 @@ export class RPC {
           (in3 as any).rpcTime = (r as any).rpcTime || 0;
           (in3 as any).rpcCount = (r as any).rpcCount || 0;
           (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
-          (in3 as any).version = in3ProtocolVersion
+          (in3 as any).version = in3ProtocolVersion;
+
+          if(r.in3 && r.in3.whiteList && handler.watcher && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) )
+            (in3 as any).whiteList = handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList)
           return _
         })
       ])
