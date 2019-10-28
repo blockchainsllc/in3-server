@@ -471,6 +471,7 @@ export interface IN3NodeConfig {
      */
     props?: number
 }
+
 /**
  * a List of nodes
  */
@@ -489,6 +490,31 @@ export interface ServerList {
     contract?: string // ^0x[0-9a-fA-F]+$
     /**
      * number of servers
+     */
+    totalServers?: number
+
+    registryId?: string
+
+    proof?: Proof
+}
+/**
+ * a List of nodes
+ */
+export interface WhiteList {
+    /**
+     * last Block number
+     */
+    lastBlockNumber?: number
+    /**
+     * the list of nodes
+     */
+    nodes: string[] //IN3WhiteListNode[]
+    /**
+     * IN3 WhiteList contract
+     */
+    contract?: string // ^0x[0-9a-fA-F]+$
+    /**
+     * number of white list servers
      */
     totalServers?: number
 

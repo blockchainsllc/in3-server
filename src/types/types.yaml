@@ -421,6 +421,32 @@ definitions:
                 description: number of servers
             proof:
                 $ref: "#/definitions/Proof"
+    
+    WhiteList:
+        type: object
+        description: a List of white list nodes
+        required: [nodes]
+        properties:
+            lastBlockNumber:
+                type: integer
+                description: last Block number
+            nodes:
+                type: array
+                description: the list of nodes
+                items:
+                    type: string
+            contract:
+                type: string
+                description: IN3 Registry
+                pattern: ^0x[0-9a-fA-F]+$
+            totalServers:
+                type: integer
+                description: number of servers
+            registryId:
+                type: string
+                description: IN3 Registry Id
+            proof:
+                $ref: "#/definitions/Proof"
 
     IN3RPCHandlerConfig:
         type: object
