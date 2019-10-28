@@ -343,7 +343,7 @@ export class LoggingAxiosTransport extends AxiosTransport {
     try {
       const res = await super.handle(url, data, timeout)
       logger.debug('Result : ', res)
-      return (res && Array.isArray(res))?(<RPCResponse[]>res): (res as RPCResponse)
+      return (res && Array.isArray(res)) ? (<RPCResponse[]>res) : (res as RPCResponse)
     }
     catch (ex) {
       logger.error('Error handling the request :', ex)
