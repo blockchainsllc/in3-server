@@ -45,6 +45,7 @@ import axios from 'axios'
 import { registerNodes } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
 import { in3ProtocolVersion } from '../../src/types/constants';
+import { createPK, PK } from '../../src/chains/signatures'
 import { toBN, toUtf8, toMinHex } from 'in3-common/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
 logger.setLogger('memory')
@@ -86,7 +87,7 @@ export class TestTransport implements Transport {
     url: string
   }[]
 
-  constructor(count = 5, registry?: string, pks?: string[], handlerConfig?: Partial<IN3RPCHandlerConfig>) {
+  constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>) {
     this.chainId = '0x1'
     this.lastRandom = 0
     this.randomList = []
@@ -100,10 +101,10 @@ export class TestTransport implements Transport {
       registryId: '0x'
     } as any
     for (let i = 0; i < count; i++) {
-      const privateKey = pks ? pks[i] : '0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i
+      const privateKey = pks ? pks[i] : createPK('0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i)
       const url = '#' + (i + 1)
       nodes.push({
-        address: util.getAddress(privateKey),
+        address: privateKey.address,
         url: url,
         chainIds: [this.chainId],
         deposit: i,
@@ -116,7 +117,7 @@ export class TestTransport implements Transport {
           [this.chainId]: {
             watchInterval: -1,
             rpcUrl: getTestClient(),
-            privateKey,
+            privateKey: privateKey as any,
             registry,
             minBlockHeight: 0,
             ...handlerConfig
@@ -244,7 +245,7 @@ export class TestTransport implements Transport {
   }
 
   /** creates a random private key and transfers some ether to this address */
-  async createAccount(seed?: string, eth: any = toBN('50000000000000000000')): Promise<string> {
+  async createAccount(seed?: string, eth: any = toBN('50000000000000000000')): Promise<PK> {
     const pkBuffer = seed
       ? seed.startsWith('0x')
         ? Buffer.from(seed.substr(2).padStart(64, '0'), 'hex')
@@ -256,7 +257,7 @@ export class TestTransport implements Transport {
 
     if (eth)
       await sendTransaction(this.url, {
-        privateKey: devPk,
+        privateKey: createPK(devPk),
         gas: 222000,
         to: adr,
         data: '',
@@ -264,7 +265,7 @@ export class TestTransport implements Transport {
         confirm: true
       })
 
-    return pk
+    return createPK(pk)
   }
 
   async getNodeFromContract(index: number) {
@@ -275,6 +276,10 @@ export class TestTransport implements Transport {
   async getNodeCountFromContract() {
     const [count] = await callContract(this.url, this.nodeList.contract, 'totalNodes():(uint)', [])
     return util.toNumber(count)
+  }
+
+  getHandlerPK(index: number): PK {
+    return (this.handlers['#' + (index + 1)].getHandler().config as any)._pk
   }
 
   getHandlerConfig(index: number): IN3RPCHandlerConfig {
@@ -306,7 +311,7 @@ export class TestTransport implements Transport {
   static async createWithRegisteredNodes(count: number) {
     const test = new TestTransport(1)
 
-    const pks: string[] = []
+    const pks: PK[] = []
     const servers: any[] = []
 
     // create accounts

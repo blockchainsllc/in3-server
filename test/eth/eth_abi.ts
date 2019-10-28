@@ -95,7 +95,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -138,7 +138,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -182,7 +182,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -226,7 +226,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -257,7 +257,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -341,7 +341,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
@@ -388,7 +388,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
@@ -432,7 +432,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
-    const adr = getAddress(pk1)
+    const adr = pk1.address
 
     // get the last Block
     const b = await client.sendRPC('eth_getBalance', [adr, 'latest'], null, { keepIn3: true })
@@ -491,7 +491,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
-    const adr = getAddress(pk1)
+    const adr = pk1.address
 
     // get the last Block
     const b = await client.sendRPC('eth_getTransactionCount', [adr, 'latest'], null, { keepIn3: true })
@@ -554,7 +554,7 @@ describe('ETH Standard JSON-RPC', () => {
     const pk1 = await test.createAccount('0x01')
 
     // check empty code
-    await client.sendRPC('eth_getCode', [getAddress(pk1), 'latest'], null, { keepIn3: true })
+    await client.sendRPC('eth_getCode', [pk1.address, 'latest'], null, { keepIn3: true })
 
     // check deployed code
     const adr = await deployChainRegistry(pk1, getTestClient())
@@ -686,7 +686,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
@@ -732,7 +732,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
@@ -799,7 +799,7 @@ describe('ETH Standard JSON-RPC', () => {
     })
 
     const txArgs = {
-      from: getAddress(pk1),
+      from: pk1.address,
       to: adr,
       data: '0x61bc221a'
     }
@@ -900,7 +900,7 @@ describe('ETH Standard JSON-RPC', () => {
       // now manipulate the result
       test.injectResponse({ method: 'eth_getLogs' }, (req, re: RPCResponse) => {
         // we change a property
-        ((re.result as any)[0] as LogData).address = getAddress(pk1)
+        ((re.result as any)[0] as LogData).address = pk1.address
         return re
       })
       await client.sendRPC('eth_getLogs', [{ fromBlock: util.toMinHex(receipt.blockNumber) }])

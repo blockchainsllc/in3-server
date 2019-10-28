@@ -231,7 +231,7 @@ export default class Watcher extends EventEmitter {
 
       if (worthIt && ci.convictBlockNumber === 0) {
         await tx.callContract(this.handler.config.rpcUrl, this.handler.config.registry, 'convict(bytes32)', [ci.signature], {
-          privateKey: this.handler.config.privateKey,
+          privateKey: (this.handler.config as any)._pk,
           gas: 500000,
           value: 0,
           confirm: true
@@ -253,7 +253,7 @@ export default class Watcher extends EventEmitter {
           if (latestSS === this.block.number && worthIt) {
 
             await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'saveBlockNumber(uint):()', [this.block.number], {
-              privateKey: this.handler.config.privateKey,
+              privateKey: (this.handler.config as any)._pk,
               gas: 600000,
               value: 0,
               confirm: false
@@ -311,7 +311,7 @@ export default class Watcher extends EventEmitter {
                 }
 
                 await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
-                  privateKey: this.handler.config.privateKey,
+                  privateKey: (this.handler.config as any)._pk,
                   gas: 8000000,
                   value: 0,
                   confirm: true
@@ -350,7 +350,7 @@ export default class Watcher extends EventEmitter {
 
         await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
           [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
-          privateKey: this.handler.config.privateKey,
+          privateKey: (this.handler.config as any)._pk,
           gas: 600000,
           value: 0,
           confirm: true
@@ -404,7 +404,7 @@ abi.forEach(_ => _.hash = toHex(keccak(_.name + '(' + _.inputs.map(i => i.type).
 
 
 function handleUnregister(ev, handler: RPCHandler) {
-  const me = util.getAddress(handler.config.privateKey)
+  const me = (this.handler.config as any)._pk.address
   if (ev.owner !== me || ev.caller === me) return
   logger.info('LogServerUnregisterRequested event found. Reacting with cancelUnregisteringServer! ')
   handler.getNodeList(false).then(nl => {
@@ -413,7 +413,7 @@ function handleUnregister(ev, handler: RPCHandler) {
       throw new Error('could not find the server in the list')
 
     return tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'cancelUnregisteringServer(uint)', [node.index], {
-      privateKey: handler.config.privateKey,
+      privateKey: (this.handler.config as any)._pk,
       gas: 400000,
       value: 0,
       confirm: true

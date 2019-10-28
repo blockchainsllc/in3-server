@@ -41,13 +41,14 @@ import { RPCResponse } from '../types/types'
 import * as ETx from 'ethereumjs-tx'
 import { SentryError } from '../util/sentryError'
 import { AbiCoder } from '@ethersproject/abi'
+import { PK } from '../chains/signatures'
 const BN = require('bn.js')
 
 const toHex = util.toHex
 
 let idCount = 1
 export async function deployContract(url: string, bin: string, txargs?: {
-  privateKey: string
+  privateKey: PK
   gas: number
   nonce?: number
   gasPrice?: number
@@ -60,7 +61,7 @@ export async function deployContract(url: string, bin: string, txargs?: {
 }
 
 export async function callContract(url: string, contract: string, signature: string, args: any[], txargs?: {
-  privateKey: string
+  privateKey: PK
   gas: number
   nonce?: number
   gasPrice?: number
@@ -91,7 +92,7 @@ export async function callContract(url: string, contract: string, signature: str
 
 
 export async function sendTransaction(url: string, txargs: {
-  privateKey: string
+  privateKey: PK
   gas: number
   nonce?: number
   gasPrice?: number
@@ -114,8 +115,8 @@ export async function sendTransaction(url: string, txargs: {
 }> {
 
   if (!transport) transport = new AxiosTransport()
-  const key = toBuffer(txargs.privateKey)
-  const from = toChecksumAddress(privateToAddress(key).toString('hex'))
+  const key = txargs.privateKey
+  const from = key.address
 
   // get the nonce
   if (!txargs.nonce)
@@ -145,8 +146,15 @@ export async function sendTransaction(url: string, txargs: {
     value: toHex(txargs.value || 0),
     data: toHex(txargs.data)
   })
-  tx.sign(key)
 
+
+  // We clear any previous signature before signing it. Otherwise, _implementsEIP155's can give
+  // different results if this tx was already signed.
+  const sig = key.sign(tx.hash(false))
+  if (tx._chainId)
+    sig.v += tx._chainId * 2 + 8
+
+  Object.assign(tx, sig)
 
   const txHash = await transport.handle(url, {
     jsonrpc: '2.0',
