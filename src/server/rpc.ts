@@ -34,7 +34,7 @@
 
 
 import { Transport, AxiosTransport, util } from 'in3-common'
-import { RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
+import { WhiteList, RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour } from './stats'
@@ -142,6 +142,37 @@ export class RPC {
           return res as RPCResponse
         }))
 
+      else if(r.method === 'in3_whitelist')
+        return manageRequest(
+
+          handler, 
+
+          Promise.all(
+            [handler.getWhiteList(
+              in3Request.verification && in3Request.verification.startsWith('proof'),
+              r.params[0],
+              r.params[1],
+              in3Request.signers || in3Request.signatures,
+              in3Request.verifiedHashes),
+
+          getValidatorHistory(handler)])
+          
+          .then(async ([result, validators]) => {
+                const res = {
+                  id: r.id,
+                  result: result as any,
+                  jsonrpc: r.jsonrpc,
+                  in3: { ...in3, execTime: Date.now() - start, lastValidatorChange: validators.lastValidatorChange }
+                }
+                const proof = res.result.proof
+                if (proof) {
+                  delete res.result.proof
+                  res.in3.proof = proof
+                }
+                return res as RPCResponse}
+                )
+            )
+
       else if (r.method === 'in3_validatorList' || r.method === 'in3_validatorlist') // 'in3_validatorlist' is only supported for legacy, but deprecated
         return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
 
@@ -235,6 +266,7 @@ export interface RPCHandler {
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
   checkRegistry(): Promise<any>
+  getWhiteList(includeProof: boolean, whiteListContract?: string, limit?: number, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList>
   config: IN3RPCHandlerConfig
   watcher?: Watcher
 }
