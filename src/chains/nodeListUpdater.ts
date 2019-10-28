@@ -35,10 +35,11 @@
 import { RPCHandler, HandlerTransport } from '../server/rpc'
 import * as tx from '../util/tx'
 import { createRandomIndexes, Transport, BlockData, util, storage, serialize } from 'in3-common'
-import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig } from '../types/types'
+import { WhiteList, Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig } from '../types/types'
 import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
+import { AbiCoder} from '@ethersproject/abi'
 
 
 const toHex = util.toHex
@@ -130,10 +131,12 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
  * @param handler creates the proof for the storage of the registry
  * @param nodeList 
  */
-export async function createNodeListProof(handler: RPCHandler, nodeList: ServerList) {
+export async function createNodeListProof(handler: RPCHandler, nodeList: any, key?: string[]) {
 
-  // create the keys with the serverCount
-  const keys: Buffer[] = getStorageKeys(nodeList.nodes)
+  let keys: Buffer[] = []
+  if(!key)
+    // create the keys with the serverCount
+    keys = getStorageKeys(nodeList.nodes)
 
   // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
   const address = nodeList.contract
@@ -144,13 +147,13 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
   // read the response,blockheader and trace from server
   const [blockResponse, proof] = await handler.getAllFromServer(req = [
     { method: 'eth_getBlockByNumber', params: [blockNr, false] },
-    { method: 'eth_getProof', params: [toHex(address, 20), keys.map(_ => toHex(_, 32)), blockNr] }
+    { method: 'eth_getProof', params: [toHex(address, 20), key? key : keys.map(_ => toHex(_, 32)), blockNr] }
   ])
 
   // console.log(proof.result.storageProof.map(_ => _.key + ' = ' + _.value).join('\n'))
   // error checking
   if (blockResponse.error) throw new Error('Could not get the block for ' + blockNr + ':' + JSON.stringify(blockResponse.error) + ' req: ' + JSON.stringify(req, null, 2))
-  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), keys.map(toHex), blockNr] }, null, 2))
+  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), key? key :keys.map(toHex), blockNr] }, null, 2))
 
 
   // make sure we use minHex for the proof-keys
@@ -168,7 +171,6 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
     accounts: { [address]: account }
   } as Proof
 }
-
 
 /**
  * updates the given nodelist from the registry contract.
@@ -262,3 +264,48 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
 }
 
+/** returns a nodelist filtered by the given params and proof. */
+//export async function getWhiteList(handler: BaseHandler, request: RPCRequest): Promise<RPCResponse> {
+  export async function getWhiteList(handler: RPCHandler, includeProof = false, whiteListContractAddr, limit = 0): Promise<WhiteList> {
+
+    if (!whiteListContractAddr)
+      throw new Error('Invalid contract address in params') 
+
+    const prepRequestData = (functionName, i) => {
+      const req: RPCRequest = {
+        jsonrpc: '2.0',
+        id: i,
+        method: 'eth_call', params: [{
+          to: whiteListContractAddr,
+          data: '0x' + abi.simpleEncode(functionName).toString('hex')
+        },
+          'latest']
+      }
+      return req
+    }
+
+    const [whiteListNodes, lastBlockNum, proofHash] = await handler.getAllFromServer(
+      [prepRequestData('getWhiteList()',0), prepRequestData('getLastEventBlockNumber()',1),prepRequestData('getProofHash()',2)])
+
+    const abiCoder = new AbiCoder()
+    const val = abiCoder.decode( ["bytes"], whiteListNodes.result as string)[0]
+
+    let list: string[] = []
+    //TODO check if val is valid ( not null, etc)
+    for(var i=1, s=2;i<=(val.length -2 )/40;i++){
+      list.push(val.substr(s, 40))
+      s = 40 * i + 2
+      }
+  
+    const wl: WhiteList = {
+      totalServers: list.length,
+      contract: whiteListContractAddr,
+      lastBlockNumber: parseInt(lastBlockNum.result as string),
+      nodes: list
+    }
+
+    if(includeProof)
+      wl.proof = await createNodeListProof(handler,wl,['0x'.padEnd(66, '0')])
+
+    return wl
+}
