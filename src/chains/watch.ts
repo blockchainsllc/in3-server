@@ -219,7 +219,8 @@ export default class Watcher extends EventEmitter {
     ])
 
     let nodeRegistryLogResponse = { ...logResponse }
-    nodeRegistryLogResponse.result = nodeRegistryLogResponse.result.filter(e => e.address === nodeList.contract)
+    if(nodeRegistryLogResponse.result)
+      nodeRegistryLogResponse.result = nodeRegistryLogResponse.result.filter(e => String(e.address).toLowerCase() === String(nodeList.contract).toLowerCase())
 
     if (blockResponse.error) throw new Error('Error getting the block ' + currentBlock + ': ' + blockResponse.error)
     if (!blockResponse.result) throw new Error('Invalid Response getting the block ' + currentBlock + ': ' + JSON.stringify(blockResponse))
@@ -240,7 +241,7 @@ export default class Watcher extends EventEmitter {
 
     }
 
-    logResponse.result.filter(e => e.address !== nodeList.contract).forEach( d => {
+    logResponse.result.filter(e => String(e.address).toLowerCase() !== String(nodeList.contract).toLowerCase()).forEach( d => {
       if(this.whiteListEventsBlockNum.get( d.address ) == -1 || this.whiteListEventsBlockNum.get( d.address ) < parseInt(d.blockNumber, 16)){
         //only put latest block num in which event occured
         this.whiteListEventsBlockNum.set( String(d.address.toLowerCase()) , parseInt(d.blockNumber, 16) );

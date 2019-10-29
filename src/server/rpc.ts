@@ -212,7 +212,7 @@ export class RPC {
           (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
           (in3 as any).version = in3ProtocolVersion;
 
-          if(r.in3 && r.in3.whiteList && handler.watcher && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) )
+          if(r.in3 && r.in3.whiteList && handler.watcher && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) != -1 )
             (in3 as any).whiteList = handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList)
           return _
         })
