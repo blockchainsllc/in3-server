@@ -123,8 +123,7 @@ export default class EthHandler extends BaseHandler {
     this.checkPerformanceLimits(request)
 
     if(request.in3 && request.in3.whiteList){
-      //TODO basic validation here
-      this.watcher.addWhiteListWatch(request.in3.whiteList)
+      await this.watcher.addWhiteListWatch(request.in3.whiteList)
     }
 
     // handle special jspn-rpc
