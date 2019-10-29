@@ -117,7 +117,6 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
       data: {
         request: {
           url: autoReg.url,
-          pk: handler.config.privateKey,
           props: props,
           deposit: deposit
         },

@@ -103,7 +103,6 @@ export default abstract class BaseHandler implements RPCHandler {
 
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       if (process.env.SENTRY_ENABLE === 'true') {
-
         Sentry.configureScope((scope) => {
           scope.setTag("BaseHandler", "getFromServer");
           scope.setTag("nodeList-contract", this.config.registry)

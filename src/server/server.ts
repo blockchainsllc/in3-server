@@ -181,6 +181,7 @@ initConfig().then(() => {
         Sentry.configureScope((scope) => {
           scope.setTag("server", "initConfig");
           scope.setTag("server_status", "Error initializing the server");
+
           scope.setExtra("config", config)
 
         });
@@ -199,7 +200,13 @@ initConfig().then(() => {
         Sentry.configureScope((scope) => {
           scope.setTag("server", "initConfig");
           scope.setTag("server_status", "Error initializing the server");
-          scope.setExtra("config", config)
+
+          if ((config as any).privateKey) {
+            const tempConfig = config
+            delete (tempConfig as any).privateKey
+          } else {
+            scope.setExtra("config", config)
+          }
         });
         Sentry.captureException(err);
       }
