@@ -169,11 +169,12 @@ export class RPC {
                   res.in3.proof = proof
                 }
 
-                if(r.in3 && r.in3.whiteList && handler.watcher && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) != -1){
+                if(r.params[0])
                   await handler.watcher.addWhiteListWatch(r.params[0])
-                  res.in3.lastWhiteList = handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList)
-                }
 
+                if(handler.watcher.getWhiteListEventBlockNum(r.params[0]) && handler.watcher.getWhiteListEventBlockNum(r.params[0]) != -1)
+                  res.in3.lastWhiteList = handler.watcher.getWhiteListEventBlockNum(r.params[0])
+                
                 return res as RPCResponse}
                 )
             )
