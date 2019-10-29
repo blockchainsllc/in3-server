@@ -170,8 +170,8 @@ export default abstract class BaseHandler implements RPCHandler {
   }
 
     /** get the white list nodes */
-  async getWhiteList(includeProof: boolean, whiteListContract?: string, limit?: number, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList> {
-      const wl = await getWhiteList(this, includeProof, whiteListContract, limit)
+  async getWhiteList(includeProof: boolean, whiteListContract?: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList> {
+      const wl = await getWhiteList(this, includeProof, whiteListContract)
 
       if (wl.proof && signers && signers.length) {
         let blockNumber = wl.lastBlockNumber

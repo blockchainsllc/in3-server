@@ -151,7 +151,6 @@ export class RPC {
             [handler.getWhiteList(
               in3Request.verification && in3Request.verification.startsWith('proof'),
               r.params[0],
-              r.params[1],
               in3Request.signers || in3Request.signatures,
               in3Request.verifiedHashes),
 
@@ -269,7 +268,7 @@ export interface RPCHandler {
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
   checkRegistry(): Promise<any>
-  getWhiteList(includeProof: boolean, whiteListContract?: string, limit?: number, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList>
+  getWhiteList(includeProof: boolean, whiteListContract?: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList>
   config: IN3RPCHandlerConfig
   watcher?: Watcher
 }
