@@ -161,13 +161,19 @@ export class RPC {
                   id: r.id,
                   result: result as any,
                   jsonrpc: r.jsonrpc,
-                  in3: { ...in3, execTime: Date.now() - start, lastValidatorChange: validators.lastValidatorChange }
+                  in3: { ...in3, execTime: Date.now() - start, lastValidatorChange: validators.lastValidatorChange } as IN3ResponseConfig
                 }
                 const proof = res.result.proof
                 if (proof) {
                   delete res.result.proof
                   res.in3.proof = proof
                 }
+
+                if(r.in3 && r.in3.whiteList && handler.watcher && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) != -1){
+                  await handler.watcher.addWhiteListWatch(r.params[0])
+                  res.in3.lastWhiteList = handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList)
+                }
+
                 return res as RPCResponse}
                 )
             )
@@ -212,7 +218,7 @@ export class RPC {
           (in3 as any).version = in3ProtocolVersion;
 
           if(r.in3 && r.in3.whiteList && handler.watcher && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) != -1 )
-            (in3 as any).whiteList = handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList)
+            (in3 as any).lastWhiteList = handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList)
           return _
         })
       ])
