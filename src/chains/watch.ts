@@ -45,6 +45,9 @@ import { useDB, exec } from '../util/db'
 import config from '../server/config'
 import { updateValidatorHistory } from '../server/poa';
 import { SentryError } from '../util/sentryError';
+import { maxWhiteListListen } from '../types/constants'
+import { RPCRequest } from 'in3-common/js/src/types/types';
+import * as ethabi from 'ethereumjs-abi'
 
 const toNumber = util.toNumber
 const toHex = util.toHex
@@ -91,6 +94,7 @@ export default class Watcher extends EventEmitter {
   futureConvicts: any[]
 
   whiteListEventsBlockNum: Map<string, number> //mapping of whitelist contract address and last block event
+  currentWhiteListReg: number
 
   constructor(handler: RPCHandler, interval = 5, persistFile = 'false', startBlock?: number) {
     super()
@@ -104,21 +108,30 @@ export default class Watcher extends EventEmitter {
     // regsiter Cancel-Handler for 
     this.on('LogNodeUnregisterRequested', handleUnregister)
 
-    this.whiteListEventsBlockNum = new Map<string, number>(); 
-    //TODO
-    //this.whiteListEventsBlockNum.set(String("0x08e97ef0a92EB502a1D7574913E2a6636BeC557b".toLowerCase()),-1) // -1 means its not set yet
-    //validate contract before adding to map, attack vector of adding contract that doesnt exist, 
-    //limit num of contracts watch per server
+    this.whiteListEventsBlockNum = new Map<string, number>();
+    this.currentWhiteListReg = 0 
+
   }
 
   async addWhiteListWatch(whiteListContractAddr){
-    //validate
-    //TODO
-    if(!this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())){
-      this.whiteListEventsBlockNum.set(whiteListContractAddr.toLowerCase(),-1)
 
-      //first time added whitelist contract wee need to see from first block till current
-      const logResponse = await this.handler.getFromServer({
+    if(this.currentWhiteListReg > maxWhiteListListen){
+      logger.info("White List contract "+this.currentWhiteListReg+" not registered because limit reached"+maxWhiteListListen)
+    }
+    else if(!this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())){
+      //first validate that given addr have intended whitelist contract and not EOA by calling its function and getting block num
+      const response = await this.handler.getFromServer({jsonrpc: '2.0',id: 1,method: 'eth_call', params: [{to: whiteListContractAddr,data: '0x' + ethabi.simpleEncode('getLastEventBlockNumber()').toString('hex')},'latest']})
+
+      if(response.error){
+        logger.info("Whitelist registration failed for "+this.currentWhiteListReg+" Reason: "+response.error)//" Invalid whitelist contract address "+this.currentWhiteListReg+" given for registration in watcher"
+      }
+      else{
+        this.whiteListEventsBlockNum.set(
+          whiteListContractAddr.toLowerCase(),
+          (response.result && response.result !== null? parseInt(response.result as string, 16): -1) )
+      }
+      
+      /*const logResponse = await this.handler.getFromServer({
         method: 'eth_getLogs', params: [{ fromBlock: toMinHex(0), toBlock: 
           toMinHex(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => toNumber(_.result))),
            address: whiteListContractAddr }]
@@ -127,7 +140,8 @@ export default class Watcher extends EventEmitter {
       logResponse.result.forEach( d => {
         if( this.whiteListEventsBlockNum.get( d.address.toLowerCase()) < parseInt(d.blockNumber, 16) )
           this.whiteListEventsBlockNum.set( String(d.address.toLowerCase()) , parseInt(d.blockNumber, 16) );
-      });
+      });*/
+      this.currentWhiteListReg++
     }
   }
 
