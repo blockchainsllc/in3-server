@@ -283,8 +283,8 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
       return req
     }
 
-    const [whiteListNodes, lastBlockNum, proofHash] = await handler.getAllFromServer(
-      [prepRequestData('getWhiteList()',0), prepRequestData('getLastEventBlockNumber()',1),prepRequestData('getProofHash()',2)])
+    const [whiteListNodes, lastBlockNum/*, proofHash*/] = await handler.getAllFromServer(
+      [prepRequestData('getWhiteList()',0), prepRequestData('getLastEventBlockNumber()',1)/*,prepRequestData('getProofHash()',2)*/])
 
     const abiCoder = new AbiCoder()
     const val = abiCoder.decode( ["bytes"], whiteListNodes.result as string)[0]
