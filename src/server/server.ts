@@ -129,8 +129,20 @@ router.post(/.*/, async ctx => {
   const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
 
   try {
+
+    // find ip
+    const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
+
     // DOS protection
-    checkBudget(ctx.ip || 'default', requests, config.maxPointsPerMinute);
+    if (!checkBudget(ip, requests, config.maxPointsPerMinute, false)) {
+      const res = requests.map(_ => ({ id: _.id, error: 'Too many requests from ' + ip, jsonrpc: '2.0' }))
+      ctx.status = 429
+      ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
+      return
+    }
+
+    // assign ip
+    requests.forEach(_ => (_ as any).ip = ip)
 
 
     const result = await rpc.handle(requests)

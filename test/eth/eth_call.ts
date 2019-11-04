@@ -57,7 +57,7 @@ describe('eth_call', () => {
     let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
 
     // create a account with 500 wei
-    const user = getAddress(await test.createAccount(undefined, 500))
+    const user = await test.createAccount(undefined, 500).then(_ => _.address)
 
 
     // check deployed code
@@ -117,7 +117,7 @@ describe('eth_call', () => {
     const pk2 = await test.createAccount(undefined, 1500)
 
     // create a account with 500 wei
-    const user = getAddress(await test.createAccount(undefined, 500))
+    const user = await test.createAccount(undefined, 500).then(_ => _.address)
 
 
     // check deployed code

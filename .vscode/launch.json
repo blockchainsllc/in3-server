@@ -54,11 +54,30 @@
       "args": [
         "--chain=0x1",
         "--privateKey=0xcdaf1673f39b8ed271945b582d2f55a61bdf8e278190fbaeccfce33668d1f676",
-        "--rpcUrl=https://rpc.slock.it/mainnet",
+        "--rpcUrl=https://rpc.slock.it/mainnet/geth-pruned",
         "--registryRPC=https://rpc.slock.it/mainnet",
         "--minBlockHeight=0",
-        "--registry=0x27a37a1210Df14f7E058393d026e2fB53B7cf8c1",
+        "--registry=0x40f1929b349107a65e705cdbe13c496840e12d51",
         "--persistentFile=false"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/js/**/*.js"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "BTC starten",
+      "program": "${workspaceFolder}/js/src/server/server.js",
+      "args": [
+        "--chain=0x99",
+        "--privateKey=0xcdaf1673f39b8ed271945b582d2f55a61bdf8e278190fbaeccfce33668d1f676",
+        "--rpcUrl=http://btc:btc@localhost:8332",
+        "--registryRPC=https://rpc.slock.it/goerli",
+        "--minBlockHeight=0",
+        "--registry=0xa412D519199C3c0ebaea3A9f73f1f89A935F9F14",
+        "--persistentFile=false",
+        "--handler=btc"
       ],
       "outFiles": [
         "${workspaceFolder}/js/**/*.js"
