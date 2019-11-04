@@ -342,7 +342,7 @@ describe('eth_call', () => {
     const data = '0x' + tx.encodeFunction(signature, [['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20"])
 
     // create a account with 500 wei
-    const user = getAddress(await test.createAccount(undefined, 500))
+    const user = (await test.createAccount(undefined, 500)).address
 
     let res = await test.handle("#1", {
       jsonrpc: "2.0",
