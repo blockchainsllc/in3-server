@@ -109,13 +109,11 @@ export default class Watcher extends EventEmitter {
     this.on('LogNodeUnregisterRequested', handleUnregister)
 
     this.whiteListEventsBlockNum = new Map<string, number>();
-    this.currentWhiteListReg = 0 
-
   }
 
   async addWhiteListWatch(whiteListContractAddr){
 
-    if(this.currentWhiteListReg > maxWhiteListListen){
+    if(this.whiteListEventsBlockNum.size > maxWhiteListListen){
       logger.info("White List contract "+this.currentWhiteListReg+" not registered because limit reached"+maxWhiteListListen)
     }
     else if(!this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())){
@@ -141,7 +139,6 @@ export default class Watcher extends EventEmitter {
         if( this.whiteListEventsBlockNum.get( d.address.toLowerCase()) < parseInt(d.blockNumber, 16) )
           this.whiteListEventsBlockNum.set( String(d.address.toLowerCase()) , parseInt(d.blockNumber, 16) );
       });*/
-      this.currentWhiteListReg++
     }
   }
 
