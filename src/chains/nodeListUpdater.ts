@@ -265,7 +265,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 }
 
 /** returns a white listed nodes list. */
-  export async function getWhiteList(handler: RPCHandler, includeProof = false, whiteListContractAddr): Promise<WhiteList> {
+  export async function getWhiteList(handler: RPCHandler, includeProof = false, whiteListContractAddr: string): Promise<WhiteList> {
 
     if (!whiteListContractAddr)
       throw new Error('Invalid contract address in params') 
