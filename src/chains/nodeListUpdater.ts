@@ -36,7 +36,7 @@ import { RPCHandler, HandlerTransport } from '../server/rpc'
 import * as tx from '../util/tx'
 import { createRandomIndexes, Transport, BlockData, util, storage, serialize } from 'in3-common'
 import { WhiteList, Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig } from '../types/types'
-import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
+import { toChecksumAddress, keccak256, isValidAddress, isValidChecksumAddress } from 'ethereumjs-util'
 import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
 import { AbiCoder} from '@ethersproject/abi'
@@ -131,7 +131,7 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
  * @param handler creates the proof for the storage of the registry
  * @param nodeList 
  */
-export async function createNodeListProof(handler: RPCHandler, nodeList: any, paramKeys?: string[]) {
+export async function createNodeListProof(handler: RPCHandler, nodeList: any, paramKeys?: string[], paramBlockNr?: string) {
 
   let keys: Buffer[] = []
   if(!paramKeys)
@@ -140,8 +140,8 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: any, pa
 
   // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
   const address = nodeList.contract
-  const lastBlock = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result))
-  const blockNr = lastBlock ? '0x' + Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0)).toString(16) : 'latest'
+  const lastBlock = paramBlockNr ? 0 : (await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result))) //no need to see last block if paramBlockNr is alreay provided in params
+  const blockNr = paramBlockNr? paramBlockNr : (lastBlock ? '0x' + Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0)).toString(16) : 'latest')
   let req: any = ''
 
   // read the response,blockheader and trace from server
@@ -267,10 +267,10 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 /** returns a white listed nodes list. */
   export async function getWhiteList(handler: RPCHandler, includeProof = false, whiteListContractAddr: string): Promise<WhiteList> {
 
-    if (!whiteListContractAddr)
+    if (!whiteListContractAddr || !isValidChecksumAddress(whiteListContractAddr))
       throw new Error('Invalid contract address in params') 
 
-    const prepRequestData = (functionName, i) => {
+    const prepRequestData = (functionName, i, blockNum) => {
       const req: RPCRequest = {
         jsonrpc: '2.0',
         id: i,
@@ -278,13 +278,16 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
           to: whiteListContractAddr,
           data: '0x' + abi.simpleEncode(functionName).toString('hex')
         },
-          'latest']
+        blockNum]
       }
       return req
     }
 
+    const lastBlock = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result))
+    const blockNr = '0x' +  (lastBlock - (handler.config.minBlockHeight || 0)).toString(16)
+
     const [whiteListNodes, lastBlockNum/*, proofHash*/] = await handler.getAllFromServer(
-      [prepRequestData('getWhiteList()',0), prepRequestData('getLastEventBlockNumber()',1)/*,prepRequestData('getProofHash()',2)*/])
+      [prepRequestData('getWhiteList()',0,blockNr), prepRequestData('getLastEventBlockNumber()',1,blockNr)/*,prepRequestData('getProofHash()',2)*/])
 
     const abiCoder = new AbiCoder()
     const val = abiCoder.decode( ["bytes"], whiteListNodes.result as string)[0]
