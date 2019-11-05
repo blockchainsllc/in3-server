@@ -125,7 +125,7 @@ export default class Watcher extends EventEmitter {
       if(response.result){
         this.whiteListEventsBlockNum.set(
           whiteListContractAddr.toLowerCase(),
-          (response.result && response.result !== null? parseInt(response.result as string, 16): -1) )
+          (parseInt(response.result)) )
       }
       else{
         logger.info("Whitelist registration failed for "+this.currentWhiteListReg+" Reason: "+response.error)
