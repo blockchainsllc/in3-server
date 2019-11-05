@@ -142,7 +142,7 @@ export class RPC {
           return res as RPCResponse
         }))
 
-      else if(r.method === 'in3_whitelist')
+      else if(r.method === 'in3_whiteList')
         return manageRequest(
 
           handler, 
