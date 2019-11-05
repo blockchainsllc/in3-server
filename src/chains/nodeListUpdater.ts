@@ -131,10 +131,10 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
  * @param handler creates the proof for the storage of the registry
  * @param nodeList 
  */
-export async function createNodeListProof(handler: RPCHandler, nodeList: any, key?: string[]) {
+export async function createNodeListProof(handler: RPCHandler, nodeList: any, paramKeys?: string[]) {
 
   let keys: Buffer[] = []
-  if(!key)
+  if(!paramKeys)
     // create the keys with the serverCount
     keys = getStorageKeys(nodeList.nodes)
 
@@ -147,13 +147,13 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: any, ke
   // read the response,blockheader and trace from server
   const [blockResponse, proof] = await handler.getAllFromServer(req = [
     { method: 'eth_getBlockByNumber', params: [blockNr, false] },
-    { method: 'eth_getProof', params: [toHex(address, 20), key? key : keys.map(_ => toHex(_, 32)), blockNr] }
+    { method: 'eth_getProof', params: [toHex(address, 20), paramKeys? paramKeys : keys.map(_ => toHex(_, 32)), blockNr] }
   ])
 
   // console.log(proof.result.storageProof.map(_ => _.key + ' = ' + _.value).join('\n'))
   // error checking
   if (blockResponse.error) throw new Error('Could not get the block for ' + blockNr + ':' + JSON.stringify(blockResponse.error) + ' req: ' + JSON.stringify(req, null, 2))
-  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), key? key :keys.map(toHex), blockNr] }, null, 2))
+  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), paramKeys? paramKeys :keys.map(toHex), blockNr] }, null, 2))
 
 
   // make sure we use minHex for the proof-keys
