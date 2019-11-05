@@ -306,7 +306,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
     }
 
     if(includeProof)
-      wl.proof = await createNodeListProof(handler,wl,['0x'.padEnd(66, '0')])
+      wl.proof = await createNodeListProof(handler,wl,['0x'.padEnd(66, '0')], blockNr)
 
     return wl
 }
