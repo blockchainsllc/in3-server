@@ -122,13 +122,13 @@ export default class Watcher extends EventEmitter {
       //first validate that given addr have intended whitelist contract and not EOA by calling its function and getting block num
       const response = await this.handler.getFromServer({jsonrpc: '2.0',id: 1,method: 'eth_call', params: [{to: whiteListContractAddr,data: '0x' + ethabi.simpleEncode('getLastEventBlockNumber()').toString('hex')},'latest']})
 
-      if(response.error){
-        logger.info("Whitelist registration failed for "+this.currentWhiteListReg+" Reason: "+response.error)//" Invalid whitelist contract address "+this.currentWhiteListReg+" given for registration in watcher"
-      }
-      else{
+      if(response.result){
         this.whiteListEventsBlockNum.set(
           whiteListContractAddr.toLowerCase(),
           (response.result && response.result !== null? parseInt(response.result as string, 16): -1) )
+      }
+      else{
+        logger.info("Whitelist registration failed for "+this.currentWhiteListReg+" Reason: "+response.error)
       }
       
       /*const logResponse = await this.handler.getFromServer({
