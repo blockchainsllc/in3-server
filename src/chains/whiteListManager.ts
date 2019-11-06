@@ -64,12 +64,17 @@ export default class whiteListManager {
         this.cache = cache ? cache : false
     }
 
-    async addWhiteListWatch(whiteListContractAddr: string, blockNum: number) {
+    async addWhiteListWatch(whiteListContractAddr: string, blockNum?: number) {
 
         if (this.whiteListEventsBlockNum.size > this.maxWhiteListListen) {
             logger.info("White List contract " + whiteListContractAddr + " not registered because limit reached" + this.maxWhiteListListen)
         }
         else if (!this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())) {
+
+            if(!blockNum){
+                const currentBlockNum = parseInt(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string),16)
+                blockNum =  (currentBlockNum - (this.handler.config.minBlockHeight || 0))
+            }
             //first validate that given addr have intended whitelist contract and not EOA by calling its function and getting block num
             const response = await this.handler.getFromServer({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: whiteListContractAddr, data: '0x' + ethabi.simpleEncode('getLastEventBlockNumber()').toString('hex') }, blockNum] })
 
