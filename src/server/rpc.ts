@@ -46,6 +46,7 @@ import { SentryError } from '../util/sentryError'
 import { in3ProtocolVersion } from '../types/constants'
 import { getSafeMinBlockHeight } from './config';
 import * as logger from '../util/logger'
+import whiteListManager from '../chains/whiteListManager';
 
 
 export class RPC {
@@ -170,10 +171,10 @@ export class RPC {
                 }
 
                 if(r.params[0])
-                  await handler.watcher.addWhiteListWatch(r.params[0])
+                  await handler.whiteListMgr.addWhiteListWatch(r.params[0])
 
-                if(handler.watcher.getWhiteListEventBlockNum(r.params[0]) && handler.watcher.getWhiteListEventBlockNum(r.params[0]) != -1)
-                  res.in3.lastWhiteList = handler.watcher.getWhiteListEventBlockNum(r.params[0])
+                if(handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) && handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) != -1)
+                  res.in3.lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0])
                 
                 return res as RPCResponse}
                 )
@@ -218,8 +219,8 @@ export class RPC {
           (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
           (in3 as any).version = in3ProtocolVersion;
 
-          if(r.in3 && r.in3.whiteList && handler.watcher && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) && handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList) != -1 )
-            (in3 as any).lastWhiteList = handler.watcher.getWhiteListEventBlockNum(r.in3.whiteList)
+          if(r.in3 && r.in3.whiteList && handler.watcher && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) != -1 )
+            (in3 as any).lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList)
           return _
         })
       ])
@@ -278,6 +279,7 @@ export interface RPCHandler {
   getWhiteList(includeProof: boolean, whiteListContract?: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList>
   config: IN3RPCHandlerConfig
   watcher?: Watcher
+  whiteListMgr?: whiteListManager
 }
 
 /**
