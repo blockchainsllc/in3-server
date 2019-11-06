@@ -45,9 +45,6 @@ import { useDB, exec } from '../util/db'
 import config from '../server/config'
 import { updateValidatorHistory } from '../server/poa';
 import { SentryError } from '../util/sentryError';
-import { maxWhiteListListen } from '../types/constants'
-import { RPCRequest } from 'in3-common/js/src/types/types';
-import * as ethabi from 'ethereumjs-abi'
 
 const toNumber = util.toNumber
 const toHex = util.toHex
@@ -93,9 +90,6 @@ export default class Watcher extends EventEmitter {
 
   futureConvicts: any[]
 
-  whiteListEventsBlockNum: Map<string, number> //mapping of whitelist contract address and last block event
-  currentWhiteListReg: number
-
   constructor(handler: RPCHandler, interval = 5, persistFile = 'false', startBlock?: number) {
     super()
     this.handler = handler
@@ -108,43 +102,9 @@ export default class Watcher extends EventEmitter {
     // regsiter Cancel-Handler for 
     this.on('LogNodeUnregisterRequested', handleUnregister)
 
-    this.whiteListEventsBlockNum = new Map<string, number>();
   }
 
-  async addWhiteListWatch(whiteListContractAddr){
 
-    if(this.whiteListEventsBlockNum.size > maxWhiteListListen){
-      logger.info("White List contract "+this.currentWhiteListReg+" not registered because limit reached"+maxWhiteListListen)
-    }
-    else if(!this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())){
-      //first validate that given addr have intended whitelist contract and not EOA by calling its function and getting block num
-      const response = await this.handler.getFromServer({jsonrpc: '2.0',id: 1,method: 'eth_call', params: [{to: whiteListContractAddr,data: '0x' + ethabi.simpleEncode('getLastEventBlockNumber()').toString('hex')},'latest']})
-
-      if(response.result){
-        this.whiteListEventsBlockNum.set(
-          whiteListContractAddr.toLowerCase(),
-          (parseInt(response.result)) )
-      }
-      else{
-        logger.info("Whitelist registration failed for "+this.currentWhiteListReg+" Reason: "+response.error)
-      }
-      
-      /*const logResponse = await this.handler.getFromServer({
-        method: 'eth_getLogs', params: [{ fromBlock: toMinHex(0), toBlock: 
-          toMinHex(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => toNumber(_.result))),
-           address: whiteListContractAddr }]
-      })
-
-      logResponse.result.forEach( d => {
-        if( this.whiteListEventsBlockNum.get( d.address.toLowerCase()) < parseInt(d.blockNumber, 16) )
-          this.whiteListEventsBlockNum.set( String(d.address.toLowerCase()) , parseInt(d.blockNumber, 16) );
-      });*/
-    }
-  }
-
-  getWhiteListEventBlockNum(whiteListContractAddr){
-    return this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())
-  }
 
   get block(): {
     number: number,
@@ -220,26 +180,21 @@ export default class Watcher extends EventEmitter {
 
     this.emit('newBlock', currentBlock)
 
-    //const whitelistAddr: string [] = ['0x08e97ef0a92EB502a1D7574913E2a6636BeC557b', nodeList.contract]
     const [blockResponse, logResponse] = await this.handler.getAllFromServer([{
       method: 'eth_getBlockByNumber', params: [toMinHex(currentBlock), false]
     },
-    ... ( (nodeList && nodeList.contract) || (this.whiteListEventsBlockNum.size > 0) ? [{
-      method: 'eth_getLogs', params: [{ fromBlock: toMinHex(this.block.number + 1), toBlock: toMinHex(currentBlock), address: [ ... this.whiteListEventsBlockNum.keys(), nodeList.contract] }]
+    ... (nodeList && nodeList.contract ? [{
+      method: 'eth_getLogs', params: [{ fromBlock: toMinHex(this.block.number + 1), toBlock: toMinHex(currentBlock), address: nodeList.contract }]
     }] : [])
     ])
-
-    let nodeRegistryLogResponse = { ...logResponse }
-    if(nodeRegistryLogResponse.result)
-      nodeRegistryLogResponse.result = nodeRegistryLogResponse.result.filter(e => String(e.address).toLowerCase() === String(nodeList.contract).toLowerCase())
 
     if (blockResponse.error) throw new Error('Error getting the block ' + currentBlock + ': ' + blockResponse.error)
     if (!blockResponse.result) throw new Error('Invalid Response getting the block ' + currentBlock + ': ' + JSON.stringify(blockResponse))
 
-    if (nodeRegistryLogResponse) {
-      if (nodeRegistryLogResponse.error) throw new Error('Error getting the logs : ' + nodeRegistryLogResponse.error)
+    if (logResponse) {
+      if (logResponse.error) throw new Error('Error getting the logs : ' + logResponse.error)
 
-      const logs = nodeRegistryLogResponse.result as LogData[]
+      const logs = logResponse.result as LogData[]
       if (logs.length) {
 
         // always update the list
@@ -251,14 +206,6 @@ export default class Watcher extends EventEmitter {
       }
 
     }
-
-    logResponse.result.filter(e => String(e.address).toLowerCase() !== String(nodeList.contract).toLowerCase()).forEach( d => {
-      if(this.whiteListEventsBlockNum.get( d.address ) == -1 || this.whiteListEventsBlockNum.get( d.address ) < parseInt(d.blockNumber, 16)){
-        //only put latest block num in which event occured
-        this.whiteListEventsBlockNum.set( String(d.address.toLowerCase()) , parseInt(d.blockNumber, 16) );
-      }
-    });
-    
 
     // save block
     this.block = { number: currentBlock, hash: toHex(blockResponse.result.hash, 32) }
