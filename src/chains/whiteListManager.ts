@@ -64,14 +64,14 @@ export default class whiteListManager {
         this.cache = cache ? cache : false
     }
 
-    async addWhiteListWatch(whiteListContractAddr) {
+    async addWhiteListWatch(whiteListContractAddr: string, blockNum: string) {
 
         if (this.whiteListEventsBlockNum.size > this.maxWhiteListListen) {
             logger.info("White List contract " + whiteListContractAddr + " not registered because limit reached" + this.maxWhiteListListen)
         }
         else if (!this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())) {
             //first validate that given addr have intended whitelist contract and not EOA by calling its function and getting block num
-            const response = await this.handler.getFromServer({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: whiteListContractAddr, data: '0x' + ethabi.simpleEncode('getLastEventBlockNumber()').toString('hex') }, 'latest'] })
+            const response = await this.handler.getFromServer({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: whiteListContractAddr, data: '0x' + ethabi.simpleEncode('getLastEventBlockNumber()').toString('hex') }, blockNum] })
 
             if (response.result) {
                 this.whiteListEventsBlockNum.set(
@@ -84,7 +84,7 @@ export default class whiteListManager {
         }
     }
 
-    getWhiteListEventBlockNum(whiteListContractAddr) {
+    getWhiteListEventBlockNum(whiteListContractAddr: string) {
         return this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())
     }
 
@@ -124,12 +124,16 @@ export default class whiteListManager {
         }
     }
 
-    async getWhiteList(includeProof: boolean = false, whiteListContractAddr: string, blockNum: number): Promise<WhiteList> {
+    async getWhiteList(includeProof: boolean = false, whiteListContractAddr: string, blockNum?: string): Promise<WhiteList> {
     if (this.cache) {
         const wl = this.whiteList.get(whiteListContractAddr.toLowerCase())
 
         if (!wl) {
-            this.addWhiteListWatch(whiteListContractAddr)
+            if(!blockNum){
+            const currentBlockNum = parseInt(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
+            blockNum = '0x' + (currentBlockNum - (this.handler.config.minBlockHeight || 0)).toString(16)}
+
+            this.addWhiteListWatch(whiteListContractAddr, blockNum)
             const swl = await this.getWhiteListFromServer(this.handler, includeProof, whiteListContractAddr, blockNum)
 
             this.whiteList.set(
@@ -140,13 +144,13 @@ export default class whiteListManager {
     }
     else {
         if (this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase()))
-            this.addWhiteListWatch(whiteListContractAddr)
+            this.addWhiteListWatch(whiteListContractAddr, blockNum)
         return this.getWhiteListFromServer(this.handler, includeProof, whiteListContractAddr, blockNum)
     }
     }
 
     /** returns a white listed nodes list. */
-    async getWhiteListFromServer(handler: RPCHandler, includeProof = false, whiteListContractAddr: string, blockNum: number): Promise<WhiteList> {
+    async getWhiteListFromServer(handler: RPCHandler, includeProof = false, whiteListContractAddr: string, blockNum: string): Promise<WhiteList> {
 
         if (!whiteListContractAddr || !isValidChecksumAddress(whiteListContractAddr))
             throw new Error('Invalid contract address in params')
