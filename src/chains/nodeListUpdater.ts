@@ -130,7 +130,7 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
  * @param handler creates the proof for the storage of the registry
  * @param nodeList 
  */
-export async function createNodeListProof(handler: RPCHandler, nodeList: any, paramKeys?: string[], paramBlockNr?: string) {
+export async function createNodeListProof(handler: RPCHandler, nodeList: any, paramKeys?: string[], paramBlockNr?: number) {
 
   let keys: Buffer[] = []
   if(!paramKeys)
