@@ -48,7 +48,7 @@ export default class whiteListManager {
 
     handler: RPCHandler
     maxWhiteListListen: number
-    lastBlockNum: number
+    lastBlockNum: string
     includeProof: boolean
     cache: boolean
 
@@ -59,32 +59,43 @@ export default class whiteListManager {
         this.whiteListEventsBlockNum = new Map<string, number>();
         this.whiteList = new Map<string, WhiteList>();
 
-        this.lastBlockNum = 0
+        this.lastBlockNum = '0x0'
         this.includeProof = includeProof ? includeProof : false
         this.cache = cache ? cache : false
     }
 
-    async addWhiteListWatch(whiteListContractAddr: string, blockNum?: number) {
+    async getBlockNum() {
+        return '0x' +
+            (parseInt(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string), 16) -
+                (this.handler.config.minBlockHeight || 0)).toString(16)
+    }
+
+    async addWhiteListWatch(whiteListContractAddr: string, blockNum?: number): Promise<void> {
 
         if (this.whiteListEventsBlockNum.size > this.maxWhiteListListen) {
             logger.info("White List contract " + whiteListContractAddr + " not registered because limit reached" + this.maxWhiteListListen)
         }
         else if (!this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())) {
-
-            if(!blockNum){
-                const currentBlockNum = parseInt(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string),16)
-                blockNum =  (currentBlockNum - (this.handler.config.minBlockHeight || 0))
+            let blockNr
+            if (!blockNum) {
+                blockNr = await this.getBlockNum()
             }
             //first validate that given addr have intended whitelist contract and not EOA by calling its function and getting block num
-            const response = await this.handler.getFromServer({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: whiteListContractAddr, data: '0x' + ethabi.simpleEncode('getLastEventBlockNumber()').toString('hex') }, blockNum] })
+            const response = await this.handler.getFromServer({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: whiteListContractAddr, data: '0x' + ethabi.simpleEncode('getLastEventBlockNumber()').toString('hex') }, blockNum ? blockNum.toString(16) : blockNr] })
 
             if (response.result) {
                 this.whiteListEventsBlockNum.set(
                     whiteListContractAddr.toLowerCase(),
-                    (parseInt(response.result)))
+                    parseInt(response.result,16))
             }
             else {
                 logger.info("Whitelist registration failed for " + whiteListContractAddr + " Reason: " + response.error)
+            }
+
+            if (this.cache) {
+                this.whiteList.set(
+                    whiteListContractAddr.toLowerCase(),
+                    await this.getWhiteListFromServer(this.handler, this.includeProof, whiteListContractAddr, blockNum? blockNum : parseInt(blockNr,16)))
             }
         }
     }
@@ -97,17 +108,17 @@ export default class whiteListManager {
         if (this.whiteListEventsBlockNum.size > 0) {
             try {
 
-                const currentBlockNum = parseInt(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
-                const blockNr = '0x' + (currentBlockNum - (this.handler.config.minBlockHeight || 0)).toString(16)
+                //const currentBlockNum = parseInt(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
+                const blockNr = await this.getBlockNum()
 
                 //getting logs for this block minus block heights
                 const logResponse = await this.handler.getFromServer(
                     {
                         method: 'eth_getLogs', params:
-                            [{ fromBlock: util.toMinHex(this.lastBlockNum), toBlock: util.toMinHex(currentBlockNum), address: [... this.whiteListEventsBlockNum.keys()] }, blockNr]
+                            [{ fromBlock: util.toMinHex(this.lastBlockNum), toBlock: util.toMinHex(blockNr), address: [... this.whiteListEventsBlockNum.keys()] }]
                     })
 
-                this.lastBlockNum = currentBlockNum
+                this.lastBlockNum = blockNr
 
                 logResponse.result.forEach(async d => {
                     if (this.whiteListEventsBlockNum.get(d.address) == -1 || this.whiteListEventsBlockNum.get(d.address) < parseInt(d.blockNumber, 16)) {
@@ -134,34 +145,33 @@ export default class whiteListManager {
             const wl = this.whiteList.get(whiteListContractAddr.toLowerCase())
 
             if (!wl) {
-                if (!blockNum) {
-                    const currentBlockNum = parseInt(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string), 16)
-                    blockNum = (currentBlockNum - (this.handler.config.minBlockHeight || 0))
-                }
-
                 this.addWhiteListWatch(whiteListContractAddr, blockNum)
                 const swl = await this.getWhiteListFromServer(this.handler, includeProof, whiteListContractAddr, blockNum)
 
                 this.whiteList.set(
                     String(whiteListContractAddr.toLowerCase()),
-                    await this.getWhiteListFromServer(this.handler, includeProof, whiteListContractAddr, blockNum));
+                    swl);
                 return swl
             }
+            return wl
         }
         else {
-            if (this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase()))
-                this.addWhiteListWatch(whiteListContractAddr, blockNum)
+            if (!this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase()))
+             this.addWhiteListWatch(whiteListContractAddr, blockNum)
             return this.getWhiteListFromServer(this.handler, includeProof, whiteListContractAddr, blockNum)
         }
     }
 
     /** returns a white listed nodes list. */
-    async getWhiteListFromServer(handler: RPCHandler, includeProof = false, whiteListContractAddr: string, blockNum: number): Promise<WhiteList> {
+    async getWhiteListFromServer(handler: RPCHandler, includeProof = false, whiteListContractAddr: string, blockNum?: number): Promise<WhiteList> {
 
         if (!whiteListContractAddr || !isValidChecksumAddress(whiteListContractAddr))
             throw new Error('Invalid contract address in params')
 
-        const prepRequestData = (functionName, i, blockNum) => {
+        //const currentBlockNum = parseInt(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string), 16)
+        //blockNum = await this.getBlockNum()//(currentBlockNum - (this.handler.config.minBlockHeight || 0)).toString(16)
+
+        const prepRequestData = async (functionName, i, blockNumParam) => {
             const req: RPCRequest = {
                 jsonrpc: '2.0',
                 id: i,
@@ -169,7 +179,7 @@ export default class whiteListManager {
                     to: whiteListContractAddr,
                     data: '0x' + abi.simpleEncode(functionName).toString('hex')
                 },
-                    blockNum]
+                blockNumParam? blockNumParam.toString(16): await this.getBlockNum()]
             }
             return req
         }
@@ -178,7 +188,7 @@ export default class whiteListManager {
         //const blockNr = '0x' + (lastBlock - (handler.config.minBlockHeight || 0)).toString(16)
 
         const [whiteListNodes, lastBlockNum/*, proofHash*/] = await handler.getAllFromServer(
-            [prepRequestData('getWhiteList()', 0, blockNum), prepRequestData('getLastEventBlockNumber()', 1, blockNum)/*,prepRequestData('getProofHash()',2)*/])
+            [await prepRequestData('getWhiteList()', 0, blockNum), await prepRequestData('getLastEventBlockNumber()', 1, blockNum)/*,prepRequestData('getProofHash()',2)*/])
 
         const abiCoder = new AbiCoder()
         const val = abiCoder.decode(["bytes"], whiteListNodes.result as string)[0]

@@ -140,7 +140,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: any, pa
   // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
   const address = nodeList.contract
   const lastBlock = paramBlockNr ? 0 : (await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result))) //no need to see last block if paramBlockNr is alreay provided in params
-  const blockNr = paramBlockNr? paramBlockNr : (lastBlock ? '0x' + Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0)).toString(16) : 'latest')
+  const blockNr = paramBlockNr? paramBlockNr.toString(16) : (lastBlock ? '0x' + Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0)).toString(16) : 'latest')
   let req: any = ''
 
   // read the response,blockheader and trace from server
