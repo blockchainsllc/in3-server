@@ -152,7 +152,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: any, pa
   // console.log(proof.result.storageProof.map(_ => _.key + ' = ' + _.value).join('\n'))
   // error checking
   if (blockResponse.error) throw new Error('Could not get the block for ' + blockNr + ':' + JSON.stringify(blockResponse.error) + ' req: ' + JSON.stringify(req, null, 2))
-  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), paramKeys? paramKeys :keys.map(toHex), blockNr] }, null, 2))
+  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), paramKeys||keys.map(toHex), blockNr] }, null, 2))
 
 
   // make sure we use minHex for the proof-keys
