@@ -591,6 +591,10 @@ export interface IN3RPCHandlerConfig {
      */
     registry: string
     /**
+     * maximum number of white list contracts allowed to register in whitelist watch
+     */
+    maxWhiteListWatch?: number
+    /**
      * the url of the client in case the registry is not on the same chain.
      */
     registryRPC?: string

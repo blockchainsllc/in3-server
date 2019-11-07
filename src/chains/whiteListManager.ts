@@ -41,6 +41,7 @@ import * as abi from 'ethereumjs-abi'
 import * as logger from '../util/logger'
 import { util } from 'in3-common'
 import * as ethabi from 'ethereumjs-abi'
+import { maxWhiteListListen } from '../types/constants'
 
 export default class whiteListManager {
     whiteListEventsBlockNum: Map<string, number> //mapping of whitelist contract address and last block event
@@ -52,9 +53,9 @@ export default class whiteListManager {
     includeProof: boolean
     cache: boolean
 
-    constructor(handler: RPCHandler, maxWhiteListListen: number, includeProof?: boolean, cache?: boolean) {
+    constructor(handler: RPCHandler, maxWhiteListListenParam?: number, includeProof?: boolean, cache?: boolean) {
         this.handler = handler
-        this.maxWhiteListListen = maxWhiteListListen
+        this.maxWhiteListListen = maxWhiteListListenParam? maxWhiteListListenParam: maxWhiteListListen
 
         this.whiteListEventsBlockNum = new Map<string, number>();
         this.whiteList = new Map<string, WhiteList>();

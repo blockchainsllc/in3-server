@@ -499,6 +499,9 @@ definitions:
             registry:
                 type: string
                 description: the address of the server registry used in order to update the nodeList
+            maxWhiteListWatch: number
+                type: number
+                description: maximum number of white list contracts allowed to register in whitelist watch
             registryRPC:
                 type: string
                 description: the url of the client in case the registry is not on the same chain.
