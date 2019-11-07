@@ -146,7 +146,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: any, pa
   // read the response,blockheader and trace from server
   const [blockResponse, proof] = await handler.getAllFromServer(req = [
     { method: 'eth_getBlockByNumber', params: [blockNr, false] },
-    { method: 'eth_getProof', params: [toHex(address, 20), paramKeys? paramKeys : keys.map(_ => toHex(_, 32)), blockNr] }
+    { method: 'eth_getProof', params: [toHex(address, 20), paramKeys || keys.map(_ => toHex(_, 32)), blockNr] }
   ])
 
   // console.log(proof.result.storageProof.map(_ => _.key + ' = ' + _.value).join('\n'))
