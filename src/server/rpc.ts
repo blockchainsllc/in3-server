@@ -276,7 +276,7 @@ export interface RPCHandler {
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
   checkRegistry(): Promise<any>
-  getWhiteList(includeProof: boolean, whiteListContract?: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList>
+  getWhiteList(includeProof: boolean, whiteListContract: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList>
   config: IN3RPCHandlerConfig
   watcher?: Watcher
   whiteListMgr?: whiteListManager
