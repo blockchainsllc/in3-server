@@ -121,7 +121,7 @@ export default class whiteListManager {
 
                 this.lastBlockNum = blockNr
 
-                logResponse.result.forEach(async d => {
+                await Promise.all(logResponse.result.forEach(async d => {
                     if (this.whiteListEventsBlockNum.get(d.address) == -1 || this.whiteListEventsBlockNum.get(d.address) < parseInt(d.blockNumber, 16)) {
                         //only put latest block num in which event occured
                         this.whiteListEventsBlockNum.set(String(d.address.toLowerCase()), parseInt(d.blockNumber, 16));
@@ -133,7 +133,7 @@ export default class whiteListManager {
                                 await this.getWhiteListFromServer(this.handler, this.includeProof, d.address, parseInt(d.blockNumber, 16)))
                         }
                     }
-                });
+                }));
             }
             catch (e) {
                 logger.error("Error Occured in WhiteList watch " + e.toString())
