@@ -42,6 +42,7 @@ import * as logger from '../util/logger'
 import { util } from 'in3-common'
 import * as ethabi from 'ethereumjs-abi'
 import { maxWhiteListListen } from '../types/constants'
+import { isValidAddress } from '../util/tx'
 
 export default class whiteListManager {
     whiteListEventsBlockNum: Map<string, number> //mapping of whitelist contract address and last block event
@@ -73,6 +74,9 @@ export default class whiteListManager {
 
     async addWhiteListWatch(whiteListContractAddr: string, blockNum?: number): Promise<void> {
 
+        if (!isValidAddress(whiteListContractAddr))
+            throw new Error('Invalid contract address in params')
+
         if (this.whiteListEventsBlockNum.size > this.maxWhiteListListen) {
             logger.info("White List contract " + whiteListContractAddr + " not registered because limit reached" + this.maxWhiteListListen)
         }
@@ -102,6 +106,9 @@ export default class whiteListManager {
     }
 
     getWhiteListEventBlockNum(whiteListContractAddr: string): number {
+        if (!isValidAddress(whiteListContractAddr))
+            throw new Error('Invalid contract address in params')
+
         return this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())
     }
 
@@ -142,6 +149,9 @@ export default class whiteListManager {
     }
 
     async getWhiteList(includeProof: boolean = false, whiteListContractAddr: string, blockNum?: number): Promise<WhiteList> {
+        if (!isValidAddress(whiteListContractAddr))
+            throw new Error('Invalid contract address in params')
+
         if (this.cache) {
             const wl = this.whiteList.get(whiteListContractAddr.toLowerCase())
 
@@ -166,7 +176,7 @@ export default class whiteListManager {
     /** returns a white listed nodes list. */
     async getWhiteListFromServer(handler: RPCHandler, includeProof = false, whiteListContractAddr: string, blockNum?: number): Promise<WhiteList> {
 
-        if (!whiteListContractAddr || !isValidChecksumAddress(whiteListContractAddr))
+        if (!isValidAddress(whiteListContractAddr))
             throw new Error('Invalid contract address in params')
 
         //const currentBlockNum = parseInt(await this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string), 16)

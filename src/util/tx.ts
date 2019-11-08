@@ -228,3 +228,7 @@ export function decodeFunction(signature: string | string[], args: Buffer): any 
 
   return fixBN(abiCoder.decode(typeArray, args))
 }
+
+export function isValidAddress(addr: string){
+  return addr && addr.match(/^0x[0-9a-fA-F]{40}$/)
+}
