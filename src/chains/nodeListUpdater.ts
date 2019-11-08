@@ -140,19 +140,19 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: any, pa
   // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
   const address = nodeList.contract
   const lastBlock = paramBlockNr ? 0 : (await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result))) //no need to see last block if paramBlockNr is alreay provided in params
-  const blockNr = paramBlockNr? paramBlockNr.toString(16) : (lastBlock ? '0x' + Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0)).toString(16) : 'latest')
+  const blockNr = paramBlockNr? toHex(paramBlockNr) : (lastBlock ? toHex(Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0))) : 'latest')
   let req: any = ''
 
   // read the response,blockheader and trace from server
   const [blockResponse, proof] = await handler.getAllFromServer(req = [
     { method: 'eth_getBlockByNumber', params: [blockNr, false] },
-    { method: 'eth_getProof', params: [toHex(address, 20), paramKeys? paramKeys : keys.map(_ => toHex(_, 32)), blockNr] }
+    { method: 'eth_getProof', params: [toHex(address, 20), paramKeys || keys.map(_ => toHex(_, 32)), blockNr] }
   ])
 
   // console.log(proof.result.storageProof.map(_ => _.key + ' = ' + _.value).join('\n'))
   // error checking
   if (blockResponse.error) throw new Error('Could not get the block for ' + blockNr + ':' + JSON.stringify(blockResponse.error) + ' req: ' + JSON.stringify(req, null, 2))
-  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), paramKeys? paramKeys :keys.map(toHex), blockNr] }, null, 2))
+  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), paramKeys||keys.map(toHex), blockNr] }, null, 2))
 
 
   // make sure we use minHex for the proof-keys
