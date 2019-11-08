@@ -35,7 +35,7 @@
 import { RPCHandler, HandlerTransport } from '../server/rpc'
 import * as tx from '../util/tx'
 import { createRandomIndexes, Transport, BlockData, util, storage, serialize } from 'in3-common'
-import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig } from '../types/types'
+import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig, WhiteList } from '../types/types'
 import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
@@ -130,12 +130,12 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
  * @param handler creates the proof for the storage of the registry
  * @param nodeList 
  */
-export async function createNodeListProof(handler: RPCHandler, nodeList: any, paramKeys?: string[], paramBlockNr?: number) {
+export async function createNodeListProof(handler: RPCHandler, nodeList: ServerList | WhiteList, paramKeys?: string[], paramBlockNr?: number) {
 
   let keys: Buffer[] = []
   if(!paramKeys)
     // create the keys with the serverCount
-    keys = getStorageKeys(nodeList.nodes)
+    keys = getStorageKeys((nodeList as ServerList).nodes)
 
   // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
   const address = nodeList.contract
