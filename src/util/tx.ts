@@ -230,5 +230,5 @@ export function decodeFunction(signature: string | string[], args: Buffer): any 
 }
 
 export function isValidAddress(addr: string){
-  return addr && addr.match(/^0x[0-9a-fA-F]{40}$/)
+  return addr && String(addr).match(/^0x[0-9a-fA-F]{40}$/)
 }
