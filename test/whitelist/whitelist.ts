@@ -55,7 +55,7 @@ describe('WhiteList Tests', () => {
     //const addr = getAddress(acct)
 
     // check deployed code
-    const adr = await deployWhiteList('IN3WhiteList', acct, getTestClient(), "0")
+    const adr = await deployWhiteList(acct, getTestClient(), "0")
 
     const receipt = await tx.callContract(getTestClient(), adr, 'whiteListNode(address)', [whitelistedNode], {
       confirm: true,

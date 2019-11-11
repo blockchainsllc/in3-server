@@ -167,3 +167,15 @@ export async function registerChains(pk: string, chainRegistry: string, data: {
 
   return chainRegistry
 }
+
+export function deployWhiteList(pk: string, url = 'http://localhost:8545', whiteListAddrs: string, transport?: Transport) {
+  return tx.deployContract(url,
+    '0x' + bin.contracts[Object.keys(bin.contracts).
+      find(_ => _.indexOf('/contracts/IN3WhiteList.sol:IN3WhiteList') >= 0)].bin + padStart(whiteListAddrs, 64, "0"),
+     // '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf(name) >= 0)].bin, 
+     {
+    privateKey: pk,
+    gas: 3000000,
+    confirm: true
+  }, transport).then(_ => toChecksumAddress(_.contractAddress) as string)
+}
