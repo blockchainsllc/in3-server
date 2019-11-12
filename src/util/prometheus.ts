@@ -40,6 +40,8 @@ export default class PromUpdater {
   registry: client.Registry
   gateway: string
 
+  upSince: client.Gauge
+
   requests: client.Counter
   requestsProof: client.Counter
   requestsSig: client.Counter
@@ -58,6 +60,8 @@ export default class PromUpdater {
     else this.gateway = 'http://127.0.0.1:9091'
     this.jobName = name
     this.registry = new client.Registry()
+
+    this.upSince = new client.Gauge({ name: 'up_since', help: 'UNIX TS of server start.' })
 
     this.requests = new client.Counter({ name: 'requests', help: 'Total requests since starting the node.' })
     this.requestsProof = new client.Counter({ name: 'requests_proof', help: 'Total requests with proof.' })
@@ -102,9 +106,10 @@ export default class PromUpdater {
         this.requestTime.observe(stats.request_time)  
     }
 
+    this.upSince.set(stats.upSince)
     this.lastRequest.set(stats.lastRequest)
     
-
+    this.registry.registerMetric(this.upSince)
     this.registry.registerMetric(this.requests)
     this.registry.registerMetric(this.requestsProof)
     this.registry.registerMetric(this.requestsSig)

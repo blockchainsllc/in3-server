@@ -146,7 +146,8 @@ export function schedulePrometheus(config: IN3RPCConfig) {
     let avgTime = calcAverage(buffer)
     let push = {
       ...stats.currentTotal,
-      request_time: avgTime
+      request_time: avgTime,
+      upSince: stats.upSince
     }
     buffer = []
     prometheus.update(push)
