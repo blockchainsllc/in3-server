@@ -32,8 +32,6 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-
-
 import { assert } from 'chai'
 import 'mocha'
 import { util} from 'in3-common'
@@ -92,6 +90,120 @@ describe('WhiteList Tests', () => {
     const wl = await rpc.getHandler().getWhiteList(true,adr)
     assert.equal(whitelistedNode.toLowerCase(),"0x"+wl.nodes[0].toLowerCase())
 
-  }).timeout(6000000)
+  }).timeout(20000)
+
+  it('Block number change after whitelist update', async () => {
+
+    const whitelistedNode = "0x45d45e6Ff99E6c34A235d263965910298985fcFe"
+    let test = new TestTransport(1) 
+    const acct = await test.createAccount(undefined, 500)
+
+    //register whitelist A
+    const adr = await deployWhiteList(acct, getTestClient(), "0")
+    await tx.callContract(getTestClient(), adr, 'whiteListNode(address)', [whitelistedNode], {
+      confirm: true,
+      privateKey: acct,
+      gas: 3000000,
+      value: 0
+    })
+
+    //in3 RPC
+    const pk = await test.createAccount(null, util.toBN('100000000000000000'))
+    const rpc = new RPC({
+      port: 1,
+      chains: {
+        [test.chainId]: {
+          watchInterval: -1,
+          minBlockHeight: 0,
+          autoRegistry: {
+            url: 'dummy',
+            deposit: util.toBN('10000000000000000') as any,
+            depositUnit: 'wei',
+            capabilities: {
+              proof: true,
+              multiChain: true
+            },
+          },
+          privateKey: pk,
+          rpcUrl: test.url,
+          registry: test.nodeList.contract
+        }
+      }
+    }, test, test.nodeList)
+    await rpc.init()
+
+    //register contract in watch and get block num
+    const wl = await rpc.getHandler().getWhiteList(true,adr)
+    const whiteListBlockNum = await rpc.getHandler().whiteListMgr.getBlockNum()
+
+    //register another contract and get block num
+    await tx.callContract(getTestClient(), adr, 'whiteListNode(address)', ["0x806ba328A7C3B0BcE834959ac2D61E7679411f45"], {
+      confirm: true,
+      privateKey: acct,
+      gas: 3000000,
+      value: 0
+    })
+    const whiteListBlockNum2 = await rpc.getHandler().whiteListMgr.getBlockNum()
+
+    assert.isTrue(whiteListBlockNum2>whiteListBlockNum)
+
+  }).timeout(20000)
+
+  it('Multiple Registrations and getting list', async () => {
+
+    const whitelist = ["0x45d45e6Ff99E6c34A235d263965910298985fcFe",
+                      "0x1872534eEE69Bcd4eA491fD912d9278fE7fb18F6",
+                      "0x580BeF942ab2B04A325a584E1F81Bf8dE9450891",
+                      "0xC574D09d2D921250C062A5E2216177DaE4635769"]
+
+    let test = new TestTransport(1) 
+
+    // create a account with 500 wei
+    const acct = await test.createAccount(undefined, 500)
+    //const addr = getAddress(acct)
+
+    // check deployed code
+    const adr = await deployWhiteList(acct, getTestClient(), "0")
+
+    const pk = await test.createAccount(null, util.toBN('100000000000000000'))
+    const rpc = new RPC({
+      port: 1,
+      chains: {
+        [test.chainId]: {
+          watchInterval: -1,
+          minBlockHeight: 0,
+          autoRegistry: {
+            url: 'dummy',
+            deposit: util.toBN('10000000000000000') as any,
+            depositUnit: 'wei',
+            capabilities: {
+              proof: true,
+              multiChain: true
+            },
+          },
+          privateKey: pk,
+          rpcUrl: test.url,
+          registry: test.nodeList.contract
+        }
+      }
+    }, test, test.nodeList)
+
+    await rpc.init()
+
+    for (const e of whitelist){
+      await tx.callContract(getTestClient(), adr, 'whiteListNode(address)', [e], {
+        confirm: true,
+        privateKey: acct,
+        gas: 3000000,
+        value: 0
+      })
+    }
+    
+    const result = await rpc.getHandler().getWhiteList(true,adr)
+    
+    for(const wl of result.nodes)
+      assert.isTrue(whitelist.findIndex( e => e.toLowerCase() == "0x"+wl.toLowerCase()) > -1 )
+
+  }).timeout(20000)
 
 })
