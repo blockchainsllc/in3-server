@@ -206,4 +206,65 @@ describe('WhiteList Tests', () => {
 
   }).timeout(20000)
 
+  it('Max whitelist watch limit', async () => {
+
+    const whitelistedNode = "0x45d45e6Ff99E6c34A235d263965910298985fcFe"
+
+    let test = new TestTransport(1) 
+
+    // create a account with 500 wei
+    const acct = await test.createAccount(undefined, 500)
+    //const addr = getAddress(acct)
+
+    // check deployed code
+    const deployInitWhiteListContrant = async () => {
+
+      //deploy
+      const adr = await deployWhiteList(acct, getTestClient(), "0")
+
+      //register
+      await tx.callContract(getTestClient(), adr, 'whiteListNode(address)', [whitelistedNode], {
+        confirm: true,
+        privateKey: acct,
+        gas: 3000000,
+        value: 0
+      })
+      return adr}
+
+    const wl1 = await deployInitWhiteListContrant()
+    const wl2 = await deployInitWhiteListContrant()
+    const wl3 = await deployInitWhiteListContrant()
+
+    const pk = await test.createAccount(null, util.toBN('100000000000000000'))
+    const rpc = new RPC({
+      port: 1,
+      chains: {
+        [test.chainId]: {
+          watchInterval: -1,
+          minBlockHeight: 0,
+          maxWhiteListWatch: 2,
+          autoRegistry: {
+            url: 'dummy',
+            deposit: util.toBN('10000000000000000') as any,
+            depositUnit: 'wei',
+            capabilities: {
+              proof: true,
+              multiChain: true
+            },
+          },
+          privateKey: pk,
+          rpcUrl: test.url,
+          registry: test.nodeList.contract
+        }
+      }
+    }, test, test.nodeList)
+
+    await rpc.init()
+
+    await rpc.getHandler().getWhiteList(true,wl1)
+    await rpc.getHandler().getWhiteList(true,wl2)
+    assert.isFalse(await rpc.getHandler().whiteListMgr.addWhiteListWatch(wl3))
+
+  }).timeout(20000)
+
 })

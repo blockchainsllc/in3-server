@@ -71,13 +71,14 @@ export default class whiteListManager {
                 (this.handler.config.minBlockHeight || 0)).toString(16)
     }
 
-    async addWhiteListWatch(whiteListContractAddr: string, blockNum?: number): Promise<void> {
+    async addWhiteListWatch(whiteListContractAddr: string, blockNum?: number): Promise<boolean> {
 
         if (!isValidAddress(whiteListContractAddr))
             throw new Error('Invalid contract address in params')
 
-        if (this.whiteListEventsBlockNum.size > this.maxWhiteListListen) {
+        if (this.whiteListEventsBlockNum.size >= this.maxWhiteListListen) {
             logger.info("White List contract " + whiteListContractAddr + " not registered because limit reached" + this.maxWhiteListListen)
+            return false
         }
         else if (!this.whiteListEventsBlockNum.get(whiteListContractAddr.toLowerCase())) {
             let blockNr
@@ -101,6 +102,7 @@ export default class whiteListManager {
                     whiteListContractAddr.toLowerCase(),
                     await this.getWhiteListFromServer(this.handler, true, whiteListContractAddr, blockNum!= undefined? blockNum : parseInt(blockNr,16)))
             }
+            return true
         }
     }
 
