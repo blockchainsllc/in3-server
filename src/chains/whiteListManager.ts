@@ -54,16 +54,15 @@ export default class whiteListManager {
     includeProof: boolean
     cache: boolean
 
-    constructor(handler: RPCHandler, maxWhiteListListenParam?: number, includeProof?: boolean, cache?: boolean) {
+    constructor(handler: RPCHandler, maxWhiteListListenParam?: number, cache?: boolean) {
         this.handler = handler
-        this.maxWhiteListListen = maxWhiteListListenParam? maxWhiteListListenParam: maxWhiteListListen
+        this.maxWhiteListListen = (maxWhiteListListenParam != undefined) ? maxWhiteListListenParam: maxWhiteListListen
 
         this.whiteListEventsBlockNum = new Map<string, number>();
         this.whiteList = new Map<string, WhiteList>();
 
         this.lastBlockNum = '0x0'
-        this.includeProof = includeProof ? includeProof : false
-        this.cache = cache ? cache : false
+        this.cache = (cache != undefined) ? cache : true
     }
 
     async getBlockNum() {
@@ -86,7 +85,7 @@ export default class whiteListManager {
                 blockNr = await this.getBlockNum()
             }
             //first validate that given addr have intended whitelist contract and not EOA by calling its function and getting block num
-            const response = await this.handler.getFromServer({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: whiteListContractAddr, data: '0x' + ethabi.simpleEncode('getLastEventBlockNumber()').toString('hex') }, blockNum ? blockNum.toString(16) : blockNr] })
+            const response = await this.handler.getFromServer({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: whiteListContractAddr, data: '0x' + ethabi.simpleEncode('getLastEventBlockNumber()').toString('hex') }, blockNum!= undefined ? blockNum.toString(16) : blockNr] })
 
             if (response.result) {
                 this.whiteListEventsBlockNum.set(
@@ -100,7 +99,7 @@ export default class whiteListManager {
             if (this.cache) {
                 this.whiteList.set(
                     whiteListContractAddr.toLowerCase(),
-                    await this.getWhiteListFromServer(this.handler, this.includeProof, whiteListContractAddr, blockNum? blockNum : parseInt(blockNr,16)))
+                    await this.getWhiteListFromServer(this.handler, true, whiteListContractAddr, blockNum!= undefined? blockNum : parseInt(blockNr,16)))
             }
         }
     }
@@ -128,19 +127,20 @@ export default class whiteListManager {
 
                 this.lastBlockNum = blockNr
 
-                await Promise.all(logResponse.result.forEach(async d => {
-                    if (this.whiteListEventsBlockNum.get(d.address) == -1 || this.whiteListEventsBlockNum.get(d.address) < parseInt(d.blockNumber, 16)) {
-                        //only put latest block num in which event occured
-                        this.whiteListEventsBlockNum.set(String(d.address.toLowerCase()), parseInt(d.blockNumber, 16));
+                if(logResponse.result)
+                    for(const d of logResponse.result){
+                        if (this.whiteListEventsBlockNum.get(d.address) == -1 || this.whiteListEventsBlockNum.get(d.address) < parseInt(d.blockNumber, 16)) {
+                            //only put latest block num in which event occured
+                            this.whiteListEventsBlockNum.set(String(d.address.toLowerCase()), parseInt(d.blockNumber, 16));
 
-                        //update white list in cache
-                        if (this.cache) {
-                            this.whiteList.set(
-                                String(d.address.toLowerCase()),
-                                await this.getWhiteListFromServer(this.handler, this.includeProof, d.address, parseInt(d.blockNumber, 16)))
+                            //update white list in cache
+                            if (this.cache) {
+                                this.whiteList.set(
+                                    String(d.address.toLowerCase()),
+                                    await this.getWhiteListFromServer(this.handler, true, d.address, parseInt(d.blockNumber, 16)))
+                            }
                         }
                     }
-                }));
             }
             catch (e) {
                 logger.error("Error Occured in WhiteList watch " + e.toString())
@@ -190,7 +190,7 @@ export default class whiteListManager {
                     to: whiteListContractAddr,
                     data: '0x' + abi.simpleEncode(functionName).toString('hex')
                 },
-                blockNumParam? blockNumParam.toString(16): await this.getBlockNum()]
+                blockNumParam != undefined ? blockNumParam.toString(16): await this.getBlockNum()]
             }
             return req
         }
