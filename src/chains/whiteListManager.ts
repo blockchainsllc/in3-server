@@ -201,6 +201,9 @@ export default class whiteListManager {
         const [whiteListNodes, lastBlockNum/*, proofHash*/] = await handler.getAllFromServer(
             [await prepRequestData('getWhiteList()', 0, blockNum), await prepRequestData('getLastEventBlockNumber()', 1, blockNum)/*,prepRequestData('getProofHash()',2)*/])
 
+        if(whiteListNodes.error)
+            return undefined
+        
         const abiCoder = new AbiCoder()
         const val = abiCoder.decode(["bytes"], whiteListNodes.result as string)[0]
 
