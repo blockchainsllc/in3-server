@@ -41,17 +41,16 @@ import * as abi from 'ethereumjs-abi'
 import * as logger from '../util/logger'
 import { util } from 'in3-common'
 import * as ethabi from 'ethereumjs-abi'
-import { maxWhiteListListen } from '../types/constants'
+import { maxWhiteListListen, maxWhiteListCacheCap } from '../types/constants'
 import { isValidAddress } from '../util/tx'
 
 export default class whiteListManager {
-    whiteListEventsBlockNum: Map<string, number> //mapping of whitelist contract address and last block event
-    whiteList: Map<string, WhiteList>  // white list contract address to whitelist nodes
+    private whiteListEventsBlockNum: Map<string, number> //mapping of whitelist contract address and last block event
+    private whiteList: Map<string, string>  // white list contract address to whitelist nodes
 
     handler: RPCHandler
-    maxWhiteListListen: number
+    private maxWhiteListListen: number
     lastBlockNum: string
-    includeProof: boolean
     cache: boolean
 
     constructor(handler: RPCHandler, maxWhiteListListenParam?: number, cache?: boolean) {
@@ -59,7 +58,7 @@ export default class whiteListManager {
         this.maxWhiteListListen = (maxWhiteListListenParam != undefined) ? maxWhiteListListenParam: maxWhiteListListen
 
         this.whiteListEventsBlockNum = new Map<string, number>();
-        this.whiteList = new Map<string, WhiteList>();
+        this.whiteList = new Map<string, string>();
 
         this.lastBlockNum = '0x0'
         this.cache = (cache != undefined) ? cache : true
@@ -98,9 +97,7 @@ export default class whiteListManager {
             }
 
             if (this.cache) {
-                this.whiteList.set(
-                    whiteListContractAddr.toLowerCase(),
-                    await this.getWhiteListFromServer(this.handler, true, whiteListContractAddr, blockNum!= undefined? blockNum : parseInt(blockNr,16)))
+                await this.addWhiteListToCache(blockNum!= undefined? blockNum : parseInt(blockNr,16), whiteListContractAddr )
             }
             return true
         }
@@ -137,9 +134,7 @@ export default class whiteListManager {
 
                             //update white list in cache
                             if (this.cache) {
-                                this.whiteList.set(
-                                    String(d.address.toLowerCase()),
-                                    await this.getWhiteListFromServer(this.handler, true, d.address, parseInt(d.blockNumber, 16)))
+                                this.addWhiteListToCache(parseInt(d.blockNumber, 16),d.address)
                             }
                         }
                     }
@@ -155,15 +150,12 @@ export default class whiteListManager {
             throw new Error('Invalid contract address in params')
 
         if (this.cache) {
-            const wl = this.whiteList.get(whiteListContractAddr.toLowerCase())
+            const wlStr = this.whiteList.get(whiteListContractAddr.toLowerCase())
+            const wl = wlStr ? JSON.parse(wlStr) : null
 
             if (!wl) {
                 this.addWhiteListWatch(whiteListContractAddr, blockNum)
-                const swl = await this.getWhiteListFromServer(this.handler, includeProof, whiteListContractAddr, blockNum)
-
-                this.whiteList.set(
-                    String(whiteListContractAddr.toLowerCase()),
-                    swl);
+                const swl = await this.addWhiteListToCache(blockNum, whiteListContractAddr, includeProof)
                 return swl
             }
             return wl
@@ -211,7 +203,7 @@ export default class whiteListManager {
 
         let list: string[] = []
         for (var i = 1, s = 2; i <= (val.length - 2) / 40; i++) {
-            list.push(val.substr(s, 40))
+            list.push("0x"+val.substr(s, 40))
             s = 40 * i + 2
         }
 
@@ -226,6 +218,26 @@ export default class whiteListManager {
             wl.proof = await createNodeListProof(handler, wl, ['0x'.padEnd(66, '0')], blockNum)
 
         return wl
+    }
+
+    async addWhiteListToCache(blockNum: number, whiteListContractAddr: string, includeProof: boolean = true): Promise<WhiteList>{
+        const wlObj = await this.getWhiteListFromServer(this.handler, includeProof, whiteListContractAddr, blockNum)
+
+        if(!wlObj)
+            return null
+
+        let wl = JSON.parse(JSON.stringify(wlObj))
+        
+        //cap on max cahce
+        if(wl.nodes && wl.nodes.length > maxWhiteListCacheCap){
+            wl.nodes.splice(maxWhiteListCacheCap, wl.nodes.length - maxWhiteListCacheCap ) 
+        }
+
+        this.whiteList.set(
+            String(whiteListContractAddr.toLowerCase()),
+            JSON.stringify(wl))
+        
+        return wlObj
     }
 
 }
