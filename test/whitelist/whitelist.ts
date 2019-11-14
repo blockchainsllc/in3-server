@@ -88,7 +88,7 @@ describe('WhiteList Tests', () => {
     await rpc.init()
 
     const wl = await rpc.getHandler().getWhiteList(true,adr)
-    assert.equal(whitelistedNode.toLowerCase(),"0x"+wl.nodes[0].toLowerCase())
+    assert.equal(whitelistedNode.toLowerCase(),wl.nodes[0].toLowerCase())
 
   }).timeout(20000)
 
@@ -202,7 +202,7 @@ describe('WhiteList Tests', () => {
     const result = await rpc.getHandler().getWhiteList(true,adr)
     
     for(const wl of result.nodes)
-      assert.isTrue(whitelist.findIndex( e => e.toLowerCase() == "0x"+wl.toLowerCase()) > -1 )
+      assert.isTrue(whitelist.findIndex( e => e.toLowerCase() == wl.toLowerCase()) > -1 )
 
   }).timeout(20000)
 
