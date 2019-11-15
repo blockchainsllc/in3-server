@@ -305,9 +305,6 @@ async function getVersion(ctx: Router.IRouterContext) {
 }
 
 function checkNodeSync(_callback) {
-  const retryDuration = 3000
-
-  let isSync: Boolean = false
 
   let rpcReq = {
     jsonrpc: '2.0',
@@ -325,7 +322,7 @@ function checkNodeSync(_callback) {
           logger.error("Unable to connect Server \\or Some Error occured "+ r.error)
          }
         else if (r.result.startingBlock && r.result.currentBlock && r.result.highestBlock) {
-          logger.info("Parity is Stil Syncing. Current block:"+parseInt(r.result.currentBlock, 16)+" Highest block:"+parseInt(r.result.highestBlock), 16)
+          logger.info("Ethereum Node is still syncing. Current block:"+parseInt(r.result.currentBlock, 16)+" Highest block:"+parseInt(r.result.highestBlock,16)+" ...")
         }
         setTimeout(checkSync, 3000);
       }
