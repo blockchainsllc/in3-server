@@ -52,6 +52,8 @@ import { RPCRequest } from '../types/types'
 import { initConfig } from '../util/db'
 import { encodeObject } from '../util/binjson'
 import { checkBudget } from './clients'
+import { in3ProtocolVersion } from '../types/constants';
+import axios from 'axios'
 
 if (process.env.SENTRY_ENABLE === 'true') {
   Sentry.init({
@@ -212,45 +214,47 @@ router.get(/.*/, async ctx => {
 
 })
 
-initConfig().then(() => {
-  rpc = new RPC(config);
-  (chainAliases as any).api = Object.keys(config.chains)[0]
+checkNodeSync(() =>
+  initConfig().then(() => {
+    rpc = new RPC(config);
+    (chainAliases as any).api = Object.keys(config.chains)[0]
 
-  const doInit = (retryCount: number) => {
-    if (retryCount <= 0) {
-      logger.error('Error initializing the server : Maxed out retries')
-      throw new SentryError("server initialization error", "server_status", "maxed out retries")
-      INIT_ERROR = true
-      return;
+    const doInit = (retryCount: number) => {
+      if (retryCount <= 0) {
+        logger.error('Error initializing the server : Maxed out retries')
+        throw new SentryError("server initialization error", "server_status", "maxed out retries")
+        INIT_ERROR = true
+        return;
+      }
+      rpc.init().catch(err => {
+        //console.error('Error initializing the server : ' + err.message)
+        logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
+
+        setTimeout(() => { doInit(retryCount - 1) }, 20000)
+        throw new SentryError(err.message, "server_status", "Error initializing the server" + err.stack)
+
+      })
     }
-    rpc.init().catch(err => {
-      //console.error('Error initializing the server : ' + err.message)
-      logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
 
-      setTimeout(() => { doInit(retryCount - 1) }, 20000)
-      throw new SentryError(err.message, "server_status", "Error initializing the server" + err.stack)
+    // Getting node list and validator list before starting server
+    logger.info('initializing in3-server...')
+    doInit(3)
 
-    })
-  }
+    logger.info('staring in3-server...')
+    app
+      .use(router.routes())
+      .use(router.allowedMethods())
+      .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
+    app.proxy = config.proxy || false
 
-  // Getting node list and validator list before starting server
-  logger.info('initializing in3-server...')
-  doInit(3)
+  }).catch(err => {
+    //console.error('Error starting the server : ' + err.message, config)
+    logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
+    throw new SentryError(err, "server_status", "Error starting the server")
 
-  logger.info('staring in3-server...')
-  app
-    .use(router.routes())
-    .use(router.allowedMethods())
-    .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
-  app.proxy = config.proxy || false
-
-}).catch(err => {
-  //console.error('Error starting the server : ' + err.message, config)
-  logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
-  throw new SentryError(err, "server_status", "Error starting the server")
-
-  process.exit(1)
-})
+    process.exit(1)
+  })
+)
 
 async function checkHealth(ctx: Router.IRouterContext) {
 
@@ -300,3 +304,43 @@ async function getVersion(ctx: Router.IRouterContext) {
   }
 }
 
+function checkNodeSync(_callback) {
+  const retryDuration = 3000
+
+  let isSync: Boolean = false
+
+  let rpcReq = {
+    jsonrpc: '2.0',
+    id: 0,
+    method: 'eth_syncing', params: []
+  } as RPCRequest
+
+  const checkSync = () => sendToNode(config, rpcReq).then(
+    r => {
+      if (r.error == undefined && JSON.stringify(r.result) === "false") {
+        _callback()
+      }
+      else {
+        if (r.error) {
+          logger.error("Unable to connect Server \\or Some Error occured "+ r.error)
+         }
+        else if (r.result.startingBlock && r.result.currentBlock && r.result.highestBlock) {
+          logger.info("Parity is Stil Syncing. Current block:"+parseInt(r.result.currentBlock, 16)+" Highest block:"+parseInt(r.result.highestBlock), 16)
+        }
+        setTimeout(checkSync, 3000);
+      }
+    })
+
+  setTimeout(checkSync, 1);
+
+}
+
+async function sendToNode(config: any, request: RPCRequest) {
+  const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
+
+  return axios.post(config.rpcUrl, request, { headers }).then(_ => _.data,
+    err => {
+      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + config.rpcUrl)
+      throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + config.rpcUrl)
+    }).then(res => { return res })
+}
