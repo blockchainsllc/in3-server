@@ -230,12 +230,13 @@ export default class whiteListManager {
         
         //cap on max cahce
         if(wl.nodes && wl.nodes.length > maxWhiteListCacheCap){
-            wl.nodes.splice(maxWhiteListCacheCap, wl.nodes.length - maxWhiteListCacheCap ) 
+            //wl.nodes.splice(maxWhiteListCacheCap, wl.nodes.length - maxWhiteListCacheCap ) 
+            logger.info("Cache request denied for "+whiteListContractAddr+" as maximum allwed nodes to be registered are "+maxWhiteListCacheCap+" and cache requested are "+wl.nodes.length)
         }
-
-        this.whiteList.set(
-            String(whiteListContractAddr.toLowerCase()),
-            JSON.stringify(wl))
+        else{
+            this.whiteList.set(
+                String(whiteListContractAddr.toLowerCase()),
+                JSON.stringify(wl))}
         
         return wlObj
     }
