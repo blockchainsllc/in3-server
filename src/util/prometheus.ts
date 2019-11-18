@@ -36,7 +36,7 @@ import * as client from 'prom-client'
 
 export default class PromUpdater {
 
-  jobName: string
+  profile: any
   registry: client.Registry
   gateway: string
 
@@ -52,16 +52,16 @@ export default class PromUpdater {
 
   /**
    * PromUpdater constructor
-   * @param name
+   * @param profile
    * @param gateway 
    */
-  constructor(name: string, gateway?: string) {
+  constructor(profile: any, gateway?: string) {
     if(gateway) this.gateway = gateway
     else this.gateway = 'http://127.0.0.1:9091'
-    this.jobName = name
+    this.profile = profile
     this.registry = new client.Registry()
 
-    this.upSince = new client.Gauge({ name: 'up_since', help: 'UNIX TS of server start.' })
+    this.upSince = new client.Gauge({ name: 'up_since', help: 'UNIX TS of server start.', labelNames: ['icon', 'url'] })
 
     this.requests = new client.Counter({ name: 'requests', help: 'Total requests since starting the node.' })
     this.requestsProof = new client.Counter({ name: 'requests_proof', help: 'Total requests with proof.' })
@@ -106,7 +106,7 @@ export default class PromUpdater {
         this.requestTime.observe(stats.request_time)  
     }
 
-    this.upSince.set(stats.upSince)
+    this.upSince.set({ icon: (this.profile.icon ? this.profile.icon : 'nop'), url: (this.profile.url ? this.profile.url : 'nop') }, stats.upSince)
     this.lastRequest.set(stats.lastRequest)
     
     this.registry.registerMetric(this.upSince)
@@ -126,6 +126,6 @@ export default class PromUpdater {
    */
   private push(registry?: client.Registry, jobName?: string) {
     new client.Pushgateway(this.gateway, {}, (registry ? registry : this.registry))
-    .push({ jobName: (jobName ? jobName : this.jobName) }, (err, resp, body) => {})
+    .push({ jobName: (jobName ? jobName : this.profile.name) }, (err, resp, body) => {})
   }
 }
