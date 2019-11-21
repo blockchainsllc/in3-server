@@ -504,6 +504,10 @@ definitions:
                                 type: boolean
                                 description: if true, this node is able to deliver multiple chains
                                 flag: 2
+            maxGasLimit:
+                type: number
+                description: maximum allow gas of transaction which is allowed to pass in3 server
+
 
     ChainSpec:
         type: object
