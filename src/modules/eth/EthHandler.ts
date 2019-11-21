@@ -98,8 +98,8 @@ export default class EthHandler extends BaseHandler {
 
       const gasLimit = this.config.maxGasLimit || maxAllowedGas
 
-      const params = request.params[0] as TxRequest
-      if (!params || (params.gas && toNumber(params.gas) > gasLimit)) {
+      const tx = request.params[0] as TxRequest
+      if (!tx || (tx.gas && toNumber(tx.gas) > gasLimit)) {
         throw new Error('eth_call with a gaslimit > '+gasLimit+' are not allowed')}
     }
     else if (request.method === 'eth_getLogs') {
