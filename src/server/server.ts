@@ -48,12 +48,13 @@ import { readCargs } from './config'
 const config = readCargs()
 import { RPC } from './rpc'
 import { cbor, chainAliases } from 'in3-common'
-import { RPCRequest } from '../types/types'
+import { RPCRequest, IN3RPCConfig } from '../types/types'
 import { initConfig } from '../util/db'
 import { encodeObject } from '../util/binjson'
 import { checkBudget } from './clients'
-import { in3ProtocolVersion } from '../types/constants';
+import { in3ProtocolVersion } from '../types/constants'
 import axios from 'axios'
+
 
 if (process.env.SENTRY_ENABLE === 'true') {
   Sentry.init({
@@ -305,7 +306,6 @@ async function getVersion(ctx: Router.IRouterContext) {
 }
 
 function checkNodeSync(_callback) {
-
   let rpcReq = {
     jsonrpc: '2.0',
     id: 0,
@@ -314,29 +314,32 @@ function checkNodeSync(_callback) {
 
   const checkSync = () => sendToNode(config, rpcReq).then(
     r => {
-      if (r.error == undefined && JSON.stringify(r.result) === "false") 
+      if (r.error == undefined && JSON.stringify(r.result) === "false")
         _callback()
       else {
         if (r.error) {
-          logger.error("Unable to connect Server \\or Some Error occured "+ r.error)
-         }
+          logger.error("Unable to connect Server \\or Some Error occured " + r.error)
+        }
         else if (r.result.startingBlock && r.result.currentBlock && r.result.highestBlock) {
-          logger.info("Ethereum Node is still syncing. Current block:"+parseInt(r.result.currentBlock, 16)+" Highest block:"+parseInt(r.result.highestBlock,16)+" ...")
+          logger.info("Ethereum Node is still syncing. Current block:" + parseInt(r.result.currentBlock, 16) + " Highest block:" + parseInt(r.result.highestBlock, 16) + " ...")
         }
         setTimeout(checkSync, 10000);
       }
-    })
+    },
+    err => logger.error("Unable to connect to node", err)
+  )
 
   setTimeout(checkSync, 1);
 
 }
 
-async function sendToNode(config: any, request: RPCRequest) {
+async function sendToNode(config: IN3RPCConfig, request: RPCRequest) {
   const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
+  const url = config.chains[Object.keys(config.chains)[0]].rpcUrl
 
-  return axios.post(config.rpcUrl, request, { headers }).then(_ => _.data,
+  return axios.post(url, request, { headers }).then(_ => _.data,
     err => {
-      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + config.rpcUrl)
-      throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + config.rpcUrl)
+      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + url)
+      throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + url)
     }).then(res => { return res })
 }
