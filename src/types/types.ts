@@ -127,7 +127,10 @@ export interface IN3RPCRequestConfig {
      * example: 1.0.0
      */
     version?: string
-
+    /**
+     * address of whitelist contract if added in3 server will register it in watch 
+     * and will notify client the whitelist event block number in reponses it depends on cahce settings
+     */
     whiteList?: string
 }
 /**
