@@ -314,9 +314,8 @@ function checkNodeSync(_callback) {
 
   const checkSync = () => sendToNode(config, rpcReq).then(
     r => {
-      if (r.error == undefined && JSON.stringify(r.result) === "false") {
+      if (r.error == undefined && JSON.stringify(r.result) === "false") 
         _callback()
-      }
       else {
         if (r.error) {
           logger.error("Unable to connect Server \\or Some Error occured "+ r.error)
@@ -324,7 +323,7 @@ function checkNodeSync(_callback) {
         else if (r.result.startingBlock && r.result.currentBlock && r.result.highestBlock) {
           logger.info("Ethereum Node is still syncing. Current block:"+parseInt(r.result.currentBlock, 16)+" Highest block:"+parseInt(r.result.highestBlock,16)+" ...")
         }
-        setTimeout(checkSync, 3000);
+        setTimeout(checkSync, 10000);
       }
     })
 
