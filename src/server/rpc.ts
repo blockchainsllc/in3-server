@@ -34,7 +34,7 @@
 
 
 import { Transport, AxiosTransport, util } from 'in3-common'
-import { RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
+import { WhiteList, RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour } from './stats'
@@ -46,6 +46,7 @@ import { SentryError } from '../util/sentryError'
 import { in3ProtocolVersion } from '../types/constants'
 import { getSafeMinBlockHeight } from './config';
 import * as logger from '../util/logger'
+import WhiteListManager from '../chains/whiteListManager';
 
 
 export class RPC {
@@ -142,6 +143,44 @@ export class RPC {
           return res as RPCResponse
         }))
 
+      else if (r.method === 'in3_whiteList')
+        return manageRequest(
+
+          handler,
+
+          Promise.all(
+            [handler.getWhiteList(
+              in3Request.verification && in3Request.verification.startsWith('proof'),
+              r.params[0],
+              in3Request.signers || in3Request.signatures,
+              in3Request.verifiedHashes),
+
+            getValidatorHistory(handler)])
+
+            .then(async ([result, validators]) => {
+              const res = {
+                id: r.id,
+                result: result as any,
+                jsonrpc: r.jsonrpc,
+                in3: { ...in3, execTime: Date.now() - start, lastValidatorChange: validators.lastValidatorChange } as IN3ResponseConfig
+              }
+              const proof = res.result.proof
+              if (proof) {
+                delete res.result.proof
+                res.in3.proof = proof
+              }
+
+              if (r.params[0])
+                await handler.whiteListMgr.addWhiteListWatch(r.params[0])
+
+              if (handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) && handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) != -1)
+                res.in3.lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0])
+
+              return res as RPCResponse
+            }
+            )
+        )
+
       else if (r.method === 'in3_validatorList' || r.method === 'in3_validatorlist') // 'in3_validatorlist' is only supported for legacy, but deprecated
         return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
 
@@ -179,7 +218,10 @@ export class RPC {
           (in3 as any).rpcTime = (r as any).rpcTime || 0;
           (in3 as any).rpcCount = (r as any).rpcCount || 0;
           (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
-          (in3 as any).version = in3ProtocolVersion
+          (in3 as any).version = in3ProtocolVersion;
+
+          if (r.in3 && r.in3.whiteList && handler.watcher && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) != -1)
+            (in3 as any).lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList)
           return _
         })
       ])
@@ -235,8 +277,10 @@ export interface RPCHandler {
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
   checkRegistry(): Promise<any>
+  getWhiteList(includeProof: boolean, whiteListContract: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList>
   config: IN3RPCHandlerConfig
   watcher?: Watcher
+  whiteListMgr?: WhiteListManager
 }
 
 /**

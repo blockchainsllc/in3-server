@@ -12,12 +12,12 @@ configuration-data for the Incubed-client / server
 *  [RPCResponse](#rpcresponse)
 *  [IN3NodeConfig](#in3nodeconfig)
 *  [ServerList](#serverlist)
+*  [WhiteList](#whitelist)
 *  [IN3RPCHandlerConfig](#in3rpchandlerconfig)
 *  [ChainSpec](#chainspec)
 *  [IN3RPCConfig](#in3rpcconfig)
 *  [IN3Config](#in3config)
 *  [IN3NodeWeight](#in3nodeweight)
-*  [RPCRequest](#rpcrequest)
 
 ## Errors
 
@@ -41,9 +41,10 @@ const iN3RPCRequestConfig:types.IN3RPCRequestConfig = {
   ],
   latestBlock: 6,
   verification: 'proof',
-  signatures: [
+  signers: [
     '0x6C1a01C2aB554930A937B0a2E8105fB47946c679'
-  ]
+  ],
+  version: '1.0.0'
 }
 ```
  See [types.yaml](../blob/develop/src/types/types.yaml)
@@ -59,7 +60,8 @@ const iN3RPCRequestConfig:types.IN3RPCRequestConfig = {
 *  **verification** `string` - defines the kind of proof the client is asking for   
  Must be one of the these values : `'never`', `'proof`', `'proofWithSignature`'
 *  **clientSignature** [{"description":"the signature of the client"}](#{"description":"the signature of the client"}) - the signature of the client   
-*  **signatures** `string<address>[]` - a list of addresses requested to sign the blockhash   
+*  **signers** `string<address>[]` - a list of addresses requested to sign the blockhash   
+*  **version** `string` - IN3 protocol version that client can specify explicitly in request   
 
 ### LogProof
 
@@ -224,7 +226,8 @@ const iN3ResponseConfig:types.IN3ResponseConfig = {
     ]
   },
   lastNodeList: 326478,
-  currentBlock: 320126478
+  currentBlock: 320126478,
+  version: '1.0.0'
 }
 ```
  See [types.yaml](../blob/develop/src/types/types.yaml)
@@ -233,6 +236,7 @@ const iN3ResponseConfig:types.IN3ResponseConfig = {
 *  **lastNodeList** `number` - the blocknumber for the last block updating the nodelist. If the client has a smaller blocknumber he should update the nodeList.   
 *  **lastValidatorChange** `number` - the blocknumber of gthe last change of the validatorList   
 *  **currentBlock** `number` - the current blocknumber.   
+*  **version** `string` - IN3 protocol version   
 
 ### RPCResponse
 
@@ -276,7 +280,8 @@ const rPCResponse:types.RPCResponse = {
       ]
     },
     lastNodeList: 326478,
-    currentBlock: 320126478
+    currentBlock: 320126478,
+    version: '1.0.0'
   },
   in3Node: {
     index: 13,
@@ -390,8 +395,58 @@ const serverList:types.ServerList = {
 *  **lastBlockNumber** `integer` - last Block number   
 *  **nodes** `IN3NodeConfig[]` (required)  - the list of nodes   
 *  **contract** `string` - IN3 Registry   
-*  **registryId** `string` - registryId of the contract for signing requests   
 *  **totalServers** `integer` - number of servers   
+*  **proof** [Proof](#proof)   
+
+### WhiteList
+
+a List of white list nodes
+
+```javascript
+import {types} from 'in3-server'
+const whiteList:types.WhiteList = {
+  nodes: [
+    null
+  ],
+  proof: {
+    type: 'accountProof',
+    block: '0x72804cfa0179d648ccbe6a65b01a6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b86d8f42c92bbda6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b',
+    finalityBlocks: [
+      '0x72804cfa0179d648ccbe6a65b01a6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b86d8f42c92bbda6463a8f1ebb14f3aff6b19cb91acf2b8ec1ffee98c0437b4ac839d8a2ece1b18166da704b'
+    ],
+    transactions: [],
+    uncles: [],
+    merkleProof: [
+      null
+    ],
+    merkleProofPrev: [
+      null
+    ],
+    txProof: [
+      null
+    ],
+    txIndex: 4,
+    signatures: [
+      {
+        address: '0x6C1a01C2aB554930A937B0a2E8105fB47946c679',
+        block: 3123874,
+        blockHash: '0x6C1a01C2aB554930A937B0a212346037E8105fB47946c679',
+        msgHash: '0x9C1a01C2aB554930A937B0a212346037E8105fB47946AB5D',
+        r: '0x72804cfa0179d648ccbe6a65b01a6463a8f1ebb14f3aff6b19cb91acf2b8ec1f',
+        s: '0x6d17b34aeaf95fee98c0437b4ac839d8a2ece1b18166da704b86d8f42c92bbda',
+        v: 28
+      }
+    ]
+  }
+}
+```
+ See [types.yaml](../blob/develop/src/types/types.yaml)
+
+*  **lastBlockNumber** `integer` - last Block number   
+*  **nodes** `string[]` (required)  - the list of nodes   
+*  **contract** `string` - IN3 Registry   
+*  **totalServers** `integer` - number of servers   
+*  **registryId** `string` - IN3 Registry Id   
 *  **proof** [Proof](#proof)   
 
 ### IN3RPCHandlerConfig
@@ -438,7 +493,6 @@ const iN3RPCHandlerConfig:types.IN3RPCHandlerConfig = {
         properties: 
         *  **proof** `boolean` - if true, this node is able to deliver proofs   
         *  **multiChain** `boolean` - if true, this node is able to deliver multiple chains   
-*  **maxGasLimit** `number` - maximum allow gas of transaction which is allowed to pass in3 server   
 
 ### ChainSpec
 
@@ -480,6 +534,10 @@ const iN3RPCConfig:types.IN3RPCConfig = {
  See [types.yaml](../blob/develop/src/types/types.yaml)
 
 *  **id** `string` - a identifier used in logfiles as also for reading the config from the database   
+*  **maxPointsPerMinute** `number` - max number of request points a client is able to handle before getting rejected.   
+*  **maxBlocksSigned** `number` - max number of blocks signed per in3_sign-request   
+*  **maxSignatures** `number` - max number of signatures to request   
+*  **proxy** `boolean` - accepts x-forward-headers   
 *  **defaultChain** `string` - the default chainId in case the request does not contain one.   
 *  **port** `integer` - the listeneing port for the server   
 *  **db** `object`   
@@ -608,43 +666,6 @@ const iN3NodeWeight:types.IN3NodeWeight = {
 *  **pricePerRequest** `integer` - last price   
 *  **lastRequest** `integer` - timestamp of the last request in ms   
 *  **blacklistedUntil** `integer` - blacklisted because of failed requests until the timestamp   
-
-### RPCRequest
-
-a JSONRPC-Request with N3-Extension
-
-```javascript
-import {types} from 'in3-server'
-const rPCRequest:types.RPCRequest = {
-  jsonrpc: '2.0',
-  method: 'eth_getBalance',
-  id: 2,
-  params: [
-    '0xe36179e2286ef405e929C90ad3E70E649B22a945',
-    'latest'
-  ],
-  in3: {
-    chainId: '0x1',
-    includeCode: true,
-    verifiedHashes: [
-      null
-    ],
-    latestBlock: 6,
-    verification: 'proof',
-    signatures: [
-      '0x6C1a01C2aB554930A937B0a2E8105fB47946c679'
-    ]
-  }
-}
-```
- See [types.yaml](../blob/develop/src/types/types.yaml)
-
-*  **jsonrpc** `string` (required)  - the version   
- Must be one of the these values : `'2.0`'
-*  **method** `string` (required)  - the method to call   
-*  **id** `number,string` - the identifier of the request   
-*  **params** `array` - the params   
-*  **in3** [IN3RPCRequestConfig](#in3rpcrequestconfig) - the IN3-Config   
 
 
 ## Error Keys 

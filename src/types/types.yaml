@@ -72,6 +72,9 @@ definitions:
                 description: IN3 protocol version that client can specify explicitly in request
                 type: string
                 example: "1.0.0"
+            whiteList:
+                description: address of whitelist contract if added in3 server will register it in watch and will notify client the whitelist event block number in reponses it depends on cahce settings
+                type: string
 
     LogProof:
         type: object
@@ -421,6 +424,32 @@ definitions:
                 description: number of servers
             proof:
                 $ref: "#/definitions/Proof"
+    
+    WhiteList:
+        type: object
+        description: a List of white list nodes
+        required: [nodes]
+        properties:
+            lastBlockNumber:
+                type: integer
+                description: last Block number
+            nodes:
+                type: array
+                description: the list of nodes
+                items:
+                    type: string
+            contract:
+                type: string
+                description: IN3 Registry
+                pattern: ^0x[0-9a-fA-F]+$
+            totalServers:
+                type: integer
+                description: number of servers
+            registryId:
+                type: string
+                description: IN3 Registry Id
+            proof:
+                $ref: "#/definitions/Proof"
 
     IN3RPCHandlerConfig:
         type: object
@@ -473,6 +502,12 @@ definitions:
             registry:
                 type: string
                 description: the address of the server registry used in order to update the nodeList
+            maxWhiteListWatch: 
+                type: number
+                description: maximum number of white list contracts allowed to register in whitelist watch
+            cacheWhiteList: 
+                type: boolean
+                description: cache whitelist address in watch
             registryRPC:
                 type: string
                 description: the url of the client in case the registry is not on the same chain.

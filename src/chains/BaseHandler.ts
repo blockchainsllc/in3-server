@@ -33,7 +33,7 @@
  *******************************************************************************/
 
 import { Transport, AxiosTransport, serialize, util as in3Util } from 'in3-common'
-import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
+import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
 import Watcher from './watch'
@@ -44,6 +44,7 @@ import { SimpleCache } from '../util/cache'
 import * as logger from '../util/logger'
 import { toMinHex } from 'in3-common/js/src/util/util'
 import { in3ProtocolVersion } from '../types/constants'
+import WhiteListManager from './whiteListManager'
 
 
 
@@ -59,6 +60,7 @@ export default abstract class BaseHandler implements RPCHandler {
   chainId: string
   watcher: Watcher
   cache: SimpleCache
+  whiteListMgr: WhiteListManager
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
@@ -74,6 +76,9 @@ export default abstract class BaseHandler implements RPCHandler {
 
     // create watcher checking the registry-contract for events
     this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock)
+
+    this.whiteListMgr = new WhiteListManager(this, config.maxWhiteListWatch, config.cacheWhiteList)
+    this.watcher.on('newBlock', () => this.whiteListMgr.updateWhiteList())
 
     // start the watcher in the background
     if (interval > 0 && (this.config as any).useCache) {
@@ -169,6 +174,20 @@ export default abstract class BaseHandler implements RPCHandler {
       nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes)
     }
     return nl
+  }
+
+  /** get the white list nodes */
+  async getWhiteList(includeProof: boolean, whiteListContract: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList> {
+    const wl = await this.whiteListMgr.getWhiteList(includeProof, whiteListContract)
+
+    if (wl.proof && signers && signers.length) {
+      let blockNumber = wl.lastBlockNumber
+
+      if (wl.proof.block)
+        blockNumber = in3Util.toNumber(serialize.blockFromHex(wl.proof.block).number)
+      wl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes)
+    }
+    return wl
   }
 
   getRequestFromPath(path: string[], in3: { chainId: string; }): RPCRequest {
