@@ -21,36 +21,43 @@ pragma solidity 0.5.10;
 
 
 /// @title Incubed White List Contract
+/// @dev this is used as an optional step to define the nodes a client will use.
+///      This each client may reference a whitelist, which can be managed by a organisation or individually.
 contract IN3WhiteList {
 
-    ///proof hash for whiteListNodesList
+    /// @notice proof hash for whiteListNodesList
+    /// @dev    this value is the first storage-entry and is used to verify the correct whitelist in the client. 
+    ///         This way we only need to verify the merkle proof for this one storage value and compare it against the hash of the data.
     bytes32 public proofHash;
 
-    ///Blocknumbe rfor last event of adding or removing node from whitelist
+    /// @notice Blocknumber for last event of adding or removing node from whitelist, which is used for the client to find out, if his list is up to date.
+    /// @dev    this value is used for easier lookup. Instead on running eth_getLogs, we can simply find out be fetching this blocknumber
     uint public lastEventBlockNumber;
 
-    ///bytes array of whitelist nodes
+    /// @notice bytes array of whitelist nodes
+    /// @dev    the list contains concatenated addresses (each 20 bytes) as the most compact representation of the whole list.
     bytes public whiteListNodesList;
 
-    ///in3 nodes list in mappings
+    /// @notice in3 nodes list in mappings, which can be used as lookup. The uint represents the end of the entry in the whiteListNodesList
+    /// @dev    it is internally used for faster lookups
     mapping(address=>uint) public whiteListNodes;
 
-    ///for tracking this white listing belongs to which node registry
+    /// @notice for tracking this white listing belongs to which node registry
     address public nodeRegistry;
 
-    ///owner of this white listing contract, can be multisig
+    /// @notice owner of this white listing contract, can be multisig
     address public owner;
 
-    /// version: major minor fork(000) date(yyyy/mm/dd)
+    /// @notice version: major minor fork(000) date(yyyy/mm/dd)
     uint constant public VERSION = 12300020191017;
 
-    /// event for looking node added to whitelisting contract
+    /// @notice event for looking node added to whitelisting contract
     event LogNodeWhiteListed(address nodeAddress);
 
-    /// event for looking node removed from whitelisting contract
+    /// @notice event for looking node removed from whitelisting contract
     event LogNodeRemoved(address nodeAddress);
 
-    ///only owner modifier
+    /// @notice only owner modifier
     modifier onlyOwner {
         require(msg.sender == owner, "Only owner can call this function.");
         _;
@@ -58,7 +65,7 @@ contract IN3WhiteList {
 
     /// @notice constructor
     /// @param _nodeRegistry address of a Node Registry-contract
-    ///white listing contract constructor
+    /// @dev   white listing contract constructor
     constructor(address _nodeRegistry) public {
         nodeRegistry = _nodeRegistry;
         owner = msg.sender;
@@ -74,9 +81,7 @@ contract IN3WhiteList {
         require(whiteListNodes[_nodeAddr] == 0, "Node already exists in whitelist.");
 
         bytes memory newAddr = abi.encodePacked(_nodeAddr);
-        for (uint i = 0; i < 20; i++) {
-            whiteListNodesList.push(newAddr[i]);
-        }
+        for (uint i = 0; i < 20; i++) whiteListNodesList.push(newAddr[i]);
         whiteListNodes[_nodeAddr] = whiteListNodesList.length;
 
         proofHash = keccak256(abi.encodePacked(whiteListNodesList));
