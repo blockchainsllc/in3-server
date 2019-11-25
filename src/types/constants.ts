@@ -20,7 +20,7 @@
 export const in3ProtocolVersion = '2.0.0'
 
 //maximum number of whitelist contracts allowed to register in watcher
-export const maxWhiteListListen = 10
+export const maxWhiteListContracts = 10
 
 //maximum number of whitelist addrs allowed per contract in cache
 //this is just DOS protection measure, with partial whitelist the proof will not work

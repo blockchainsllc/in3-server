@@ -46,7 +46,7 @@ import { SentryError } from '../util/sentryError'
 import { in3ProtocolVersion } from '../types/constants'
 import { getSafeMinBlockHeight } from './config';
 import * as logger from '../util/logger'
-import whiteListManager from '../chains/whiteListManager';
+import WhiteListManager from '../chains/whiteListManager';
 
 
 export class RPC {
@@ -143,10 +143,10 @@ export class RPC {
           return res as RPCResponse
         }))
 
-      else if(r.method === 'in3_whiteList')
+      else if (r.method === 'in3_whiteList')
         return manageRequest(
 
-          handler, 
+          handler,
 
           Promise.all(
             [handler.getWhiteList(
@@ -155,30 +155,31 @@ export class RPC {
               in3Request.signers || in3Request.signatures,
               in3Request.verifiedHashes),
 
-          getValidatorHistory(handler)])
-          
-          .then(async ([result, validators]) => {
-                const res = {
-                  id: r.id,
-                  result: result as any,
-                  jsonrpc: r.jsonrpc,
-                  in3: { ...in3, execTime: Date.now() - start, lastValidatorChange: validators.lastValidatorChange } as IN3ResponseConfig
-                }
-                const proof = res.result.proof
-                if (proof) {
-                  delete res.result.proof
-                  res.in3.proof = proof
-                }
+            getValidatorHistory(handler)])
 
-                if(r.params[0])
-                  await handler.whiteListMgr.addWhiteListWatch(r.params[0])
+            .then(async ([result, validators]) => {
+              const res = {
+                id: r.id,
+                result: result as any,
+                jsonrpc: r.jsonrpc,
+                in3: { ...in3, execTime: Date.now() - start, lastValidatorChange: validators.lastValidatorChange } as IN3ResponseConfig
+              }
+              const proof = res.result.proof
+              if (proof) {
+                delete res.result.proof
+                res.in3.proof = proof
+              }
 
-                if(handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) && handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) != -1)
-                  res.in3.lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0])
-                
-                return res as RPCResponse}
-                )
+              if (r.params[0])
+                await handler.whiteListMgr.addWhiteListWatch(r.params[0])
+
+              if (handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) && handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) != -1)
+                res.in3.lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0])
+
+              return res as RPCResponse
+            }
             )
+        )
 
       else if (r.method === 'in3_validatorList' || r.method === 'in3_validatorlist') // 'in3_validatorlist' is only supported for legacy, but deprecated
         return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
@@ -219,7 +220,7 @@ export class RPC {
           (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
           (in3 as any).version = in3ProtocolVersion;
 
-          if(r.in3 && r.in3.whiteList && handler.watcher && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) != -1 )
+          if (r.in3 && r.in3.whiteList && handler.watcher && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) != -1)
             (in3 as any).lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList)
           return _
         })
@@ -279,7 +280,7 @@ export interface RPCHandler {
   getWhiteList(includeProof: boolean, whiteListContract: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList>
   config: IN3RPCHandlerConfig
   watcher?: Watcher
-  whiteListMgr?: whiteListManager
+  whiteListMgr?: WhiteListManager
 }
 
 /**
