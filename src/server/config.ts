@@ -53,6 +53,9 @@ const config: IN3RPCConfig = {
   maxPointsPerMinute: 60 * 100, // per scond max a 100 points request
   maxBlocksSigned: 10,
   maxSignatures: 5,
+  profile: {
+    noStats: true
+  },
   chains: {
     '0x1': {
       rpcUrl: 'http://localhost:8545',
@@ -126,22 +129,13 @@ export function readCargs(): IN3RPCConfig {
   const processedArgs = vals.parse(process.argv, { mri: { string: options.map(_ => _.name) } })
 
   // fix chainIds to minHex and enable or disable cache
-  for (const c of Object.keys(config.chains)) {
-    const min = util.toMinHex(c)
-    if (min != c) {
-      config.chains[min] = config.chains[c]
-      delete config.chains[c]
-    }
+  Object.keys(config.chains).filter(_ => util.toMinHex(_) != _).forEach(c => {
+    config.chains[util.toMinHex(c)] = config.chains[c]
+    delete config.chains[c]
+  })
 
-    //explicit command must be specified to disable cache else it is enabled
-    if (processedArgs.cache === 'false') {
-      (config.chains[c] as any).useCache = false
-    }
-    else {
-      (config.chains[c] as any).useCache = true
-    }
-
-  }
+  // set the cache
+  Object.keys(config.chains).forEach(c => (config.chains[c] as any).useCache = processedArgs.cache !== 'false')
 
   return config
 }

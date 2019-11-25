@@ -38,6 +38,7 @@ import { toChecksumAddress } from 'ethereumjs-util'
 import { Transport, util } from 'in3-common'
 import { readFileSync } from 'fs'
 import { padStart } from 'in3-common/js/src/util/util';
+import { PK } from '../chains/signatures';
 import { padEnd } from 'in3-common/js/src/util/util';
 const toHex = util.toHex
 
@@ -55,7 +56,7 @@ export function getABI(name: string) {
   return JSON.parse(in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf(name) >= 0)].abi)
 }
 
-export function deployContract(name: string, pk: string, url = 'http://localhost:8545', transport?: Transport) {
+export function deployContract(name: string, pk: PK, url = 'http://localhost:8545', transport?: Transport) {
   return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf(name) >= 0)].bin, {
     privateKey: pk,
     gas: 3000000,
@@ -64,7 +65,7 @@ export function deployContract(name: string, pk: string, url = 'http://localhost
 
 }
 
-export function deployChainRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
+export function deployChainRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
   return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('ChainRegistry') >= 0)].bin, {
     privateKey: pk,
     gas: 3000000,
@@ -73,7 +74,7 @@ export function deployChainRegistry(pk: string, url = 'http://localhost:8545', t
 
 }
 
-export async function deployNodeRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
+export async function deployNodeRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
 
   const blockHashAddress = (await deployBlockhashRegistry(pk, url, transport)).substr(2)
   return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/NodeRegistry.sol:NodeRegistry') >= 0)].bin + padStart(blockHashAddress, 64, "0"), {
@@ -83,7 +84,7 @@ export async function deployNodeRegistry(pk: string, url = 'http://localhost:854
   }, transport).then(_ => toChecksumAddress(_.contractAddress) as string)
 }
 
-export function deployBlockhashRegistry(pk: string, url = 'http://localhost:8545', transport?: Transport) {
+export function deployBlockhashRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
   return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/BlockhashRegistry.sol:BlockhashRegistry') >= 0)].bin, {
     privateKey: pk,
     gas: 8000000,
@@ -91,9 +92,9 @@ export function deployBlockhashRegistry(pk: string, url = 'http://localhost:8545
   }, transport, 300000).then(_ => toChecksumAddress(_.contractAddress) as string)
 }
 
-export async function registerNodes(pk: string, registry: string, data: {
+export async function registerNodes(pk: PK, registry: string, data: {
   url: string,
-  pk: string
+  pk: PK
   props: string
   deposit: any
   timeout: number
@@ -118,7 +119,7 @@ export async function registerNodes(pk: string, registry: string, data: {
   if (registerChain)
     chainRegistry = await registerChains(pk, chainRegistry, [{
       chainId,
-      bootNodes: data.map(c => util.getAddress(c.pk) + ':' + c.url),
+      bootNodes: data.map(c => c.pk.address + ':' + c.url),
       meta: 'dummy',
       registryContract: registry,
       contractChain: chainId
@@ -136,7 +137,7 @@ export async function registerNodes(pk: string, registry: string, data: {
 
 }
 
-export async function registerChains(pk: string, chainRegistry: string, data: {
+export async function registerChains(pk: PK, chainRegistry: string, data: {
   chainId: string,
   bootNodes: string[],
   meta: string,

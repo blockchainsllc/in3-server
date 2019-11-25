@@ -633,6 +633,11 @@ export interface IN3RPCHandlerConfig {
             multiChain?: boolean
         }
     }
+    /**
+     * maximum allow gas of transaction which is allowed to pass in3 server
+     */
+    maxGasLimit?: number
+
 }
 /**
  * describes the chainspecific consensus params
