@@ -1,24 +1,40 @@
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
 
-import { RPCRequest, header, serialize, BlockData, Proof, LogData, util } from 'in3'
+import { getSigner as utilSigner, serialize, BlockData, LogData, util } from 'in3-common'
+import { RPCRequest, Proof } from '../types/types'
 import { RPCHandler } from './rpc'
 import EthHandler from '../modules/eth/EthHandler'
 import { recover } from 'secp256k1'
@@ -26,7 +42,7 @@ import { publicToAddress, rlp } from 'ethereumjs-util'
 import { handleLogs } from '../modules/eth/proof'
 import * as logger from '../util/logger'
 import { decodeFunction } from '../util/tx';
-const chains = require('in3/js/src/client/defaultConfig.json').servers
+const chains = require('in3-common/js/defaultConfig.json').servers
 /**
  * a Object holding proofs for validator logs. The key is the blockNumber as hex
  */
@@ -126,7 +142,7 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
                     if (!b || b.error || !b.result)
                         throw new Error("Couldn't get the block at transition")
 
-                    const transitionBlockSigner = header.getSigner(new serialize.Block(b.result))
+                    const transitionBlockSigner = utilSigner(new serialize.Block(b.result))
 
 
                     const finalityBlocks = await addFinalityForTransition(
@@ -329,7 +345,7 @@ async function addFinalityForTransition(
         })
 
         if (!b || b.error || !b.result) break
-        const currentSigner = header.getSigner(new serialize.Block(b.result))
+        const currentSigner = utilSigner(new serialize.Block(b.result))
         if (!signers.find(_ => _.equals(currentSigner)))
             signers.push(currentSigner)
 
@@ -371,7 +387,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
         // Fetch the finality blocks
         const finalityBlocks = await addFinalityForTransition(
             toNumber(block.number),
-            header.getSigner(block),
+            utilSigner(block),
             history.states[history.states.length - 1].validators.length,
             currentBlock,
             handler)

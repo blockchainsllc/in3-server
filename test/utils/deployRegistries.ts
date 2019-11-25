@@ -1,23 +1,41 @@
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
+
+
 
 import * as reg from '../../src/util/registry';
+import { createPK } from '../../src/chains/signatures';
 import { LoggingAxiosTransport } from '../utils/transport'
 
 const ownerPK = '0xb858a0f49ce12df65031ba0eb0b353abc74f93f8ccd43df9682fd2e2293a4db3'
@@ -32,7 +50,7 @@ export async function deployAll() {
   //  const chainRegistry = await deployChainRegistry(ownerPK, kovanClient)
   console.log('Chain Registry : ' + chainRegistry)
 
-  const r = await reg.registerChains(ownerPK, chainRegistry, [{
+  const r = await reg.registerChains(createPK(ownerPK), chainRegistry, [{
     chainId: '0x000000000000000000000000000000000000000000000000000000000000002a',
     bootNodes: ['0xa1bB1860c4aBF6F050F36cf672679d940c916a18:https://in3-kovan1.slock.it'],
     meta: 'about:blank',
@@ -48,11 +66,12 @@ export async function deployAll() {
 
 
   // register kovan-servers
-  const registers = await reg.registerServers(ownerPK, kovanRegistry, [{
+  const registers = await reg.registerNodes(createPK(ownerPK), kovanRegistry, [{
     url: 'https://in3-kovan1.slock.it',
-    pk: ownerPK,
+    pk: createPK(ownerPK),
     props: '0xFFFF',
-    deposit: 0
+    deposit: 0,
+    timeout: 3600,
   }], '0x000000000000000000000000000000000000000000000000000000000000002a', chainRegistry, kovanClient, new LoggingAxiosTransport())
 
   console.log('kovan-registry ' + JSON.stringify(registers, null, 2))

@@ -1,42 +1,71 @@
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
 import BaseHandler from './BaseHandler'
-import { IN3RPCHandlerConfig, util } from 'in3'
+import { util } from 'in3-common'
+import { IN3RPCHandlerConfig } from '../types/types'
 import * as fs from 'fs'
 import * as scryptsy from 'scrypt.js'
 import * as cryp from 'crypto'
 import * as ethUtil from 'ethereumjs-util'
-import { registerServers } from '../util/registry'
+import { registerNodes } from '../util/registry'
+import * as logger from '../util/logger'
+import { PK, createPK } from './signatures'
 
 
 
 export function checkPrivateKey(config: IN3RPCHandlerConfig) {
+  if ((config as any)._pk) return
   if (!config.privateKey)
     throw new Error('No private key set, which is needed in order to sign blockhashes')
-
   const key = config.privateKey
+  delete config.privateKey
+
+  if ((key as any).address && (key as any).sign) {
+    (config as any)._pk = key
+    return
+  }
+
+
   if (key.startsWith('0x')) {
     if (key.length != 66) throw new Error('The private key needs to have a length of 32 bytes!')
+    logger.error("using a raw privated key is strongly discouraged!");
+    (config as any)._pk = createPK(Buffer.from(key.substr(2), 'hex'))
     return
   }
   const password = config.privateKeyPassphrase
+  delete config.privateKeyPassphrase
 
   try {
     const json = JSON.parse(fs.readFileSync(key, 'utf8'))
@@ -63,9 +92,8 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
     if (mac !== json.crypto.mac)
       throw new Error('Key derivation failed - possibly wrong password');
 
-    const decipher = cryp.createDecipheriv(json.crypto.cipher, derivedKey.slice(0, 16), new Buffer(json.crypto.cipherparams.iv, 'hex'))
-    config.privateKey = '0x' + Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('hex')
-
+    const decipher = cryp.createDecipheriv(json.crypto.cipher, derivedKey.slice(0, 16), new Buffer(json.crypto.cipherparams.iv, 'hex'));
+    (config as any)._pk = createPK(Buffer.concat([decipher.update(ciphertext), decipher.final()]))
   } catch (ex) {
     throw new Error('Could not decode the private : ' + ex.message)
   }
@@ -103,9 +131,10 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
   const caps = autoReg.capabilities || {}
   const deposit = '0x' + util.toBN(autoReg.deposit || 0).mul(util.toBN(units[unit])).toString(16)
   const props = util.toHex((caps.proof ? 1 : 0) + (caps.multiChain ? 2 : 0))
+  const pk: PK = (handler.config as any)._pk
 
   //check balance
-  const balance = parseInt((await handler.getFromServer({ method: 'eth_getBalance', params: [util.getAddress(handler.config.privateKey)] })).result as any)
+  const balance = parseInt((await handler.getFromServer({ method: 'eth_getBalance', params: [pk.address] })).result as any)
   const txGasPrice = parseInt((await handler.getFromServer({ method: 'eth_gasPrice', params: [] })).result as any)
 
   const registrationCost = txGasPrice * 1000000
@@ -113,10 +142,11 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
   if (balance < (autoReg.deposit + registrationCost))
     throw new Error("Insufficient funds to register a server, need: " + autoReg.deposit + " ether, have: " + balance + " wei")
 
-  await registerServers(handler.config.privateKey, handler.config.registry, [{
+  await registerNodes((handler.config as any)._pk, handler.config.registry, [{
     url: autoReg.url,
-    pk: handler.config.privateKey,
+    pk: (handler.config as any)._pk,
     props,
-    deposit: deposit as any
+    deposit: deposit as any,
+    timeout: 3600
   }], handler.chainId, undefined, handler.config.registryRPC || handler.config.rpcUrl, undefined, false)
 }

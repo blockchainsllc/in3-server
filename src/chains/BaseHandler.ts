@@ -1,32 +1,52 @@
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-import { RPCRequest, RPCResponse, ServerList, Transport, AxiosTransport, IN3RPCHandlerConfig, serialize, util as in3Util }
-  from 'in3'
+import { Transport, AxiosTransport, serialize, util as in3Util } from 'in3-common'
+import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
 import Watcher from './watch'
 import { checkPrivateKey, checkRegistry } from './initHandler'
-import { collectSignatures, handleSign } from './signatures'
+import { collectSignatures, handleSign, PK } from './signatures'
 import { RPCHandler } from '../server/rpc'
 import { SimpleCache } from '../util/cache'
 import * as logger from '../util/logger'
+import { toMinHex } from 'in3-common/js/src/util/util'
+import { in3ProtocolVersion } from '../types/constants'
+import WhiteListManager from './whiteListManager'
+
+
 
 /**
  * handles eth_sign and eth_nodelist
@@ -40,6 +60,7 @@ export default abstract class BaseHandler implements RPCHandler {
   chainId: string
   watcher: Watcher
   cache: SimpleCache
+  whiteListMgr: WhiteListManager
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
@@ -55,6 +76,9 @@ export default abstract class BaseHandler implements RPCHandler {
 
     // create watcher checking the registry-contract for events
     this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock)
+
+    this.whiteListMgr = new WhiteListManager(this, config.maxWhiteListWatch, config.cacheWhiteList)
+    this.watcher.on('newBlock', () => this.whiteListMgr.updateWhiteList())
 
     // start the watcher in the background
     if (interval > 0 && (this.config as any).useCache) {
@@ -87,7 +111,20 @@ export default abstract class BaseHandler implements RPCHandler {
     const startTime = Date.now()
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
-    return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
+
+    for (let i = 0; i < request.params.length; i++) {
+      if (typeof request.params[i] === 'string' && request.params[i].startsWith("0x0")) {
+        if (request.params[i].substr(2).length % 32 != 0 && request.params[i].substr(2).length % 20 != 0) {
+          request.params[i] = toMinHex(request.params[i])
+        }
+      }
+    }
+    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
+    if (r && r.ip)
+      headers['X-Origin-IP'] = r.ip
+
+
+    return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
     }).then(res => {
@@ -102,9 +139,12 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** returns a array of requests from the server */
   getAllFromServer(request: Partial<RPCRequest>[], r?: any): Promise<RPCResponse[]> {
+    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
+    if (r && r.ip)
+      headers['X-Origin-IP'] = r.ip
     const startTime = Date.now()
     return request.length
-      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
+      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers }).then(_ => _.data, err => {
         logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
         throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
       }).then(res => {
@@ -136,12 +176,34 @@ export default abstract class BaseHandler implements RPCHandler {
     return nl
   }
 
+  /** get the white list nodes */
+  async getWhiteList(includeProof: boolean, whiteListContract: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList> {
+    const wl = await this.whiteListMgr.getWhiteList(includeProof, whiteListContract)
+
+    if (wl.proof && signers && signers.length) {
+      let blockNumber = wl.lastBlockNumber
+
+      if (wl.proof.block)
+        blockNumber = in3Util.toNumber(serialize.blockFromHex(wl.proof.block).number)
+      wl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes)
+    }
+    return wl
+  }
+
   getRequestFromPath(path: string[], in3: { chainId: string; }): RPCRequest {
     return null
   }
 
 
   toCleanRequest(request: Partial<RPCRequest>): RPCRequest {
+
+    for (let i = 0; i < request.params.length; i++) {
+      if (typeof request.params[i] === 'string' && request.params[i].startsWith("0x0")) {
+        if (request.params[i].substr(2).length % 32 != 0 && request.params[i].substr(2).length % 20 != 0) {
+          request.params[i] = toMinHex(request.params[i])
+        }
+      }
+    }
     return {
       id: request.id,
       method: request.method,

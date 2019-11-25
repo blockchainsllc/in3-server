@@ -1,31 +1,47 @@
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *‚
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-import { LogProof, LogData, RPCRequest, RPCResponse, BlockData, Signature, Proof, ReceiptData, serialize, util, TransactionData, header } from 'in3'
-import { rlp, toChecksumAddress } from 'ethereumjs-util'
+import { LogData, BlockData, ReceiptData, serialize, util, TransactionData, getSigner } from 'in3-common'
+import { LogProof, RPCRequest, RPCResponse, Signature, Proof } from '../../types/types'
+import { rlp, toChecksumAddress, keccak } from 'ethereumjs-util'
 import * as Trie from 'merkle-patricia-tree'
 import In3Trie from 'in3-trie'
 import EthHandler from './EthHandler'
 import { collectSignatures } from '../../chains/signatures'
 import * as evm from './evm_trace'
-import { analyseCall } from './evm_run'
-
+import { in3ProtocolVersion } from '../../types/constants'
+import { analyseCall, getFromCache, CacheAccount } from './evm_run'
 
 const ThreadPool = require('./threadPool')
 const toHex = util.toHex
@@ -47,14 +63,14 @@ export async function addFinality(request: RPCRequest, response: RPCResponse, bl
     if (validators) {
       let bn = parseInt(block.number as any)
       const blocks = response.in3.proof.finalityBlocks = []
-      const signers = [header.getSigner(new serialize.Block(block))]
+      const signers = [getSigner(new serialize.Block(block))]
       const minNumber = Math.ceil(Math.min(Math.max(request.in3.finality, 0), 100) * validators.length / 100)
       while (signers.length < minNumber) {
         bn = bn + 1
         if (curBlock && curBlock.number < bn) break
         const b = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['0x' + bn.toString(16), false] }, request)
         if (!b || b.error || !b.result) break
-        const s = header.getSigner(new serialize.Block(b.result))
+        const s = getSigner(new serialize.Block(b.result))
         if (!signers.find(_ => _.equals(s)))
           signers.push(s)
 
@@ -237,8 +253,9 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
     response.in3 = {
       proof: {
         type: 'blockProof',
-        signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: toNumber(blockData.number), hash: blockData.hash }], request.in3.verifiedHashes)
-      }
+        signatures: await collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(blockData.number), hash: blockData.hash }], request.in3.verifiedHashes)
+      },
+      version: in3ProtocolVersion
     }
 
     if (request.in3.useFullProof && blockData.uncles && blockData.uncles.length)
@@ -277,8 +294,9 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
       // create the proof
       response.in3 = {
         proof: await createTransactionProof(block, request.params[0] as string,
-          await collectSignatures(handler, request.in3.signatures, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
-          request.in3.verifiedHashes, handler) as any
+          await collectSignatures(handler, request.in3.signers, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
+          request.in3.verifiedHashes, handler) as any,
+        version: in3ProtocolVersion
       }
     return addFinality(request, response, block, handler)
   }
@@ -307,8 +325,9 @@ export async function handeGetTransactionFromBlock(handler: EthHandler, request:
     // create the proof
     response.in3 = {
       proof: await createTransactionFromBlockProof(block, parseInt(request.params[1]),
-        await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
-        request.in3.verifiedHashes) as any
+        await collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
+        request.in3.verifiedHashes) as any,
+      version: in3ProtocolVersion
     }
     return addFinality(request, response, block, handler)
   }
@@ -328,7 +347,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
 
       const [signatures, receipts] = await Promise.all([
         // signatures for the block of the transaction
-        collectSignatures(handler, request.in3.signatures, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes),
+        collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes),
 
         // get all receipts, because we need to build the MerkleTree
         handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })), request)
@@ -353,7 +372,8 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
           signatures,
           request.in3.verifiedHashes,
           handler
-        )
+        ),
+        version: in3ProtocolVersion
       }
 
       return addFinality(request, response, block, handler)
@@ -366,7 +386,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
 }
 
 export async function handleLogs(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
-  // ask the server for the tx
+  // ask the server for the logs
   const response = await handler.getFromServer(request, request)
   const logs = response && response.result as LogData[]
   // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
@@ -380,14 +400,24 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
     const blocks = await handler.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), true] })), request).then(all => all.map(_ => _.result as BlockData))
 
     // fetch in parallel
-    await Promise.all([
+    const [signatures] = await Promise.all([
       // collect signatures for all the blocks
-      collectSignatures(handler, request.in3.signatures, blocks.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash })), request.in3.verifiedHashes),
+      collectSignatures(handler, request.in3.signers, blocks.map(b => ({ blockNumber: parseInt(b.number as string), hash: b.hash })), request.in3.verifiedHashes),
       // and get all receipts in all blocks and afterwards reasign them to their block
       handler.getAllFromServer(
         blocks.map(_ => _.transactions).reduce((p, c) => [...p, ...c], []).map(t => ({ method: 'eth_getTransactionReceipt', params: [t.hash] })), request
       ).then(a => a.forEach(r => proof[toHex(r.result.blockNumber)].allReceipts.push(r.result)))
     ])
+
+    // for geth we need to fic the missing transactionLogIndex
+    logs.forEach(l => {
+      if (l.transactionLogIndex === undefined) {
+        // now we need to find which log this may be
+        const p = proof[toHex(l.blockNumber)]
+        const tr: ReceiptData = p && p.allReceipts.find(_ => _.transactionHash == l.transactionHash) || p.allReceipts[toNumber(l.transactionIndex)]
+        if (tr) l.transactionLogIndex = toMinHex(Math.max(0, tr.logs.findIndex(ll => toNumber(ll.logIndex) === toNumber(l.logIndex))))
+      }
+    })
 
     // create the proof per block
     await Promise.all(blocks.map(b => {
@@ -407,7 +437,7 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
 
       // create receipt-proofs for all these transactions
       return Promise.all(toProof.map(th =>
-        createTransactionReceiptProof(b, allReceipts, th, [], request.in3.verifiedHashes, handler)
+        createTransactionReceiptProof(b, allReceipts, th, signatures, request.in3.verifiedHashes, handler)
           .then(p => blockProof.receipts[th] = {
             txHash: th,
             txIndex: parseInt(allReceipts.find(_ => _.transactionHash == th).transactionIndex),
@@ -421,10 +451,13 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
     response.in3 = {
       proof: {
         type: 'logProof',
-        logProof: proof
-      }
+        logProof: proof,
+        signatures
+      },
+      version: in3ProtocolVersion
     }
   }
+
   return response
 }
 
@@ -450,16 +483,61 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
 
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as any
-  const neededProof = useTrace
-    ? evm.analyse((trace.result as any).vmTrace, request.params[0].to)
-    : await analyseCall(request.params[0], request.params[1] || 'latest', handler.getFromServer.bind(handler))
+  let neededAccounts = []
 
-  // ask for proof for the storage
-  const [accountProofs, signatures] = await Promise.all([
-    handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
+  async function getFromGeth(): Promise<any> {
+    for (let i = 0; i < 10; i++) {
+      const neededProof = await analyseCall(request.params[0], request.params[1] || 'latest', handler.getFromServer.bind(handler))
+      neededAccounts = Object.keys(neededProof.accounts)
+      const proof = await handler.getAllFromServer(neededAccounts.map(adr => (
+        { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
+      )), request)
+      const error = proof.find(_ => _.error)
+      if (error)
+        throw new Error('Error getting proof from node : ' + ((error.error as any).message || error.error))
+      let isValid = true
+      neededAccounts.forEach((adr, i) => {
+        const cache = getFromCache(adr)
+        const a = neededProof.accounts[adr]
+        const p = proof[i].result
+        if (a.code && !keccak(util.toBuffer(a.code)).equals(util.toBuffer(p.codeHash, 32))) {
+          delete cache.code
+          isValid = false
+        }
+        if (a.balance != undefined && util.toMinHex(a.balance || '0x00') != util.toMinHex(p.balance)) {
+          delete cache.balance
+          isValid = false
+        }
+        Object.keys(a.storage || []).forEach((k, i) => {
+          const val = util.toMinHex(a.storage[k])
+          const proofedKey = p.storageProof.find(_ => util.toMinHex(_.key) === util.toMinHex(k))
+          if (!proofedKey) {
+            delete cache.storage[k]
+            isValid = false
+            return
+          }
+          if (util.toMinHex(proofedKey.value) != val) {
+            delete cache.storage[k]
+            isValid = false
+          }
+        })
+      })
+      if (isValid) return proof
+    }
+    throw new Error('max retries of getting all values for eth_call exceeded')
+  }
+
+  async function getFromParity() {
+    const neededProof = evm.analyse((trace.result as any).vmTrace, request.params[0].to)
+    neededAccounts = Object.keys(neededProof.accounts)
+    return await handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
       { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
-    )), request),
-    collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes)
+    )), request)
+  }
+
+  const [accountProofs, signatures] = await Promise.all([
+    useTrace ? getFromParity() : getFromGeth(),
+    collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes)
   ])
 
   // add the codes to the accounts
@@ -489,8 +567,9 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
           type: 'callProof',
           block: createBlock(block, request.in3.verifiedHashes),
           signatures,
-          accounts: Object.keys(neededProof.accounts).reduce((p, v, i) => { p[v] = accountProofs[i].result; return p }, {})
-        }
+          accounts: neededAccounts.reduce((p, v, i) => { p[v] = accountProofs[i].result; return p }, {})
+        },
+        version: in3ProtocolVersion
       }
     }, block, handler)
 }
@@ -513,10 +592,10 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
   ], request)
 
   // error checking
-  if (blockResponse.error) 
+  if (blockResponse.error)
     throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
 
-  if (proof.error) 
+  if (proof.error)
     throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] }, null, 2))
 
 
@@ -548,9 +627,10 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
         proof: {
           type: 'accountProof',
           block: createBlock(block, request.in3.verifiedHashes),
-          signatures: await collectSignatures(handler, request.in3.signatures, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
+          signatures: await collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes),
           accounts: { [toChecksumAddress(address)]: proof.result }
-        }
+        },
+        version: in3ProtocolVersion
       }
     }, block, handler)
 }

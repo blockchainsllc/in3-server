@@ -1,45 +1,68 @@
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+
 
 import { assert } from 'chai'
 import 'mocha'
-import { util, BlockData, serialize, Signature, RPCRequest, RPCResponse } from 'in3'
+import { util, BlockData, serialize } from 'in3-common'
+import { Signature, RPCRequest, RPCResponse } from '../../src/types/types'
 import * as tx from '../../src/util/tx'
 import * as ethUtil from 'ethereumjs-util'
 import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
 import Watcher from '../../src/chains/watch'
-import { registerServers } from '../../src/util/registry'
-import { signatureCaches } from '../../src/chains/signatures'
+import { registerNodes, deployNodeRegistry } from '../../src/util/registry'
+import { toBN, toBuffer } from 'in3-common/js/src/util/util';
+import { BigNumber } from 'ethers/utils';
+import { signatureCaches, createPK, PK } from '../../src/chains/signatures'
 
+
+const address = serialize.address
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 const toHex = util.toHex
+const uint64 = serialize.uint64
+const uint = serialize.uint
 
-const sign = (b: BlockData, pk: string, blockHash?: string) => {
-  const msgHash = ethUtil.keccak(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number)]))
-  const s = ethUtil.ecsign(msgHash, bytes32(pk))
+const sign = (b: BlockData, registryId: string, pk: PK, blockHash?: string) => {
+  const msgHash = ethUtil.keccak(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number), bytes32(registryId)]))
+  const s = pk.sign(msgHash)
   return {
     ...s,
     block: toNumber(b.number),
     blockHash: blockHash || b.hash,
-    address: util.getAddress(pk),
+    address: pk.address,
     msgHash: toHex(msgHash, 32),
     r: toHex(s.r),
     s: toHex(s.s),
@@ -47,100 +70,220 @@ const sign = (b: BlockData, pk: string, blockHash?: string) => {
   } as Signature
 }
 
-
 describe('Convict', () => {
 
-
-
-  it('convict on contracts', async () => {
-
-    const test = await TestTransport.createWithRegisteredServers(2)
-
-    // make sure we have more than 256 blocks in order to test older blocks
-    const currentBlock = parseInt(await test.getFromServer('eth_blockNumber'))
-    for (let b = 0; b < 256 - currentBlock; b++)
-      await test.createAccount()
-
-    // read current Block
-    const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
-    // create a event-watcher starting with the current block
-    const watcher = new Watcher(test.getHandler(0), 0, null, toNumber(block.number))
-
-    // sign the correct blockhash 
-    let s = sign(block, test.getHandlerConfig(0).privateKey)
-
-    // must fail, since we cannot convict with a correct blockhash
-    let rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
-      privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
-      value: 0,
-      confirm: true
-    }).catch(_ => false)
-
-    assert.isFalse(rc, 'Transaction must fail, because we sent the correct hash')
-
-    // now test if we can send a wrong blockhash, but the block is older than 256 blocks:
-
-    // wrong blockhash signed by first node
-    s = sign({ number: 1 } as any, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
-    // must fail, since we cannot convict with a correct blockhash
-    rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
-      privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
-      value: 0,
-      confirm: true
-    }).catch(_ => false)
-
-    assert.isFalse(rc, 'Transaction must fail, because the block is too old')
-
-    // now try a successfull convict with a wrong blockhash
-
-
-    // wrong blockhash signed by first node
-    s = sign(block, test.getHandlerConfig(0).privateKey, '0x0000000000000000000000000000000000000000000000000000000000001234')
-
-    // the sender to convit will be second node
-    const sender = util.getAddress(test.getHandlerConfig(1).privateKey)
-
-    // get the balance
-    const balanceSenderBefore = toNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
-    const balanceRegistryBefore = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
-
-    // send the transaction to convict with the wrong hash
-    rc = await tx.callContract(test.url, test.nodeList.contract, 'convict(uint,bytes32,uint,uint8,bytes32,bytes32)', [0, s.blockHash, s.block, s.v, s.r, s.s], {
-      privateKey: test.getHandlerConfig(1).privateKey,
-      gas: 300000,
-      value: 0,
-      confirm: true
-    })
-
-    const balanceSenderAfter = toNumber(await test.getFromServer('eth_getBalance', sender, 'latest'))
-    const balanceRegistryAfter = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.contract, 'latest'))
-
-    assert.equal(balanceSenderAfter - balanceSenderBefore, 10000 / 2)
-    assert.equal(balanceRegistryBefore - balanceRegistryAfter, 10000)
-    const events = await watcher.update()
-    assert.equal(events.length, 2)
-    assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
-
-
-  }).timeout(50000)
-
-
-
-  it('verify and convict', async () => {
-
-    const test = await TestTransport.createWithRegisteredServers(2)
+  it('verify and convict (block within 256 blocks)', async () => {
+    const test = await TestTransport.createWithRegisteredNodes(2)
     const watcher = test.getHandler(0).watcher
+    const watcher2 = test.getHandler(1).watcher
 
-    const pk1 = test.getHandlerConfig(0).privateKey
-    const pk2 = test.getHandlerConfig(1).privateKey
+    const pk1 = test.getHandlerPK(0)
 
     const block = await test.getFromServer('eth_getBlockByNumber', 'latest', false) as BlockData
     const client = await test.createClient()
 
     // this is a correct signature and should not fail.
-    const res = await client.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
+    const res = await client.sendRPC('eth_getBalance', [pk1.address, 'latest'], undefined, {
+      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
+    })
+
+    assert.isDefined(res.in3.proof.signatures[0])
+    test.injectRandom([0.01, 0.9])
+    test.injectRandom([0.02, 0.8])
+
+    let manipulated = false
+    test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
+      const index = parseInt(url.substr(1)) - 1
+      // we change it to a wrong signature
+      if (!manipulated) {
+        re.result = [sign(block, test.registryId, test.getHandlerPK(index), toHex(pk1.address, 32))]
+        manipulated = true
+      }
+      return re
+    })
+
+    assert.equal(await test.getNodeCountFromContract(), 2)
+
+    // we create a new client because the old one may have different weights now
+    const client2 = await test.createClient()
+
+    // just read all events
+    await watcher.update()
+    await watcher2.update()
+
+    // this is a correct signature and should not fail.
+    await client2.sendRPC('eth_getBalance', [pk1.address, 'latest'], undefined, {
+      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
+    })
+
+    let events
+    for (let i = 0; i < 4; i++) {
+      await test.createAccount()
+      events = await watcher.update()
+      if (!events) events = await watcher2.update()
+    }
+
+    // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
+    assert.equal(await test.getNodeCountFromContract(), 1)
+
+
+
+    assert.equal(events.length, 2)
+    assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
+
+  }).timeout(6000000)
+
+  it("should increase the # of blocks to at least 260", async () => {
+
+    const test = await TestTransport.createWithRegisteredNodes(2)
+
+    let currentBlock = await test.getFromServer('eth_getBlockByNumber', "latest", false) as BlockData
+
+    while (toNumber(currentBlock.number) < 260) {
+      await test.createAccount(null, '1')
+      currentBlock = await test.getFromServer('eth_getBlockByNumber', "latest", false) as BlockData
+
+    }
+
+  }).timeout(600000)
+
+  it('verify and convict (block older then 256 blocks) - worth it', async () => {
+
+
+    const test = await TestTransport.createWithRegisteredNodes(2)
+
+    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [test.getHandlerPK(0).address, "#1", 0, 0, 0], { privateKey: (test.getHandlerConfig(0) as any)._pk, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [test.getHandlerPK(1).address, "#2", 0, 0, 0], { privateKey: (test.getHandlerConfig(1) as any)._pk, value: toBN('490000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false)
+
+    const blockHashRegistry = (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
+
+    const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], {
+      privateKey: (test.getHandlerConfig(1) as any)._pk, value: 0, confirm: true, gas: 5000000
+    }))
+
+    const wrongBlock = txReceipt.blockNumber - 0x104
+    const watcher = test.getHandler(0).watcher
+
+    const watcher2 = test.getHandler(1).watcher
+
+    const pk1 = test.getHandlerPK(0)
+    const pk2 = test.getHandlerPK(1)
+
+    const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
+
+    assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 260)
+
+    const client = await test.createClient()
+
+    // this is a correct signature and should not fail.
+    const res = await client.sendRPC('eth_getBalance', [pk1.address, toHex(wrongBlock)], undefined, {
+      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
+    })
+
+    assert.isDefined(res.in3.proof.signatures[0])
+    test.injectRandom([0.01, 0.9])
+    test.injectRandom([0.02, 0.8])
+
+    let manipulated = false
+    test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
+      const index = parseInt(url.substr(1)) - 1
+      // we change it to a wrong signature
+      if (!manipulated) {
+        re.result = [sign(block, test.registryId, test.getHandlerPK(index), toHex(pk1.address, 32))]
+        manipulated = true
+      }
+      return re
+    })
+
+
+    assert.equal(await test.getNodeCountFromContract(), 2)
+
+    // we create a new client because the old one may have different weights now
+    const client2 = await test.createClient()
+
+    // just read all events
+    await watcher.update()
+    await watcher2.update()
+
+
+
+    // this is a correct signature and should not fail.
+    await client2.sendRPC('eth_getBalance', [pk1.address, toHex(wrongBlock)], undefined, {
+      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
+    })
+
+    // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
+    await test.createAccount()
+    // just read all events
+    await watcher.update()
+    await watcher2.update()
+
+    await test.createAccount()
+
+    manipulated = false
+    test.injectResponse({ method: 'in3_sign' }, (req: RPCRequest, re: RPCResponse, url: string) => {
+      const index = parseInt(url.substr(1)) - 1
+      // we change it to a wrong signature
+      if (!manipulated) {
+        re.result = [sign(block, test.registryId, test.getHandlerPK(index), toHex(pk1.address, 32))]
+        manipulated = true
+      }
+      return re
+    })
+
+
+    assert.equal(await test.getNodeCountFromContract(), 2)
+
+    // this is a correct signature and should not fail.
+    await client.sendRPC('eth_getBalance', [pk1.address, toHex(wrongBlock)], undefined, {
+      keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
+    })
+    //   let events = await watcher.update()
+
+    //  if (!events) events = await watcher2.update()
+    let events
+
+    for (let i = 0; i < 25; i++) {
+      await test.createAccount()
+
+      events = await watcher.update()
+      if (!events) await watcher2.update()
+    }
+
+
+    //  assert.equal(events.length, 2)
+    assert.equal(await test.getNodeCountFromContract(), 1)
+
+    // assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
+
+  }).timeout(6000000)
+
+
+  it('verify and convict (block older then 256 blocks) - not worth it', async () => {
+    const test = await TestTransport.createWithRegisteredNodes(2)
+
+    const blockHashRegistry = (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
+    await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerPK(0), to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
+
+    const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerPK(1), value: 0, confirm: true, gas: 5000000 }))
+
+    const wrongBlock = txReceipt.blockNumber - 0x104
+
+    const watcher = test.getHandler(0).watcher
+    const watcher2 = test.getHandler(1).watcher
+
+
+    const pk1 = test.getHandlerPK(0)
+    const pk2 = test.getHandlerPK(1)
+
+    const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
+
+    assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 260)
+
+    const client = await test.createClient()
+
+    // this is a correct signature and should not fail.
+    const res = await client.sendRPC('eth_getBalance', [pk1.address, toHex(wrongBlock)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
@@ -153,130 +296,44 @@ describe('Convict', () => {
       const index = parseInt(url.substr(1)) - 1
       // we change it to a wrong signature
       if (!manipulated) {
-        re.result = [sign(block, test.getHandlerConfig(index).privateKey, pk1)]
+        re.result = [sign(block, toHex(test.getHandlerPK(index).address, 32), pk1)]
         manipulated = true
       }
       return re
     })
 
-    assert.equal(await test.getServerCountFromContract(), 2)
+
+    assert.equal(await test.getNodeCountFromContract(), 2)
 
     // we create a new client because the old one may have different weights now
     const client2 = await test.createClient()
 
     // just read all events
     await watcher.update()
+    await watcher2.update()
 
 
     // this is a correct signature and should not fail.
-    const res2 = await client2.sendRPC('eth_getBalance', [util.getAddress(pk1), 'latest'], undefined, {
+    const res2 = await client2.sendRPC('eth_getBalance', [pk1.address, toHex(wrongBlock)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
-    // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
-    assert.equal(await test.getServerCountFromContract(), 1)
+    let events
+    let events2
 
-    // just read all events
-    const events = await watcher.update()
-    assert.equal(events.length, 2)
-    assert.equal(events.map(_ => _.event).join(), 'LogServerConvicted,LogServerRemoved')
+    for (let i = 0; i < 40; i++) {
+      await test.createAccount()
 
-  })
-
-
-  it('requestUnregisteringServer', async () => {
-
-    const test = await TestTransport.createWithRegisteredServers(2)
-    const watcher = test.handlers['#1'].getHandler().watcher
-    // read all events (should be only the 2 register-events
-    assert.equal((await watcher.update()).length, 2)
-    const unregisterDeposit = 10000 / 50
-
-    const user = await test.createAccount()
-
-    // the user regquests to unregister this server
-    assert.isFalse(await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: unregisterDeposit - 1, confirm: true, gas: 300000 }).catch(_ => false), 'Must fail, because the wrong value was sent')
-
-    // the user regquests to unregister this server
-    await tx.callContract(test.url, test.nodeList.contract, 'requestUnregisteringServer(uint)', [0], { privateKey: user, value: unregisterDeposit, confirm: true, gas: 300000 })
-
-
-    const balanceOwnerBefore = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
-
-    // this should have picked up the first event, but als executing a transaction and reacting to it.
-    let events = await watcher.update()
-    assert.equal(events.length, 1)
-    assert.equal(events[0].event, 'LogServerUnregisterRequested')
-    assert.equal(events[0].caller, util.getAddress(user))
-    assert.equal(events[0].url, '#1')
-    assert.equal(events[0].owner, test.nodeList.nodes[0].address)
-
-    // now we should see the reaction of the server
-    events = await watcher.update()
-    if (!events) {
-      await new Promise(_ => setTimeout(_, 100))
       events = await watcher.update()
+      events2 = await watcher2.update()
+      assert.equal(events, undefined)
+      assert.equal(events2, undefined)
+
     }
-    assert.equal(events.length, 1)
-    assert.equal(events[0].event, 'LogServerUnregisterCanceled')
-    assert.equal(events[0].url, '#1')
-    assert.equal(events[0].owner, test.nodeList.nodes[0].address)
 
-    const balanceOwnerAfter = toNumber(await test.getFromServer('eth_getBalance', test.nodeList.nodes[0].address, 'latest'))
+    // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
+    assert.equal(await test.getNodeCountFromContract(), 2)
 
-    // the owner now got the deposit from the
-    assert.equal(balanceOwnerAfter - balanceOwnerBefore, unregisterDeposit)
   })
 
-  it('registerDuplicate', async () => {
-    // create an empty registry
-    const test = await new TestTransport(1)
-    const pk1 = await test.createAccount()
-    const pk2 = await test.createAccount()
-    const transport = new LoggingAxiosTransport()
-
-    // register 2 different servers should work
-    let registers = await registerServers(pk1, null, [{
-      url: 'test1.com',
-      deposit: 0,
-      pk: pk1,
-      props: '0xff'
-    }, {
-      url: 'test2.com',
-      deposit: 0,
-      pk: pk2,
-      props: '0xff'
-    }], test.chainId, null, test.url, transport, false)
-
-    // register same url servers should not work
-    await test.mustFail(
-      registerServers(pk1, null, [{
-        url: 'test1.com',
-        deposit: 0,
-        pk: pk1,
-        props: '0xff'
-      }, {
-        url: 'test1.com',
-        deposit: 0,
-        pk: pk2,
-        props: '0xff'
-      }], test.chainId, null, test.url, transport, false)
-    )
-
-    // register same pk servers should not work
-    await test.mustFail(
-      registerServers(pk1, null, [{
-        url: 'test1.com',
-        deposit: 0,
-        pk: pk1,
-        props: '0xff'
-      }, {
-        url: 'test2.com',
-        deposit: 0,
-        pk: pk1,
-        props: '0xff'
-      }], test.chainId, null, test.url, transport, false)
-    )
-  })
 })
-

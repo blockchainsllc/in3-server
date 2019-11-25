@@ -1,35 +1,54 @@
-/***********************************************************
- * This file is part of the Slock.it IoT Layer.             *
- * The Slock.it IoT Layer contains:                         *
- *   - USN (Universal Sharing Network)                      *
- *   - INCUBED (Trustless INcentivized remote Node Network) *
- ************************************************************
- * Copyright (C) 2016 - 2018 Slock.it GmbH                  *
- * All Rights Reserved.                                     *
- ************************************************************
- * You may use, distribute and modify this code under the   *
- * terms of the license contract you have concluded with    *
- * Slock.it GmbH.                                           *
- * For information about liability, maintenance etc. also   *
- * refer to the contract concluded with Slock.it GmbH.      *
- ************************************************************
- * For more information, please refer to https://slock.it   *
- * For questions, please contact info@slock.it              *
- ***********************************************************/
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
+
+
 
 import { methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
-import Client, { Transport, AxiosTransport, RPCResponse, util, transport } from 'in3'
+import { Transport, AxiosTransport, util, transport } from 'in3-common'
+import { RPCResponse } from '../types/types'
 import * as ETx from 'ethereumjs-tx'
 import { SentryError } from '../util/sentryError'
 import { AbiCoder } from '@ethersproject/abi'
+import { PK } from '../chains/signatures'
 const BN = require('bn.js')
 
 const toHex = util.toHex
 
 let idCount = 1
 export async function deployContract(url: string, bin: string, txargs?: {
-  privateKey: string
+  privateKey: PK
   gas: number
   nonce?: number
   gasPrice?: number
@@ -37,31 +56,26 @@ export async function deployContract(url: string, bin: string, txargs?: {
   data?: string
   value?: number
   confirm?: boolean
-}, transport?: Transport) {
-  return sendTransaction(url, { value: 0, ...txargs, data: bin }, transport)
-}
-
-export async function callContractWithClient(client: Client, contract: string, signature: string, ...args: any[]) {
-  const data = '0x' + encodeFunction(signature, args)
-
-  return client.sendRPC('eth_call', [{ to: contract, data }, 'latest'], client.defConfig.chainId)
+}, transport?: Transport, timeout?: number) {
+  return sendTransaction(url, { value: 0, ...txargs, data: bin }, transport, timeout)
 }
 
 export async function callContract(url: string, contract: string, signature: string, args: any[], txargs?: {
-  privateKey: string
-  gas: number
+  privateKey: PK
+  gas?: number
   nonce?: number
   gasPrice?: number
   to?: string
   data?: string
-  value: number
+  value: any
   confirm?: boolean
 }, transport?: Transport) {
   if (!transport) transport = new AxiosTransport()
   const data = '0x' + encodeFunction(signature, args)
 
-  if (txargs)
-    return sendTransaction(url, { ...txargs, to: contract, data }, transport)
+  if (txargs) {
+    return sendTransaction(url, { to: contract, data: '0x' + encodeFunction(signature, args), ...txargs, }, transport)
+  }
 
   return decodeFunction(signature.replace('()', '(uint)'), toBuffer(await transport.handle(url, {
     jsonrpc: '2.0',
@@ -79,15 +93,15 @@ export async function callContract(url: string, contract: string, signature: str
 
 
 export async function sendTransaction(url: string, txargs: {
-  privateKey: string
-  gas: number
+  privateKey: PK
+  gas?: number
   nonce?: number
   gasPrice?: number
   to?: string
   data: string
-  value: number
+  value: any
   confirm?: boolean
-}, transport?: Transport): Promise<{
+}, transport?: Transport, timeout?: number): Promise<{
   blockHash: string,
   blockNumber: string,
   contractAddress: string,
@@ -102,8 +116,8 @@ export async function sendTransaction(url: string, txargs: {
 }> {
 
   if (!transport) transport = new AxiosTransport()
-  const key = toBuffer(txargs.privateKey)
-  const from = toChecksumAddress(privateToAddress(key).toString('hex'))
+  const key = txargs.privateKey
+  const from = key.address
 
   // get the nonce
   if (!txargs.nonce)
@@ -123,6 +137,24 @@ export async function sendTransaction(url: string, txargs: {
       params: []
     }).then((_: RPCResponse) => parseInt(_.result as any))
 
+  if (!txargs.gas)
+    txargs.gas = await transport.handle(url, {
+      jsonrpc: '2.0',
+      id: idCount++,
+      method: 'eth_estimateGas',
+      params: [{
+        from: key.address,
+        to: txargs.to || undefined,
+        data: txargs.data,
+        value: txargs.value || "0x0"
+      }]
+    }).then((_: RPCResponse) => {
+      if (_.error) {
+        throw new SentryError(_.error)
+      }
+      return Math.floor(parseInt(_.result as any) * 1.1)
+    })
+
   // create Transaction
   const tx = new ETx({
     nonce: toHex(txargs.nonce),
@@ -133,8 +165,14 @@ export async function sendTransaction(url: string, txargs: {
     value: toHex(txargs.value || 0),
     data: toHex(txargs.data)
   })
-  tx.sign(key)
 
+  // We clear any previous signature before signing it. Otherwise, _implementsEIP155's can give
+  // different results if this tx was already signed.
+  const sig = key.sign(tx.hash(false))
+  if (tx._chainId)
+    sig.v += tx._chainId * 2 + 8
+
+  Object.assign(tx, sig)
 
   const txHash = await transport.handle(url, {
     jsonrpc: '2.0',
@@ -143,7 +181,7 @@ export async function sendTransaction(url: string, txargs: {
     params: [toHex(tx.serialize())]
   }).then((_: RPCResponse) => _.error ? Promise.reject(new SentryError('Error sending tx', 'tx_error', 'Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
 
-  return txargs.confirm ? waitForReceipt(url, txHash, 30, txargs.gas, transport) : txHash
+  return txargs.confirm ? waitForReceipt(url, txHash, timeout || 30, txargs.gas, transport) : txHash
 }
 
 
@@ -215,4 +253,8 @@ export function decodeFunction(signature: string | string[], args: Buffer): any 
   const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
 
   return fixBN(abiCoder.decode(typeArray, args))
+}
+
+export function isValidAddress(addr: string){
+  return addr && String(addr).match(/^0x[0-9a-fA-F]{40}$/)
 }

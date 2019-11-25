@@ -1,31 +1,47 @@
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+
 
 import { assert } from 'chai'
 import 'mocha'
-import { serialize, BlockData, RPCResponse, util, Proof, LogData, IN3Config, RPCRequest, IN3Client } from 'in3'
+import { serialize, BlockData, util, LogData, } from 'in3-common'
+import { RPCResponse, Proof, IN3Config, RPCRequest } from '../../src/types/types'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployChainRegistry, deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
-import * as logger from 'in3/js/test/util/memoryLogger'
-import { toMinHex } from 'in3/js/src/util/util';
+import * as logger from 'in3-common/js/test/util/memoryLogger'
 
 const toHex = util.toHex
 const getAddress = util.getAddress
@@ -72,16 +88,14 @@ describe('ETH Standard JSON-RPC', () => {
   it('eth_getTransactionByHash', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
     const client = await test.createClient({ proof: 'standard', requestCount: 1 })
-
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
     const pk2 = await test.createAccount('0x02')
-
     // send 1000 wei from a to b
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -94,7 +108,6 @@ describe('ETH Standard JSON-RPC', () => {
     const proof = res.in3.proof as any
     assert.equal(proof.type, 'transactionProof')
     assert.exists(proof.block)
-
 
     const b = await client.sendRPC('eth_getBlockByNumber', [result.blockNumber, true], null, { keepIn3: true })
     logger.info('found Block:', b.result)
@@ -125,7 +138,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -169,7 +182,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -213,7 +226,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -244,7 +257,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -328,7 +341,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
@@ -375,7 +388,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
@@ -419,7 +432,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
-    const adr = getAddress(pk1)
+    const adr = pk1.address
 
     // get the last Block
     const b = await client.sendRPC('eth_getBalance', [adr, 'latest'], null, { keepIn3: true })
@@ -478,7 +491,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
-    const adr = getAddress(pk1)
+    const adr = pk1.address
 
     // get the last Block
     const b = await client.sendRPC('eth_getTransactionCount', [adr, 'latest'], null, { keepIn3: true })
@@ -541,7 +554,7 @@ describe('ETH Standard JSON-RPC', () => {
     const pk1 = await test.createAccount('0x01')
 
     // check empty code
-    await client.sendRPC('eth_getCode', [getAddress(pk1), 'latest'], null, { keepIn3: true })
+    await client.sendRPC('eth_getCode', [pk1.address, 'latest'], null, { keepIn3: true })
 
     // check deployed code
     const adr = await deployChainRegistry(pk1, getTestClient())
@@ -673,7 +686,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
@@ -719,7 +732,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
@@ -786,7 +799,7 @@ describe('ETH Standard JSON-RPC', () => {
     })
 
     const txArgs = {
-      from: getAddress(pk1),
+      from: pk1.address,
       to: adr,
       data: '0x61bc221a'
     }
@@ -856,7 +869,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getLogs', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
-    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1, signatureCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -872,7 +885,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     assert.equal(receipt.logs.length, 1)
 
-    const res = await client.sendRPC('eth_getLogs', [{ fromBlock: toMinHex(receipt.blockNumber) }], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getLogs', [{ fromBlock: util.toMinHex(receipt.blockNumber) }], null, { keepIn3: true })
     const result = res.result as any
     assert.exists(res.in3)
     assert.exists(res.in3.proof)
@@ -887,10 +900,10 @@ describe('ETH Standard JSON-RPC', () => {
       // now manipulate the result
       test.injectResponse({ method: 'eth_getLogs' }, (req, re: RPCResponse) => {
         // we change a property
-        ((re.result as any)[0] as LogData).address = getAddress(pk1)
+        ((re.result as any)[0] as LogData).address = pk1.address
         return re
       })
-      await client.sendRPC('eth_getLogs', [{ fromBlock: toMinHex(receipt.blockNumber) }])
+      await client.sendRPC('eth_getLogs', [{ fromBlock: util.toMinHex(receipt.blockNumber) }])
     }
     catch {
       failed = true

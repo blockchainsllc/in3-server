@@ -1,30 +1,46 @@
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
 
 import { assert } from 'chai'
 import 'mocha'
-import { BlockData, RPCResponse, util, Proof, LogData } from 'in3'
+import { BlockData, util, LogData } from 'in3-common'
+import { RPCResponse, Proof } from '../../src/types/types'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
-import { toBuffer } from 'in3/js/src/util/util';
+import * as clientRPC from '../utils/clientRPC'
 const toHex = util.toHex
 const getAddress = util.getAddress
 const toNumber = util.toNumber
@@ -41,7 +57,7 @@ describe('eth_call', () => {
     let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
 
     // create a account with 500 wei
-    const user = getAddress(await test.createAccount(undefined, 500))
+    const user = await test.createAccount(undefined, 500).then(_ => _.address)
 
 
     // check deployed code
@@ -49,7 +65,7 @@ describe('eth_call', () => {
 
     const balance = toNumber(await test.getFromServer('eth_getBalance', user, 'latest'))
 
-    const response = await tx.callContractWithClient(client, adr, 'getBalance(address)', user)
+    const response = await clientRPC.callContractWithClient(client, adr, 'getBalance(address)', user)
 
     assert.equal(balance, 500)
     assert.equal(toNumber(response.result), 500)
@@ -61,7 +77,7 @@ describe('eth_call', () => {
       return re
     })
 
-    await test.mustFail(tx.callContractWithClient(client, adr, 'getBalance(address)', user))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'getBalance(address)', user))
 
 
     client.clearStats()
@@ -75,7 +91,7 @@ describe('eth_call', () => {
       return re
     })
 
-    await test.mustFail(tx.callContractWithClient(client, adr, 'getBalance(address)', user))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'getBalance(address)', user))
 
     client.clearStats()
     test.clearInjectedResponsed()
@@ -88,7 +104,7 @@ describe('eth_call', () => {
       return re
     })
 
-    await test.mustFail(tx.callContractWithClient(client, adr, 'getBalance(address)', user))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'getBalance(address)', user))
 
   })
 
@@ -101,7 +117,7 @@ describe('eth_call', () => {
     const pk2 = await test.createAccount(undefined, 1500)
 
     // create a account with 500 wei
-    const user = getAddress(await test.createAccount(undefined, 500))
+    const user = await test.createAccount(undefined, 500).then(_ => _.address)
 
 
     // check deployed code
@@ -116,7 +132,7 @@ describe('eth_call', () => {
     //    function testInternCall(TestContract adr)  public view returns(uint){
     //      return adr.counter();
     //    }
-    const response = await tx.callContractWithClient(client, adr2, 'testInternCall(address)', adr1)
+    const response = await clientRPC.callContractWithClient(client, adr2, 'testInternCall(address)', adr1)
     assert.equal(toNumber(response.result), 1)
 
     // now manipulate the result
@@ -125,7 +141,7 @@ describe('eth_call', () => {
       re.result = '0x09'
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr2, 'testInternCall(address)', adr1))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr2, 'testInternCall(address)', adr1))
 
 
     client.clearStats()
@@ -138,7 +154,7 @@ describe('eth_call', () => {
       delete ac[Object.keys(ac)[1]]
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr2, 'testInternCall(address)', adr1))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr2, 'testInternCall(address)', adr1))
 
 
   })
@@ -152,7 +168,7 @@ describe('eth_call', () => {
     const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
     const block = (await test.getFromServer('eth_getBlockByNumber', 'latest', false)) as BlockData
 
-    const response = await tx.callContractWithClient(client, adr, 'getBlockHash(uint)', toNumber(block.number))
+    const response = await clientRPC.callContractWithClient(client, adr, 'getBlockHash(uint)', toNumber(block.number))
 
     // TODO why is this returning 0x0?
     //    assert.equal(toHex(response.result, 32), toHex(block.hash, 32))
@@ -170,13 +186,13 @@ describe('eth_call', () => {
     const adr = await deployContract('TestContract', pk, getTestClient())
     const adr2 = await deployContract('TestContract', pk, getTestClient())
 
-    const response = await tx.callContractWithClient(client, adr, 'getCodeAt(address)', adr2)
+    const response = await clientRPC.callContractWithClient(client, adr, 'getCodeAt(address)', adr2)
 
     // make sure the proof included the accountProof for adr2, since this was referenced
     assert.isTrue(response.in3.proof.accounts[toHex(adr2.toLowerCase(), 20)].accountProof.length > 0)
 
     // try to get the code from a non-existent account, so the merkleTree should prove it's not esiting
-    const responseEmpty = await tx.callContractWithClient(client, adr, 'getCodeAt(address)', "0x" + toBuffer(123, 20).toString('hex'))
+    const responseEmpty = await clientRPC.callContractWithClient(client, adr, 'getCodeAt(address)', "0x" + util.toBuffer(123, 20).toString('hex'))
 
 
     client.clearStats()
@@ -189,7 +205,7 @@ describe('eth_call', () => {
       delete ac[Object.keys(ac)[1]]
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr, 'getCodeAt(address)', adr2))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'getCodeAt(address)', adr2))
 
 
     client.clearStats()
@@ -204,7 +220,7 @@ describe('eth_call', () => {
       re.result = '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000'
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr, 'getCodeAt(address)', adr2))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'getCodeAt(address)', adr2))
 
 
 
@@ -220,7 +236,7 @@ describe('eth_call', () => {
     const adr = await deployContract('TestContract', pk, getTestClient())
     const adr2 = await deployContract('TestContract', pk, getTestClient())
 
-    const response = await tx.callContractWithClient(client, adr, 'testDelegateCall(address)', adr2)
+    const response = await clientRPC.callContractWithClient(client, adr, 'testDelegateCall(address)', adr2)
 
     // make sure the proof included the accountProof for adr2, since this was referenced
     assert.isTrue(response.in3.proof.accounts[toHex(adr2.toLowerCase(), 20)].accountProof.length > 0)
@@ -239,7 +255,7 @@ describe('eth_call', () => {
       re.result = '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000'
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr, 'testDelegateCall(address)', adr2))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'testDelegateCall(address)', adr2))
 
 
   })
@@ -256,7 +272,7 @@ describe('eth_call', () => {
     const adr = await deployContract('TestContract', pk, getTestClient())
     const adr2 = await deployContract('TestContract', pk, getTestClient())
 
-    const response = await tx.callContractWithClient(client, adr, 'testCall(address)', adr2)
+    const response = await clientRPC.callContractWithClient(client, adr, 'testCall(address)', adr2)
 
     // make sure the proof included the accountProof for adr2, since this was referenced
     assert.isTrue(response.in3.proof.accounts[toHex(adr2.toLowerCase(), 20)].accountProof.length > 0)
@@ -275,7 +291,7 @@ describe('eth_call', () => {
       re.result = '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000'
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr, 'testCall(address)', adr2))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'testCall(address)', adr2))
 
 
   })
@@ -291,7 +307,7 @@ describe('eth_call', () => {
     const adr = await deployContract('TestContract', pk, getTestClient())
     const adr2 = await deployContract('TestContract', pk, getTestClient())
 
-    const response = await tx.callContractWithClient(client, adr, 'testCallCode(address)', adr2)
+    const response = await clientRPC.callContractWithClient(client, adr, 'testCallCode(address)', adr2)
 
     // make sure the proof included the accountProof for adr2, since this was referenced
     assert.isTrue(response.in3.proof.accounts[toHex(adr2.toLowerCase(), 20)].accountProof.length > 0)
@@ -310,8 +326,74 @@ describe('eth_call', () => {
       re.result = '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000'
       return re
     })
-    await test.mustFail(tx.callContractWithClient(client, adr, 'testCallCode(address)', adr2))
+    await test.mustFail(clientRPC.callContractWithClient(client, adr, 'testCallCode(address)', adr2))
 
+
+  })
+
+  it('eth_call Gas Limit', async () => {
+
+    let test = new TestTransport(1) // create a network of 1 nodes
+
+    // check deployed code
+    const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
+
+    const signature = 'encodingTest(bytes[],bytes32):(bytes32,bytes[])'
+    const data = '0x' + tx.encodeFunction(signature, [['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20"])
+
+    // create a account with 500 wei
+    const user = (await test.createAccount(undefined, 500)).address
+
+    let res = await test.handle("#1", {
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [
+        {
+          from: user,
+          to: adr,
+          data: data,
+          gas: "0x55D4A80"
+        },
+        "latest"
+      ],
+      id: 1
+    }) as RPCResponse
+
+    assert.isUndefined(res.result)
+    assert.isTrue(res.error.includes("eth_call with a gaslimit > 10000000 are not allowed"))
+
+    let res2 = await test.handle("#1", {
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [
+        {
+          from: user,
+          to: adr,
+          data: data,
+          gas: "0x989680" //boundary check, 10M
+        },
+        "latest"
+      ],
+      id: 1
+    }) as RPCResponse
+
+    assert.isUndefined(res2.error)
+
+    let res3 = await test.handle("#1", {
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [
+        {
+          from: user,
+          to: adr,
+          data: data
+        },
+        "latest"
+      ],
+      id: 1
+    }) as RPCResponse
+    
+    assert.isUndefined(res3.error)
 
   })
 

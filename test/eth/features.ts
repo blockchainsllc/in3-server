@@ -1,33 +1,51 @@
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
 
 import { assert } from 'chai'
 import 'mocha'
-import { util, serialize, ServerList, RPCResponse } from 'in3'
-import EthChainContext from 'in3/js/src/modules/eth/EthChainContext' 
-import { registerServers, deployContract } from '../../src/util/registry';
+import { util, serialize } from 'in3-common'
+import { ServerList } from '../../src/types/types'
+import { RPCResponse } from '../../src/types/types'
+import EthChainContext from 'in3/js/src/modules/eth/EthChainContext'
+import { registerNodes, deployContract } from '../../src/util/registry';
 import { TestTransport, getTestClient } from '../utils/transport';
 import Watcher from '../../src/chains/watch'
 import EventWatcher from '../utils/EventWatcher';
 import * as tx from '../../src/util/tx'
 import { RPC } from '../../src/server/rpc';
+import * as clientRPC from '../utils/clientRPC'
 
 const toNumber = util.toNumber
 const getAddress = util.getAddress
@@ -40,7 +58,7 @@ describe('Features', () => {
     const pk = await new TestTransport().createAccount()
 
 
-    const test = await TestTransport.createWithRegisteredServers(2)
+    const test = await TestTransport.createWithRegisteredNodes(2)
     let lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 2
     const client = await test.createClient({ requestCount: 1 })
     const watcher: Watcher = test.handlers['#1'].getHandler().watcher
@@ -71,11 +89,12 @@ describe('Features', () => {
     events.clear()
 
     // now we register another server
-    await registerServers(pk, test.nodeList.contract, [{
+    await registerNodes(pk, test.nodeList.contract, [{
       url: '#3',
       pk,
       props: '0xffff',
-      deposit: 20000
+      deposit: util.toBN('10000000000000000'),
+      timeout: 7200,
     }], test.chainRegistry, test.chainRegistry, test.url)
     lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 1
 
@@ -83,10 +102,10 @@ describe('Features', () => {
     // the watcher will find an register-event and triggers an update of the server-nodelist
     const logs = await watcher.update()
     assert.equal(logs.length, 1)
-    assert.equal(logs[0].event, 'LogServerRegistered')
+    assert.equal(logs[0].event, 'LogNodeRegistered')
     assert.equal(logs[0].url, '#3')
     assert.equal(logs[0].props, 0xffff)
-    assert.equal(logs[0].owner, util.getAddress(pk))
+    assert.equal(logs[0].signer, pk.address)
 
     // we still have only 2 nodes since the watchers has not been triggered yet
     assert.equal(client.defConfig.servers[test.chainId].nodeList.length, 2)
@@ -138,13 +157,13 @@ describe('Features', () => {
 
   it('autoregister', async () => {
 
-    const test = await TestTransport.createWithRegisteredServers(2)
+    const test = await TestTransport.createWithRegisteredNodes(2)
     const watcher = test.getHandler(0).watcher
     // update the nodelist
     await watcher.update()
 
     const client = await test.createClient({ requestCount: 1 })
-    const pk = await test.createAccount()
+    const pk = await test.createAccount(null, util.toBN('100000000000000000'))
     const rpc = new RPC({
       port: 1,
       chains: {
@@ -153,14 +172,14 @@ describe('Features', () => {
           minBlockHeight: 0,
           autoRegistry: {
             url: 'dummy',
-            deposit: 100,
+            deposit: util.toBN('10000000000000000') as any,
             depositUnit: 'wei',
             capabilities: {
               proof: true,
               multiChain: true
-            }
+            },
           },
-          privateKey: pk,
+          privateKey: pk as any,
           rpcUrl: test.url,
           registry: test.nodeList.contract
         }
@@ -171,11 +190,11 @@ describe('Features', () => {
 
     const events = await watcher.update()
     assert.equal(events.length, 1)
-    assert.equal(events[0].event, 'LogServerRegistered')
-    assert.equal(events[0].owner, getAddress(pk))
+    assert.equal(events[0].event, 'LogNodeRegistered')
+    assert.equal(events[0].signer, pk.address)
     assert.equal(events[0].url, 'dummy')
     assert.equal(events[0].props, 3)
-    assert.equal(events[0].deposit, 100)
+    assert.equal(events[0].deposit, util.toBN('10000000000000000'))
 
     const nl = await rpc.getHandler().getNodeList(false)
     assert.equal(nl.totalServers, 3)
@@ -186,7 +205,7 @@ describe('Features', () => {
   it('partial Server List', async () => {
 
     // create  10 nodes
-    const test = await TestTransport.createWithRegisteredServers(10)
+    const test = await TestTransport.createWithRegisteredNodes(10)
 
     const client = await test.createClient({ nodeLimit: 6, requestCount: 1, proof: 'standard' })
 
@@ -209,29 +228,25 @@ describe('Features', () => {
 
   })
 
-
-
   it('code cache', async () => {
 
     // create  10 nodes
     const test = new TestTransport(2)
     const client = await test.createClient({ maxCodeCache: 100000, requestCount: 1, proof: 'standard', includeCode: false })
 
-
     // deploy testcontract
     const pk = await test.createAccount()
     const adr = await deployContract('TestContract', pk, getTestClient())
 
-
     const ctx = client.getChainContext(client.defConfig.chainId) as EthChainContext
 
     assert.equal(ctx.codeCache.data.size, 0)
-    const response = await tx.callContractWithClient(client, adr, 'counter()')
+    const response = await clientRPC.callContractWithClient(client, adr, 'counter()')
 
     assert.equal(ctx.codeCache.data.size, 1)
 
   })
-
+  // TODO: remove
   it('block cache', async () => {
 
     // create  10 nodes
@@ -244,11 +259,11 @@ describe('Features', () => {
     const ctx = client.getChainContext(client.defConfig.chainId) as EthChainContext
 
     assert.equal(ctx.blockCache.length, 0)
-    const resp1 = await client.sendRPC('eth_getBalance', [getAddress(pk), 'latest'])
+    const resp1 = await client.sendRPC('eth_getBalance', [pk.address, 'latest'])
     assert.equal(ctx.blockCache.length, 1)
     assert.equal(resp1.in3.proof.signatures.length, 1)
 
-    const resp2 = await client.sendRPC('eth_getBalance', [getAddress(pk), 'latest'])
+    const resp2 = await client.sendRPC('eth_getBalance', [pk.address, 'latest'])
     assert.equal(ctx.blockCache.length, 1)
     assert.equal(resp2.in3.proof.signatures.length, 0)
   })

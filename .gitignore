@@ -64,3 +64,9 @@ dev
 
 #idea files
 .idea
+
+#npmrc
+.npmrc
+
+#compiled contracts
+contracts/contracts.json
