@@ -34,10 +34,10 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util} from 'in3-common'
+import { util } from 'in3-common'
 import * as tx from '../../src/util/tx'
 import { TestTransport, getTestClient } from '../utils/transport'
-import {  deployWhiteList } from '../../src/util/registry'
+import { deployWhiteList } from '../../src/util/registry'
 import { RPC } from '../../src/server/rpc'
 
 describe('WhiteList Tests', () => {
@@ -46,7 +46,7 @@ describe('WhiteList Tests', () => {
 
     const whitelistedNode = "0x45d45e6Ff99E6c34A235d263965910298985fcFe"
 
-    let test = new TestTransport(1) 
+    let test = new TestTransport(1)
 
     // create a account with 500 wei
     const acct = await test.createAccount(undefined, 500)
@@ -78,7 +78,7 @@ describe('WhiteList Tests', () => {
               multiChain: true
             },
           },
-          privateKey: pk,
+          privateKey: pk as any,
           rpcUrl: test.url,
           registry: test.nodeList.contract
         }
@@ -87,15 +87,15 @@ describe('WhiteList Tests', () => {
 
     await rpc.init()
 
-    const wl = await rpc.getHandler().getWhiteList(true,adr)
-    assert.equal(whitelistedNode.toLowerCase(),wl.nodes[0].toLowerCase())
+    const wl = await rpc.getHandler().getWhiteList(true, adr)
+    assert.equal(whitelistedNode.toLowerCase(), wl.nodes[0].toLowerCase())
 
   }).timeout(20000)
 
   it('Block number change after whitelist update', async () => {
 
     const whitelistedNode = "0x45d45e6Ff99E6c34A235d263965910298985fcFe"
-    let test = new TestTransport(1) 
+    let test = new TestTransport(1)
     const acct = await test.createAccount(undefined, 500)
 
     //register whitelist A
@@ -124,7 +124,7 @@ describe('WhiteList Tests', () => {
               multiChain: true
             },
           },
-          privateKey: pk,
+          privateKey: pk as any,
           rpcUrl: test.url,
           registry: test.nodeList.contract
         }
@@ -133,7 +133,7 @@ describe('WhiteList Tests', () => {
     await rpc.init()
 
     //register contract in watch and get block num
-    const wl = await rpc.getHandler().getWhiteList(true,adr)
+    const wl = await rpc.getHandler().getWhiteList(true, adr)
     const whiteListBlockNum = await rpc.getHandler().whiteListMgr.getBlockNum()
 
     //register another contract and get block num
@@ -145,18 +145,18 @@ describe('WhiteList Tests', () => {
     })
     const whiteListBlockNum2 = await rpc.getHandler().whiteListMgr.getBlockNum()
 
-    assert.isTrue(whiteListBlockNum2>whiteListBlockNum)
+    assert.isTrue(whiteListBlockNum2 > whiteListBlockNum)
 
   }).timeout(20000)
 
   it('Multiple Registrations and getting list', async () => {
 
     const whitelist = ["0x45d45e6Ff99E6c34A235d263965910298985fcFe",
-                      "0x1872534eEE69Bcd4eA491fD912d9278fE7fb18F6",
-                      "0x580BeF942ab2B04A325a584E1F81Bf8dE9450891",
-                      "0xC574D09d2D921250C062A5E2216177DaE4635769"]
+      "0x1872534eEE69Bcd4eA491fD912d9278fE7fb18F6",
+      "0x580BeF942ab2B04A325a584E1F81Bf8dE9450891",
+      "0xC574D09d2D921250C062A5E2216177DaE4635769"]
 
-    let test = new TestTransport(1) 
+    let test = new TestTransport(1)
 
     // create a account with 500 wei
     const acct = await test.createAccount(undefined, 500)
@@ -181,7 +181,7 @@ describe('WhiteList Tests', () => {
               multiChain: true
             },
           },
-          privateKey: pk,
+          privateKey: pk as any,
           rpcUrl: test.url,
           registry: test.nodeList.contract
         }
@@ -190,7 +190,7 @@ describe('WhiteList Tests', () => {
 
     await rpc.init()
 
-    for (const e of whitelist){
+    for (const e of whitelist) {
       await tx.callContract(getTestClient(), adr, 'whiteListNode(address)', [e], {
         confirm: true,
         privateKey: acct,
@@ -198,11 +198,11 @@ describe('WhiteList Tests', () => {
         value: 0
       })
     }
-    
-    const result = await rpc.getHandler().getWhiteList(true,adr)
-    
-    for(const wl of result.nodes)
-      assert.isTrue(whitelist.findIndex( e => e.toLowerCase() == wl.toLowerCase()) > -1 )
+
+    const result = await rpc.getHandler().getWhiteList(true, adr)
+
+    for (const wl of result.nodes)
+      assert.isTrue(whitelist.findIndex(e => e.toLowerCase() == wl.toLowerCase()) > -1)
 
   }).timeout(20000)
 
@@ -210,7 +210,7 @@ describe('WhiteList Tests', () => {
 
     const whitelistedNode = "0x45d45e6Ff99E6c34A235d263965910298985fcFe"
 
-    let test = new TestTransport(1) 
+    let test = new TestTransport(1)
 
     // create a account with 500 wei
     const acct = await test.createAccount(undefined, 500)
@@ -229,7 +229,8 @@ describe('WhiteList Tests', () => {
         gas: 3000000,
         value: 0
       })
-      return adr}
+      return adr
+    }
 
     const wl1 = await deployInitWhiteListContrant()
     const wl2 = await deployInitWhiteListContrant()
@@ -252,7 +253,7 @@ describe('WhiteList Tests', () => {
               multiChain: true
             },
           },
-          privateKey: pk,
+          privateKey: pk as any,
           rpcUrl: test.url,
           registry: test.nodeList.contract
         }
@@ -261,8 +262,8 @@ describe('WhiteList Tests', () => {
 
     await rpc.init()
 
-    await rpc.getHandler().getWhiteList(true,wl1)
-    await rpc.getHandler().getWhiteList(true,wl2)
+    await rpc.getHandler().getWhiteList(true, wl1)
+    await rpc.getHandler().getWhiteList(true, wl2)
     assert.isFalse(await rpc.getHandler().whiteListMgr.addWhiteListWatch(wl3))
 
   }).timeout(20000)
