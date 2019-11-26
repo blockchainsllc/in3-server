@@ -88,7 +88,6 @@ export class RPC {
   }
 
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
-
     return Promise.all(request.map(r => {
 
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any

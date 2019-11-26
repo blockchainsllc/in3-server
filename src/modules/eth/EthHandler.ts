@@ -60,13 +60,6 @@ export default class EthHandler extends BaseHandler {
   /** main method to handle a request */
   async handle(request: RPCRequest): Promise<RPCResponse> {
     // replace the latest BlockNumber
-
-    /**
-     * add 
-     *  fromBlock
-     *  toBlock
-     *  getLogs with empty 
-     */
     if (request.in3 && request.in3.latestBlock && Array.isArray(request.params)) {
       const i = request.params.indexOf('latest')
       if (i >= 0)
@@ -97,7 +90,7 @@ export default class EthHandler extends BaseHandler {
   }
 
   private checkPerformanceLimits(request: RPCRequest) {
-    const maxAllowedGas:number = 10000000  //max default allowed gas 10M
+    const maxAllowedGas: number = 10000000  //max default allowed gas 10M
 
     if (request.method === 'eth_call') {
       if (!request.params || request.params.length < 2)
@@ -107,7 +100,8 @@ export default class EthHandler extends BaseHandler {
 
       const tx = request.params[0] as TxRequest
       if (!tx || (tx.gas && toNumber(tx.gas) > gasLimit)) {
-        throw new Error('eth_call with a gaslimit > '+gasLimit+' are not allowed')}
+        throw new Error('eth_call with a gaslimit > ' + gasLimit + ' are not allowed')
+      }
     }
     else if (request.method === 'eth_getLogs') {
       if (!request.params || request.params.length < 1) throw new Error('eth_getLogs must have a filter as parameter')
@@ -145,9 +139,8 @@ export default class EthHandler extends BaseHandler {
     // check performancelimits
     this.checkPerformanceLimits(request)
 
-    if(request.in3 && request.in3.whiteList){
+    if (request.in3 && request.in3.whiteList)
       await this.whiteListMgr.addWhiteListWatch(request.in3.whiteList)
-    }
 
     // handle special jspn-rpc
     if (request.in3.verification == 'proof' || request.in3.verification == 'proofWithSignature') // proofWithSignature is only supported for legacy, since only the request for signers is relveant

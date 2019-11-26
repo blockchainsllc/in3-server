@@ -125,7 +125,7 @@ export default abstract class BaseHandler implements RPCHandler {
     if (r && r.ip)
       headers['X-Origin-IP'] = r.ip
 
-    return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
+    return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
 
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       if (process.env.SENTRY_ENABLE === 'true') {

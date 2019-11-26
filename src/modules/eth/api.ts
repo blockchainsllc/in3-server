@@ -1,5 +1,4 @@
 
-const Sentry = require('@sentry/node')
 /*******************************************************************************
  * This file is part of the Incubed project.
  * Sources: https://github.com/slockit/in3-server
@@ -34,6 +33,7 @@ const Sentry = require('@sentry/node')
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
+const Sentry = require('@sentry/node')
 import { methodID } from 'ethereumjs-abi'
 import { toChecksumAddress, privateToAddress, keccak, ecsign } from 'ethereumjs-util'
 import { util } from 'in3-common'

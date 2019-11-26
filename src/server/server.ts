@@ -36,8 +36,6 @@ const Sentry = require('@sentry/node');
 
 import * as logger from '../util/logger'
 import { SentryError } from '../util/sentryError'
-//var njstrace = require('njstrace').inject();
-
 import * as Koa from 'koa'
 import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
