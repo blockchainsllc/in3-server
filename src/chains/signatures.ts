@@ -127,8 +127,10 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
     if (!config) { // TODO do we need to throw here or is it ok to simply not deliver the signature?
 
       Sentry.configureScope((scope) => {
+
         scope.setTag("NodeListFunction", "collectSignatures");
-        scope.setTag("nodeList-contract", this.config.registry)
+        scope.setTag("collectSignatures", "address not found");
+        scope.setTag("nodeList-contract", nodes.registryId)
         scope.setExtra("nodes", nodes.nodes)
         scope.setExtra("requestedBlocks", requestedBlocks)
       });
@@ -149,8 +151,13 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest })
         : { result: [] }) as RPCResponse
       if (response.error) {
-
-        Sentry.captureMessage('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+        Sentry.configureScope((scope) => {
+          scope.setTag("signatures", "collectSignatures");
+          scope.setExtra("address", adr)
+          scope.setExtra("blocks", blocks)
+          scope.setExtra("response", response)
+        });
+        Sentry.captureMessage('Could not get the signature')
 
         //sthrow new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
@@ -159,8 +166,10 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
     } catch (error) {
 
       logger.error(error.toString())
+
       Sentry.configureScope((scope) => {
         scope.setTag("signatures", "collectSignatures");
+        scope.setTag("collectSignatures", "could not get signature");
         scope.setExtra("addresses", addresses)
         scope.setExtra("requestedBlocks", requestedBlocks)
       });
