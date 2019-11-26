@@ -31,15 +31,12 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-
-
+// tslint:disable-next-line:missing-jsdoc
+const Sentry = require('@sentry/node');
 
 import * as logger from '../util/logger'
 import { SentryError } from '../util/sentryError'
 //var njstrace = require('njstrace').inject();
-
-// tslint:disable-next-line:missing-jsdoc
-const Sentry = require('@sentry/node');
 
 import * as Koa from 'koa'
 import * as bodyParser from 'koa-bodyparser'
@@ -195,216 +192,193 @@ router.get(/.*/, async ctx => {
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
     ctx.body = result.result || result.error
-    console.log(ctx.status)
   } catch (err) {
     ctx.status = err.status || 500
     ctx.body = err.message
     logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
     throw new SentryError(err, "request_status", ctx.request.body)
 
-    ctx.app.emit('error', err, ctx)
   }
 
 })
 
-initConfig().then(() => {
-  rpc = new RPC(config);
-  (chainAliases as any).api = Object.keys(config.chains)[0]
+checkNodeSync(() =>
+  initConfig().then(() => {
+    rpc = new RPC(config);
+    (chainAliases as any).api = Object.keys(config.chains)[0]
 
-  const doInit = (retryCount: number) => {
-    if (retryCount <= 0) {
-      logger.error('Error initializing the server : Maxed out retries')
-      // throw new SentryError("server initialization error", "server_status", "maxed out retries")
-      if (process.env.SENTRY_ENABLE === 'true') {
-        Sentry.configureScope((scope) => {
-          scope.setTag("server", "initConfig");
-          scope.setTag("server_status", "Error initializing the server");
+    const doInit = (retryCount: number) => {
+      if (retryCount <= 0) {
+        logger.error('Error initializing the server : Maxed out retries')
+        if (process.env.SENTRY_ENABLE === 'true') {
+          Sentry.configureScope((scope) => {
+            scope.setTag("server", "initConfig");
+            scope.setTag("server_status", "Error initializing the server");
 
-          scope.setExtra("config", config)
-
-        });
-        Sentry.captureException(new Error("Maxed out retries"));
-      }
-      INIT_ERROR = true
-      return;
-    }
-    rpc.init().catch(err => {
-      //console.error('Error initializing the server : ' + err.message)
-      logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
-
-      setTimeout(() => { doInit(retryCount - 1) }, 20000)
-
-      if (process.env.SENTRY_ENABLE === 'true') {
-        Sentry.configureScope((scope) => {
-          scope.setTag("server", "initConfig");
-          scope.setTag("server_status", "Error initializing the server");
-
-          if ((config as any).privateKey) {
-            const tempConfig = config
-            delete (tempConfig as any).privateKey
-          } else {
             scope.setExtra("config", config)
-          }
-        });
-        Sentry.captureException(err);
-      }
-    })
-  }
-  checkNodeSync(() =>
-    initConfig().then(() => {
-      rpc = new RPC(config);
-      (chainAliases as any).api = Object.keys(config.chains)[0]
 
-      const doInit = (retryCount: number) => {
-        if (retryCount <= 0) {
-          logger.error('Error initializing the server : Maxed out retries')
-          throw new SentryError("server initialization error", "server_status", "maxed out retries")
-          INIT_ERROR = true
-          return;
+          });
+          Sentry.captureException(new Error("Maxed out retries"));
         }
-        rpc.init().catch(err => {
-          //console.error('Error initializing the server : ' + err.message)
-          logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
-
-          setTimeout(() => { doInit(retryCount - 1) }, 20000)
-          throw new SentryError(err.message, "server_status", "Error initializing the server" + err.stack)
-
-        })
+        INIT_ERROR = true
+        return;
       }
+      rpc.init().catch(err => {
+        //console.error('Error initializing the server : ' + err.message)
+        logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
 
-      // Getting node list and validator list before starting server
-      logger.info('initializing in3-server...')
-      doInit(3)
+        setTimeout(() => { doInit(retryCount - 1) }, 20000)
+        if (process.env.SENTRY_ENABLE === 'true') {
+          Sentry.configureScope((scope) => {
+            scope.setTag("server", "initConfig");
+            scope.setTag("server_status", "Error initializing the server");
 
-      logger.info('staring in3-server...')
-      app
-        .use(router.routes())
-        .use(router.allowedMethods())
-        .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
+            if ((config as any).privateKey) {
+              const tempConfig = config
+              delete (tempConfig as any).privateKey
+            } else {
+              scope.setExtra("config", config)
+            }
+          });
+          Sentry.captureException(err);
+        }
+      })
 
-    }).catch(err => {
-      //console.error('Error starting the server : ' + err.message, config)
-      logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
-      // throw new SentryError(err, "server_status", "Error starting the server")
-      if (process.env.SENTRY_ENABLE === 'true') {
-        Sentry.configureScope((scope) => {
-          scope.setTag("server", "initConfig");
-          scope.setTag("server_status", "Error starting the server");
-          scope.setExtra("config", config)
-        });
-        Sentry.captureException(err);
-      }
-
-      process.exit(1)
-    })
-  )
-
-  async function checkHealth(ctx: Router.IRouterContext) {
-
-    //lies to the rancher that it is healthy to avoid restart loop
-    if (INIT_ERROR && AUTO_REGISTER_FLAG) {
-      ctx.body = { status: 'healthy' }
-      ctx.status = 200
-    }
-    else if (INIT_ERROR) {
-      ctx.body = { status: 'unhealthy', message: "server initialization error" }
-      ctx.status = 500
-      //  throw new SentryError("server initialization error", "server_status", "unhealthy")
-      if (process.env.SENTRY_ENABLE === 'true') {
-        Sentry.configureScope((scope) => {
-          scope.setTag("server", "checkHealth");
-          scope.setTag("unhealthy", "server initialization error");
-          scope.setExtra("ctx", ctx)
-        });
-        Sentry.captureException(new Error("init error"));
-      }
-    }
-    else {
-      await Promise.all(
-        Object.keys(rpc.handlers).map(c => rpc.handlers[c].getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })))
-        .then(_ => {
-          ctx.body = { status: 'healthy' }
-          ctx.status = 200
-        }, _ => {
-          ctx.body = { status: 'unhealthy', message: _.message }
-          ctx.status = 500
-        })
     }
 
-  }
+    // Getting node list and validator list before starting server
+    logger.info('initializing in3-server...')
+    doInit(3)
 
-  async function initError(ctx: Router.IRouterContext) {
-    //lies to the rancher that it is healthy to avoid restart loop
-    ctx.body = "Server uninitialized"
-    ctx.status = 200
-    // throw new SentryError("server initialization error", "server_status", "unhealthy")
+    logger.info('staring in3-server...')
+    app
+      .use(router.routes())
+      .use(router.allowedMethods())
+      .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
+
+  }).catch(err => {
+    //console.error('Error starting the server : ' + err.message, config)
+    logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
+    // throw new SentryError(err, "server_status", "Error starting the server")
     if (process.env.SENTRY_ENABLE === 'true') {
       Sentry.configureScope((scope) => {
-        scope.setTag("server", "initError");
-        scope.setTag("server_status", "Server uninitialized");
+        scope.setTag("server", "initConfig");
+        scope.setTag("server_status", "Error starting the server");
+        scope.setExtra("config", config)
+      });
+      Sentry.captureException(err);
+    }
+
+    process.exit(1)
+  })
+)
+
+async function checkHealth(ctx: Router.IRouterContext) {
+
+  //lies to the rancher that it is healthy to avoid restart loop
+  if (INIT_ERROR && AUTO_REGISTER_FLAG) {
+    ctx.body = { status: 'healthy' }
+    ctx.status = 200
+  }
+  else if (INIT_ERROR) {
+    ctx.body = { status: 'unhealthy', message: "server initialization error" }
+    ctx.status = 500
+    //  throw new SentryError("server initialization error", "server_status", "unhealthy")
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.configureScope((scope) => {
+        scope.setTag("server", "checkHealth");
+        scope.setTag("unhealthy", "server initialization error");
         scope.setExtra("ctx", ctx)
       });
-      Sentry.captureException(new Error("Server uninitialized"));
-    }
-
-  }
-
-  async function getVersion(ctx: Router.IRouterContext) {
-
-    if (process.env.VERSION_SHA) {
-      ctx.body = process.env.VERSION_SHA
-      ctx.status = 200
-    }
-    else {
-      ctx.body = "Unknown Version"
-      ctx.status = 500
-
-      if (process.env.SENTRY_ENABLE === 'true') {
-        Sentry.configureScope((scope) => {
-          scope.setTag("server", "getVersion");
-          scope.setTag("server_status", "unknown version");
-          scope.setExtra("ctx", ctx)
-        });
-        Sentry.captureException(new Error("server unknown version"));
-      }
+      Sentry.captureException(new Error("init error"));
     }
   }
+  else {
+    await Promise.all(
+      Object.keys(rpc.handlers).map(c => rpc.handlers[c].getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })))
+      .then(_ => {
+        ctx.body = { status: 'healthy' }
+        ctx.status = 200
+      }, _ => {
+        ctx.body = { status: 'unhealthy', message: _.message }
+        ctx.status = 500
+      })
+  }
 
-  function checkNodeSync(_callback) {
-    let rpcReq = {
-      jsonrpc: '2.0',
-      id: 0,
-      method: 'eth_syncing', params: []
-    } as RPCRequest
+}
 
-    const checkSync = () => sendToNode(config, rpcReq).then(
-      r => {
-        if (r.error == undefined && JSON.stringify(r.result) === "false")
-          _callback()
-        else {
-          if (r.error) {
-            logger.error("Unable to connect Server \\or Some Error occured " + r.error)
-          }
-          else if (r.result.startingBlock && r.result.currentBlock && r.result.highestBlock) {
-            logger.info("Ethereum Node is still syncing. Current block:" + parseInt(r.result.currentBlock, 16) + " Highest block:" + parseInt(r.result.highestBlock, 16) + " ...")
-          }
-          setTimeout(checkSync, 10000);
+async function initError(ctx: Router.IRouterContext) {
+  //lies to the rancher that it is healthy to avoid restart loop
+  ctx.body = "Server uninitialized"
+  ctx.status = 200
+  // throw new SentryError("server initialization error", "server_status", "unhealthy")
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.configureScope((scope) => {
+      scope.setTag("server", "initError");
+      scope.setTag("server_status", "Server uninitialized");
+      scope.setExtra("ctx", ctx)
+    });
+    Sentry.captureException(new Error("Server uninitialized"));
+  }
+
+}
+
+async function getVersion(ctx: Router.IRouterContext) {
+
+  if (process.env.VERSION_SHA) {
+    ctx.body = process.env.VERSION_SHA
+    ctx.status = 200
+  }
+  else {
+    ctx.body = "Unknown Version"
+    ctx.status = 500
+
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.configureScope((scope) => {
+        scope.setTag("server", "getVersion");
+        scope.setTag("server_status", "unknown version");
+        scope.setExtra("ctx", ctx)
+      });
+      Sentry.captureException(new Error("server unknown version"));
+    }
+  }
+}
+
+function checkNodeSync(_callback) {
+  let rpcReq = {
+    jsonrpc: '2.0',
+    id: 0,
+    method: 'eth_syncing', params: []
+  } as RPCRequest
+
+  const checkSync = () => sendToNode(config, rpcReq).then(
+    r => {
+      if (r.error == undefined && JSON.stringify(r.result) === "false")
+        _callback()
+      else {
+        if (r.error) {
+          logger.error("Unable to connect Server \\or Some Error occured " + r.error)
         }
-      },
-      err => logger.error("Unable to connect to node", err)
-    )
+        else if (r.result.startingBlock && r.result.currentBlock && r.result.highestBlock) {
+          logger.info("Ethereum Node is still syncing. Current block:" + parseInt(r.result.currentBlock, 16) + " Highest block:" + parseInt(r.result.highestBlock, 16) + " ...")
+        }
+        setTimeout(checkSync, 10000);
+      }
+    },
+    err => logger.error("Unable to connect to node", err)
+  )
 
-    setTimeout(checkSync, 1);
+  setTimeout(checkSync, 1);
 
-  }
+}
 
-  async function sendToNode(config: IN3RPCConfig, request: RPCRequest) {
-    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
-    const url = config.chains[Object.keys(config.chains)[0]].rpcUrl
+async function sendToNode(config: IN3RPCConfig, request: RPCRequest) {
+  const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
+  const url = config.chains[Object.keys(config.chains)[0]].rpcUrl
 
-    return axios.post(url, request, { headers }).then(_ => _.data,
-      err => {
-        logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + url)
-        throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + url)
-      }).then(res => { return res })
-  }
+  return axios.post(url, request, { headers }).then(_ => _.data,
+    err => {
+      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + url)
+      throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + url)
+    }).then(res => { return res })
+}
