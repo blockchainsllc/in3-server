@@ -1,21 +1,38 @@
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
+
+
 
 import { Transport, AxiosTransport, util } from 'in3-common'
 import Client from 'in3'
@@ -27,6 +44,8 @@ import { sendTransaction, callContract } from '../../src/util/tx'
 import axios from 'axios'
 import { registerNodes } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
+import { in3ProtocolVersion } from '../../src/types/constants';
+import { createPK, PK } from '../../src/chains/signatures'
 import { toBN, toUtf8, toMinHex } from 'in3-common/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
 logger.setLogger('memory')
@@ -68,7 +87,7 @@ export class TestTransport implements Transport {
     url: string
   }[]
 
-  constructor(count = 5, registry?: string, pks?: string[], handlerConfig?: Partial<IN3RPCHandlerConfig>) {
+  constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>) {
     this.chainId = '0x1'
     this.lastRandom = 0
     this.randomList = []
@@ -82,10 +101,10 @@ export class TestTransport implements Transport {
       registryId: '0x'
     } as any
     for (let i = 0; i < count; i++) {
-      const privateKey = pks ? pks[i] : '0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i
+      const privateKey = pks ? pks[i] : createPK('0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i)
       const url = '#' + (i + 1)
       nodes.push({
-        address: util.getAddress(privateKey),
+        address: privateKey.address,
         url: url,
         chainIds: [this.chainId],
         deposit: i,
@@ -98,7 +117,7 @@ export class TestTransport implements Transport {
           [this.chainId]: {
             watchInterval: -1,
             rpcUrl: getTestClient(),
-            privateKey,
+            privateKey: privateKey as any,
             registry,
             minBlockHeight: 0,
             ...handlerConfig
@@ -226,7 +245,7 @@ export class TestTransport implements Transport {
   }
 
   /** creates a random private key and transfers some ether to this address */
-  async createAccount(seed?: string, eth = toBN('50000000000000000000')): Promise<string> {
+  async createAccount(seed?: string, eth: any = toBN('50000000000000000000')): Promise<PK> {
     const pkBuffer = seed
       ? seed.startsWith('0x')
         ? Buffer.from(seed.substr(2).padStart(64, '0'), 'hex')
@@ -238,7 +257,7 @@ export class TestTransport implements Transport {
 
     if (eth)
       await sendTransaction(this.url, {
-        privateKey: devPk,
+        privateKey: createPK(devPk),
         gas: 222000,
         to: adr,
         data: '',
@@ -246,7 +265,7 @@ export class TestTransport implements Transport {
         confirm: true
       })
 
-    return pk
+    return createPK(pk)
   }
 
   async getNodeFromContract(index: number) {
@@ -257,6 +276,10 @@ export class TestTransport implements Transport {
   async getNodeCountFromContract() {
     const [count] = await callContract(this.url, this.nodeList.contract, 'totalNodes():(uint)', [])
     return util.toNumber(count)
+  }
+
+  getHandlerPK(index: number): PK {
+    return (this.handlers['#' + (index + 1)].getHandler().config as any)._pk
   }
 
   getHandlerConfig(index: number): IN3RPCHandlerConfig {
@@ -288,7 +311,7 @@ export class TestTransport implements Transport {
   static async createWithRegisteredNodes(count: number) {
     const test = new TestTransport(1)
 
-    const pks: string[] = []
+    const pks: PK[] = []
     const servers: any[] = []
 
     // create accounts
@@ -325,7 +348,7 @@ export class LoggingAxiosTransport extends AxiosTransport {
     try {
       const res = await super.handle(url, data, timeout)
       logger.debug('Result : ', res)
-      return res
+      return (res && Array.isArray(res)) ? (<RPCResponse[]>res) : (res as RPCResponse)
     }
     catch (ex) {
       logger.error('Error handling the request :', ex)

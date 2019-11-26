@@ -1,31 +1,49 @@
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
-const Sentry = require('@sentry/node')
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
+const Sentry = require('@sentry/node');
 
 import BaseHandler from './BaseHandler'
 import { BlockData, util, serialize } from 'in3-common'
 import { RPCRequest, RPCResponse, Signature, ServerList, IN3NodeConfig } from '../types/types'
-import { keccak, pubToAddress, ecrecover, ecsign } from 'ethereumjs-util'
+import { keccak, pubToAddress, ecrecover, ecsign, ECDSASignature, privateToAddress, toChecksumAddress, } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
 import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
+import config, { getSafeMinBlockHeight } from '../server/config'
 import { toBuffer } from 'in3-common/js/src/util/util';
+import { SentryError } from '../util/sentryError'
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
 const toHex = util.toHex
 const toMinHex = util.toMinHex
@@ -34,10 +52,46 @@ const bytes32 = serialize.bytes32
 const address = serialize.address
 const bytes = serialize.bytes
 
+
+const cipherAlgorithm = 'aes-192-ofb'
 export const signatureCaches: LRUCache = new LRUCache();
+export interface PK {
+  address: string
+  sign(data: Buffer): ECDSASignature
+}
+
+export function createPK(pk: Buffer | string): PK {
+  const decryptPW = randomBytes(24)
+  const iv = randomBytes(16)
+  const cipher = createCipheriv(cipherAlgorithm, decryptPW, iv)
+  const encryptedKey = Buffer.concat([cipher.update(bytes32(pk)), cipher.final()])
+
+  return {
+    address: toChecksumAddress('0x' + privateToAddress(bytes32(pk)).toString('hex')),
+    sign(hash: Buffer) {
+      const key = createDecipheriv(cipherAlgorithm, decryptPW, iv).update(encryptedKey)
+      const sig = ecsign(hash, key)
+      key.fill(0, 0, 32) // clean the private key in memory
+      return sig
+    }
+  }
+}
+
+function checkBlockHash(hash: any, expected: any, s: any) {
+  // is the blockhash correct all is fine
+  if (bytes32(hash).equals(bytes32(expected))) {
+    // add signature entry in cache
+    if (!signatureCaches.has(expected))
+      signatureCaches.set(expected, { ...s })
+    return s
+  }
+  return null
+}
 
 export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
-
+  // DOS-Protection
+  if (addresses && addresses.length > config.maxSignatures) throw new Error('Too many signatures requested!')
+  if (requestedBlocks && requestedBlocks.length > config.maxBlocksSigned) throw new Error('Too many blocks to sign! Try to reduce the blockrange!')
   // nothing to do?
   if (!addresses || !addresses.length || !requestedBlocks || !requestedBlocks.length) return []
 
@@ -53,6 +107,19 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
   // get our own nodeList
   const nodes = await handler.getNodeList(false)
+
+  // checking for all the nodes that return a wrong block already and remove them from the nodeRegistry
+  for (const convictInfo of handler.watcher.futureConvicts) {
+    const convictedNode = nodes.nodes.find(_ => _.address.toLowerCase() === convictInfo.signer.toLowerCase())
+
+    if (convictedNode) {
+      const convictedNodeIndex = nodes.nodes.indexOf(convictedNode)
+
+      if (convictedNodeIndex > -1)
+        nodes.nodes.splice(convictedNodeIndex, 1)
+    }
+  }
+
   const uniqueAddresses = [...new Set(addresses.map(item => item))];
   return Promise.all(uniqueAddresses.slice(0, nodes.nodes.length).map(async adr => {
     // find the requested address in our list
@@ -127,16 +194,18 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
           return null
         }
 
+        // did we expect this?
+        if (checkBlockHash(s.blockHash, expectedBlock.hash, s)) return s
 
-        // is the blockhash correct all is fine
-        if (bytes32(s.blockHash).equals(bytes32(expectedBlock.hash))) {
-          // add signature entry in cache
-          if (!signatureCaches.has(expectedBlock.hash))
-            signatureCaches.set(expectedBlock.hash, { ...s })
+        // so we have a different hash, let's double check if got the wrong hash
+        expectedBlock.hash = toHex(await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(s.block), false] })
+          .then(_ => _.result && _.result.hash), 32)
 
-          return s
-        }
+        // recheck again, if this is still wrong
+        if (checkBlockHash(s.blockHash, expectedBlock.hash, s)) return s
 
+        // ok still wrong, so we start convicting the node...
+        logger.info("Trying to convict node(" + singingNode.address + ") " + singingNode.url + ' because it signed wrong blockhash  with ' + JSON.stringify(s) + ' but the correct hash should be ' + expectedBlock.hash)
 
         if (process.env.SENTRY_ENABLE === 'true') {
 
@@ -155,37 +224,33 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         Sentry.captureMessage(`detected wrong blockResponse`)
 
         const latestBlockNumber = handler.watcher.block.number
-
         const diffBlocks = toNumber(latestBlockNumber) - s.block
-
         const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
-        if (diffBlocks < 255) {
+        // checking whether the signer is already in the process of being convicted
+        const foundAlready = handler.watcher.futureConvicts.find(_ =>
+          _.signer.toLowerCase() === singingNode.address.toLowerCase()
+        )
+        if (foundAlready) return
 
-          console.log("diffBlocks", diffBlocks)
-
-          await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
-            privateKey: handler.config.privateKey,
-            gas: 500000,
-            value: 0,
-            confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-          })
-
-          handler.watcher.futureConvicts.push({
-            convictBlockNumber: latestBlockNumber,
-            signer: singingNode.address,
-            wrongBlockHash: s.blockHash,
-            wrongBlockNumber: s.block,
-            v: s.v,
-            r: s.r,
-            s: s.s,
-            recreationDone: true
-          })
+        if (!handler.watcher.blockhashRegistry) {
+          handler.watcher.blockhashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
         }
-        else {
-          await handleRecreation(handler, nodes, singingNode, s, diffBlocks)
-        }
-        return
+
+        handler.watcher.futureConvicts.push({
+          startTime: Date.now(),
+          diffBlocks: diffBlocks,
+          convictBlockNumber: 0,
+          signer: singingNode.address,
+          wrongBlockHash: s.blockHash,
+          wrongBlockNumber: s.block,
+          v: s.v,
+          r: s.r,
+          s: s.s,
+          recreationDone: false,
+          signingNode: singingNode,
+          signature: convictSignature
+        })
 
       }))
 
@@ -194,10 +259,12 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
 }
 
-export function sign(pk: string, blocks: { blockNumber: number, hash: string, registryId: string }[]): Signature[] {
+
+export function sign(pk: PK, blocks: { blockNumber: number, hash: string, registryId: string }[]): Signature[] {
+  if (!pk) throw new Error('Missing private key')
   return blocks.map(b => {
     const msgHash = keccak('0x' + toHex(b.hash).substr(2).padStart(64, '0') + toHex(b.blockNumber).substr(2).padStart(64, '0') + toHex(b.registryId).substr(2).padStart(64, '0'))
-    const sig = ecsign(msgHash, bytes32(pk))
+    const sig = pk.sign(msgHash)
 
     return {
       blockHash: toHex(b.hash),
@@ -221,7 +288,7 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
   if (!blockNumber) throw new Error('no current blocknumber detectable ')
   if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
 
-  const blockHeight = handler.config.minBlockHeight === undefined ? 6 : handler.config.minBlockHeight
+  const blockHeight = handler.config.minBlockHeight === undefined ? getSafeMinBlockHeight(handler.chainId) : handler.config.minBlockHeight
   const tooYoungBlock = blockData.find(block => toNumber(blockNumber) - toNumber(block.number) < blockHeight)
   if (tooYoungBlock)
     throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
@@ -229,151 +296,6 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
   return {
     id: request.id,
     jsonrpc: request.jsonrpc,
-    result: sign(handler.config.privateKey, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
-  }
-}
-
-async function handleRecreation(handler: BaseHandler, nodes: ServerList, singingNode: IN3NodeConfig, s: Signature, diffBlocks: number): Promise<any> {
-
-  if (process.env.SENTRY_ENABLE === 'true') {
-    Sentry.addBreadcrumb({
-      category: "handleRecreation",
-      data: {
-        signingNode: singingNode,
-        signature: s,
-        diffBlocks: diffBlocks
-      }
-    })
-  }
-
-  // we have to find the blockHashRegistry
-  const blockHashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
-
-  // we have to calculate whether it's worth convicting a server
-  const [, deposit, , , , , , ,] = await callContract(handler.config.rpcUrl, nodes.contract, 'nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', [toNumber(singingNode.index)])
-  const latestSS = toNumber((await callContract(handler.config.rpcUrl, blockHashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [s.block, diffBlocks]))[0])
-  const costPerBlock = 86412400000000
-  const blocksMissing = latestSS - s.block
-  const costs = util.toBN(blocksMissing).mul(util.toBN(costPerBlock)).mul(util.toBN(1.25))
-
-  if (costs > (deposit / 2)) {
-
-    if (process.env.SENTRY_ENABLE === 'true') {
-      Sentry.addBreadcrumb({
-        category: "handleRecreation",
-        data: {
-          singingNode: singingNode,
-          deposit: deposit,
-          latestSnapshot: latestSS,
-          costPerBlock: costPerBlock,
-          blocksMissing: blocksMissing,
-          costs: costs
-        }
-      })
-    }
-
-    Sentry.captureMessage(`not worth convicting`)
-    return
-  }
-  else {
-
-    // it's worth convicting the server
-    const blockrequest = []
-    for (let i = 0; i < blocksMissing; i++) {
-      blockrequest.push({
-        jsonrpc: '2.0',
-        id: i + 1,
-        method: 'eth_getBlockByNumber', params: [
-          toHex(latestSS - i), false
-        ]
-      })
-    }
-
-    const blockhashes = await handler.getAllFromServer(blockrequest)
-
-    const serialzedBlocks = []
-    for (const bresponse of blockhashes) {
-      serialzedBlocks.push(new serialize.Block(bresponse.result as any).serializeHeader());
-    }
-
-    const transactionArrays = []
-
-    // splitting the blocks in array with the size of 235 (sweet spot)
-    while (serialzedBlocks.length) {
-      transactionArrays.push(serialzedBlocks.splice(0, 45));
-    }
-
-    let diffBlock = 0;
-
-    const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
-
-    try {
-      await callContract(handler.config.rpcUrl, nodes.contract, 'convict(uint,bytes32)', [s.block, convictSignature], {
-        privateKey: handler.config.privateKey,
-        gas: 500000,
-        value: 0,
-        confirm: false                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-      })
-
-      handler.watcher.futureConvicts.push({
-        convictBlockNumber: handler.watcher.block.number,
-        signer: singingNode.address,
-        wrongBlockHash: s.blockHash,
-        wrongBlockNumber: s.block,
-        v: s.v,
-        r: s.r,
-        s: s.s,
-        recreationDone: false
-      })
-
-    } catch (e) {
-
-
-      if (process.env.SENTRY_ENABLE === 'true') {
-
-        Sentry.configureScope((scope) => {
-          scope.setTag("signatures", "convictError");
-          scope.setTag("nodeList-contract", this.config.registry)
-          scope.setExtra("convictInformation", {
-            convictBlockNumber: handler.watcher.block.number,
-            signer: singingNode.address,
-            wrongBlockHash: s.blockHash,
-            wrongBlockNumber: s.block,
-            v: s.v,
-            r: s.r,
-            s: s.s,
-            recreationDone: false
-          })
-        });
-      }
-      throw new Error(e)
-    }
-
-    for (const txArray of transactionArrays) {
-      try {
-        await callContract(handler.config.rpcUrl, blockHashRegistry, 'recreateBlockheaders(uint,bytes[])', [latestSS - diffBlock, txArray], {
-          privateKey: handler.config.privateKey,
-          gas: 8000000,
-          value: 0,
-          confirm: true                       //  we are not waiting for confirmation, since we want to deliver the answer to the client.
-        })
-        diffBlock += txArray.length
-      } catch (e) {
-        if (process.env.SENTRY_ENABLE === 'true') {
-
-          Sentry.configureScope((scope) => {
-            scope.setTag("signatures", "recreationError");
-            scope.setTag("nodeList-contract", this.config.registry)
-            scope.setTag("blockHashRegistry-contract", blockHashRegistry)
-            scope.setExtra("recreationData", {
-              data: [latestSS - diffBlock, txArray]
-            })
-          });
-        }
-
-        throw new Error(e)
-      }
-    }
-    handler.watcher.futureConvicts.find(_ => (_.signer === singingNode.address && _.wrongBlockHash === s.blockHash)).recreationDone = true
+    result: sign((handler.config as any)._pk, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
   }
 }

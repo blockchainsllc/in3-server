@@ -1,22 +1,37 @@
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
 
 import { assert } from 'chai'
 import 'mocha'
@@ -90,7 +105,7 @@ describe('Features', () => {
     assert.equal(logs[0].event, 'LogNodeRegistered')
     assert.equal(logs[0].url, '#3')
     assert.equal(logs[0].props, 0xffff)
-    assert.equal(logs[0].signer, util.getAddress(pk))
+    assert.equal(logs[0].signer, pk.address)
 
     // we still have only 2 nodes since the watchers has not been triggered yet
     assert.equal(client.defConfig.servers[test.chainId].nodeList.length, 2)
@@ -157,14 +172,14 @@ describe('Features', () => {
           minBlockHeight: 0,
           autoRegistry: {
             url: 'dummy',
-            deposit: util.toBN('10000000000000000'),
+            deposit: util.toBN('10000000000000000') as any,
             depositUnit: 'wei',
             capabilities: {
               proof: true,
               multiChain: true
             },
           },
-          privateKey: pk,
+          privateKey: pk as any,
           rpcUrl: test.url,
           registry: test.nodeList.contract
         }
@@ -176,7 +191,7 @@ describe('Features', () => {
     const events = await watcher.update()
     assert.equal(events.length, 1)
     assert.equal(events[0].event, 'LogNodeRegistered')
-    assert.equal(events[0].signer, getAddress(pk))
+    assert.equal(events[0].signer, pk.address)
     assert.equal(events[0].url, 'dummy')
     assert.equal(events[0].props, 3)
     assert.equal(events[0].deposit, util.toBN('10000000000000000'))
@@ -244,11 +259,11 @@ describe('Features', () => {
     const ctx = client.getChainContext(client.defConfig.chainId) as EthChainContext
 
     assert.equal(ctx.blockCache.length, 0)
-    const resp1 = await client.sendRPC('eth_getBalance', [getAddress(pk), 'latest'])
+    const resp1 = await client.sendRPC('eth_getBalance', [pk.address, 'latest'])
     assert.equal(ctx.blockCache.length, 1)
     assert.equal(resp1.in3.proof.signatures.length, 1)
 
-    const resp2 = await client.sendRPC('eth_getBalance', [getAddress(pk), 'latest'])
+    const resp2 = await client.sendRPC('eth_getBalance', [pk.address, 'latest'])
     assert.equal(ctx.blockCache.length, 1)
     assert.equal(resp2.in3.proof.signatures.length, 0)
   })
