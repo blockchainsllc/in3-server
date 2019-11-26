@@ -49,6 +49,7 @@ import { getSafeMinBlockHeight } from './config';
 import * as logger from '../util/logger'
 import WhiteListManager from '../chains/whiteListManager';
 
+const in3ProtocolVersionA = in3ProtocolVersion.split('.').map(_ => parseInt(_))
 
 export class RPC {
   conf: IN3RPCConfig
@@ -102,22 +103,25 @@ export class RPC {
       currentHour.update(r)
 
       //check if requested in3 protocol version is same as server is serving
-      if (in3Request.version && !in3ProtocolVersion.startsWith(in3Request.version)) {
-        //throw new Error("Unable to serve request for protocol level "+in3Request.version+" Currently Server is at IN3 Protocol Version "+in3ProtocolVersion)
-        const res = {
-          id: r.id,
-          error: "Unable to serve request for protocol level " + in3Request.version + " currently Server is at IN3 Protocol Version " + in3ProtocolVersion,
-          jsonrpc: r.jsonrpc,
-          in3: {
-            ...in3,
-            execTime: Date.now() - start,
-            rpcTime: (r as any).rpcTime || 0,
-            rpcCount: (r as any).rpcCount || 0,
-            currentBlock: handler.watcher && handler.watcher.block && handler.watcher.block.number,
-            version: in3ProtocolVersion
+      if (in3Request.version) {
+        //
+        const v = in3Request.version.split('.').map(_ => parseInt(_))
+        if (v.length != 3 || v[0] != in3ProtocolVersionA[0] || v[1] < in3ProtocolVersionA[1]) {
+          const res = {
+            id: r.id,
+            error: "Unable to serve request for protocol level " + in3Request.version + " currently Server is at IN3 Protocol Version " + in3ProtocolVersion,
+            jsonrpc: r.jsonrpc,
+            in3: {
+              ...in3,
+              execTime: Date.now() - start,
+              rpcTime: (r as any).rpcTime || 0,
+              rpcCount: (r as any).rpcCount || 0,
+              currentBlock: handler.watcher && handler.watcher.block && handler.watcher.block.number,
+              version: in3ProtocolVersion
+            }
           }
+          return res as RPCResponse
         }
-        return res as RPCResponse
       }
 
       if (r.method === 'in3_nodeList')

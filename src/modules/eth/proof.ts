@@ -264,9 +264,9 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
 
     const transactions: TransactionData[] = blockData.transactions
     if (!request.params[1]) {
-      const version = request.in3 && request.in3.version && request.in3.version.split('.').map(parseInt)
+      const version = request.in3 && request.in3.version && request.in3.version.split('.').map(toNumber)
       // since we fetched the block with all transactions, but the request said, we only want hashes, we put the full ransactions in the proof and only the hashes in the result.
-      response.in3.proof.transactions = (version && version[0] >= 2 && version[1] > 1)
+      response.in3.proof.transactions = (version && version[0] >= 2 && version[1] > 0)
         ? response.in3.proof.transactions = transactions.map(_ => toHex(_.raw || serialize.rlp.encode(serialize.toTransaction(_))))
         : response.in3.proof.transactions = transactions
 
