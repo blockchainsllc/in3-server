@@ -143,7 +143,12 @@ export async function sendTransaction(url: string, txargs: {
       id: idCount++,
       method: 'eth_getTransactionCount',
       params: [from, 'latest']
-    }).then((_: RPCResponse) => parseInt(_.result as any))
+    }).then((_: RPCResponse) => {
+      if (_.error) {
+        throw new Error(_.error)
+      }
+      return parseInt(_.result as any)
+    })
 
   // get the nonce
   if (!txargs.gasPrice)
@@ -152,7 +157,12 @@ export async function sendTransaction(url: string, txargs: {
       id: idCount++,
       method: 'eth_gasPrice',
       params: []
-    }).then((_: RPCResponse) => parseInt(_.result as any))
+    }).then((_: RPCResponse) => {
+      if (_.error) {
+        throw new Error(_.error)
+      }
+      return parseInt(_.result as any)
+    })
 
   if (!txargs.gas)
     txargs.gas = await transport.handle(url, {
@@ -167,7 +177,7 @@ export async function sendTransaction(url: string, txargs: {
       }]
     }).then((_: RPCResponse) => {
       if (_.error) {
-        throw new SentryError(_.error)
+        throw new Error(_.error)
       }
       return Math.floor(parseInt(_.result as any) * 1.1)
     })
@@ -186,7 +196,7 @@ export async function sendTransaction(url: string, txargs: {
   if (process.env.SENTRY_ENABLE === 'true') {
     Sentry.addBreadcrumb({
       category: "sending tx",
-      data: tx
+      data: txargs
     })
   }
   // We clear any previous signature before signing it. Otherwise, _implementsEIP155's can give
@@ -202,7 +212,7 @@ export async function sendTransaction(url: string, txargs: {
     id: idCount++,
     method: 'eth_sendRawTransaction',
     params: [toHex(tx.serialize())]
-  }).then((_: RPCResponse) => _.error ? Promise.reject(new SentryError('Error sending tx', 'tx_error', 'Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
+  }).then((_: RPCResponse) => _.error ? Promise.reject(new Error('Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
 
   return txargs.confirm ? waitForReceipt(url, txHash, timeout || 30, txargs.gas, transport) : txHash
 }
