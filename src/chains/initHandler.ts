@@ -167,9 +167,10 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
   }], handler.chainId, undefined, handler.config.registryRPC || handler.config.rpcUrl, undefined, false).catch(_ => {
     if (process.env.SENTRY_ENABLE === 'true') {
 
+      handler.config.registry
       Sentry.configureScope((scope) => {
         scope.setTag("InitHanlder", "registerNodes");
-        scope.setTag("nodeList-contract", this.config.registry)
+        scope.setTag("nodeList-contract", handler.config.registry)
         scope.setExtra("nodeList", nl)
       });
     }
