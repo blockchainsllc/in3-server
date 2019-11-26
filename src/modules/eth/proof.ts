@@ -265,7 +265,10 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
     const transactions: TransactionData[] = blockData.transactions
     if (!request.params[1]) {
       // since we fetched the block with all transactions, but the request said, we only want hashes, we put the full ransactions in the proof and only the hashes in the result.
-      (response.in3.proof as any).transactions = transactions
+      response.in3.proof.transactions = (request.in3 && request.in3.version && parseInt(request.in3.version.split('.')[0]) >= 2)
+        ? response.in3.proof.transactions = transactions.map(_ => toHex(_.raw || serialize.rlp.encode(serialize.toTransaction(_))))
+        : response.in3.proof.transactions = transactions
+
       blockData.transactions = transactions.map(_ => _.hash)
 
       if (request.method.indexOf('Count') > 0) {
