@@ -265,8 +265,6 @@ describe('Convict', () => {
 
     const wrongBlock = txReceipt.blockNumber - 0x104
 
-    console.log("address", test.nodeList.contract)
-    console.log("privateKey", test.getHandlerConfig(0).privateKey)
 
     const watcher = test.getHandler(0).watcher
     const watcher2 = test.getHandler(1).watcher
