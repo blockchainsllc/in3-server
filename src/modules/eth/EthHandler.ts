@@ -40,6 +40,7 @@ import { handleSign } from '../../chains/signatures';
 import { getValidatorHistory } from '../../server/poa'
 import { TxRequest, LogFilter } from './api';
 import * as tx from '../../../src/util/tx'
+import * as logger from '../../util/logger'
 
 const clientConf = require('in3-common/js/defaultConfig.json')
 const toHex = in3Util.toHex
@@ -51,7 +52,9 @@ const toNumber = in3Util.toNumber
 export default class EthHandler extends BaseHandler {
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
+
     super(config, transport, nodeList)
+
   }
 
   /** main method to handle a request */
@@ -87,17 +90,31 @@ export default class EthHandler extends BaseHandler {
   }
 
   private checkPerformanceLimits(request: RPCRequest) {
+    const maxAllowedGas: number = 10000000  //max default allowed gas 10M
+
     if (request.method === 'eth_call') {
-      if (!request.params || request.params.length < 2) throw new Error('eth_call must have a transaction and a block as parameters')
-      const tx = request.params as TxRequest
-      if (!tx || (tx.gas && toNumber(tx.gas) > 10000000)) throw new Error('eth_call with a gaslimit > 10M are not allowed')
+      if (!request.params || request.params.length < 2)
+        throw new Error('eth_call must have a transaction and a block as parameters')
+
+      const gasLimit = this.config.maxGasLimit || maxAllowedGas
+
+      const tx = request.params[0] as TxRequest
+      if (!tx || (tx.gas && toNumber(tx.gas) > gasLimit)) {
+        throw new Error('eth_call with a gaslimit > ' + gasLimit + ' are not allowed')
+      }
     }
     else if (request.method === 'eth_getLogs') {
       if (!request.params || request.params.length < 1) throw new Error('eth_getLogs must have a filter as parameter')
       const filter: LogFilter = request.params[0]
       let toB = filter && filter.toBlock
+
+      if (toB === 'pending' && request.in3.verification.startsWith('proof')) throw new Error("proof on pending not supported")
+
       if (toB === 'latest' || toB === 'pending' || !toB) toB = this.watcher && this.watcher.block && this.watcher.block.number
       let fromB = toB && filter && filter.fromBlock
+
+      if (fromB === 'pending' && request.in3.verification.startsWith('proof')) throw new Error("proof on pending not supported")
+
       if (fromB === 'earliest') fromB = 1;
       const range = fromB && (toNumber(toB) - toNumber(fromB))
       if (range > (request.in3.verification.startsWith('proof') ? 1000 : 10000))
@@ -122,6 +139,8 @@ export default class EthHandler extends BaseHandler {
     // check performancelimits
     this.checkPerformanceLimits(request)
 
+    if (request.in3 && request.in3.whiteList)
+      await this.whiteListMgr.addWhiteListWatch(request.in3.whiteList)
 
     // handle special jspn-rpc
     if (request.in3.verification == 'proof' || request.in3.verification == 'proofWithSignature') // proofWithSignature is only supported for legacy, since only the request for signers is relveant

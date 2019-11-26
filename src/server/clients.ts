@@ -83,22 +83,38 @@ interface ClientInfo {
 const clients: { [id: string]: ClientInfo } = {}
 let lastCleanUp = 0;
 
-export function checkBudget(client: string, request: any, maxPoints: number) {
+export function checkBudget(client: string, requests: RPCRequest[], maxPoints: number, throwError: boolean) {
     const now = Date.now()
+
+    // get current stats (or create them if they don't exist yet)
     const state: ClientInfo = clients[client] || (clients[client] = { costs: 0, timeout: now + 60000 })
+
+    // if the stats are older then a minute, we reset them and start new 
     if (state.timeout < now) {
         state.costs = 0
         state.timeout = now + 60000
     }
-    state.costs += Array.isArray(request) ? request.reduce((p, c) => p + calculateCosts(c), 0) : calculateCosts(request)
 
+    // add the weights as cost to the stats
+    state.costs += requests.reduce((p, c) => p + calculateCosts(c), 0)
+
+    // since wwe are not running as thread to clean up, we simply run whenever it is needed 
     if (lastCleanUp < now) {
-        lastCleanUp = now + 120000
+        lastCleanUp = now + 120000 // run at every 2 min
+        // we don't want to clean up now, but use the time as soon as the thread waits for IO
         setTimeout(() => {
+            // and remove all entries which are older then a minute
             for (const key of Object.keys(clients).filter(_ => clients[_].timeout < now)) delete clients[key]
         }, 0)
     }
 
-    if (maxPoints && state.costs > maxPoints)
-        throw new Error(client + ' used up too many requests per minute!')
+    // if we reached the maxpoits per minute ..
+    if (maxPoints && state.costs > maxPoints) {
+        // we have to reject the request
+        if (throwError)
+            throw new Error(client + ' used up too many requests per minute!')
+        else
+            return false
+    }
+    return true
 }

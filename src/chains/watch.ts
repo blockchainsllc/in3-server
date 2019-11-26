@@ -31,10 +31,11 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
+const Sentry = require('@sentry/node');
 
 import * as fs from 'fs'
 import { EventEmitter } from 'events'
-import { util, LogData } from 'in3-common'
+import { util, LogData, serialize } from 'in3-common'
 import { keccak, toChecksumAddress } from 'ethereumjs-util'
 
 import { RPCHandler } from '../server/rpc';
@@ -44,11 +45,14 @@ import * as tx from '../util/tx'
 import { useDB, exec } from '../util/db'
 import config from '../server/config'
 import { updateValidatorHistory } from '../server/poa';
+import { SentryError } from '../util/sentryError';
 
 const toNumber = util.toNumber
 const toHex = util.toHex
 const toMinHex = util.toMinHex
 const toBuffer = util.toBuffer
+const address = serialize.address
+
 
 export default class Watcher extends EventEmitter {
 
@@ -62,8 +66,16 @@ export default class Watcher extends EventEmitter {
   interval: number
   persistFile: string
   running: boolean
+  blockhashRegistry: string
 
   _convictInformation: {
+    starttime: number,
+    diffBlocks: number,
+    blocksToRecreate?: {
+      bNr: number,
+      firstSeen: number,
+      currentBnr: number
+    }[],
     convictBlockNumber: number,
     signer: string,
     wrongBlockHash: string,
@@ -71,7 +83,10 @@ export default class Watcher extends EventEmitter {
     v: number,
     r: string,
     s: string,
-    recreationDone: boolean
+    recreationDone: boolean,
+    latestBlock?: number,
+    signingNode: any,
+    signature: string
   }
 
   futureConvicts: any[]
@@ -149,6 +164,7 @@ export default class Watcher extends EventEmitter {
   }
 
   async update(): Promise<any[]> {
+
     if (useDB && !this._lastBlock) {
       const last = await exec('select last_block, last_hash from nodes where id=$1', [config.id])
       if (last.length && last[0].last_block)
@@ -198,20 +214,160 @@ export default class Watcher extends EventEmitter {
     // update validators
     await updateValidatorHistory(this.handler)
 
+    await this.handleConvict(currentBlock)
+
+    return res
+  }
+
+  async handleConvict(currentBlock) {
+
     for (const ci of this.futureConvicts) {
-      if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone) {
+
+      const costPerBlock = 86412400000000
+
+      // adding 1 to prevent 0 costs
+      const costs = ci.diffBlocks + 1 * costPerBlock * 1.25
+
+      const worthIt = costs < ci.signingNode.deposit / 2
+
+      if (worthIt && ci.convictBlockNumber === 0) {
+        await tx.callContract(this.handler.config.rpcUrl, this.handler.config.registry, 'convict(bytes32)', [ci.signature], {
+          privateKey: (this.handler.config as any)._pk,
+          value: 0,
+          confirm: true
+        })
+
+        ci.convictBlockNumber = this.block.number
+
+      }
+
+      if (ci.diffBlocks) {
+        if (!ci.blocksToRecreate) {
+          ci.blocksToRecreate = []
+          let latestSS = toNumber((await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [ci.wrongBlockNumber, ci.diffBlocks]))[0])
+
+          if (latestSS === 0) latestSS == this.block.number
+          ci.latestBlock = latestSS
+
+          // we did not found an entry in the registry yet, so we would have to create one
+          if (latestSS === this.block.number && worthIt) {
+
+            await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'saveBlockNumber(uint):()', [this.block.number], {
+              privateKey: (this.handler.config as any)._pk,
+              value: 0,
+              confirm: false
+            }).catch(_ => {
+              new SentryError(_, "saveBlocknumber")
+            })
+          }
+
+          let currentRecreateBlock = latestSS
+
+          // due to geth, we can only recreate 45 blocks at once
+          while (currentRecreateBlock - 45 > ci.wrongBlockNumber) {
+            currentRecreateBlock -= 45
+            ci.blocksToRecreate.push({ number: currentRecreateBlock, firstSeen: null, currentBnr: null })
+          }
+          ci.blocksToRecreate[0].firstSeen = this.block.number
+          ci.blocksToRecreate[0].currentBnr = this.block.number
+
+          ci.blocksToRecreate.push({ number: ci.wrongBlockNumber, firstSeen: null, currentBnr: null })
+
+        }
+
+        for (const blocksToRecreate of ci.blocksToRecreate) {
+
+          if (blocksToRecreate.firstSeen && worthIt) {
+
+            const blockHashInContract = (await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'blockhashMapping(uint):(bytes32)', [blocksToRecreate.number]))[0]
+
+            if (blockHashInContract === "0x0000000000000000000000000000000000000000000000000000000000000000") {
+              blocksToRecreate.currentBnr++
+
+              if (blocksToRecreate.currentBnr >= blocksToRecreate.firstSeen + 5) {
+
+                const blockNumbers = []
+                for (let i = ci.latestBlock; i > blocksToRecreate.number; i--) {
+                  blockNumbers.push(i)
+                }
+
+                const blockrequest = []
+                for (let i = 0; i < blockNumbers.length; i++) {
+                  blockrequest.push({
+                    jsonrpc: '2.0',
+                    id: i + 1,
+                    method: 'eth_getBlockByNumber', params: [
+                      toHex(blockNumbers[i]), false
+                    ]
+                  })
+                }
+
+                const blockhashes = await this.handler.getAllFromServer(blockrequest)
+
+                const serialzedBlocks = []
+                for (const bresponse of blockhashes) {
+                  serialzedBlocks.push(new serialize.Block(bresponse.result as any).serializeHeader());
+                }
+
+                await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
+                  privateKey: (this.handler.config as any)._pk,
+                  value: 0,
+                  confirm: true
+                }).catch(_ => {
+                  new SentryError(_, "recreateBlockheaders")
+                })
+
+                ci.latestBlock = toNumber((await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [blocksToRecreate.number - 10, 20]))[0])
+                ci.blocksToRecreate = ci.blocksToRecreate.length > 1 ? ci.blocksToRecreate.slice(1) : ci.blocksToRecreate = []
+
+                if (ci.blocksToRecreate.length > 0) {
+                  ci.blocksToRecreate[0].firstSeen = this.block.number
+                  ci.blocksToRecreate[0].currentBnr = this.block.number
+                }
+                else {
+                  ci.recreationDone = true
+                }
+
+
+              }
+
+            } else {
+              ci.blocksToRecreate = ci.blocksToRecreate.length > 1 ? ci.blocksToRecreate.slice(1) : ci.blocksToRecreate = []
+            }
+
+          }
+
+        }
+
+      }
+      if (ci.diffBlocks === 0) {
+        ci.recreationDone = true
+      }
+
+      if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone && worthIt) {
+
         await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
           [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
-          privateKey: this.handler.config.privateKey,
+          privateKey: (this.handler.config as any)._pk,
           gas: 600000,
           value: 0,
-          confirm: false
-        }).catch(_ => logger.error('Error sending revealConvict ', _))
+          confirm: true
+        }).catch(_ => {
+          if (process.env.SENTRY_ENABLE === 'true') {
+
+            Sentry.configureScope((scope) => {
+              scope.setTag("watch", "convictError");
+              scope.setTag("nodeList-contract", this.handler.config.registry)
+              scope.setExtra("txData:", [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s])
+            });
+          }
+
+          Sentry.captureException('Error sending revealConvict ', _)
+          logger.error('Error sending revealConvict ', _)
+        })
         this.futureConvicts.pop()
       }
     }
-
-    return res
   }
 
 
@@ -255,7 +411,7 @@ abi.forEach(_ => _.hash = toHex(keccak(_.name + '(' + _.inputs.map(i => i.type).
 
 
 function handleUnregister(ev, handler: RPCHandler) {
-  const me = util.getAddress(handler.config.privateKey)
+  const me = (this.handler.config as any)._pk.address
   if (ev.owner !== me || ev.caller === me) return
   logger.info('LogServerUnregisterRequested event found. Reacting with cancelUnregisteringServer! ')
   handler.getNodeList(false).then(nl => {
@@ -264,7 +420,7 @@ function handleUnregister(ev, handler: RPCHandler) {
       throw new Error('could not find the server in the list')
 
     return tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'cancelUnregisteringServer(uint)', [node.index], {
-      privateKey: handler.config.privateKey,
+      privateKey: (this.handler.config as any)._pk,
       gas: 400000,
       value: 0,
       confirm: true
@@ -275,3 +431,6 @@ function handleUnregister(ev, handler: RPCHandler) {
   }).catch(err => logger.error('Error handling LogServerUnregisterRequested : ', err))
 
 }
+
+
+
