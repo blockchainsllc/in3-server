@@ -47,13 +47,9 @@ import { toBN, toBuffer } from 'in3-common/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
 import { signatureCaches, createPK, PK } from '../../src/chains/signatures'
 
-
-const address = serialize.address
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 const toHex = util.toHex
-const uint64 = serialize.uint64
-const uint = serialize.uint
 
 const sign = (b: BlockData, registryId: string, pk: PK, blockHash?: string) => {
   const msgHash = ethUtil.keccak(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number), bytes32(registryId)]))
@@ -269,6 +265,7 @@ describe('Convict', () => {
 
     const wrongBlock = txReceipt.blockNumber - 0x104
 
+
     const watcher = test.getHandler(0).watcher
     const watcher2 = test.getHandler(1).watcher
 
@@ -302,7 +299,6 @@ describe('Convict', () => {
       return re
     })
 
-
     assert.equal(await test.getNodeCountFromContract(), 2)
 
     // we create a new client because the old one may have different weights now
@@ -333,6 +329,7 @@ describe('Convict', () => {
 
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
     assert.equal(await test.getNodeCountFromContract(), 2)
+
 
   })
 

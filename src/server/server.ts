@@ -31,16 +31,11 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-
-
-
-import * as logger from '../util/logger'
-import { SentryError } from '../util/sentryError'
-//var njstrace = require('njstrace').inject();
-
 // tslint:disable-next-line:missing-jsdoc
 const Sentry = require('@sentry/node');
 
+import * as logger from '../util/logger'
+import { SentryError } from '../util/sentryError'
 import * as Koa from 'koa'
 import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
@@ -59,8 +54,8 @@ import axios from 'axios'
 if (process.env.SENTRY_ENABLE === 'true') {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
-    release: process.env.SENTRY_RELEASE,
-    environment: process.env.SENTRY_ENVIRONMENT,
+    release: process.env.SENTRY_RELEASE || "v0.0.0",
+    environment: process.env.SENTRY_ENVIRONMENT || "local"
   });
 }
 
@@ -161,12 +156,6 @@ router.post(/.*/, async ctx => {
   } catch (err) {
     ctx.status = err.status || 500
     ctx.body = { jsonrpc: '2.0', error: { message: err.message } }
-    //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
-    logger.error('Error handing ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ') ==> error=>') + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
-    throw new SentryError(err, "request_status", ctx.request.body)
-
-    ctx.app.emit('error', err, ctx)
-
   }
 
 })
@@ -201,15 +190,11 @@ router.get(/.*/, async ctx => {
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
     ctx.body = result.result || result.error
-    console.log(ctx.status)
   } catch (err) {
     ctx.status = err.status || 500
     ctx.body = err.message
-    //logger.error('Error handling ' + ctx.request.url + ' : (' + JSON.stringify(ctx.request.body, null, 2) + ') : ' + err + '\n' + err.stack + '\n' + 'sender headers: ' + JSON.stringify(ctx.request.headers, null, 2) + "\n sender ip " + ctx.request.ip)
     logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
     throw new SentryError(err, "request_status", ctx.request.body)
-
-    ctx.app.emit('error', err, ctx)
 
   }
 
@@ -223,7 +208,16 @@ checkNodeSync(() =>
     const doInit = (retryCount: number) => {
       if (retryCount <= 0) {
         logger.error('Error initializing the server : Maxed out retries')
-        throw new SentryError("server initialization error", "server_status", "maxed out retries")
+        if (process.env.SENTRY_ENABLE === 'true') {
+          Sentry.configureScope((scope) => {
+            scope.setTag("server", "initConfig");
+            scope.setTag("server_status", "Error initializing the server");
+
+            scope.setExtra("config", config)
+
+          });
+          Sentry.captureException(new Error("Maxed out retries"));
+        }
         INIT_ERROR = true
         return;
       }
@@ -232,9 +226,22 @@ checkNodeSync(() =>
         logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
 
         setTimeout(() => { doInit(retryCount - 1) }, 20000)
-        throw new SentryError(err.message, "server_status", "Error initializing the server" + err.stack)
+        if (process.env.SENTRY_ENABLE === 'true') {
+          Sentry.configureScope((scope) => {
+            scope.setTag("server", "initConfig");
+            scope.setTag("server_status", "Error initializing the server");
 
+            if ((config as any).privateKey) {
+              const tempConfig = config
+              delete (tempConfig as any).privateKey
+            } else {
+              scope.setExtra("config", config)
+            }
+          });
+          Sentry.captureException(err);
+        }
       })
+
     }
 
     // Getting node list and validator list before starting server
@@ -246,12 +253,19 @@ checkNodeSync(() =>
       .use(router.routes())
       .use(router.allowedMethods())
       .listen(config.port || 8500, () => logger.info(`http server listening on ${config.port || 8500}`))
-    app.proxy = config.proxy || false
 
   }).catch(err => {
     //console.error('Error starting the server : ' + err.message, config)
     logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
-    throw new SentryError(err, "server_status", "Error starting the server")
+    // throw new SentryError(err, "server_status", "Error starting the server")
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.configureScope((scope) => {
+        scope.setTag("server", "initConfig");
+        scope.setTag("server_status", "Error starting the server");
+        scope.setExtra("config", config)
+      });
+      Sentry.captureException(err);
+    }
 
     process.exit(1)
   })
@@ -267,7 +281,15 @@ async function checkHealth(ctx: Router.IRouterContext) {
   else if (INIT_ERROR) {
     ctx.body = { status: 'unhealthy', message: "server initialization error" }
     ctx.status = 500
-    throw new SentryError("server initialization error", "server_status", "unhealthy")
+    //  throw new SentryError("server initialization error", "server_status", "unhealthy")
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.configureScope((scope) => {
+        scope.setTag("server", "checkHealth");
+        scope.setTag("unhealthy", "server initialization error");
+        scope.setExtra("ctx", ctx)
+      });
+      Sentry.captureException(new Error("init error"));
+    }
   }
   else {
     await Promise.all(
@@ -287,7 +309,15 @@ async function initError(ctx: Router.IRouterContext) {
   //lies to the rancher that it is healthy to avoid restart loop
   ctx.body = "Server uninitialized"
   ctx.status = 200
-  throw new SentryError("server initialization error", "server_status", "unhealthy")
+  // throw new SentryError("server initialization error", "server_status", "unhealthy")
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.configureScope((scope) => {
+      scope.setTag("server", "initError");
+      scope.setTag("server_status", "Server uninitialized");
+      scope.setExtra("ctx", ctx)
+    });
+    Sentry.captureException(new Error("Server uninitialized"));
+  }
 
 }
 
@@ -300,8 +330,15 @@ async function getVersion(ctx: Router.IRouterContext) {
   else {
     ctx.body = "Unknown Version"
     ctx.status = 500
-    throw new SentryError("server unknown version", "server_status", "unknown version")
 
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.configureScope((scope) => {
+        scope.setTag("server", "getVersion");
+        scope.setTag("server_status", "unknown version");
+        scope.setExtra("ctx", ctx)
+      });
+      Sentry.captureException(new Error("server unknown version"));
+    }
   }
 }
 

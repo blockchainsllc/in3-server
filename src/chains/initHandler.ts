@@ -31,6 +31,7 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
+const Sentry = require('@sentry/node');
 
 import BaseHandler from './BaseHandler'
 import { util } from 'in3-common'
@@ -42,8 +43,6 @@ import * as ethUtil from 'ethereumjs-util'
 import { registerNodes } from '../util/registry'
 import * as logger from '../util/logger'
 import { PK, createPK } from './signatures'
-
-
 
 export function checkPrivateKey(config: IN3RPCHandlerConfig) {
   if ((config as any)._pk) return
@@ -139,6 +138,23 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
 
   const registrationCost = txGasPrice * 1000000
 
+  if (process.env.SENTRY_ENABLE === 'true') {
+
+    Sentry.addBreadcrumb({
+      category: "autoregister",
+      data: {
+        request: {
+          url: autoReg.url,
+          props: props,
+          deposit: deposit
+        },
+        chainId: handler.chainId,
+        registryRPC: handler.config.registryRPC || handler.config.rpcUrl,
+        balance: balance,
+      }
+    })
+  }
+
   if (balance < (autoReg.deposit + registrationCost))
     throw new Error("Insufficient funds to register a server, need: " + autoReg.deposit + " ether, have: " + balance + " wei")
 
@@ -148,5 +164,17 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
     props,
     deposit: deposit as any,
     timeout: 3600
-  }], handler.chainId, undefined, handler.config.registryRPC || handler.config.rpcUrl, undefined, false)
+  }], handler.chainId, undefined, handler.config.registryRPC || handler.config.rpcUrl, undefined, false).catch(_ => {
+    if (process.env.SENTRY_ENABLE === 'true') {
+
+      handler.config.registry
+      Sentry.configureScope((scope) => {
+        scope.setTag("InitHanlder", "registerNodes");
+        scope.setTag("nodeList-contract", handler.config.registry)
+        scope.setExtra("nodeList", nl)
+      });
+    }
+
+    throw new Error("Error trying to register node")
+  })
 }

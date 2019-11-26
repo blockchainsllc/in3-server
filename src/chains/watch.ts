@@ -31,6 +31,7 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
+const Sentry = require('@sentry/node');
 
 import * as fs from 'fs'
 import { EventEmitter } from 'events'
@@ -352,9 +353,18 @@ export default class Watcher extends EventEmitter {
           value: 0,
           confirm: true
         }).catch(_ => {
-          new SentryError(_, "convict_error", "error reveal convict")
-        })
+          if (process.env.SENTRY_ENABLE === 'true') {
 
+            Sentry.configureScope((scope) => {
+              scope.setTag("watch", "convictError");
+              scope.setTag("nodeList-contract", this.handler.config.registry)
+              scope.setExtra("txData:", [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s])
+            });
+          }
+
+          Sentry.captureException('Error sending revealConvict ', _)
+          logger.error('Error sending revealConvict ', _)
+        })
         this.futureConvicts.pop()
       }
     }

@@ -31,6 +31,7 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
+const Sentry = require('@sentry/node');
 
 import BaseHandler from './BaseHandler'
 import { BlockData, util, serialize } from 'in3-common'
@@ -123,9 +124,19 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
   return Promise.all(uniqueAddresses.slice(0, nodes.nodes.length).map(async adr => {
     // find the requested address in our list
     const config = nodes.nodes.find(_ => _.address.toLowerCase() === adr.toLowerCase())
-    if (!config) // TODO do we need to throw here or is it ok to simply not deliver the signature?
-      throw new Error('The ' + adr + ' does not exist within the current registered active nodeList!')
+    if (!config) { // TODO do we need to throw here or is it ok to simply not deliver the signature?
 
+      Sentry.configureScope((scope) => {
+
+        scope.setTag("NodeListFunction", "collectSignatures");
+        scope.setTag("collectSignatures", "address not found");
+        scope.setTag("nodeList-contract", nodes.registryId)
+        scope.setExtra("nodes", nodes.nodes)
+        scope.setExtra("requestedBlocks", requestedBlocks)
+      });
+
+      throw new Error('The address ' + adr + ' does not exist within the current registered active nodeList!')
+    }
     // get cache signatures and remaining blocks that have no signatures
     const cachedSignatures: Signature[] = []
     const blocksToRequest = blocks.filter(b => {
@@ -140,19 +151,34 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         ? await handler.transport.handle(config.url, { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest })
         : { result: [] }) as RPCResponse
       if (response.error) {
-        //throw new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+        Sentry.configureScope((scope) => {
+          scope.setTag("signatures", "collectSignatures");
+          scope.setExtra("address", adr)
+          scope.setExtra("blocks", blocks)
+          scope.setExtra("response", response)
+        });
+        Sentry.captureMessage('Could not get the signature')
+
+        //sthrow new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         return null
       }
     } catch (error) {
+
       logger.error(error.toString())
+
+      Sentry.configureScope((scope) => {
+        scope.setTag("signatures", "collectSignatures");
+        scope.setTag("collectSignatures", "could not get signature");
+        scope.setExtra("addresses", addresses)
+        scope.setExtra("requestedBlocks", requestedBlocks)
+      });
+      Sentry.captureException(error);
+
       return null
     }
 
-
     const signatures = [...cachedSignatures, ...response.result] as Signature[]
-
-
     // if there are signature, we only return the valid ones
     if (signatures && signatures.length)
       return Promise.all(signatures.map(async s => {
@@ -190,6 +216,22 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         // ok still wrong, so we start convicting the node...
         logger.info("Trying to convict node(" + singingNode.address + ") " + singingNode.url + ' because it signed wrong blockhash  with ' + JSON.stringify(s) + ' but the correct hash should be ' + expectedBlock.hash)
 
+        if (process.env.SENTRY_ENABLE === 'true') {
+
+          Sentry.addBreadcrumb({
+            category: "convict",
+            data: {
+              singingNode: singingNode,
+              signature: s,
+              expected: expectedBlock,
+              chainId: handler.chainId,
+              registryRPC: handler.config.registryRPC || handler.config.rpcUrl,
+            }
+          })
+        }
+
+        Sentry.captureMessage(`detected wrong blockResponse`)
+
         const latestBlockNumber = handler.watcher.block.number
         const diffBlocks = toNumber(latestBlockNumber) - s.block
         const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
@@ -225,6 +267,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
   })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c], []))
 
 }
+
 
 export function sign(pk: PK, blocks: { blockNumber: number, hash: string, registryId: string }[]): Signature[] {
   if (!pk) throw new Error('Missing private key')

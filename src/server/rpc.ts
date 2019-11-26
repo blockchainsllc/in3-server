@@ -31,6 +31,7 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
+const Sentry = require('@sentry/node');
 
 
 import { Transport, AxiosTransport, util } from 'in3-common'
@@ -226,7 +227,14 @@ export class RPC {
         })
       ])
         .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })))
-    }))
+    })).catch(e => {
+      Sentry.configureScope((scope) => {
+        scope.setExtra("request", request)
+      })
+      throw new Error(e)
+
+    })
+
   }
 
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest {
@@ -257,12 +265,13 @@ export class RPC {
 
 function manageRequest<T>(handler: RPCHandler, p: Promise<T>): Promise<T> {
   handler.openRequests++
+
   return p.then((r: T) => {
     handler.openRequests--
     return r
   }, err => {
     handler.openRequests--
-    throw err
+    throw new SentryError(err, "manageRequest", "error handling request")
   })
 }
 
@@ -313,7 +322,17 @@ export class HandlerTransport extends AxiosTransport {
       // if this was not given as array, we need to convert it back to a single object
       return Array.isArray(data) ? res.data : res.data[0]
     } catch (err) {
-      throw new SentryError(err, 'status_error', 'Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
+
+      if (process.env.SENTRY_ENABLE === 'true') {
+        Sentry.configureScope((scope) => {
+          scope.setTag("rpc", "handle");
+          scope.setTag("status_error", "invalid response");
+          scope.setExtra("url", url)
+          scope.setExtra("data", data)
+        });
+        Sentry.captureException(err);
+      }
+      throw new SentryError(err, 'status_error', 'Invalid response')
     }
   }
 
