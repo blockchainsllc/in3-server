@@ -89,6 +89,11 @@ function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any, data?: any
 
     // register with sentry
     if (process.env.SENTRY_ENABLE === 'true') {
+        Sentry.configureScope(function (scope) {
+            scope.setExtra("request", data);
+            scope.setExtra("message", msg);
+            scope.setExtra("errors", errs);
+        })
         Sentry.addBreadcrumb({
             request: data,
             message: msg,
