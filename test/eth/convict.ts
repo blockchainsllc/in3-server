@@ -50,6 +50,7 @@ import { signatureCaches, createPK, PK } from '../../src/chains/signatures'
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 const toHex = util.toHex
+const toMinHex = util.toMinHex
 
 const sign = (b: BlockData, registryId: string, pk: PK, blockHash?: string) => {
   const msgHash = ethUtil.keccak(Buffer.concat([bytes32(blockHash || b.hash), bytes32(b.number), bytes32(registryId)]))
@@ -165,14 +166,14 @@ describe('Convict', () => {
     const pk1 = test.getHandlerPK(0)
     const pk2 = test.getHandlerPK(1)
 
-    const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
+    const block = await test.getFromServer('eth_getBlockByNumber', toMinHex(wrongBlock), false) as BlockData
 
     assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 260)
 
     const client = await test.createClient()
 
     // this is a correct signature and should not fail.
-    const res = await client.sendRPC('eth_getBalance', [pk1.address, toHex(wrongBlock)], undefined, {
+    const res = await client.sendRPC('eth_getBalance', [pk1.address, toMinHex(wrongBlock)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
@@ -204,7 +205,7 @@ describe('Convict', () => {
 
 
     // this is a correct signature and should not fail.
-    await client2.sendRPC('eth_getBalance', [pk1.address, toHex(wrongBlock)], undefined, {
+    await client2.sendRPC('eth_getBalance', [pk1.address, toMinHex(wrongBlock)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
@@ -231,7 +232,7 @@ describe('Convict', () => {
     assert.equal(await test.getNodeCountFromContract(), 2)
 
     // this is a correct signature and should not fail.
-    await client.sendRPC('eth_getBalance', [pk1.address, toHex(wrongBlock)], undefined, {
+    await client.sendRPC('eth_getBalance', [pk1.address, toMinHex(wrongBlock)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
     //   let events = await watcher.update()
@@ -273,14 +274,14 @@ describe('Convict', () => {
     const pk1 = test.getHandlerPK(0)
     const pk2 = test.getHandlerPK(1)
 
-    const block = await test.getFromServer('eth_getBlockByNumber', toHex(wrongBlock), false) as BlockData
+    const block = await test.getFromServer('eth_getBlockByNumber', toMinHex(wrongBlock), false) as BlockData
 
     assert.equal((toNumber(txReceipt.blockNumber) - toNumber(block.number)), 260)
 
     const client = await test.createClient()
 
     // this is a correct signature and should not fail.
-    const res = await client.sendRPC('eth_getBalance', [pk1.address, toHex(wrongBlock)], undefined, {
+    const res = await client.sendRPC('eth_getBalance', [pk1.address, toMinHex(wrongBlock)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
@@ -310,7 +311,7 @@ describe('Convict', () => {
 
 
     // this is a correct signature and should not fail.
-    const res2 = await client2.sendRPC('eth_getBalance', [pk1.address, toHex(wrongBlock)], undefined, {
+    const res2 = await client2.sendRPC('eth_getBalance', [pk1.address, toMinHex(wrongBlock)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
