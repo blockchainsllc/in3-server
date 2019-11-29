@@ -9,14 +9,15 @@ ajv.addSchema(schema)
 
 export function verifyRequest(req: any) {
     if (!ajv.validate('https://slock.it/rpc.json', req))
-        throw new Error(getErrorMessage(ajv.errors, null, { dataVar: 'rpc' }))
+        throw new Error(getErrorMessage(ajv.errors, null, { dataVar: 'rpc' }, req))
     if (!schema.definitions[req.method])
         throw new Error('method ' + req.method + ' is not supported or unknown')
     if (!ajv.validate('https://slock.it/rpc.json#/definitions/' + req.method, req.params))
-        throw new Error(req.method + ' : ' + getErrorMessage(ajv.errors, schema.definitions[req.method]))
+        throw new Error(req.method + ' : ' + getErrorMessage(ajv.errors, schema.definitions[req.method], null, req))
 }
-function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any) {
-    console.log('e:' + JSON.stringify(errs, null, 2))
+function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any, data?: any) {
+    //    console.log("request:", JSON.stringify(data, null, 2))
+    //    console.log('errors:' + JSON.stringify(errs, null, 2))
     const all = [...errs]
     const ones = errs.filter(_ => _.keyword == 'oneOf').map(one => {
         one.message = 'must be ' + all.filter(_ => _ !== one && _.schemaPath.startsWith(one.schemaPath)).map(sub => {
@@ -50,7 +51,9 @@ function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any) {
         if (descr) e.message = '(' + descr + ') ' + e.message
     }
 
-    return ajv.errorsText(all, opt || { dataVar: 'params' })
+    const msg = ajv.errorsText(all, opt || { dataVar: 'params' })
+    //    console.log("Message=", msg)
+    return msg
 }
 
 function getDescription(path: string, root?: any) {

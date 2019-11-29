@@ -180,7 +180,9 @@ definitions:
     items:
       - $ref: "#/definitions/address"
       - type: string
-        pattern: "^0x(0|[a-fA-F1-9]+[a-fA-F0-9]*)$"
+        maxLength: 66
+        minLength: 3
+        pattern: "^0x[a-fA-F0-9]+$"
         description: the storage key
       - $ref: "#/definitions/blockType"
 
@@ -334,7 +336,11 @@ definitions:
       - $ref: "#/definitions/address"
       - type: array
         items:
-          - $ref: "#/definitions/hash"
+          - type: string
+            maxLength: 66
+            minLength: 3
+            pattern: "^0x[a-fA-F0-9]+$"
+
       - $ref: "#/definitions/blockType"
 
   in3_nodeList:
@@ -386,3 +392,17 @@ definitions:
             minimum: 0
           hash:
             $ref: "#/definitions/hash"
+
+ipfs_get:
+  type: array
+  minItems: 1
+  maxItems: 2
+  items:
+    - type: string
+
+ipfs_put:
+  type: array
+  minItems: 1
+  maxItems: 2
+  items:
+    - type: string

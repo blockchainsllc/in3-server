@@ -45,6 +45,8 @@ import * as logger from 'in3-common/js/test/util/memoryLogger'
 
 const toHex = util.toHex
 const getAddress = util.getAddress
+const toMinHex = util.toMinHex
+const toNumber = util.toNumber
 
 // our test private key
 const pk = '0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
@@ -232,7 +234,7 @@ describe('ETH Standard JSON-RPC', () => {
       confirm: true
     })
 
-    const res = await client.sendRPC('eth_getTransactionByBlockHashAndIndex', [receipt.blockHash, receipt.transactionIndex + 1], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getTransactionByBlockHashAndIndex', [receipt.blockHash, toMinHex(toNumber(receipt.transactionIndex) + 1)], null, { keepIn3: true })
     const result = res.result
     assert.isNull(result)
     assert.equal(res.in3.lastValidatorChange, 0)
@@ -241,7 +243,7 @@ describe('ETH Standard JSON-RPC', () => {
     const b = await client.sendRPC('eth_getBlockByHash', [receipt.blockHash, true], null, { keepIn3: true })
     logger.info('found Block:', b.result)
     assert.isNotNull(b.result)
-    assert.notExists(b.result.transactions[receipt.transactionIndex + 1])
+    assert.notExists(b.result.transactions[toNumber(receipt.transactionIndex) + 1])
 
   })
 
@@ -263,7 +265,7 @@ describe('ETH Standard JSON-RPC', () => {
       confirm: true
     })
 
-    const res = await client.sendRPC('eth_getTransactionByBlockNumberAndIndex', [receipt.blockNumber, receipt.transactionIndex + 1], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getTransactionByBlockNumberAndIndex', [receipt.blockNumber, toMinHex(toNumber(receipt.transactionIndex) + 1)], null, { keepIn3: true })
     const result = res.result
     assert.isNull(result)
     assert.equal(res.in3.lastValidatorChange, 0)
@@ -273,7 +275,7 @@ describe('ETH Standard JSON-RPC', () => {
     const b = await client.sendRPC('eth_getBlockByNumber', [receipt.blockNumber, true], null, { keepIn3: true })
     logger.info('found Block:', b.result)
     assert.isNotNull(b.result)
-    assert.notExists(b.result.transactions[receipt.transactionIndex + 1])
+    assert.notExists(b.result.transactions[toNumber(receipt.transactionIndex) + 1])
 
   })
 
@@ -738,7 +740,7 @@ describe('ETH Standard JSON-RPC', () => {
       confirm: true
     })
 
-    const hash = await client.sendRPC('eth_getBlockByNumber', ['latest'], null, { keepIn3: true }).then(_ => (_.result as any).hash)
+    const hash = await client.sendRPC('eth_getBlockByNumber', ['latest', false], null, { keepIn3: true }).then(_ => (_.result as any).hash)
 
     // get the last Block
     const b1 = await client.sendRPC('eth_getBlockTransactionCountByHash', [hash], null, { keepIn3: true })
@@ -961,7 +963,7 @@ describe('ETH Standard JSON-RPC', () => {
     assert.equal(changes.length, 1)
 
     // current blockNumber
-    const block = await client.sendRPC('eth_getBlockByNumber', ['latest']).then(_ => _.result as any as BlockData)
+    const block = await client.sendRPC('eth_getBlockByNumber', ['latest', false]).then(_ => _.result as any as BlockData)
     assert.equal(changes[0], block.hash)
 
     // but the second call should not return anything since no new blocks were produced

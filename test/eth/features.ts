@@ -46,6 +46,7 @@ import EventWatcher from '../utils/EventWatcher';
 import * as tx from '../../src/util/tx'
 import { RPC } from '../../src/server/rpc';
 import * as clientRPC from '../utils/clientRPC'
+import { toHex } from 'in3-common/js/src/util/util'
 
 const toNumber = util.toNumber
 const getAddress = util.getAddress
@@ -143,12 +144,12 @@ describe('Features', () => {
 
     // call with latest block and expect 1 because the counter was incremented
     assert.equal(
-      await client.sendRPC('eth_getStorageAt', [contract, '0x00', 'latest']).then(_ => toNumber(_.result)),
+      await client.sendRPC('eth_getStorageAt', [contract, toHex('0x00', 32), 'latest']).then(_ => toNumber(_.result)),
       1)
 
     // call with latest block of 1 which is the state before incrementing
     assert.equal(
-      await client.sendRPC('eth_getStorageAt', [contract, '0x00', 'latest'], undefined, { replaceLatestBlock: 1 }).then(_ => toNumber(_.result)),
+      await client.sendRPC('eth_getStorageAt', [contract, toHex('0x00', 32), 'latest'], undefined, { replaceLatestBlock: 1 }).then(_ => toNumber(_.result)),
       0)
 
   })
