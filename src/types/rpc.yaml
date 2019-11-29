@@ -393,16 +393,16 @@ definitions:
           hash:
             $ref: "#/definitions/hash"
 
-ipfs_get:
-  type: array
-  minItems: 1
-  maxItems: 2
-  items:
-    - type: string
+  ipfs_get:
+    type: array
+    minItems: 1
+    maxItems: 2
+    items:
+      - type: string
 
-ipfs_put:
-  type: array
-  minItems: 1
-  maxItems: 2
-  items:
-    - type: string
+  ipfs_put:
+    type: array
+    minItems: 1
+    maxItems: 2
+    items:
+      - type: string
