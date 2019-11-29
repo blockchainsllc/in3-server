@@ -45,7 +45,8 @@ import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
 import { SentryError } from '../util/sentryError'
 import { in3ProtocolVersion } from '../types/constants'
-import { getSafeMinBlockHeight } from './config';
+import { getSafeMinBlockHeight } from './config'
+import { verifyRequest } from '../types/verify'
 import * as logger from '../util/logger'
 import WhiteListManager from '../chains/whiteListManager';
 
@@ -90,6 +91,14 @@ export class RPC {
 
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
+
+      // verify request
+      try {
+        verifyRequest(r)
+      }
+      catch (ex) {
+        return { id: r.id, error: { code: -32600, message: ex.message }, jsonrpc: '2.0' } as any
+      }
 
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
       const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]

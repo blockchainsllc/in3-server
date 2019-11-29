@@ -7,7 +7,7 @@
     "updateTypes": "npm install slockit-generator; slockit-types ; npm uninstall slockit-generator",
     "docu": "typedoc  --exclude test --excludePrivate  --readme none --ignoreCompilerErrors --target ES6  --mode 'modules' --json doc.json src/index.ts ; cat  doc.json | slockit-docu index slockit/in3-server/blob/master/src \"#INCUBED API\" >  src/README.md ; rm doc.json",
     "updateIn3": "rm -rf node_modules/in3 package-lock.json; npm install",
-    "build": "tsc -p .",
+    "build": "tsc -p . && node -p \"JSON.stringify(require('yaml').parse(require('fs').readFileSync('src/types/rpc.yaml', 'utf-8')))\" > js/src/types/rpc.json",
     "testAll": "cd node_modules/in3; npm run build && npm test; cd ../..; npm test",
     "test-local": "export CI=1 && mocha --exit --timeout 5000 -R in3-common/js/test/util/mochaReporter --require ts-node/register --require source-map-support/register    --full-trace --bail  test/*/*.ts",
     "test": "NODE_ENV=test node --experimental-worker node_modules/mocha/bin/_mocha --exit --timeout 5000 -R in3-common/js/test/util/mochaReporter --require ts-node/register --require source-map-support/register    --full-trace --bail  test/*/*.ts",
@@ -84,11 +84,13 @@
     "source-map-support": "^0.5.12",
     "ts-node": "^6.0.3",
     "typedoc": "^0.11.1",
-    "typescript": "^3.4.3"
+    "typescript": "^3.4.3",
+    "yaml": "^1.7.2"
   },
   "dependencies": {
     "@ethersproject/abi": "^5.0.0-beta.133",
     "@sentry/node": "^5.1.0",
+    "ajv": "^6.10.2",
     "args": "^5.0.1",
     "axios": "^0.18.0",
     "bn.js": "^5.0.0",
