@@ -161,7 +161,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         //sthrow new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
-        return null
+        throw new Error('Could not get the signature from ' + adr + ' for block ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+        //        return null
       }
     } catch (error) {
 
@@ -174,8 +175,9 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         scope.setExtra("requestedBlocks", requestedBlocks)
       });
       Sentry.captureException(error);
+      throw error
 
-      return null
+      //      return null
     }
 
     const signatures = [...cachedSignatures, ...response.result] as Signature[]
