@@ -31,18 +31,23 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
+const Sentry = require('@sentry/node');
 
 import { Transport, AxiosTransport, serialize, util as in3Util } from 'in3-common'
-import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
+import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
 import Watcher from './watch'
 import { checkPrivateKey, checkRegistry } from './initHandler'
-import { collectSignatures, handleSign } from './signatures'
+import { collectSignatures, handleSign, PK } from './signatures'
 import { RPCHandler } from '../server/rpc'
 import { SimpleCache } from '../util/cache'
 import * as logger from '../util/logger'
-import { toMinHex } from 'in3-common/js/src/util/util';
+import { toMinHex } from 'in3-common/js/src/util/util'
+import { in3ProtocolVersion } from '../types/constants'
+import WhiteListManager from './whiteListManager'
+
+
 
 /**
  * handles eth_sign and eth_nodelist
@@ -56,6 +61,7 @@ export default abstract class BaseHandler implements RPCHandler {
   chainId: string
   watcher: Watcher
   cache: SimpleCache
+  whiteListMgr: WhiteListManager
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
@@ -71,6 +77,9 @@ export default abstract class BaseHandler implements RPCHandler {
 
     // create watcher checking the registry-contract for events
     this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock)
+
+    this.whiteListMgr = new WhiteListManager(this, config.maxWhiteListWatch, config.cacheWhiteList)
+    this.watcher.on('newBlock', () => this.whiteListMgr.updateWhiteList())
 
     // start the watcher in the background
     if (interval > 0 && (this.config as any).useCache) {
@@ -100,6 +109,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** returns the result directly from the server */
   getFromServer(request: Partial<RPCRequest>, r?: any): Promise<RPCResponse> {
+
     const startTime = Date.now()
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
@@ -111,13 +121,37 @@ export default abstract class BaseHandler implements RPCHandler {
         }
       }
     }
+    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
+    if (r && r.ip)
+      headers['X-Origin-IP'] = r.ip
 
-    return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
+    return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
+
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
+      if (process.env.SENTRY_ENABLE === 'true') {
+        Sentry.configureScope((scope) => {
+          scope.setTag("BaseHandler", "getFromServer");
+          scope.setTag("nodeList-contract", this.config.registry)
+          scope.setExtra("request", request)
+        });
+      }
+
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
     }).then(res => {
       logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
+
+      if (process.env.SENTRY_ENABLE === 'true') {
+        Sentry.addBreadcrumb({
+          category: "getFromServer",
+          data: {
+            request: request,
+            response: res.result || res
+          }
+        })
+      }
+
       if (r) {
+
         r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
         r.rpcCount = (r.rpcCount || 0) + 1
       }
@@ -127,13 +161,32 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** returns a array of requests from the server */
   getAllFromServer(request: Partial<RPCRequest>[], r?: any): Promise<RPCResponse[]> {
+    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
+    if (r && r.ip)
+      headers['X-Origin-IP'] = r.ip
     const startTime = Date.now()
     return request.length
-      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers: { 'Content-Type': 'application/json' } }).then(_ => _.data, err => {
+      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers }).then(_ => _.data, err => {
         logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
         throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
       }).then(res => {
+        if (process.env.SENTRY_ENABLE === 'true') {
+          Sentry.configureScope((scope) => {
+            scope.setTag("BaseHanlder", "getAllFromServer");
+            scope.setTag("nodeList-contract", this.config.registry)
+            scope.setExtra("request", request)
+          });
+        }
         logger.trace('   ... send ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
+        if (process.env.SENTRY_ENABLE === 'true') {
+          Sentry.addBreadcrumb({
+            category: "getAllFromServer response",
+            data: {
+              request: request,
+              response: res.result || res
+            }
+          })
+        }
         if (r) {
           r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
           r.rpcCount = (r.rpcCount || 0) + 1
@@ -150,6 +203,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** get the current nodeList */
   async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[]): Promise<ServerList> {
+
     const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
     if (nl.proof && signers && signers.length) {
       let blockNumber = nl.lastBlockNumber
@@ -159,6 +213,20 @@ export default abstract class BaseHandler implements RPCHandler {
       nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes)
     }
     return nl
+  }
+
+  /** get the white list nodes */
+  async getWhiteList(includeProof: boolean, whiteListContract: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList> {
+    const wl = await this.whiteListMgr.getWhiteList(includeProof, whiteListContract)
+
+    if (wl.proof && signers && signers.length) {
+      let blockNumber = wl.lastBlockNumber
+
+      if (wl.proof.block)
+        blockNumber = in3Util.toNumber(serialize.blockFromHex(wl.proof.block).number)
+      wl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes)
+    }
+    return wl
   }
 
   getRequestFromPath(path: string[], in3: { chainId: string; }): RPCRequest {

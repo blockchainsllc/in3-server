@@ -81,7 +81,7 @@ describe('Deploying Contracts', () => {
           contractChain: '0x99',
           // we give him a bootnode which simply reads directly from parity
           nodeList: [{
-            address: util.getAddress(pk),
+            address: pk.address,
             url: getTestClient(),
             chainIds: ['0x99'],
             deposit: util.toBN('10000000000000000') as any
@@ -100,10 +100,10 @@ describe('Deploying Contracts', () => {
     assert.equal(registers.chainId, '0x99')
 
     assert.lengthOf(data.bootNodes, 2)
-    assert.equal(data.owner, util.getAddress(pk)) // owner of the chainRegistry must be the pk
+    assert.equal(data.owner, pk.address) // owner of the chainRegistry must be the pk
     assert.equal(data.contractChain, '0x99')
     assert.equal(data.registryContract, registers.registry)
-    assert.equal(data.bootNodes[1], util.getAddress(pk2) + ':#2')
+    assert.equal(data.bootNodes[1], pk2.address + ':#2')
     assert.equal(data.meta, 'dummy')
 
 

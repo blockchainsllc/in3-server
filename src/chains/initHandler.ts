@@ -31,6 +31,7 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
+const Sentry = require('@sentry/node');
 
 import BaseHandler from './BaseHandler'
 import { util } from 'in3-common'
@@ -40,19 +41,30 @@ import * as scryptsy from 'scrypt.js'
 import * as cryp from 'crypto'
 import * as ethUtil from 'ethereumjs-util'
 import { registerNodes } from '../util/registry'
-
-
+import * as logger from '../util/logger'
+import { PK, createPK } from './signatures'
 
 export function checkPrivateKey(config: IN3RPCHandlerConfig) {
+  if ((config as any)._pk) return
   if (!config.privateKey)
     throw new Error('No private key set, which is needed in order to sign blockhashes')
-
   const key = config.privateKey
+  delete config.privateKey
+
+  if ((key as any).address && (key as any).sign) {
+    (config as any)._pk = key
+    return
+  }
+
+
   if (key.startsWith('0x')) {
     if (key.length != 66) throw new Error('The private key needs to have a length of 32 bytes!')
+    logger.error("using a raw privated key is strongly discouraged!");
+    (config as any)._pk = createPK(Buffer.from(key.substr(2), 'hex'))
     return
   }
   const password = config.privateKeyPassphrase
+  delete config.privateKeyPassphrase
 
   try {
     const json = JSON.parse(fs.readFileSync(key, 'utf8'))
@@ -79,9 +91,8 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
     if (mac !== json.crypto.mac)
       throw new Error('Key derivation failed - possibly wrong password');
 
-    const decipher = cryp.createDecipheriv(json.crypto.cipher, derivedKey.slice(0, 16), new Buffer(json.crypto.cipherparams.iv, 'hex'))
-    config.privateKey = '0x' + Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('hex')
-
+    const decipher = cryp.createDecipheriv(json.crypto.cipher, derivedKey.slice(0, 16), new Buffer(json.crypto.cipherparams.iv, 'hex'));
+    (config as any)._pk = createPK(Buffer.concat([decipher.update(ciphertext), decipher.final()]))
   } catch (ex) {
     throw new Error('Could not decode the private : ' + ex.message)
   }
@@ -119,21 +130,51 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
   const caps = autoReg.capabilities || {}
   const deposit = '0x' + util.toBN(autoReg.deposit || 0).mul(util.toBN(units[unit])).toString(16)
   const props = util.toHex((caps.proof ? 1 : 0) + (caps.multiChain ? 2 : 0))
+  const pk: PK = (handler.config as any)._pk
 
   //check balance
-  const balance = parseInt((await handler.getFromServer({ method: 'eth_getBalance', params: [util.getAddress(handler.config.privateKey)] })).result as any)
+  const balance = parseInt((await handler.getFromServer({ method: 'eth_getBalance', params: [pk.address] })).result as any)
   const txGasPrice = parseInt((await handler.getFromServer({ method: 'eth_gasPrice', params: [] })).result as any)
 
   const registrationCost = txGasPrice * 1000000
 
+  if (process.env.SENTRY_ENABLE === 'true') {
+
+    Sentry.addBreadcrumb({
+      category: "autoregister",
+      data: {
+        request: {
+          url: autoReg.url,
+          props: props,
+          deposit: deposit
+        },
+        chainId: handler.chainId,
+        registryRPC: handler.config.registryRPC || handler.config.rpcUrl,
+        balance: balance,
+      }
+    })
+  }
+
   if (balance < (autoReg.deposit + registrationCost))
     throw new Error("Insufficient funds to register a server, need: " + autoReg.deposit + " ether, have: " + balance + " wei")
 
-  await registerNodes(handler.config.privateKey, handler.config.registry, [{
+  await registerNodes((handler.config as any)._pk, handler.config.registry, [{
     url: autoReg.url,
-    pk: handler.config.privateKey,
+    pk: (handler.config as any)._pk,
     props,
     deposit: deposit as any,
     timeout: 3600
-  }], handler.chainId, undefined, handler.config.registryRPC || handler.config.rpcUrl, undefined, false)
+  }], handler.chainId, undefined, handler.config.registryRPC || handler.config.rpcUrl, undefined, false).catch(_ => {
+    if (process.env.SENTRY_ENABLE === 'true') {
+
+      handler.config.registry
+      Sentry.configureScope((scope) => {
+        scope.setTag("InitHanlder", "registerNodes");
+        scope.setTag("nodeList-contract", handler.config.registry)
+        scope.setExtra("nodeList", nl)
+      });
+    }
+
+    throw new Error("Error trying to register node")
+  })
 }

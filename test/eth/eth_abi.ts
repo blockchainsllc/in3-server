@@ -45,6 +45,8 @@ import * as logger from 'in3-common/js/test/util/memoryLogger'
 
 const toHex = util.toHex
 const getAddress = util.getAddress
+const toMinHex = util.toMinHex
+const toNumber = util.toNumber
 
 // our test private key
 const pk = '0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
@@ -95,7 +97,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -138,7 +140,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -182,7 +184,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
@@ -226,13 +228,13 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
     })
 
-    const res = await client.sendRPC('eth_getTransactionByBlockHashAndIndex', [receipt.blockHash, receipt.transactionIndex + 1], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getTransactionByBlockHashAndIndex', [receipt.blockHash, toMinHex(toNumber(receipt.transactionIndex) + 1)], null, { keepIn3: true })
     const result = res.result
     assert.isNull(result)
     assert.equal(res.in3.lastValidatorChange, 0)
@@ -241,7 +243,7 @@ describe('ETH Standard JSON-RPC', () => {
     const b = await client.sendRPC('eth_getBlockByHash', [receipt.blockHash, true], null, { keepIn3: true })
     logger.info('found Block:', b.result)
     assert.isNotNull(b.result)
-    assert.notExists(b.result.transactions[receipt.transactionIndex + 1])
+    assert.notExists(b.result.transactions[toNumber(receipt.transactionIndex) + 1])
 
   })
 
@@ -257,13 +259,13 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: util.getAddress(pk2),
+      to: pk2.address,
       data: '',
       value: 1000,
       confirm: true
     })
 
-    const res = await client.sendRPC('eth_getTransactionByBlockNumberAndIndex', [receipt.blockNumber, receipt.transactionIndex + 1], null, { keepIn3: true })
+    const res = await client.sendRPC('eth_getTransactionByBlockNumberAndIndex', [receipt.blockNumber, toMinHex(toNumber(receipt.transactionIndex) + 1)], null, { keepIn3: true })
     const result = res.result
     assert.isNull(result)
     assert.equal(res.in3.lastValidatorChange, 0)
@@ -273,7 +275,7 @@ describe('ETH Standard JSON-RPC', () => {
     const b = await client.sendRPC('eth_getBlockByNumber', [receipt.blockNumber, true], null, { keepIn3: true })
     logger.info('found Block:', b.result)
     assert.isNotNull(b.result)
-    assert.notExists(b.result.transactions[receipt.transactionIndex + 1])
+    assert.notExists(b.result.transactions[toNumber(receipt.transactionIndex) + 1])
 
   })
 
@@ -341,7 +343,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
@@ -388,7 +390,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
@@ -432,7 +434,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
-    const adr = getAddress(pk1)
+    const adr = pk1.address
 
     // get the last Block
     const b = await client.sendRPC('eth_getBalance', [adr, 'latest'], null, { keepIn3: true })
@@ -491,7 +493,7 @@ describe('ETH Standard JSON-RPC', () => {
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
-    const adr = getAddress(pk1)
+    const adr = pk1.address
 
     // get the last Block
     const b = await client.sendRPC('eth_getTransactionCount', [adr, 'latest'], null, { keepIn3: true })
@@ -554,7 +556,7 @@ describe('ETH Standard JSON-RPC', () => {
     const pk1 = await test.createAccount('0x01')
 
     // check empty code
-    await client.sendRPC('eth_getCode', [getAddress(pk1), 'latest'], null, { keepIn3: true })
+    await client.sendRPC('eth_getCode', [pk1.address, 'latest'], null, { keepIn3: true })
 
     // check deployed code
     const adr = await deployChainRegistry(pk1, getTestClient())
@@ -686,7 +688,7 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
@@ -732,13 +734,13 @@ describe('ETH Standard JSON-RPC', () => {
     const receipt = await tx.sendTransaction(test.url, {
       privateKey: pk1,
       gas: 22000,
-      to: pk1.substr(0, 42), // any address, we just need a simple transaction in the last block
+      to: pk1.address.substr(0, 34) + 'FFFFFFFF', // any address, we just need a simple transaction in the last block
       data: '',
       value: 1000,
       confirm: true
     })
 
-    const hash = await client.sendRPC('eth_getBlockByNumber', ['latest'], null, { keepIn3: true }).then(_ => (_.result as any).hash)
+    const hash = await client.sendRPC('eth_getBlockByNumber', ['latest', false], null, { keepIn3: true }).then(_ => (_.result as any).hash)
 
     // get the last Block
     const b1 = await client.sendRPC('eth_getBlockTransactionCountByHash', [hash], null, { keepIn3: true })
@@ -799,7 +801,7 @@ describe('ETH Standard JSON-RPC', () => {
     })
 
     const txArgs = {
-      from: getAddress(pk1),
+      from: pk1.address,
       to: adr,
       data: '0x61bc221a'
     }
@@ -869,7 +871,7 @@ describe('ETH Standard JSON-RPC', () => {
 
   it('eth_getLogs', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
-    const client = await test.createClient({ proof: 'standard', requestCount: 1 })
+    const client = await test.createClient({ proof: 'standard', requestCount: 1, signatureCount: 1 })
 
     // create 2 accounts
     const pk1 = await test.createAccount('0x01')
@@ -900,7 +902,7 @@ describe('ETH Standard JSON-RPC', () => {
       // now manipulate the result
       test.injectResponse({ method: 'eth_getLogs' }, (req, re: RPCResponse) => {
         // we change a property
-        ((re.result as any)[0] as LogData).address = getAddress(pk1)
+        ((re.result as any)[0] as LogData).address = pk1.address
         return re
       })
       await client.sendRPC('eth_getLogs', [{ fromBlock: util.toMinHex(receipt.blockNumber) }])
@@ -961,7 +963,7 @@ describe('ETH Standard JSON-RPC', () => {
     assert.equal(changes.length, 1)
 
     // current blockNumber
-    const block = await client.sendRPC('eth_getBlockByNumber', ['latest']).then(_ => _.result as any as BlockData)
+    const block = await client.sendRPC('eth_getBlockByNumber', ['latest', false]).then(_ => _.result as any as BlockData)
     assert.equal(changes[0], block.hash)
 
     // but the second call should not return anything since no new blocks were produced

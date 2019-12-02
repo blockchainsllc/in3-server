@@ -32,7 +32,7 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-
+const Sentry = require('@sentry/node');
 
 import { methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
@@ -41,13 +41,14 @@ import { RPCResponse } from '../types/types'
 import * as ETx from 'ethereumjs-tx'
 import { SentryError } from '../util/sentryError'
 import { AbiCoder } from '@ethersproject/abi'
+import { PK } from '../chains/signatures'
 const BN = require('bn.js')
 
 const toHex = util.toHex
 
 let idCount = 1
 export async function deployContract(url: string, bin: string, txargs?: {
-  privateKey: string
+  privateKey: PK
   gas: number
   nonce?: number
   gasPrice?: number
@@ -55,13 +56,13 @@ export async function deployContract(url: string, bin: string, txargs?: {
   data?: string
   value?: number
   confirm?: boolean
-}, transport?: Transport) {
-  return sendTransaction(url, { value: 0, ...txargs, data: bin }, transport)
+}, transport?: Transport, timeout?: number) {
+  return sendTransaction(url, { value: 0, ...txargs, data: bin }, transport, timeout)
 }
 
 export async function callContract(url: string, contract: string, signature: string, args: any[], txargs?: {
-  privateKey: string
-  gas: number
+  privateKey: PK
+  gas?: number
   nonce?: number
   gasPrice?: number
   to?: string
@@ -74,6 +75,23 @@ export async function callContract(url: string, contract: string, signature: str
 
   if (txargs)
     return sendTransaction(url, { ...txargs, to: contract, data }, transport)
+  if (process.env.SENTRY_ENABLE === 'true') {
+
+    Sentry.addBreadcrumb({
+      category: "encoding call",
+      data: {
+        jsonrpc: '2.0',
+        id: idCount++,
+        method: 'eth_call', params: [{
+          to: contract,
+          data
+        }],
+        signature: signature,
+        args: args
+      },
+
+    })
+  }
 
   return decodeFunction(signature.replace('()', '(uint)'), toBuffer(await transport.handle(url, {
     jsonrpc: '2.0',
@@ -84,22 +102,22 @@ export async function callContract(url: string, contract: string, signature: str
     },
       'latest']
   }).then((_: RPCResponse) => _.error
-    ? Promise.reject(new SentryError('Could not call contract', 'contract_call_error', 'Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
+    ? Promise.reject(new Error('Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
     : _.result + ''
   )))
 }
 
 
 export async function sendTransaction(url: string, txargs: {
-  privateKey: string
-  gas: number
+  privateKey: PK
+  gas?: number
   nonce?: number
   gasPrice?: number
   to?: string
   data: string
   value: any
   confirm?: boolean
-}, transport?: Transport): Promise<{
+}, transport?: Transport, timeout?: number): Promise<{
   blockHash: string,
   blockNumber: string,
   contractAddress: string,
@@ -114,8 +132,8 @@ export async function sendTransaction(url: string, txargs: {
 }> {
 
   if (!transport) transport = new AxiosTransport()
-  const key = toBuffer(txargs.privateKey)
-  const from = toChecksumAddress(privateToAddress(key).toString('hex'))
+  const key = txargs.privateKey
+  const from = key.address
 
   // get the nonce
   if (!txargs.nonce)
@@ -124,7 +142,12 @@ export async function sendTransaction(url: string, txargs: {
       id: idCount++,
       method: 'eth_getTransactionCount',
       params: [from, 'latest']
-    }).then((_: RPCResponse) => parseInt(_.result as any))
+    }).then((_: RPCResponse) => {
+      if (_.error) {
+        throw new Error(_.error)
+      }
+      return parseInt(_.result as any)
+    })
 
   // get the nonce
   if (!txargs.gasPrice)
@@ -133,7 +156,30 @@ export async function sendTransaction(url: string, txargs: {
       id: idCount++,
       method: 'eth_gasPrice',
       params: []
-    }).then((_: RPCResponse) => parseInt(_.result as any))
+    }).then((_: RPCResponse) => {
+      if (_.error) {
+        throw new Error(_.error)
+      }
+      return parseInt(_.result as any)
+    })
+
+  if (!txargs.gas)
+    txargs.gas = await transport.handle(url, {
+      jsonrpc: '2.0',
+      id: idCount++,
+      method: 'eth_estimateGas',
+      params: [{
+        from: key.address,
+        to: txargs.to || undefined,
+        data: txargs.data,
+        value: txargs.value || "0x0"
+      }]
+    }).then((_: RPCResponse) => {
+      if (_.error) {
+        throw new Error(_.error)
+      }
+      return Math.floor(parseInt(_.result as any) * 1.1)
+    })
 
   // create Transaction
   const tx = new ETx({
@@ -145,17 +191,29 @@ export async function sendTransaction(url: string, txargs: {
     value: toHex(txargs.value || 0),
     data: toHex(txargs.data)
   })
-  tx.sign(key)
 
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "sending tx",
+      data: txargs
+    })
+  }
+  // We clear any previous signature before signing it. Otherwise, _implementsEIP155's can give
+  // different results if this tx was already signed.
+  const sig = key.sign(tx.hash(false))
+  if (tx._chainId)
+    sig.v += tx._chainId * 2 + 8
+
+  Object.assign(tx, sig)
 
   const txHash = await transport.handle(url, {
     jsonrpc: '2.0',
     id: idCount++,
     method: 'eth_sendRawTransaction',
     params: [toHex(tx.serialize())]
-  }).then((_: RPCResponse) => _.error ? Promise.reject(new SentryError('Error sending tx', 'tx_error', 'Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
+  }).then((_: RPCResponse) => _.error ? Promise.reject(new Error('Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
 
-  return txargs.confirm ? waitForReceipt(url, txHash, 30, txargs.gas, transport) : txHash
+  return txargs.confirm ? waitForReceipt(url, txHash, timeout || 30, txargs.gas, transport) : txHash
 }
 
 
@@ -205,9 +263,27 @@ export function encodeFunction(signature: string, args: any[]): string {
 
   const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
   const methodHash = (methodID(signature.substr(0, signature.indexOf('(')), typeArray)).toString('hex')
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "encodeFunction",
+      data: {
+        signature: signature,
+        args: args
+      }
+    })
+  }
+  try {
+    return methodHash + abiCoder.encode(typeArray, args.map(encodeEtheresBN)).substr(2)
+  } catch (e) {
+    if (process.env.SENTRY_ENABLE === 'true') {
 
-  return methodHash + abiCoder.encode(typeArray, args.map(encodeEtheresBN)).substr(2)
+      Sentry.configureScope((scope) => {
+        scope.setTag("ABIError", "encode");
+      });
+    }
+    throw new Error("ABI-encoding error")
 
+  }
 }
 
 function fixBN(val: any) {
@@ -226,5 +302,34 @@ export function decodeFunction(signature: string | string[], args: Buffer): any 
 
   const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
 
-  return fixBN(abiCoder.decode(typeArray, args))
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "decodeFunction",
+      data: {
+        signature: signature,
+        args: args
+      }
+    })
+  }
+
+  try {
+    return fixBN(abiCoder.decode(typeArray, args))
+  } catch (e) {
+
+    if (process.env.SENTRY_ENABLE === 'true') {
+
+      Sentry.configureScope((scope) => {
+        scope.setTag("ABIError", "decode");
+        scope.setExtra("outputParams", outputParams)
+        scope.setExtra("signature", signature)
+        scope.setExtra("args", args)
+      });
+    }
+
+    throw new Error("ABI-decoding error")
+  }
+}
+
+export function isValidAddress(addr: string) {
+  return addr && String(addr).match(/^0x[0-9a-fA-F]{40}$/)
 }

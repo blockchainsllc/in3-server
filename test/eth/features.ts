@@ -46,6 +46,7 @@ import EventWatcher from '../utils/EventWatcher';
 import * as tx from '../../src/util/tx'
 import { RPC } from '../../src/server/rpc';
 import * as clientRPC from '../utils/clientRPC'
+import { toHex } from 'in3-common/js/src/util/util'
 
 const toNumber = util.toNumber
 const getAddress = util.getAddress
@@ -105,7 +106,7 @@ describe('Features', () => {
     assert.equal(logs[0].event, 'LogNodeRegistered')
     assert.equal(logs[0].url, '#3')
     assert.equal(logs[0].props, 0xffff)
-    assert.equal(logs[0].signer, util.getAddress(pk))
+    assert.equal(logs[0].signer, pk.address)
 
     // we still have only 2 nodes since the watchers has not been triggered yet
     assert.equal(client.defConfig.servers[test.chainId].nodeList.length, 2)
@@ -143,12 +144,12 @@ describe('Features', () => {
 
     // call with latest block and expect 1 because the counter was incremented
     assert.equal(
-      await client.sendRPC('eth_getStorageAt', [contract, '0x00', 'latest']).then(_ => toNumber(_.result)),
+      await client.sendRPC('eth_getStorageAt', [contract, toHex('0x00', 32), 'latest']).then(_ => toNumber(_.result)),
       1)
 
     // call with latest block of 1 which is the state before incrementing
     assert.equal(
-      await client.sendRPC('eth_getStorageAt', [contract, '0x00', 'latest'], undefined, { replaceLatestBlock: 1 }).then(_ => toNumber(_.result)),
+      await client.sendRPC('eth_getStorageAt', [contract, toHex('0x00', 32), 'latest'], undefined, { replaceLatestBlock: 1 }).then(_ => toNumber(_.result)),
       0)
 
   })
@@ -179,7 +180,7 @@ describe('Features', () => {
               multiChain: true
             },
           },
-          privateKey: pk,
+          privateKey: pk as any,
           rpcUrl: test.url,
           registry: test.nodeList.contract
         }
@@ -191,7 +192,7 @@ describe('Features', () => {
     const events = await watcher.update()
     assert.equal(events.length, 1)
     assert.equal(events[0].event, 'LogNodeRegistered')
-    assert.equal(events[0].signer, getAddress(pk))
+    assert.equal(events[0].signer, pk.address)
     assert.equal(events[0].url, 'dummy')
     assert.equal(events[0].props, 3)
     assert.equal(events[0].deposit, util.toBN('10000000000000000'))
@@ -259,11 +260,11 @@ describe('Features', () => {
     const ctx = client.getChainContext(client.defConfig.chainId) as EthChainContext
 
     assert.equal(ctx.blockCache.length, 0)
-    const resp1 = await client.sendRPC('eth_getBalance', [getAddress(pk), 'latest'])
+    const resp1 = await client.sendRPC('eth_getBalance', [pk.address, 'latest'])
     assert.equal(ctx.blockCache.length, 1)
     assert.equal(resp1.in3.proof.signatures.length, 1)
 
-    const resp2 = await client.sendRPC('eth_getBalance', [getAddress(pk), 'latest'])
+    const resp2 = await client.sendRPC('eth_getBalance', [pk.address, 'latest'])
     assert.equal(ctx.blockCache.length, 1)
     assert.equal(resp2.in3.proof.signatures.length, 0)
   })

@@ -31,10 +31,11 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
+const Sentry = require('@sentry/node');
 
 
 import { Transport, AxiosTransport, util } from 'in3-common'
-import { RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
+import { WhiteList, RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour, schedulePrometheus } from './stats'
@@ -43,9 +44,15 @@ import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
 import { SentryError } from '../util/sentryError'
+import { in3ProtocolVersion } from '../types/constants'
+import { getSafeMinBlockHeight } from './config'
+import { verifyRequest } from '../types/verify'
+import * as logger from '../util/logger'
+import WhiteListManager from '../chains/whiteListManager';
 
 export { submitRequestTime } from './stats'
 
+const in3ProtocolVersionA = in3ProtocolVersion.split('.').map(_ => parseInt(_))
 
 export class RPC {
   conf: IN3RPCConfig
@@ -63,7 +70,7 @@ export class RPC {
     schedulePrometheus(this.conf)
   }
 
-  private initHandlers(conf, transport, nodeList) {
+  private initHandlers(conf: IN3RPCConfig, transport, nodeList) {
     for (const c of Object.keys(conf.chains)) {
       let h: RPCHandler
       const rpcConf = conf.chains[c]
@@ -82,11 +89,22 @@ export class RPC {
       this.handlers[h.chainId = util.toMinHex(c)] = h
       if (!conf.defaultChain)
         conf.defaultChain = h.chainId
+      if (rpcConf.minBlockHeight !== undefined && rpcConf.minBlockHeight < getSafeMinBlockHeight(h.chainId))
+        logger.error('Warning: You have configured a minBlockHeight of ' + rpcConf.minBlockHeight + ' which has a high risc of signing a wrong blockhash in case of an reorg. ' + getSafeMinBlockHeight(h.chainId) + ' should be a safe value!')
     }
   }
 
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
+
+      // verify request
+      try {
+        verifyRequest(r)
+      }
+      catch (ex) {
+        return { id: r.id, error: { code: -32600, message: ex.message }, jsonrpc: '2.0' } as any
+      }
+
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
       const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
       const in3: IN3ResponseConfig = {} as any
@@ -95,8 +113,27 @@ export class RPC {
       if (!handler)
         throw new Error("Unable to connect Ethereum and/or invalid chainId give.")
 
-      // update stats
-      // currentHour.update(r)
+      //check if requested in3 protocol version is same as server is serving
+      if (in3Request.version) {
+        //
+        const v = in3Request.version.split('.').map(_ => parseInt(_))
+        if (v.length != 3 || v[0] != in3ProtocolVersionA[0] || v[1] < in3ProtocolVersionA[1]) {
+          const res = {
+            id: r.id,
+            error: "Unable to serve request for protocol level " + in3Request.version + " currently Server is at IN3 Protocol Version " + in3ProtocolVersion,
+            jsonrpc: r.jsonrpc,
+            in3: {
+              ...in3,
+              execTime: Date.now() - start,
+              rpcTime: (r as any).rpcTime || 0,
+              rpcCount: (r as any).rpcCount || 0,
+              currentBlock: handler.watcher && handler.watcher.block && handler.watcher.block.number,
+              version: in3ProtocolVersion
+            }
+          }
+          return res as RPCResponse
+        }
+      }
 
       if (r.method === 'in3_nodeList')
         return manageRequest(handler, Promise.all([handler.getNodeList(
@@ -121,6 +158,44 @@ export class RPC {
           }
           return res as RPCResponse
         }), r)
+
+      else if (r.method === 'in3_whiteList')
+        return manageRequest(
+
+          handler,
+
+          Promise.all(
+            [handler.getWhiteList(
+              in3Request.verification && in3Request.verification.startsWith('proof'),
+              r.params[0],
+              in3Request.signers || in3Request.signatures,
+              in3Request.verifiedHashes),
+
+            getValidatorHistory(handler)])
+
+            .then(async ([result, validators]) => {
+              const res = {
+                id: r.id,
+                result: result as any,
+                jsonrpc: r.jsonrpc,
+                in3: { ...in3, execTime: Date.now() - start, lastValidatorChange: validators.lastValidatorChange } as IN3ResponseConfig
+              }
+              const proof = res.result.proof
+              if (proof) {
+                delete res.result.proof
+                res.in3.proof = proof
+              }
+
+              if (r.params[0])
+                await handler.whiteListMgr.addWhiteListWatch(r.params[0])
+
+              if (handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) && handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) != -1)
+                res.in3.lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0])
+
+              return res as RPCResponse
+            }
+            )
+        )
 
       else if (r.method === 'in3_validatorList' || r.method === 'in3_validatorlist') // 'in3_validatorlist' is only supported for legacy, but deprecated
         return manageRequest(handler, getValidatorHistory(handler), r).then(async (result) => {
@@ -160,11 +235,21 @@ export class RPC {
           (in3 as any).rpcTime = (r as any).rpcTime || 0;
           (in3 as any).rpcCount = (r as any).rpcCount || 0;
           (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
+          (in3 as any).version = in3ProtocolVersion;
+
+          if (r.in3 && r.in3.whiteList && handler.watcher && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) != -1)
+            (in3 as any).lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList)
           return _
         })
       ])
         .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })), r)
-    }))
+    })).catch(e => {
+      Sentry.configureScope((scope) => {
+        scope.setExtra("request", request)
+      })
+      throw new Error(e)
+
+    })
   }
 
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest {
@@ -194,6 +279,7 @@ export class RPC {
 
 function manageRequest<T>(handler: RPCHandler, p: Promise<T>, req?: RPCRequest): Promise<T> {
   handler.openRequests++
+
   return p.then((r: T) => {
     handler.openRequests--
 
@@ -203,7 +289,7 @@ function manageRequest<T>(handler: RPCHandler, p: Promise<T>, req?: RPCRequest):
     return r
   }, err => {
     handler.openRequests--
-    throw err
+    throw new SentryError(err, "manageRequest", "error handling request")
   })
 }
 
@@ -237,8 +323,10 @@ export interface RPCHandler {
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
   checkRegistry(): Promise<any>
+  getWhiteList(includeProof: boolean, whiteListContract: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList>
   config: IN3RPCHandlerConfig
   watcher?: Watcher
+  whiteListMgr?: WhiteListManager
 }
 
 /**
@@ -259,10 +347,11 @@ export class HandlerTransport extends AxiosTransport {
     if (url === this.handler.config.rpcUrl) return this.handler.getAllFromServer(requests).then(_ => Array.isArray(data) ? _ : _[0])
 
     // add cbor-config
-    const conf = { headers: { 'Content-Type': 'application/json' } }
+    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
+    const conf = { headers }
     // execute request
     try {
-      const res = await axios.post(url, requests, { headers: { 'Content-Type': 'application/json' } })
+      const res = await axios.post(url, requests, conf)
 
       // throw if the status is an error
       if (res.status > 200) throw new SentryError('Invalid status', 'status_error', res.status.toString())
@@ -270,7 +359,17 @@ export class HandlerTransport extends AxiosTransport {
       // if this was not given as array, we need to convert it back to a single object
       return Array.isArray(data) ? res.data : res.data[0]
     } catch (err) {
-      throw new SentryError(err, 'status_error', 'Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
+
+      if (process.env.SENTRY_ENABLE === 'true') {
+        Sentry.configureScope((scope) => {
+          scope.setTag("rpc", "handle");
+          scope.setTag("status_error", "invalid response");
+          scope.setExtra("url", url)
+          scope.setExtra("data", data)
+        });
+        Sentry.captureException(err);
+      }
+      throw new SentryError(err, 'status_error', 'Invalid response')
     }
   }
 
