@@ -41,7 +41,7 @@ import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
 import { readCargs } from './config'
 const config = readCargs()
-import { RPC } from './rpc'
+import { RPC, submitRequestTime } from './rpc'
 import { cbor, chainAliases } from 'in3-common'
 import { RPCRequest, IN3RPCConfig } from '../types/types'
 import { initConfig } from '../util/db'
@@ -50,6 +50,8 @@ import { checkBudget } from './clients'
 import { in3ProtocolVersion } from '../types/constants'
 import axios from 'axios'
 
+
+import requestTime from '../util/koa/requestTime'
 
 if (process.env.SENTRY_ENABLE === 'true') {
   Sentry.init({
@@ -92,6 +94,9 @@ export const app = new Koa()
 const router = new Router()
 let rpc: RPC = null
 
+// Add 'x-Request-Time' to the header
+app.use(requestTime(submitRequestTime))
+
 // Hook up sentry if enabled
 if (process.env.SENTRY_ENABLE === 'true') {
   app.on('error', (err, ctx) => {
@@ -115,7 +120,6 @@ app.use(async (ctx, next) => {
   }
   await next()
 })
-
 
 // handle json
 app.use(bodyParser())
@@ -142,8 +146,8 @@ router.post(/.*/, async ctx => {
     // assign ip
     requests.forEach(_ => (_ as any).ip = ip)
 
-
     const result = await rpc.handle(requests)
+
     const res = requests.length && requests[0].in3 && requests[0].in3.useRef ? cbor.createRefs(result) : result
     let body = Array.isArray(ctx.request.body) ? res : res[0]
     if (requests.length && requests[0].in3 && requests[0].in3.useBinary) {
@@ -161,6 +165,11 @@ router.post(/.*/, async ctx => {
 })
 
 router.get(/.*/, async ctx => {
+  if(ctx.path === '/favicon.ico') {
+    ctx.status = 404
+    return
+  } // Some browsers ask for it -> prevent it
+
   //  '/:chain/:method/:args'
   const path = ctx.path.split('/')
 

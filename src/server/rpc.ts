@@ -38,7 +38,7 @@ import { Transport, AxiosTransport, util } from 'in3-common'
 import { WhiteList, RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
-import { getStats, currentHour } from './stats'
+import { getStats, currentHour, schedulePrometheus } from './stats'
 
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
@@ -49,6 +49,8 @@ import { getSafeMinBlockHeight } from './config'
 import { verifyRequest } from '../types/verify'
 import * as logger from '../util/logger'
 import WhiteListManager from '../chains/whiteListManager';
+
+export { submitRequestTime } from './stats'
 
 const in3ProtocolVersionA = in3ProtocolVersion.split('.').map(_ => parseInt(_))
 
@@ -63,6 +65,9 @@ export class RPC {
     this.initHandlers(conf, transport, nodeList)
 
     this.conf = conf
+
+    // Start pushing to the prometheus gateway every 10 seconds if noStats is false
+    schedulePrometheus(this.conf)
   }
 
   private initHandlers(conf: IN3RPCConfig, transport, nodeList) {
@@ -108,9 +113,6 @@ export class RPC {
       if (!handler)
         throw new Error("Unable to connect Ethereum and/or invalid chainId give.")
 
-      // update stats
-      currentHour.update(r)
-
       //check if requested in3 protocol version is same as server is serving
       if (in3Request.version) {
         //
@@ -155,7 +157,7 @@ export class RPC {
             res.in3.proof = proof
           }
           return res as RPCResponse
-        }))
+        }), r)
 
       else if (r.method === 'in3_whiteList')
         return manageRequest(
@@ -196,7 +198,7 @@ export class RPC {
         )
 
       else if (r.method === 'in3_validatorList' || r.method === 'in3_validatorlist') // 'in3_validatorlist' is only supported for legacy, but deprecated
-        return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
+        return manageRequest(handler, getValidatorHistory(handler), r).then(async (result) => {
 
           const startIndex: number = (r.params && r.params.length > 0) ? util.toNumber(r.params[0]) : 0
           const limit: number = (r.params && r.params.length > 1) ? util.toNumber(r.params[1]) : 0
@@ -214,6 +216,7 @@ export class RPC {
 
       else if (r.method === 'in3_stats') {
         const p = this.conf.profile || {}
+        updateStats(r)
         return {
           id: r.id,
           jsonrpc: r.jsonrpc,
@@ -239,7 +242,7 @@ export class RPC {
           return _
         })
       ])
-        .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })))
+        .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })), r)
     })).catch(e => {
       Sentry.configureScope((scope) => {
         scope.setExtra("request", request)
@@ -247,7 +250,6 @@ export class RPC {
       throw new Error(e)
 
     })
-
   }
 
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest {
@@ -273,20 +275,43 @@ export class RPC {
   getHandler(chainId?: string) {
     return this.handlers[util.toMinHex(chainId || this.conf.defaultChain)]
   }
-
 }
 
-function manageRequest<T>(handler: RPCHandler, p: Promise<T>): Promise<T> {
+function manageRequest<T>(handler: RPCHandler, p: Promise<T>, req?: RPCRequest): Promise<T> {
   handler.openRequests++
 
   return p.then((r: T) => {
     handler.openRequests--
+
+    // Update stats
+    if (req) updateStats(req, (r as unknown as RPCResponse))
+
     return r
   }, err => {
     handler.openRequests--
+    if (req) updateStats(req, null)
     throw new SentryError(err, "manageRequest", "error handling request")
   })
 }
+
+/**
+ * Updates the stats
+ * @param r 
+ * @param resp 
+ */
+function updateStats(r: RPCRequest, resp?: RPCResponse) {
+  let proof = false
+  let sig = false
+  if (resp && resp.in3) {
+    if (resp.in3.proof) {
+      proof = true
+      if (resp.in3.proof.signatures
+        && resp.in3.proof.signatures.length !== 0) sig = true
+    }
+  }
+  currentHour.update(r, proof, sig, !resp || !!resp.error)
+}
+
 
 export interface RPCHandler {
   openRequests: number
