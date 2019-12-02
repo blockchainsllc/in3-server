@@ -182,7 +182,7 @@ export default class WhiteListManager {
                     to: whiteListContractAddr,
                     data: '0x' + abi.simpleEncode(functionName).toString('hex')
                 },
-                blockNumParam != undefined ? blockNumParam.toString(16) : await this.getBlockNum()]
+                blockNumParam != undefined ? '0x' + blockNumParam.toString(16) : await this.getBlockNum()]
             }
             return req
         }

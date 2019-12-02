@@ -6,6 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 test/report
 
+src/types/rpc.json
 # Runtime data
 pids
 *.pid

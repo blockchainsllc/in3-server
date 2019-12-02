@@ -109,7 +109,7 @@ function encodeRefIfExists(bb: BB, data: Buffer) {
         bb.byteIdx++;
         return true;
     }
-    bb.bytes.push({ idx: bb.byteIdx, data })
+    bb.bytes.push({ idx: bb.len - 1, data })
     return false
 }
 
