@@ -133,7 +133,7 @@ router.post(/.*/, async ctx => {
 
     // DOS protection
     if (!checkBudget(ip, requests, config.maxPointsPerMinute, false)) {
-      const res = requests.map(_ => ({ id: _.id, error: 'Too many requests from ' + ip, jsonrpc: '2.0' }))
+      const res = requests.map(_ => ({ id: _.id, error: { code: - 32600, message: 'Too many requests from ' + ip }, jsonrpc: '2.0' }))
       ctx.status = 429
       ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
       return
@@ -155,7 +155,7 @@ router.post(/.*/, async ctx => {
     logger.debug('request ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ')'))
   } catch (err) {
     ctx.status = err.status || 500
-    ctx.body = { jsonrpc: '2.0', error: { message: err.message } }
+    ctx.body = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
   }
 
 })
