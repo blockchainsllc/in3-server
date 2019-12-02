@@ -146,8 +146,9 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
     storage.getStorageArrayKey(0),
     storage.getStorageArrayKey(1)
   ]
-  for (const n of list)
+  for (const n of list.filter(_ => _)) {
     keys.push(storage.getStorageArrayKey(0, n.index, 5, 4))
+  }
   return keys
 }
 
