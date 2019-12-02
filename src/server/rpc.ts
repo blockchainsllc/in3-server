@@ -214,13 +214,13 @@ export class RPC {
           })
         })
 
-        else if (r.method === 'in3_stats') {
-          const p = this.conf.profile || {}
-          updateStats(r)
-          return {
-            id: r.id,
-            jsonrpc: r.jsonrpc,
-            result: {
+      else if (r.method === 'in3_stats') {
+        const p = this.conf.profile || {}
+        updateStats(r)
+        return {
+          id: r.id,
+          jsonrpc: r.jsonrpc,
+          result: {
             profile: p,
             ...(p.noStats ? {} : { stats: getStats() })
           }
@@ -283,12 +283,13 @@ function manageRequest<T>(handler: RPCHandler, p: Promise<T>, req?: RPCRequest):
   return p.then((r: T) => {
     handler.openRequests--
 
-     // Update stats
-    if(req) updateStats(req, (r as unknown as RPCResponse))
+    // Update stats
+    if (req) updateStats(req, (r as unknown as RPCResponse))
 
     return r
   }, err => {
     handler.openRequests--
+    if (req) updateStats(req, null)
     throw new SentryError(err, "manageRequest", "error handling request")
   })
 }
@@ -301,14 +302,14 @@ function manageRequest<T>(handler: RPCHandler, p: Promise<T>, req?: RPCRequest):
 function updateStats(r: RPCRequest, resp?: RPCResponse) {
   let proof = false
   let sig = false
-  if(resp && resp.in3) {
-    if(resp.in3.proof) {
+  if (resp && resp.in3) {
+    if (resp.in3.proof) {
       proof = true
-      if(resp.in3.proof.signatures 
-      && resp.in3.proof.signatures.length !== 0) sig = true 
+      if (resp.in3.proof.signatures
+        && resp.in3.proof.signatures.length !== 0) sig = true
     }
   }
-  currentHour.update(r, proof, sig)
+  currentHour.update(r, proof, sig, !resp || !!resp.error)
 }
 
 

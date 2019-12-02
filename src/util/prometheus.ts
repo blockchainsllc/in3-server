@@ -43,6 +43,7 @@ export default class PromUpdater {
   upSince: client.Gauge
 
   requests: client.Counter
+  requestsError: client.Counter
   requestsProof: client.Counter
   requestsSig: client.Counter
   lastRequest: client.Gauge
@@ -56,19 +57,22 @@ export default class PromUpdater {
    * @param gateway 
    */
   constructor(profile: any, gateway?: string) {
-    if(gateway) this.gateway = gateway
-    else this.gateway = 'http://127.0.0.1:9091'
+    if (gateway) this.gateway = gateway
+    else this.gateway = profile.prometheus || 'http://127.0.0.1:9091'
     this.profile = profile
     this.registry = new client.Registry()
 
     this.upSince = new client.Gauge({ name: 'up_since', help: 'UNIX TS of server start.', labelNames: ['icon', 'url'] })
 
     this.requests = new client.Counter({ name: 'requests', help: 'Total requests since starting the node.' })
+    this.requestsError = new client.Counter({ name: 'requests_error', help: 'Total requests with errors.' })
     this.requestsProof = new client.Counter({ name: 'requests_proof', help: 'Total requests with proof.' })
     this.requestsSig = new client.Counter({ name: 'requests_signature', help: 'Total requests with signatures.' })
     this.lastRequest = new client.Gauge({ name: 'last_request', help: 'Last Unix time when a request was recieved.' })
-    this.requestTime = new client.Histogram({ name: 'request_time', help: 'A histogram for request timings', 
-    buckets: [1, 3, 5, 8, 10, 12, 16] })
+    this.requestTime = new client.Histogram({
+      name: 'request_time', help: 'A histogram for request timings',
+      buckets: [1, 3, 5, 8, 10, 12, 16]
+    })
   }
 
   /**
@@ -85,38 +89,43 @@ export default class PromUpdater {
    * @param stats
    */
   private convert(stats: any) {
-    if(this.lastStats) {
-      if(this.lastStats.requests <= stats.requests)
+    if (this.lastStats) {
+      if (this.lastStats.requests <= stats.requests)
         this.requests.inc(stats.requests - this.lastStats.requests)
 
-      if(this.lastStats.requests_proof <= stats.requests_proof)
+      if (this.lastStats.requests_error <= stats.requests_error)
+        this.requestsError.inc(stats.requests_error - this.lastStats.requests_error)
+
+      if (this.lastStats.requests_proof <= stats.requests_proof)
         this.requestsProof.inc(stats.requests_proof - this.lastStats.requests_proof)
 
-      if(this.lastStats.requests_sig <= stats.requests_sig)
+      if (this.lastStats.requests_sig <= stats.requests_sig)
         this.requestsSig.inc(stats.requests_sig - this.lastStats.requests_sig)
 
-      if(this.lastStats.requests < stats.requests)
-        this.requestTime.observe(stats.request_time)  
+      if (this.lastStats.requests < stats.requests)
+        this.requestTime.observe(stats.request_time)
     }
     else {
       this.requests.inc(stats.requests)
+      this.requestsError.inc(stats.requests_error)
       this.requestsProof.inc(stats.requests_proof)
       this.requestsSig.inc(stats.requests_sig)
-      if(stats.requests !== 0)
-        this.requestTime.observe(stats.request_time)  
+      if (stats.requests !== 0)
+        this.requestTime.observe(stats.request_time)
     }
 
     this.upSince.set({ icon: (this.profile.icon ? this.profile.icon : 'nop'), url: (this.profile.url ? this.profile.url : 'nop') }, stats.upSince)
     this.lastRequest.set(stats.lastRequest)
-    
+
     this.registry.registerMetric(this.upSince)
     this.registry.registerMetric(this.requests)
+    this.registry.registerMetric(this.requestsError)
     this.registry.registerMetric(this.requestsProof)
     this.registry.registerMetric(this.requestsSig)
     this.registry.registerMetric(this.lastRequest)
     this.registry.registerMetric(this.requestTime)
 
-    this.lastStats = {...stats}
+    this.lastStats = { ...stats }
   }
 
   /**
@@ -126,6 +135,6 @@ export default class PromUpdater {
    */
   private push(registry?: client.Registry, jobName?: string) {
     new client.Pushgateway(this.gateway, {}, (registry ? registry : this.registry))
-    .push({ jobName: (jobName ? jobName : this.profile.name) }, (err, resp, body) => {})
+      .push({ jobName: (jobName ? jobName : this.profile.name) }, (err, resp, body) => { })
   }
 }

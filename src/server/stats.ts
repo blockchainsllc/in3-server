@@ -42,6 +42,7 @@ export class Stat {
     requests: number
     requests_proof: number
     requests_sig: number
+    requests_error: number
     lastRequest: number
     methods: { [name: string]: number }
   }
@@ -49,19 +50,20 @@ export class Stat {
   id: number
 
   constructor(parent?: Stat) {
-    this.data = { requests: 0, requests_proof: 0, requests_sig: 0, lastRequest: 0, methods: {} }
+    this.data = { requests: 0, requests_proof: 0, requests_sig: 0, requests_error: 0, lastRequest: 0, methods: {} }
     this.parent = parent
   }
 
-  update(r: RPCRequest, proof: boolean = false, sig: boolean = false) {
+  update(r: RPCRequest, proof: boolean = false, sig: boolean = false, isError = false) {
     if (r.in3 && ((r.in3 as any).noStats)) return
     this.data.requests++
-    if(proof) this.data.requests_proof++
-    if(sig) this.data.requests_sig++
+    if (isError) this.data.requests_error++
+    if (proof) this.data.requests_proof++
+    if (sig) this.data.requests_sig++
     this.data.methods[r.method] = (this.data.methods[r.method] || 0) + 1
     this.data.lastRequest = Date.now()
     if (this.parent)
-      this.parent.update(r, proof, sig)
+      this.parent.update(r, proof, sig, isError)
   }
 
   check(id) {
@@ -125,9 +127,9 @@ export function submitRequestTime(ms: number) {
  * @param numbers 
  */
 function calcAverage(numbers: number[]) {
-  if(numbers.length === 0) return 0
+  if (numbers.length === 0) return 0
   let sum = 0
-  for(let num of numbers)
+  for (let num of numbers)
     sum += num
   return parseFloat((sum / numbers.length).toFixed(2))
 }
@@ -138,9 +140,9 @@ function calcAverage(numbers: number[]) {
  * @param config 
  */
 export function schedulePrometheus(config: IN3RPCConfig) {
-  if(!config.profile) return
-  if(config.profile && config.profile.noStats) return // saves power
-  if(!config.profile.name) return 
+  if (!config.profile) return
+  if (config.profile && config.profile.noStats) return // saves power
+  if (!config.profile.name) return
   const prometheus = new PromUpdater(config.profile /* , 'http://127.0.0.1:9091' */)
   setInterval(() => {
     let avgTime = calcAverage(buffer)
@@ -151,5 +153,5 @@ export function schedulePrometheus(config: IN3RPCConfig) {
     }
     buffer = []
     prometheus.update(push)
-  }, 5*1000)
+  }, 5 * 1000)
 }
