@@ -290,6 +290,11 @@ function manageRequest<T>(handler: RPCHandler, p: Promise<T>, req?: RPCRequest):
   }, err => {
     handler.openRequests--
     if (req) updateStats(req, null)
+    Sentry.configureScope(function (scope) {
+      scope.setExtra("user_req", req);
+      scope.setExtra("err_stack", err && err.stack);
+      scope.setExtra("openRequests", handler.openRequests);
+    })
     throw new SentryError(err, "manageRequest", "error handling request")
   })
 }
