@@ -42,6 +42,14 @@ import { collectSignatures } from '../../chains/signatures'
 import * as evm from './evm_trace'
 import { in3ProtocolVersion } from '../../types/constants'
 import { analyseCall, getFromCache, CacheAccount } from './evm_run'
+import * as promClient from 'prom-client';
+
+const histProofTime =  new promClient.Histogram({
+	name: 'in3_proof_time',
+	help: 'Time taken to generate proofs',
+  labelNames: ["cached"],
+  buckets: promClient.exponentialBuckets(1, 2, 32)
+});
 
 const ThreadPool = require('./threadPool')
 const toHex = util.toHex
@@ -185,8 +193,10 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
 
 export async function createMerkleProof(values: { key: Buffer, value: Buffer }[], key: Buffer, expectedRoot: Buffer, handler: EthHandler) {
 
+  const proofDone = histProofTime.startTimer();
   let trie = (handler.cache && expectedRoot) ? handler.cache.getTrie(toMinHex(expectedRoot)) : undefined
 
+  
   if (!trie) {
 
     if (handler.config.maxThreads) {
@@ -223,6 +233,10 @@ export async function createMerkleProof(values: { key: Buffer, value: Buffer }[]
       if (handler.cache)
         handler.cache.putTrie(toMinHex(expectedRoot), trie)
     }
+    proofDone({"cached":"false"})
+
+  } else {
+    proofDone({"cached":"true"})
   }
 
   return new Promise<Buffer[]>((resolve, reject) =>
@@ -233,8 +247,6 @@ export async function createMerkleProof(values: { key: Buffer, value: Buffer }[]
   )
 
 }
-
-
 
 export async function handleBlock(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
 
