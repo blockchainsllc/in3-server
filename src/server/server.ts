@@ -66,8 +66,35 @@ if (process.env.SENTRY_ENABLE === 'true') {
 
 // Hook up prometheus instrumentation
 
-promClient.collectDefaultMetrics();
+promClient.collectDefaultMetrics({prefix:"in3_"});
 
+// register top-level metrics
+const ctError = new promClient.Counter({
+	name: 'in3_errors',
+	help: 'Counts the number of errors occured',
+	labelNames: ['errtype']
+});
+
+// register top-level metrics
+const ctRequests = new promClient.Counter({
+	name: 'in3_http_requests',
+	help: 'Counts the number of requests coming in on HTTP',
+	labelNames: ['http_method']
+});
+
+// register top-level metrics
+const ctFailedRequests = new promClient.Counter({
+	name: 'in3_http_failed_requests',
+	help: 'Counts the number of requests coming in on HTTP ther returned a failure',
+	labelNames: ['http_method']
+});
+
+const histRequestTime =  new promClient.Histogram({
+	name: 'in3_frontend_request_time',
+	help: 'Total time requests take on the frontend',
+  labelNames: [],
+  buckets: promClient.exponentialBuckets(1, 2, 32)
+});
 
 
 // Hook to nodeJs events
@@ -80,6 +107,7 @@ process.on('SIGINT', handleExit);
 process.on('SIGTERM', handleExit);
 
 process.on("uncaughtException", (err) => {
+  ctError.labels('uncaughtException').inc();
   logger.error("Unhandled error: " + err, { error: err });
   if (process.env.SENTRY_ENABLE === 'true') {
     Sentry.captureException(err);
@@ -87,6 +115,8 @@ process.on("uncaughtException", (err) => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
+  ctError.labels('unhandledRejection').inc();
+
   logger.error("Unhandled promise rejection at " + promise, { reason: reason, promise: promise });
   if (process.env.SENTRY_ENABLE === 'true') {
     Sentry.captureException(new Error("Unhandled promise rejection at " + promise));
@@ -150,6 +180,7 @@ router.post(/.*/, async ctx => {
   if (INIT_ERROR) return initError(ctx)
   const start = Date.now()
   const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
+  const recordEnd = histRequestTime.startTimer({"http_method":"POST"});
 
   try {
 
@@ -161,9 +192,11 @@ router.post(/.*/, async ctx => {
       const res = requests.map(_ => ({ id: _.id, error: { code: - 32600, message: 'Too many requests from ' + ip }, jsonrpc: '2.0' }))
       ctx.status = 429
       ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
+      recordEnd({
+        "result":"dos_protect"
+      })
       return
     }
-
     // assign ip
     requests.forEach(_ => (_ as any).ip = ip)
 
@@ -177,10 +210,18 @@ router.post(/.*/, async ctx => {
     }
     else
       ctx.body = body
+    
+    recordEnd({
+      "result":"ok"
+    })
     logger.debug('request ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ')'))
   } catch (err) {
+    recordEnd({
+      "result":"error"
+    })
     ctx.status = err.status || 500
     ctx.body = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
+
   }
 
 })
@@ -197,7 +238,10 @@ router.get(/.*/, async ctx => {
   if (path[path.length - 1] === 'health') return checkHealth(ctx)
   else if (path[path.length - 1] === 'version') return getVersion(ctx)
   else if (INIT_ERROR) return initError(ctx)
+  const recordEnd = histRequestTime.startTimer({"http_method":"GET"});
+
   try {
+    ctRequests.labels("GET").inc();
     if (path.length < 2) throw new SentryError('invalid path', 'input_error', "the path entered returned error:" + ctx.path)
     let start = path.indexOf('api')
     if (start < 0)
@@ -220,7 +264,11 @@ router.get(/.*/, async ctx => {
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
     ctx.body = result.result || result.error
+    recordEnd({"result":"ok"}); // will obeserve the histogram metric
   } catch (err) {
+    recordEnd({"result":"error"}); // will obeserve the histogram metric
+    ctFailedRequests.labels("GET").inc();
+
     ctx.status = err.status || 500
     ctx.body = err.message
     logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
@@ -339,6 +387,7 @@ async function initError(ctx: Router.IRouterContext) {
   //lies to the rancher that it is healthy to avoid restart loop
   ctx.body = "Server uninitialized"
   ctx.status = 200
+  ctError.labels('initError').inc();
   // throw new SentryError("server initialization error", "server_status", "unhealthy")
   if (process.env.SENTRY_ENABLE === 'true') {
     Sentry.configureScope((scope) => {
