@@ -34,6 +34,8 @@
 // tslint:disable-next-line:missing-jsdoc
 const Sentry = require('@sentry/node');
 
+import * as promClient from 'prom-client';
+
 import * as logger from '../util/logger'
 import { SentryError } from '../util/sentryError'
 import * as Koa from 'koa'
@@ -53,6 +55,7 @@ import axios from 'axios'
 
 import requestTime from '../util/koa/requestTime'
 
+// Hook up Sentry error reporting
 if (process.env.SENTRY_ENABLE === 'true') {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
@@ -60,6 +63,12 @@ if (process.env.SENTRY_ENABLE === 'true') {
     environment: process.env.SENTRY_ENVIRONMENT || "local"
   });
 }
+
+// Hook up prometheus instrumentation
+
+promClient.collectDefaultMetrics();
+
+
 
 // Hook to nodeJs events
 function handleExit(signal) {
@@ -127,6 +136,14 @@ app.use(async (ctx, next) => {
 
 // handle json
 app.use(bodyParser())
+
+// route prom metric only when requested
+//if (process.env.STATS_ENABLE === 'true') {
+  router.get('/metrics', async ctx => {
+    ctx.set('Content-Type', promClient.register.contentType);
+    ctx.body = promClient.register.metrics();
+  });
+//}
 
 router.post(/.*/, async ctx => {
 
