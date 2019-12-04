@@ -45,7 +45,7 @@ import * as tx from '../util/tx'
 import { useDB, exec } from '../util/db'
 import config from '../server/config'
 import { updateValidatorHistory } from '../server/poa';
-import { SentryError } from '../util/sentryError';
+import { SentryError } from '../util/sentryError'
 
 const toNumber = util.toNumber
 const toHex = util.toHex
@@ -117,7 +117,7 @@ export default class Watcher extends EventEmitter {
         this._lastBlock = JSON.parse(fs.readFileSync(this.persistFile, 'utf8'))
       }
       catch {
-        this._lastBlock = { number: 1, hash: toHex(0, 32) }
+        this._lastBlock = { number: -1, hash: toHex(0, 32) }
       }
     }
     return this._lastBlock
@@ -160,7 +160,18 @@ export default class Watcher extends EventEmitter {
       else
         this.running = false
     }
-    this.update().then(next, next)
+    if (!this._lastBlock || this.block.number < 0)
+      this.handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['latest', false] })
+        .then(_ => {
+          if (_.error) throw new Error((_.error as any).message || _.error)
+          if (!_.result || !_.result.hash) throw new Error('Missing hash when fetching inital block')
+          this.block = { hash: _.result.hash, number: parseInt(_.result.number) }
+        })
+        .catch(next)
+        .then(next, next)
+
+    else
+      this.update().then(next, next)
   }
 
   async update(): Promise<any[]> {
