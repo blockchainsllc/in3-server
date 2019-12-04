@@ -106,7 +106,7 @@
     "ethers": "^4.0.27",
     "ethjs-util": "0.1.4",
     "form-data": "^2.3.2",
-    "in3-common": "^2.0.4-RC1",
+    "in3-common": "^2.0.5-RC1",
     "in3-contracts": "^0.0.2-beta.2",
     "in3-trie": "^0.1.2",
     "koa": "^2.7.0",
