@@ -201,7 +201,7 @@ export default class Watcher extends EventEmitter {
     ])
 
     if (blockResponse.error) throw new Error('Error getting the block ' + currentBlock + ': ' + blockResponse.error)
-    if (!blockResponse.result) throw new Error('Invalid Response getting the block ' + currentBlock + ': ' + JSON.stringify(blockResponse))
+    if (!blockResponse.result) throw new Error('No block found for currentBlock=´' + currentBlock + ' maybe this block is still too young, but this should no happen too often.')
 
     if (logResponse) {
       if (logResponse.error) throw new Error('Error getting the logs : ' + logResponse.error)
