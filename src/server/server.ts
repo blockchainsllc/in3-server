@@ -102,7 +102,11 @@ if (process.env.SENTRY_ENABLE === 'true') {
   app.on('error', (err, ctx) => {
     Sentry.withScope(scope => {
       scope.addEventProcessor(event => Sentry.Handlers.parseRequest(event, ctx.request));
-      Sentry.captureException(err);
+      Sentry.configureScope((scope) => {
+        scope.setExtra("body", err.body)
+        scope.setExtra("stack", err.stack)
+      });
+      Sentry.captureException(err.message);
     });
   });
 }
@@ -165,7 +169,7 @@ router.post(/.*/, async ctx => {
 })
 
 router.get(/.*/, async ctx => {
-  if(ctx.path === '/favicon.ico') {
+  if (ctx.path === '/favicon.ico') {
     ctx.status = 404
     return
   } // Some browsers ask for it -> prevent it
