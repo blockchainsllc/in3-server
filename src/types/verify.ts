@@ -99,7 +99,7 @@ function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any, data?: any
             message: msg,
             errs
         })
-        Sentry.captureException('Invalid Userdata')
+        Sentry.captureException(new Error('Invalid Userdata'))
     }
 
     return msg

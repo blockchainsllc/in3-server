@@ -370,10 +370,11 @@ export default class Watcher extends EventEmitter {
               scope.setTag("watch", "convictError");
               scope.setTag("nodeList-contract", this.handler.config.registry)
               scope.setExtra("txData:", [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s])
+              scope.setExtra("internalException:", _.stack)
             });
           }
 
-          Sentry.captureException('Error sending revealConvict ', _)
+          Sentry.captureException(new Error('Error sending revealConvict :' + _.message), _)
           logger.error('Error sending revealConvict ', _)
         })
         this.futureConvicts.pop()
