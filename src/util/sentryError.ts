@@ -52,7 +52,7 @@ export class SentryError extends Error {
                 category: category_info,
                 message: breadcrumb_message,
             })
-            Sentry.captureException(message)
+            Sentry.captureException(this)
         }
     }
 }

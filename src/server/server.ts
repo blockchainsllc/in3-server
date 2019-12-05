@@ -106,7 +106,7 @@ if (process.env.SENTRY_ENABLE === 'true') {
         scope.setExtra("body", err.body)
         scope.setExtra("stack", err.stack)
       });
-      Sentry.captureException(err.message);
+      Sentry.captureException(err);
     });
   });
 }
