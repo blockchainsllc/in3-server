@@ -164,6 +164,15 @@ router.post(/.*/, async ctx => {
   } catch (err) {
     ctx.status = err.status || 500
     ctx.body = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
+    Sentry.withScope(scope => {
+      scope.addEventProcessor(event => Sentry.Handlers.parseRequest(event, ctx.request));
+      Sentry.configureScope((scope) => {
+        scope.setExtra("body", err.body)
+        scope.setExtra("stack", err.stack)
+      });
+      Sentry.captureException(err);
+    });
+
   }
 
 })
