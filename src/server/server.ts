@@ -135,6 +135,9 @@ router.post(/.*/, async ctx => {
   const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
 
   try {
+    // check for valid req
+    if ((!ctx.request.body || (typeof (ctx.request.body) === 'object' && !ctx.request.body.method)) && ctx.headers['content-type'] !== 'application/json')
+      throw new Error('Request must contain header "Content-Type:application/json"')
 
     // find ip
     const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
