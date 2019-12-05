@@ -75,25 +75,11 @@ const ctError = new promClient.Counter({
 	labelNames: ['errtype']
 });
 
-// register top-level metrics
-const ctRequests = new promClient.Counter({
-	name: 'in3_http_requests',
-	help: 'Counts the number of requests coming in on HTTP',
-	labelNames: ['http_method']
-});
-
-// register top-level metrics
-const ctFailedRequests = new promClient.Counter({
-	name: 'in3_http_failed_requests',
-	help: 'Counts the number of requests coming in on HTTP ther returned a failure',
-	labelNames: ['http_method']
-});
-
 const histRequestTime =  new promClient.Histogram({
 	name: 'in3_frontend_request_time',
 	help: 'Total time requests take on the frontend',
-  labelNames: [],
-  buckets: promClient.exponentialBuckets(1, 2, 32)
+  labelNames: ["http_method","result","peer_ip"],
+  buckets: promClient.exponentialBuckets(1, 2, 20)
 });
 
 
@@ -180,21 +166,20 @@ router.post(/.*/, async ctx => {
   if (INIT_ERROR) return initError(ctx)
   const start = Date.now()
   const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
-  const recordEnd = histRequestTime.startTimer({"http_method":"POST"});
+  const startTime = Date.now();
+
+  // find ip
+  const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
 
   try {
 
-    // find ip
-    const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
 
     // DOS protection
     if (!checkBudget(ip, requests, config.maxPointsPerMinute, false)) {
       const res = requests.map(_ => ({ id: _.id, error: { code: - 32600, message: 'Too many requests from ' + ip }, jsonrpc: '2.0' }))
       ctx.status = 429
       ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
-      recordEnd({
-        "result":"dos_protect"
-      })
+      histRequestTime.labels("post","dos_protect",ip).observe(Date.now() - startTime);
       return
     }
     // assign ip
@@ -211,14 +196,11 @@ router.post(/.*/, async ctx => {
     else
       ctx.body = body
     
-    recordEnd({
-      "result":"ok"
-    })
+      histRequestTime.labels("post","ok",ip).observe(Date.now() - startTime);
+    
     logger.debug('request ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ')'))
   } catch (err) {
-    recordEnd({
-      "result":"error"
-    })
+    histRequestTime.labels("post","error",ip).observe(Date.now() - startTime);
     ctx.status = err.status || 500
     ctx.body = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
 
@@ -234,14 +216,15 @@ router.get(/.*/, async ctx => {
 
   //  '/:chain/:method/:args'
   const path = ctx.path.split('/')
+  const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
+
 
   if (path[path.length - 1] === 'health') return checkHealth(ctx)
   else if (path[path.length - 1] === 'version') return getVersion(ctx)
   else if (INIT_ERROR) return initError(ctx)
-  const recordEnd = histRequestTime.startTimer({"http_method":"GET"});
+  const startTime = Date.now();
 
   try {
-    ctRequests.labels("GET").inc();
     if (path.length < 2) throw new SentryError('invalid path', 'input_error', "the path entered returned error:" + ctx.path)
     let start = path.indexOf('api')
     if (start < 0)
@@ -264,10 +247,9 @@ router.get(/.*/, async ctx => {
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
     ctx.body = result.result || result.error
-    recordEnd({"result":"ok"}); // will obeserve the histogram metric
+    histRequestTime.labels("get","ok",ip).observe(Date.now() - startTime);
   } catch (err) {
-    recordEnd({"result":"error"}); // will obeserve the histogram metric
-    ctFailedRequests.labels("GET").inc();
+    histRequestTime.labels("get","error",ip).observe(Date.now() - startTime);
 
     ctx.status = err.status || 500
     ctx.body = err.message

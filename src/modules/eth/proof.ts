@@ -44,11 +44,18 @@ import { in3ProtocolVersion } from '../../types/constants'
 import { analyseCall, getFromCache, CacheAccount } from './evm_run'
 import * as promClient from 'prom-client';
 
+const histMerkleTreeTime =  new promClient.Histogram({
+	name: 'in3_merkle_tree_time',
+	help: 'Time taken to generate merkle tree',
+  labelNames: ["cached"],
+  buckets: promClient.exponentialBuckets(1, 2, 20)
+});
+
 const histProofTime =  new promClient.Histogram({
 	name: 'in3_proof_time',
 	help: 'Time taken to generate proofs',
-  labelNames: ["cached"],
-  buckets: promClient.exponentialBuckets(1, 2, 32)
+  labelNames: ["type"],
+  buckets: promClient.exponentialBuckets(1, 2, 20)
 });
 
 const ThreadPool = require('./threadPool')
@@ -92,6 +99,7 @@ export async function addFinality(request: RPCRequest, response: RPCResponse, bl
 
 /** creates the merkle-proof for a transation */
 export async function createTransactionProof(block: BlockData, txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler): Promise<Proof> {
+  const startTime = Date.now();
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
   if (txIndex < 0) throw new Error('tx not found')
@@ -106,6 +114,7 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
     handler
   )).map(toHex)
 
+  histProofTime.labels("transaction").observe(Date.now() - startTime);
   // create prove
   return {
     type: 'transactionProof',
@@ -117,6 +126,8 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
 
 /** creates the merkle-proof for a transation */
 export async function createTransactionFromBlockProof(block: BlockData, txIndex: number, signatures: Signature[], verifiedHashes: string[]): Promise<Proof> {
+  const startTime = Date.now();
+  
   // create trie
   const trie = new In3Trie()
   // fill in all transactions
@@ -138,11 +149,14 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
     signatures
   }
 
+  histProofTime.labels("transaction_from_block").observe(Date.now() - startTime);
   return proof
 }
 
 /** creates the merkle-proof for a transation */
 export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler, useFull = false): Promise<Proof> {
+  const startTime = Date.now();
+  
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
   if (txIndex < 0)
@@ -180,6 +194,8 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
 
   ]).then(a => a.map(_ => _ && _.map(toHex)))
 
+  histProofTime.labels("transaction_receipt").observe(Date.now() - startTime);
+
   return {
     type: 'receiptProof',
     block: createBlock(block, verifiedHashes),
@@ -193,7 +209,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
 
 export async function createMerkleProof(values: { key: Buffer, value: Buffer }[], key: Buffer, expectedRoot: Buffer, handler: EthHandler) {
 
-  const proofDone = histProofTime.startTimer();
+  const startTime = Date.now();
   let trie = (handler.cache && expectedRoot) ? handler.cache.getTrie(toMinHex(expectedRoot)) : undefined
 
   
@@ -233,10 +249,10 @@ export async function createMerkleProof(values: { key: Buffer, value: Buffer }[]
       if (handler.cache)
         handler.cache.putTrie(toMinHex(expectedRoot), trie)
     }
-    proofDone({"cached":"false"})
+    histMerkleTreeTime.labels("false").observe(Date.now() - startTime);
 
   } else {
-    proofDone({"cached":"true"})
+    histMerkleTreeTime.labels("true").observe(Date.now() - startTime);
   }
 
   return new Promise<Buffer[]>((resolve, reject) =>
@@ -392,6 +408,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
         version: in3ProtocolVersion
       }
 
+
       return addFinality(request, response, block, handler)
     }
   }
@@ -403,6 +420,8 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
 
 export async function handleLogs(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   // ask the server for the logs
+  const startTime = Date.now();
+
   const response = await handler.getFromServer(request, request)
   const logs = response && response.result as LogData[]
   // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
@@ -473,13 +492,15 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
       version: in3ProtocolVersion
     }
   }
-
+  histProofTime.labels("logs").observe(Date.now() - startTime);
   return response
 }
 
 
 let useTrace: boolean = undefined
+
 export async function handleCall(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
+  const startTime = Date.now();
   if (useTrace === undefined)
     useTrace = await handler.getFromServer({ method: 'web3_clientVersion', params: [] }, request).then(_ => _.result.indexOf('Parity') >= 0)
 
@@ -573,6 +594,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
 
 
 
+  histProofTime.labels("call").observe(Date.now() - startTime);
 
   // bundle the answer
   return addFinality(request,
