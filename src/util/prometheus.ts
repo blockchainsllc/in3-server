@@ -56,21 +56,19 @@ export default class PromUpdater {
    * @param profile
    * @param gateway 
    */
-  constructor(profile: any, gateway?: string) {
-    if (gateway) this.gateway = gateway
-    else this.gateway = profile.prometheus || 'http://127.0.0.1:9091'
+  constructor(profile: any) {
     this.profile = profile
     this.registry = new client.Registry()
 
-    this.upSince = new client.Gauge({ name: 'up_since', help: 'UNIX TS of server start.', labelNames: ['icon', 'url'] })
+    this.upSince = new client.Gauge({ name: 'in3_up_since', help: 'UNIX TS of server start.', labelNames: ['icon', 'url'] })
 
-    this.requests = new client.Counter({ name: 'requests', help: 'Total requests since starting the node.' })
-    this.requestsError = new client.Counter({ name: 'requests_error', help: 'Total requests with errors.' })
-    this.requestsProof = new client.Counter({ name: 'requests_proof', help: 'Total requests with proof.' })
-    this.requestsSig = new client.Counter({ name: 'requests_signature', help: 'Total requests with signatures.' })
-    this.lastRequest = new client.Gauge({ name: 'last_request', help: 'Last Unix time when a request was recieved.' })
+    this.requests = new client.Counter({ name: 'in3_requests', help: 'Total requests since starting the node.' })
+    this.requestsError = new client.Counter({ name: 'in3_requests_error', help: 'Total requests with errors.' })
+    this.requestsProof = new client.Counter({ name: 'in3_requests_proof', help: 'Total requests with proof.' })
+    this.requestsSig = new client.Counter({ name: 'in3_requests_signature', help: 'Total requests with signatures.' })
+    this.lastRequest = new client.Gauge({ name: 'in3_last_request', help: 'Last Unix time when a request was recieved.' })
     this.requestTime = new client.Histogram({
-      name: 'request_time', help: 'A histogram for request timings',
+      name: 'in3_request_time', help: 'A histogram for request timings',
       buckets: [1, 3, 5, 8, 10, 12, 16]
     })
   }
