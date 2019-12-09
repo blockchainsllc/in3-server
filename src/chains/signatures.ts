@@ -154,9 +154,6 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         ? await handler.transport.handle(config.url, req)
         : { result: [] }) as RPCResponse
 
-      console.log("SIG_RESPONSE");
-      console.log(JSON.stringify(response));
-
       if (response.error) {
         Sentry.configureScope((scope) => {
           scope.setTag("signatures", "collectSignatures");
@@ -168,7 +165,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         //sthrow new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocksToRequest.map(_ => _.blockNumber).join() + ':' + response.error)
-        throw new Error('Could not get the signature from ' + adr + ' at ' +config.url +' request: '+ JSON.stringify(req) +' for block ' + blocksToRequest.map(_ => _.blockNumber).join() +  ':' + response.error)
+        throw new Error('Could not get the signature from ' + adr + ' at ' + config.url + ' request: ' + JSON.stringify(req) + ' for block ' + blocksToRequest.map(_ => _.blockNumber).join() + ':' + response.error)
         //        return null
       }
     } catch (error) {
