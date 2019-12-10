@@ -280,8 +280,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   // we try to read the registryData-contract. If there is none, this is an old contract and we use the registry, but if there is, we use the data contract.
   list.contract = await handler.getFromServer(nodeRegistryData).then(_ => {
     const r = _.result as string
-    if (r === '0x') return handler.config.registry
-    if (_.error) throw new Error('Could not get the contract data :' + ((_.error as any).message || _.error))
+    if (r === '0x' || _.error) return handler.config.registry // the error occurs on parity because the method does not exist.
     return '0x' + r.substr(r.length - 40)
   })
 
