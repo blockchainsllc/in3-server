@@ -11,8 +11,8 @@ services:
         ports: 
         - 8500:8500/tcp                                                       # open the port 8500 to be accessed by the public 
         command: 
-        - --privateKey=/secure/6a1649916fbdac8f72780f49fe4969cf725911e5.json  # internal path to the key 
-        - --privateKeyPassphrase=qwert                                        # passphrase to unlock the key 
+        - --privateKey=/secure/MYKEYFILE.json                                 # internal path to the key 
+        - --privateKeyPassphrase=PASSWD                                       # passphrase to unlock the key 
         - --chain=0x2a                                                        # chain 
         - --rpcUrl=http://172.15.0.3:8545                                     # URL of the eth client 
         - --registry=0x33f55122c21cc87b539e7003f7ab16229bc3af69               #Incubed Registry contract address 
