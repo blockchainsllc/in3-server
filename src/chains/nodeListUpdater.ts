@@ -257,14 +257,34 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   }
 
   // first get the registry
-  if (!list.contract) {
-    list.contract = handler.config.registry
-    //    const [owner, bootNodes, meta, registryContract, contractChain] = await tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'chains(bytes32):(address,string,string,address,bytes32)', [handler.chainId])
-    //    list.contract = toChecksumAddress('0x' + registryContract)
+  //  if (!list.contract) {
+
+  // let us find the data contract
+  const nodeRegistryData: RPCRequest = {
+    jsonrpc: '2.0',
+    id: 0,
+    method: 'eth_call', params: [{
+      to: handler.config.registry,
+      data: '0x' + abi.simpleEncode('nodeRegistryData()').toString('hex')
+    },
+      'latest']
   }
 
-  if (!list.registryId) {
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "nodeRegistryData request",
+      data: nodeRegistryData
+    })
+  }
 
+  // we try to read the registryData-contract. If there is none, this is an old contract and we use the registry, but if there is, we use the data contract.
+  list.contract = await handler.getFromServer(nodeRegistryData).then(_ => {
+    const r = _.result as string
+    if (r === '0x' || _.error) return handler.config.registry // the error occurs on parity because the method does not exist.
+    return '0x' + r.substr(r.length - 40)
+  })
+
+  if (!list.registryId) {
     const registryIdRequest: RPCRequest = {
       jsonrpc: '2.0',
       id: 0,
