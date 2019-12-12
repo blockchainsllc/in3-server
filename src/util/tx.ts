@@ -73,8 +73,11 @@ export async function callContract(url: string, contract: string, signature: str
   if (!transport) transport = new AxiosTransport()
   const data = '0x' + encodeFunction(signature, args)
 
-  if (txargs)
-    return sendTransaction(url, { ...txargs, to: contract, data }, transport)
+  if (txargs) {
+    return sendTransaction(url, { ...txargs, to: contract, data }, transport).catch(err => {
+      throw new Error('Could not call ' + signature + '(' + args.map(toHex).join() + ') to ' + contract + ' : ' + err.message)
+    })
+  }
   if (process.env.SENTRY_ENABLE === 'true') {
 
     Sentry.addBreadcrumb({
@@ -176,7 +179,7 @@ export async function sendTransaction(url: string, txargs: {
       }]
     }).then((_: RPCResponse) => {
       if (_.error) {
-        throw new Error(_.error)
+        throw new Error('Error estimaing gas for tx to ' + txargs.to + ' with data ' + txargs.data + ' : ' + (_.error as any).message || _.error)
       }
       return Math.floor(parseInt(_.result as any) * 1.1)
     })
@@ -216,6 +219,40 @@ export async function sendTransaction(url: string, txargs: {
   return txargs.confirm ? waitForReceipt(url, txHash, timeout || 30, txargs.gas, transport) : txHash
 }
 
+export async function getErrorReason(url: string, txHash: string, transport?: Transport): Promise<string> {
+
+  const clientVersion = await transport.handle(url, {
+    jsonrpc: '2.0',
+    id: idCount++,
+    method: 'web3_clientVersion',
+    params: []
+  }).then((_: RPCResponse) => _.result as string) || ''
+  let returnValue = ''
+
+  if (clientVersion.includes("Parity")) {
+    const trace = await transport.handle(url, {
+      jsonrpc: '2.0',
+      id: idCount++,
+      method: 'trace_replayTransaction',
+      params: [txHash, ['trace']]
+    }).then((_: RPCResponse) => _.result)
+    returnValue = trace.output
+
+  }
+  if (clientVersion.includes("Geth")) {
+    const trace = await transport.handle(url, {
+      jsonrpc: '2.0',
+      id: idCount++,
+      method: 'debug_traceTransaction',
+      params: [txHash]
+    }).then((_: RPCResponse) => _.result)
+    returnValue = "0x" + trace.returnValue
+  }
+  if (!returnValue || returnValue.length < 128) return ''
+  const len = parseInt('0x' + returnValue.substr(69 * 2 - 8, 8))
+  return util.toUtf8('0x' + returnValue.substr(69 * 2, len * 2)) + ' in tx ' + txHash
+}
+
 
 export async function waitForReceipt(url: string, txHash: string, timeout = 10, sentGas = 0, transport?: Transport) {
   if (!transport) transport = new AxiosTransport()
@@ -230,15 +267,17 @@ export async function waitForReceipt(url: string, txHash: string, timeout = 10, 
       params: [txHash]
     }) as RPCResponse
 
+
     if (r.error) throw new SentryError('Error fetching receipt', 'error_fetching_tx', 'Error fetching the receipt for ' + txHash + ' : ' + JSON.stringify(r.error))
     if (r.result) {
       const receipt = r.result as any
       if (sentGas && parseInt(sentGas as any) === parseInt(receipt.gasUsed))
-        throw new SentryError('Transaction failed and all gas was used up', 'gas_error', sentGas + ' not enough')
+        throw new SentryError((await getErrorReason(url, txHash, transport)) + ' Transaction failed and all gas was used up', 'gas_error', sentGas + ' not enough')
       if (receipt.status && receipt.status == '0x0')
-        throw new SentryError('tx failed', 'tx_failed', 'The Transaction failed because it returned status=0')
+        throw new SentryError((await getErrorReason(url, txHash, transport)) + ' tx failed', 'tx_failed', 'The Transaction failed because it returned status=0')
       return receipt
     }
+
 
     // wait a second and try again
     await new Promise(_ => setTimeout(_, Math.min(timeout * 200, steps *= 2)))
@@ -331,8 +370,8 @@ export function decodeFunction(signature: string | string[], args: Buffer): any 
 }
 
 export function isValidAddress(addr: String) {
-  if (typeof addr !== 'string'){
-    throw new Error('Invalid address')}
+  if (typeof addr !== 'string')
+    throw new Error('Invalid address')
 
   return addr && addr.match(/^0x[0-9a-fA-F]{40}$/)
 }

@@ -113,8 +113,10 @@ export default class Watcher extends EventEmitter {
   } {
     if (!this._lastBlock) {
       try {
-        if (!this.persistFile) throw new Error()
-        this._lastBlock = JSON.parse(fs.readFileSync(this.persistFile, 'utf8'))
+        if (!this.persistFile)
+          this._lastBlock = { number: -1, hash: toHex(0, 32) }
+        else
+          this._lastBlock = JSON.parse(fs.readFileSync(this.persistFile, 'utf8'))
       }
       catch {
         this._lastBlock = { number: -1, hash: toHex(0, 32) }
@@ -196,7 +198,7 @@ export default class Watcher extends EventEmitter {
       method: 'eth_getBlockByNumber', params: [toMinHex(currentBlock), false]
     },
     ... (nodeList && nodeList.contract ? [{
-      method: 'eth_getLogs', params: [{ fromBlock: toMinHex(this.block.number + 1), toBlock: toMinHex(currentBlock), address: nodeList.contract }]
+      method: 'eth_getLogs', params: [{ fromBlock: toMinHex(this.block.number + 1), toBlock: toMinHex(currentBlock), address: this.handler.config.registry }]
     }] : [])
     ])
 
@@ -414,13 +416,13 @@ function decodeData(data: any, inputs: { type: string, name: string }[]) {
   }, {})
 }
 
-const abi = getABI('NodeRegistry').filter(_ => _.type === 'event') as {
+const abi = [...getABI('NodeRegistryLogic'), ...getABI('NodeRegistryData'), ...getABI('IERC20')].filter(_ => _.type === 'event') as {
   name: string
   inputs: any[]
   hash: string
 }[]
 abi.forEach(_ => _.hash = toHex(keccak(_.name + '(' + _.inputs.map(i => i.type).join(',') + ')'), 32))
-
+//console.log('abi=\n', abi.map(_ => _.name + '  =>  ' + _.hash + '\n').join(''))
 
 function handleUnregister(ev, handler: RPCHandler) {
   const me = (this.handler.config as any)._pk.address

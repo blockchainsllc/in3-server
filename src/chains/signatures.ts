@@ -77,12 +77,13 @@ export function createPK(pk: Buffer | string): PK {
   }
 }
 
-function checkBlockHash(hash: any, expected: any, s: any) {
+function checkBlockHash(hash: any, expected: any, s: any, adr: string) {
   // is the blockhash correct all is fine
   if (bytes32(hash).equals(bytes32(expected))) {
+    const k = hash + adr
     // add signature entry in cache
-    if (!signatureCaches.has(expected))
-      signatureCaches.set(expected, { ...s })
+    if (!signatureCaches.has(k))
+      signatureCaches.set(k, { ...s })
     return s
   }
   return null
@@ -140,8 +141,13 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
     // get cache signatures and remaining blocks that have no signatures
     const cachedSignatures: Signature[] = []
     const blocksToRequest = blocks.filter(b => {
-      const s = signatureCaches.get(b.hash) && false
-      return s ? cachedSignatures.push(s) * 0 : true
+      const s = signatureCaches.get(b.hash + adr)
+      if (s) {
+        cachedSignatures.push(s)
+        return false
+      }
+      else
+        return true
     })
 
     // send the sign-request
@@ -191,7 +197,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         // first check the signature
         const signatureMessageHash: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), bytes32(s.block), bytes32((nodes as any).registryId)]))
-        if (!bytes32(s.msgHash).equals(signatureMessageHash)) // the message hash is wrong and we don't know what he signed
+        if (!bytes32(s.msgHash).equals(signatureMessageHash)) // the message hash is wrong and we don't know what he signed 
           return null // can not use it to convict
 
         // recover the signer from the signature
@@ -210,14 +216,14 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         }
 
         // did we expect this?
-        if (checkBlockHash(s.blockHash, expectedBlock.hash, s)) return s
+        if (checkBlockHash(s.blockHash, expectedBlock.hash, s, config.address)) return s
 
         // so we have a different hash, let's double check if got the wrong hash
         expectedBlock.hash = toHex(await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(s.block), false] })
           .then(_ => _.result && _.result.hash), 32)
 
         // recheck again, if this is still wrong
-        if (checkBlockHash(s.blockHash, expectedBlock.hash, s)) return s
+        if (checkBlockHash(s.blockHash, expectedBlock.hash, s, config.address)) return s
 
         // ok still wrong, so we start convicting the node...
         logger.info("Trying to convict node(" + singingNode.address + ") " + singingNode.url + ' because it signed wrong blockhash  with ' + JSON.stringify(s) + ' but the correct hash should be ' + expectedBlock.hash)
@@ -240,7 +246,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
         const latestBlockNumber = handler.watcher.block.number
         const diffBlocks = toNumber(latestBlockNumber) - s.block
-        const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address(singingNode.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
+        const convictSignature: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), address((handler.config as any)._pk.address), toBuffer(s.v, 1), bytes32(s.r), bytes32(s.s)]))
 
         // checking whether the signer is already in the process of being convicted
         const foundAlready = handler.watcher.futureConvicts.find(_ =>
@@ -248,9 +254,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         )
         if (foundAlready) return
 
-        if (!handler.watcher.blockhashRegistry) {
-          handler.watcher.blockhashRegistry = (await callContract(handler.config.rpcUrl, nodes.contract, 'blockRegistry():(address)', []))[0]
-        }
+        if (!handler.watcher.blockhashRegistry)
+          handler.watcher.blockhashRegistry = (await callContract(handler.config.rpcUrl, handler.config.registry, 'blockRegistry():(address)', []))[0]
 
         handler.watcher.futureConvicts.push({
           startTime: Date.now(),
@@ -270,7 +275,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       }))
 
     return signatures
-  })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c], []))
+  })).then(a => a.filter(_ => _).reduce((p, c) => [...p, ...c.filter(_ => _)], []))
 
 }
 
@@ -293,6 +298,7 @@ export function sign(pk: PK, blocks: { blockNumber: number, hash: string, regist
 }
 
 export async function handleSign(handler: BaseHandler, request: RPCRequest): Promise<RPCResponse> {
+  if (!(handler.config as any)._pk) throw new Error('The server is configured to sign blockhashes')
   const blocks = request.params as { blockNumber: number, hash: string }[]
   const blockData = await handler.getAllFromServer([
     ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })),
