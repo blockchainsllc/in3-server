@@ -262,7 +262,7 @@ deploy-stage-goerli:
     - .deploy-tmpl-stage
     - .chain-tmpl-goerli
   variables:
-    REGISTRY_CONTRACT_ADDR: "0x814fb2203f9848192307092337340dcf791a3fed"
+    REGISTRY_CONTRACT_ADDR: "0x0bfe6c538877aed3a0e0c6db78d07234c9100853"
 
 # disable until v2 stage contract is deployed to mainnet
 #deploy-stage-mainnet:
