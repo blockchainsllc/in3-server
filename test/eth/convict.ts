@@ -118,10 +118,10 @@ describe('Convict', () => {
     for (let i = 0; i < 4; i++) {
       await test.createAccount()
       await watcher2.update()
-      events = [...(await watcher.update() || [])]
+      events = [...(await watcher.update() || []), ...events]
     }
     // fetch the latest block since we may have done a convict in the last block.
-    events = [...(await watcher.update() || [])]
+    events = [...(await watcher.update() || []), ...events]
     //    console.log('event:', JSON.stringify(events, null, 2))
 
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
@@ -175,7 +175,7 @@ describe('Convict', () => {
     const client = await test.createClient()
 
     // this is a correct signature and should not fail.
-    const res = await client.sendRPC('eth_getBalance', [pk1.address, toMinHex(wrongBlock)], undefined, {
+    const res = await client.sendRPC('eth_getBalance', [pk1.address, toMinHex(wrongBlock - 1)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
@@ -240,14 +240,16 @@ describe('Convict', () => {
     //   let events = await watcher.update()
 
     //  if (!events) events = await watcher2.update()
-    let events
+    let events = []
 
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 26; i++) {
       await test.createAccount()
 
-      events = await watcher.update()
-      if (!events) await watcher2.update()
+      await watcher2.update()
+      events = [...(await watcher.update() || []), ...events]
     }
+    await watcher2.update()
+    events = [...(await watcher.update() || []), ...events]
 
 
     //  assert.equal(events.length, 2)
