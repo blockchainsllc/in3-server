@@ -46,8 +46,8 @@ import { PK, createPK } from './signatures'
 
 export function checkPrivateKey(config: IN3RPCHandlerConfig) {
   if ((config as any)._pk) return
-  if (!config.privateKey)
-    throw new Error('No private key set, which is needed in order to sign blockhashes')
+  if (!config.privateKey) return
+  //    throw new Error('No private key set, which is needed in order to sign blockhashes')
   const key = config.privateKey
   delete config.privateKey
 
