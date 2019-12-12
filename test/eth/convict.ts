@@ -151,10 +151,10 @@ describe('Convict', () => {
 
     const test = await TestTransport.createWithRegisteredNodes(2)
     // toBN('490000000000000000')
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint192,uint64,uint)', [test.getHandlerPK(0).address, "#1", 0, 0, 0], { privateKey: (test.getHandlerConfig(0) as any)._pk, value: 0, confirm: true, gas: 5000000 })
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint192,uint64,uint)', [test.getHandlerPK(1).address, "#2", 0, 0, 0], { privateKey: (test.getHandlerConfig(1) as any)._pk, value: 0, confirm: true, gas: 5000000 }).catch(_ => false)
+    await tx.callContract(test.url, test.registryContract, 'updateNode(address,string,uint192,uint64,uint)', [test.getHandlerPK(0).address, "#1", 0, 0, 0], { privateKey: (test.getHandlerConfig(0) as any)._pk, value: 0, confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.registryContract, 'updateNode(address,string,uint192,uint64,uint)', [test.getHandlerPK(1).address, "#2", 0, 0, 0], { privateKey: (test.getHandlerConfig(1) as any)._pk, value: 0, confirm: true, gas: 5000000 }).catch(_ => false)
 
-    const blockHashRegistry = (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
+    const blockHashRegistry = (await tx.callContract(test.url, test.registryContract, 'blockRegistry():(address)', []))[0].toString("hex")
 
     const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], {
       privateKey: (test.getHandlerConfig(1) as any)._pk, value: 0, confirm: true, gas: 5000000
@@ -261,8 +261,8 @@ describe('Convict', () => {
   it('verify and convict (block older then 256 blocks) - not worth it', async () => {
     const test = await TestTransport.createWithRegisteredNodes(2)
 
-    const blockHashRegistry = (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
-    await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerPK(0), to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
+    const blockHashRegistry = (await tx.callContract(test.url, test.registryContract, 'blockRegistry():(address)', []))[0].toString("hex")
+    await tx.callContract(test.url, test.registryContract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerPK(0), to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
 
     const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerPK(1), value: 0, confirm: true, gas: 5000000 }))
 
