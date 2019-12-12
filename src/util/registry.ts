@@ -134,7 +134,7 @@ export async function registerNodes(pk: PK, registry: string, data: {
   const regData = await tx.callContract(url, registry, "nodeRegistryData():(address)", []).then(_ => _[0])
   const erc20 = await tx.callContract(url, regData, "supportedToken():(address)", []).then(_ => _[0])
 
-  //  console.log("registry = " + registry)
+  //  console.log("\n________\nregistry = " + registry)
   //  console.log("regData  = " + regData)
   //  console.log("erc20    = " + erc20)
   let ci = 1
@@ -188,6 +188,7 @@ export async function registerNodes(pk: PK, registry: string, data: {
     chainRegistry,
     chainId,
     registry,
+    regData,
     regId
   }
 

@@ -334,6 +334,8 @@ export class TestTransport implements Transport {
     const res = new TestTransport(count, registers.registry, pks)
     res.chainRegistry = registers.chainRegistry
     res.registryId = registers.regId
+    res.registryContract = registers.registry
+    res.nodeList.contract = registers.regData
     return res
   }
 
