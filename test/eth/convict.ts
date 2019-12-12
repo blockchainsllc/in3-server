@@ -150,9 +150,9 @@ describe('Convict', () => {
 
 
     const test = await TestTransport.createWithRegisteredNodes(2)
-
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [test.getHandlerPK(0).address, "#1", 0, 0, 0], { privateKey: (test.getHandlerConfig(0) as any)._pk, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [test.getHandlerPK(1).address, "#2", 0, 0, 0], { privateKey: (test.getHandlerConfig(1) as any)._pk, value: toBN('490000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false)
+    // toBN('490000000000000000')
+    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint192,uint64,uint)', [test.getHandlerPK(0).address, "#1", 0, 0, 0], { privateKey: (test.getHandlerConfig(0) as any)._pk, value: 0, confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint192,uint64,uint)', [test.getHandlerPK(1).address, "#2", 0, 0, 0], { privateKey: (test.getHandlerConfig(1) as any)._pk, value: 0, confirm: true, gas: 5000000 }).catch(_ => false)
 
     const blockHashRegistry = (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
 
