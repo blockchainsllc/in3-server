@@ -77,6 +77,7 @@ export class TestTransport implements Transport {
   chainRegistry: string
   chainId: string
   registryId: string
+  registryContract: string
 
   nodeList: ServerList
   randomList: number[][]
@@ -94,6 +95,7 @@ export class TestTransport implements Transport {
     this.handlers = {}
     this.injectedResponses = []
     const nodes: IN3NodeConfig[] = []
+    this.registryContract = registry
     this.nodeList = {
       nodes,
       contract: registry,

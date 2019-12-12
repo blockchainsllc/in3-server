@@ -90,7 +90,7 @@ describe('Features', () => {
     events.clear()
 
     // now we register another server
-    await registerNodes(pk, test.nodeList.contract, [{
+    await registerNodes(pk, test.registryContract, [{
       url: '#3',
       pk,
       props: '0xffff',
