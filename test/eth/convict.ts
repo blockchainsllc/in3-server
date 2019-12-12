@@ -80,7 +80,8 @@ describe('Convict', () => {
     const client = await test.createClient()
 
     // this is a correct signature and should not fail.
-    const res = await client.sendRPC('eth_getBalance', [pk1.address, 'latest'], undefined, {
+    // we use the previous block in order to  not cache the signature.
+    const res = await client.sendRPC('eth_getBalance', [pk1.address, '0x' + (parseInt(block.number as any) - 1).toString(16)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
@@ -113,20 +114,21 @@ describe('Convict', () => {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
-    let events
+    let events = []
     for (let i = 0; i < 4; i++) {
       await test.createAccount()
-      events = await watcher.update()
-      if (!events) events = await watcher2.update()
+      await watcher2.update()
+      events = [...(await watcher.update() || [])]
     }
+    // fetch the latest block since we may have done a convict in the last block.
+    events = [...(await watcher.update() || [])]
+    //    console.log('event:', JSON.stringify(events, null, 2))
 
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
     assert.equal(await test.getNodeCountFromContract(), 1)
 
-
-
     assert.equal(events.length, 2)
-    assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
+    assert.equal(events.map(_ => _.event).join(), 'LogNodeRemoved,LogNodeConvicted')
 
   }).timeout(6000000)
 
