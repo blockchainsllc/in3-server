@@ -76,16 +76,44 @@ export function deployChainRegistry(pk: PK, url = 'http://localhost:8545', trans
 
 export async function deployNodeRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
 
-  const blockHashAddress = (await deployBlockhashRegistry(pk, url, transport)).substr(2)
-  return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/NodeRegistry.sol:NodeRegistry') >= 0)].bin + padStart(blockHashAddress, 64, "0"), {
-    privateKey: pk,
-    gas: 8000000,
-    confirm: true
-  }, transport).then(_ => toChecksumAddress(_.contractAddress) as string)
+  const blockHashAddress = await deployBlockhashRegistry(pk, url, transport)
+  const erc20 = await deployERC20(pk, url, transport)
+  const regData = await deployRegistryData(pk, url, transport)
+  const registry = await tx.deployContract(url,
+    '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/NodeRegistryLogic.sol:NodeRegistryLogic') >= 0)].bin
+    + toHex(blockHashAddress, 32).substr(2)
+    + toHex(regData, 32).substr(2)
+    + toHex('2386f26fc10000', 32).substr(2)
+    , {
+      privateKey: pk,
+      gas: 8000000,
+      confirm: true
+    }, transport)
+    .then(_ => toChecksumAddress(_.contractAddress) as string)
+
+  await tx.callContract(url, regData, 'adminSetSupportedToken(address)', [erc20], { privateKey: pk, gas: 500000, confirm: true, value: 0 }, transport)
+  await tx.callContract(url, regData, 'adminSetLogic(address)', [registry], { privateKey: pk, gas: 500000, confirm: true, value: 0 }, transport)
+  return registry
 }
 
 export function deployBlockhashRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
   return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/BlockhashRegistry.sol:BlockhashRegistry') >= 0)].bin, {
+    privateKey: pk,
+    gas: 8000000,
+    confirm: true
+  }, transport, 300000).then(_ => toChecksumAddress(_.contractAddress) as string)
+}
+
+export function deployERC20(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
+  return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/ERC20Wrapper.sol:ERC20Wrapper') >= 0)].bin, {
+    privateKey: pk,
+    gas: 8000000,
+    confirm: true
+  }, transport, 300000).then(_ => toChecksumAddress(_.contractAddress) as string)
+}
+
+export function deployRegistryData(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
+  return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/NodeRegistryData.sol:NodeRegistryData') >= 0)].bin, {
     privateKey: pk,
     gas: 8000000,
     confirm: true
@@ -103,18 +131,47 @@ export async function registerNodes(pk: PK, registry: string, data: {
   if (!registry)
     registry = await deployNodeRegistry(pk, url, transport)
 
-  for (const c of data)
-    await tx.callContract(url, registry, 'registerNode(string,uint64,uint64,uint64)', [
-      c.url,
-      toHex(c.props, 32),
-      c.timeout,
-      c.weight ? c.weight : 0
-    ], {
+  const regData = await tx.callContract(url, registry, "nodeRegistryData():(address)", []).then(_ => _[0])
+  const erc20 = await tx.callContract(url, regData, "supportedToken():(address)", []).then(_ => _[0])
+
+  //  console.log("registry = " + registry)
+  //  console.log("regData  = " + regData)
+  //  console.log("erc20    = " + erc20)
+  let ci = 1
+
+  for (const c of data) {
+    // first create tokens
+    await tx.callContract(url, erc20, 'mint()', [], {
       privateKey: c.pk,
       gas: 3000000,
       confirm: true,
       value: c.deposit
     }, transport)
+
+    // and aprove them...
+    await tx.callContract(url, erc20, 'approve(address,uint256)', [registry, c.deposit], {
+      privateKey: c.pk,
+      gas: 3000000,
+      confirm: true,
+      value: 0
+    }, transport)
+
+
+    // now register
+    await tx.callContract(url, registry, 'registerNode(string,uint192,uint64,uint256)', [
+      c.url,
+      toHex(c.props, 24),
+      c.weight ? c.weight : 0,
+      c.deposit
+    ], {
+      privateKey: c.pk,
+      gas: 3000000,
+      confirm: true,
+      value: 0
+    }, transport)
+
+    //    console.log(ci + ' : ' + c.url + ' address=' + c.pk.address + ' deposit=' + c.deposit)
+  }
 
   if (registerChain)
     chainRegistry = await registerChains(pk, chainRegistry, [{
@@ -125,7 +182,7 @@ export async function registerNodes(pk: PK, registry: string, data: {
       contractChain: chainId
     }], url, transport)
 
-  const regId = toHex((await tx.callContract(url, registry, "registryId():(bytes32)", []))[0])
+  const regId = toHex((await tx.callContract(url, regData, "registryId():(bytes32)", []))[0])
 
   return {
     chainRegistry,
