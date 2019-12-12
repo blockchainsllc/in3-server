@@ -17,7 +17,7 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-export const in3ProtocolVersion = '2.0.0'
+export const in3ProtocolVersion = '2.1.0'
 
 //maximum number of whitelist contracts allowed to register in watcher
 export const maxWhiteListContracts = 10
