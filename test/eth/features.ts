@@ -90,7 +90,7 @@ describe('Features', () => {
     events.clear()
 
     // now we register another server
-    await registerNodes(pk, test.nodeList.contract, [{
+    await registerNodes(pk, test.registryContract, [{
       url: '#3',
       pk,
       props: '0xffff',
@@ -155,53 +155,6 @@ describe('Features', () => {
   })
 
 
-
-  it('autoregister', async () => {
-
-    const test = await TestTransport.createWithRegisteredNodes(2)
-    const watcher = test.getHandler(0).watcher
-    // update the nodelist
-    await watcher.update()
-
-    const client = await test.createClient({ requestCount: 1 })
-    const pk = await test.createAccount(null, util.toBN('100000000000000000'))
-    const rpc = new RPC({
-      port: 1,
-      chains: {
-        [test.chainId]: {
-          watchInterval: -1,
-          minBlockHeight: 0,
-          autoRegistry: {
-            url: 'dummy',
-            deposit: util.toBN('10000000000000000') as any,
-            depositUnit: 'wei',
-            capabilities: {
-              proof: true,
-              multiChain: true
-            },
-          },
-          privateKey: pk as any,
-          rpcUrl: test.url,
-          registry: test.nodeList.contract
-        }
-      }
-    }, test, test.nodeList)
-
-    await rpc.init()
-
-    const events = await watcher.update()
-    assert.equal(events.length, 1)
-    assert.equal(events[0].event, 'LogNodeRegistered')
-    assert.equal(events[0].signer, pk.address)
-    assert.equal(events[0].url, 'dummy')
-    assert.equal(events[0].props, 3)
-    assert.equal(events[0].deposit, util.toBN('10000000000000000'))
-
-    const nl = await rpc.getHandler().getNodeList(false)
-    assert.equal(nl.totalServers, 3)
-
-
-  })
 
   it('partial Server List', async () => {
 

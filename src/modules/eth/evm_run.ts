@@ -106,7 +106,7 @@ export async function analyseCall(args: {
   } = { blocks: [], accounts: {} }
 
   // create new state for a vm
-  const vm = new VM({ state: new Trie() })
+  const vm = new VM({ state: new Trie(), chain: 'mainnet', hardfork: 'istanbul' })
 
   // create a transaction-object
   const tx = serialize.createTx({ gas: '0x5b8d80', gasLimit: '0x5b8d80', from: '0x0000000000000000000000000000000000000000', ...args })

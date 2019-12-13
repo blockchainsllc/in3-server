@@ -80,7 +80,8 @@ describe('Convict', () => {
     const client = await test.createClient()
 
     // this is a correct signature and should not fail.
-    const res = await client.sendRPC('eth_getBalance', [pk1.address, 'latest'], undefined, {
+    // we use the previous block in order to  not cache the signature.
+    const res = await client.sendRPC('eth_getBalance', [pk1.address, '0x' + (parseInt(block.number as any) - 1).toString(16)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
@@ -113,20 +114,21 @@ describe('Convict', () => {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
-    let events
+    let events = []
     for (let i = 0; i < 4; i++) {
       await test.createAccount()
-      events = await watcher.update()
-      if (!events) events = await watcher2.update()
+      await watcher2.update()
+      events = [...(await watcher.update() || []), ...events]
     }
+    // fetch the latest block since we may have done a convict in the last block.
+    events = [...(await watcher.update() || []), ...events]
+    //    console.log('event:', JSON.stringify(events, null, 2))
 
     // we should get a valid response even though server #0 signed a wrong hash and was convicted server #1 gave a correct one.
     assert.equal(await test.getNodeCountFromContract(), 1)
 
-
-
     assert.equal(events.length, 2)
-    assert.equal(events.map(_ => _.event).join(), 'LogNodeConvicted,LogNodeRemoved')
+    assert.equal(events.map(_ => _.event).join(), 'LogNodeRemoved,LogNodeConvicted')
 
   }).timeout(6000000)
 
@@ -148,11 +150,11 @@ describe('Convict', () => {
 
 
     const test = await TestTransport.createWithRegisteredNodes(2)
+    // toBN('490000000000000000')
+    await tx.callContract(test.url, test.registryContract, 'updateNode(address,string,uint192,uint64,uint)', [test.getHandlerPK(0).address, "#1", 0, 0, 0], { privateKey: (test.getHandlerConfig(0) as any)._pk, value: 0, confirm: true, gas: 5000000 })
+    await tx.callContract(test.url, test.registryContract, 'updateNode(address,string,uint192,uint64,uint)', [test.getHandlerPK(1).address, "#2", 0, 0, 0], { privateKey: (test.getHandlerConfig(1) as any)._pk, value: 0, confirm: true, gas: 5000000 }).catch(_ => false)
 
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [test.getHandlerPK(0).address, "#1", 0, 0, 0], { privateKey: (test.getHandlerConfig(0) as any)._pk, value: toBN('490000000000000000'), confirm: true, gas: 5000000 })
-    await tx.callContract(test.url, test.nodeList.contract, 'updateNode(address,string,uint64,uint64,uint64)', [test.getHandlerPK(1).address, "#2", 0, 0, 0], { privateKey: (test.getHandlerConfig(1) as any)._pk, value: toBN('490000000000000000'), confirm: true, gas: 5000000 }).catch(_ => false)
-
-    const blockHashRegistry = (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
+    const blockHashRegistry = (await tx.callContract(test.url, test.registryContract, 'blockRegistry():(address)', []))[0].toString("hex")
 
     const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], {
       privateKey: (test.getHandlerConfig(1) as any)._pk, value: 0, confirm: true, gas: 5000000
@@ -173,7 +175,7 @@ describe('Convict', () => {
     const client = await test.createClient()
 
     // this is a correct signature and should not fail.
-    const res = await client.sendRPC('eth_getBalance', [pk1.address, toMinHex(wrongBlock)], undefined, {
+    const res = await client.sendRPC('eth_getBalance', [pk1.address, toMinHex(wrongBlock - 1)], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
@@ -238,14 +240,16 @@ describe('Convict', () => {
     //   let events = await watcher.update()
 
     //  if (!events) events = await watcher2.update()
-    let events
+    let events = []
 
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 26; i++) {
       await test.createAccount()
 
-      events = await watcher.update()
-      if (!events) await watcher2.update()
+      await watcher2.update()
+      events = [...(await watcher.update() || []), ...events]
     }
+    await watcher2.update()
+    events = [...(await watcher.update() || []), ...events]
 
 
     //  assert.equal(events.length, 2)
@@ -259,8 +263,8 @@ describe('Convict', () => {
   it('verify and convict (block older then 256 blocks) - not worth it', async () => {
     const test = await TestTransport.createWithRegisteredNodes(2)
 
-    const blockHashRegistry = (await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', []))[0].toString("hex")
-    await tx.callContract(test.url, test.nodeList.contract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerPK(0), to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
+    const blockHashRegistry = (await tx.callContract(test.url, test.registryContract, 'blockRegistry():(address)', []))[0].toString("hex")
+    await tx.callContract(test.url, test.registryContract, 'blockRegistry():(address)', [], { privateKey: test.getHandlerPK(0), to: test.nodeList.contract, value: 0, confirm: true, gas: 5000000 })
 
     const txReceipt = (await tx.callContract(test.url, blockHashRegistry, 'snapshot()', [], { privateKey: test.getHandlerPK(1), value: 0, confirm: true, gas: 5000000 }))
 

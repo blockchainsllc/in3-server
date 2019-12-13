@@ -46,6 +46,37 @@ const toHex = util.toHex
 const toBuffer = util.toBuffer
 const bytes32 = serialize.bytes32
 
+async function updateContractAdr(handler: RPCHandler, list: ServerList): Promise<boolean> {
+  const nodeRegistryData: RPCRequest = {
+    jsonrpc: '2.0',
+    id: 0,
+    method: 'eth_call', params: [{
+      to: handler.config.registry,
+      data: '0x' + abi.simpleEncode('nodeRegistryData()').toString('hex')
+    },
+      'latest']
+  }
+
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "nodeRegistryData request",
+      data: nodeRegistryData
+    })
+  }
+
+  let contractVersion2: boolean = false
+
+  // we try to read the registryData-contract. If there is none, this is an old contract and we use the registry, but if there is, we use the data contract.
+  list.contract = await handler.getFromServer(nodeRegistryData).then(_ => {
+    const r = _.result as string
+    if (r === '0x' || _.error) return handler.config.registry // the error occurs on parity because the method does not exist.
+    contractVersion2 = true
+    return '0x' + r.substr(r.length - 40)
+  })
+
+  return contractVersion2
+}
+
 /** returns a nodelist filtered by the given params and proof. */
 export async function getNodeList(handler: RPCHandler, nodeList: ServerList, includeProof = false, limit = 0, seed?: string, addresses: string[] = []): Promise<ServerList> {
   if (process.env.SENTRY_ENABLE === 'true') {
@@ -66,6 +97,7 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
 
 
   if (!nodeList.registryId || nodeList.registryId === '0x') {
+    await updateContractAdr(handler, nodeList)
     const registryIdRequest: RPCRequest = {
       jsonrpc: '2.0',
       id: 0,
@@ -242,6 +274,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
   //  try {
 
+  const contractVersion2 = await updateContractAdr(handler, list)
 
   const start = Date.now()
   logger.info('updating nodelist ....')
@@ -257,14 +290,11 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   }
 
   // first get the registry
-  if (!list.contract) {
-    list.contract = handler.config.registry
-    //    const [owner, bootNodes, meta, registryContract, contractChain] = await tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'chains(bytes32):(address,string,string,address,bytes32)', [handler.chainId])
-    //    list.contract = toChecksumAddress('0x' + registryContract)
-  }
+  //  if (!list.contract) {
+
+  // let us find the data contract
 
   if (!list.registryId) {
-
     const registryIdRequest: RPCRequest = {
       jsonrpc: '2.0',
       id: 0,
@@ -311,20 +341,28 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
     if (n.error) return null
 
     try {
-      const [url, deposit, timeout, registerTime, props, weight, signer, proofHash] = abi.simpleDecode('nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', toBuffer(n.result))
+      let url: string = '', deposit: any, timeout = 40 * 24 * 3600, registerTime: any, props: any, weight: any, signer: string, proofHash: any
+
+      if (contractVersion2)
+        [url, deposit, registerTime, props, weight, signer, proofHash] = abi.simpleDecode(
+          'nodes(uint):(string,uint,uint64,uint192,uint64,address,bytes32)'
+          , toBuffer(n.result))
+      else
+        [url, deposit, timeout, registerTime, props, weight, signer, proofHash] = abi.simpleDecode(
+          'nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)'
+          , toBuffer(n.result))
+
 
       return {
         url,
-        address: toChecksumAddress(signer),
+        address: '0x' + signer.toLowerCase(),
         index: i,
-        deposit: deposit.toString(),
-        props: props.toString(),
-        chainIds: [handler.chainId],
-        timeout: timeout.toString(),
-        registerTime: registerTime.toString(),
-        weight: weight.toString(),
-        proofHash: (proofHash).toString('hex')
-      } as IN3NodeConfig
+        deposit: '0x' + deposit.toString(16),
+        props: '0x' + props.toString(16),
+        timeout: util.toNumber(timeout),
+        registerTime: util.toNumber(registerTime),
+        weight: util.toNumber(weight)
+      } as any as IN3NodeConfig
     } catch (e) {
       if (process.env.SENTRY_ENABLE === 'true') {
 

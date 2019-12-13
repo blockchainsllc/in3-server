@@ -34,6 +34,8 @@
 // tslint:disable-next-line:missing-jsdoc
 const Sentry = require('@sentry/node');
 
+import * as promClient from 'prom-client';
+
 import * as logger from '../util/logger'
 import { SentryError } from '../util/sentryError'
 import * as Koa from 'koa'
@@ -53,6 +55,7 @@ import axios from 'axios'
 
 import requestTime from '../util/koa/requestTime'
 
+// Hook up Sentry error reporting
 if (process.env.SENTRY_ENABLE === 'true') {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
@@ -60,6 +63,25 @@ if (process.env.SENTRY_ENABLE === 'true') {
     environment: process.env.SENTRY_ENVIRONMENT || "local"
   });
 }
+
+// Hook up prometheus instrumentation
+
+promClient.collectDefaultMetrics({prefix:"in3_"});
+
+// register top-level metrics
+const ctError = new promClient.Counter({
+	name: 'in3_errors',
+	help: 'Counts the number of errors occured',
+	labelNames: ['errtype']
+});
+
+const histRequestTime =  new promClient.Histogram({
+	name: 'in3_frontend_request_time',
+	help: 'Total time requests take on the frontend',
+  labelNames: ["http_method","result","peer_ip"],
+  buckets: promClient.exponentialBuckets(1, 2, 20)
+});
+
 
 // Hook to nodeJs events
 function handleExit(signal) {
@@ -71,6 +93,7 @@ process.on('SIGINT', handleExit);
 process.on('SIGTERM', handleExit);
 
 process.on("uncaughtException", (err) => {
+  ctError.labels('uncaughtException').inc();
   logger.error("Unhandled error: " + err, { error: err });
   if (process.env.SENTRY_ENABLE === 'true') {
     Sentry.captureException(err);
@@ -78,6 +101,8 @@ process.on("uncaughtException", (err) => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
+  ctError.labels('unhandledRejection').inc();
+
   logger.error("Unhandled promise rejection at " + promise, { reason: reason, promise: promise });
   if (process.env.SENTRY_ENABLE === 'true') {
     Sentry.captureException(new Error("Unhandled promise rejection at " + promise));
@@ -128,25 +153,38 @@ app.use(async (ctx, next) => {
 // handle json
 app.use(bodyParser())
 
+// route prom metric only when requested
+//if (process.env.STATS_ENABLE === 'true') {
+  router.get('/metrics', async ctx => {
+    ctx.set('Content-Type', promClient.register.contentType);
+    ctx.body = promClient.register.metrics();
+  });
+//}
+
 router.post(/.*/, async ctx => {
 
   if (INIT_ERROR) return initError(ctx)
   const start = Date.now()
   const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
+  const startTime = Date.now();
+
+  // find ip
+  const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
 
   try {
+    // check for valid req
+    if ((!ctx.request.body || (typeof (ctx.request.body) === 'object' && !ctx.request.body.method)) && ctx.headers['content-type'] !== 'application/json')
+      throw new Error('Request must contain header "Content-Type:application/json"')
 
-    // find ip
-    const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
 
     // DOS protection
     if (!checkBudget(ip, requests, config.maxPointsPerMinute, false)) {
       const res = requests.map(_ => ({ id: _.id, error: { code: - 32600, message: 'Too many requests from ' + ip }, jsonrpc: '2.0' }))
       ctx.status = 429
       ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
+      histRequestTime.labels("post","dos_protect",ip).observe(Date.now() - startTime);
       return
     }
-
     // assign ip
     requests.forEach(_ => (_ as any).ip = ip)
 
@@ -160,8 +198,12 @@ router.post(/.*/, async ctx => {
     }
     else
       ctx.body = body
+    
+      histRequestTime.labels("post","ok",ip).observe(Date.now() - startTime);
+    
     logger.debug('request ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ')'))
   } catch (err) {
+    histRequestTime.labels("post","error",ip).observe(Date.now() - startTime);
     ctx.status = err.status || 500
     ctx.body = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
     Sentry.withScope(scope => {
@@ -185,10 +227,14 @@ router.get(/.*/, async ctx => {
 
   //  '/:chain/:method/:args'
   const path = ctx.path.split('/')
+  const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
+
 
   if (path[path.length - 1] === 'health') return checkHealth(ctx)
   else if (path[path.length - 1] === 'version') return getVersion(ctx)
   else if (INIT_ERROR) return initError(ctx)
+  const startTime = Date.now();
+
   try {
     if (path.length < 2) throw new SentryError('invalid path', 'input_error', "the path entered returned error:" + ctx.path)
     let start = path.indexOf('api')
@@ -212,7 +258,10 @@ router.get(/.*/, async ctx => {
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
     ctx.body = result.result || result.error
+    histRequestTime.labels("get","ok",ip).observe(Date.now() - startTime);
   } catch (err) {
+    histRequestTime.labels("get","error",ip).observe(Date.now() - startTime);
+
     ctx.status = err.status || 500
     ctx.body = err.message
     logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
@@ -331,6 +380,7 @@ async function initError(ctx: Router.IRouterContext) {
   //lies to the rancher that it is healthy to avoid restart loop
   ctx.body = "Server uninitialized"
   ctx.status = 200
+  ctError.labels('initError').inc();
   // throw new SentryError("server initialization error", "server_status", "unhealthy")
   if (process.env.SENTRY_ENABLE === 'true') {
     Sentry.configureScope((scope) => {
