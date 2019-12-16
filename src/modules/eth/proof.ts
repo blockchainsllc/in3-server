@@ -44,16 +44,16 @@ import { in3ProtocolVersion } from '../../types/constants'
 import { analyseCall, getFromCache, CacheAccount } from './evm_run'
 import * as promClient from 'prom-client';
 
-const histMerkleTreeTime =  new promClient.Histogram({
-	name: 'in3_merkle_tree_time',
-	help: 'Time taken to generate merkle tree',
+const histMerkleTreeTime = new promClient.Histogram({
+  name: 'in3_merkle_tree_time',
+  help: 'Time taken to generate merkle tree',
   labelNames: ["cached"],
   buckets: promClient.exponentialBuckets(1, 2, 20)
 });
 
-const histProofTime =  new promClient.Histogram({
-	name: 'in3_proof_time',
-	help: 'Time taken to generate proofs',
+const histProofTime = new promClient.Histogram({
+  name: 'in3_proof_time',
+  help: 'Time taken to generate proofs',
   labelNames: ["type"],
   buckets: promClient.exponentialBuckets(1, 2, 20)
 });
@@ -127,7 +127,7 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
 /** creates the merkle-proof for a transation */
 export async function createTransactionFromBlockProof(block: BlockData, txIndex: number, signatures: Signature[], verifiedHashes: string[]): Promise<Proof> {
   const startTime = Date.now();
-  
+
   // create trie
   const trie = new In3Trie()
   // fill in all transactions
@@ -156,7 +156,7 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
 /** creates the merkle-proof for a transation */
 export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler, useFull = false): Promise<Proof> {
   const startTime = Date.now();
-  
+
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
   if (txIndex < 0)
@@ -212,7 +212,7 @@ export async function createMerkleProof(values: { key: Buffer, value: Buffer }[]
   const startTime = Date.now();
   let trie = (handler.cache && expectedRoot) ? handler.cache.getTrie(toMinHex(expectedRoot)) : undefined
 
-  
+
   if (!trie) {
 
     if (handler.config.maxThreads) {
@@ -497,12 +497,10 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
 }
 
 
-let useTrace: boolean = undefined
+let useTrace: boolean = true
 
 export async function handleCall(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   const startTime = Date.now();
-  if (useTrace === undefined)
-    useTrace = await handler.getFromServer({ method: 'web3_clientVersion', params: [] }, request).then(_ => _.result.indexOf('Parity') >= 0)
 
   if (request.params && request.params[0] && !request.params[0].value) request.params[0].value = '0x0'
   //    console.log('handle call', this.config)
@@ -516,7 +514,10 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   // error checking
   if (response.error) return response
   if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
-  if (trace && trace.error) throw new Error('Could not get the trace :' + trace.error)
+  if (trace && trace.error) {
+    if ((trace.error as any).code === -32601) useTrace = false
+    else throw new Error('Could not get the trace :' + trace.error)
+  }
 
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as any
