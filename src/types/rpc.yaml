@@ -408,3 +408,7 @@ definitions:
     maxItems: 2
     items:
       - type: string
+
+  net_version:
+    type: array
+    maxItems: 0
