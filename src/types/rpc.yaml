@@ -74,7 +74,6 @@ properties:
         description: address of whitelist contract if added in3 server will register it in watch and will notify client the whitelist event block number in reponses it depends on cahce settings
         $ref: "#/definitions/address"
       noStats:
-        type: boolean
         description: exclude from stats
 
 definitions:
@@ -408,3 +407,7 @@ definitions:
     maxItems: 2
     items:
       - type: string
+
+  net_version:
+    type: array
+    maxItems: 0
