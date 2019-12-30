@@ -142,8 +142,8 @@ function calcAverage(numbers: number[]) {
 export function schedulePrometheus(config: IN3RPCConfig) {
   if (!config.profile) return
   if (config.profile && config.profile.noStats) return // saves power
-  if (!config.profile.name) return
-  const prometheus = new PromUpdater(config.profile /* , 'http://127.0.0.1:9091' */)
+  if (!config.profile.name || !config.profile.prometheus) return
+  const prometheus = new PromUpdater({ ...config.profile, url: config.profile.prometheus } /* , 'http://127.0.0.1:9091' */)
   setInterval(() => {
     let avgTime = calcAverage(buffer)
     let push = {
