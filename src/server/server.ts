@@ -219,7 +219,7 @@ router.post(/.*/, async ctx => {
 
 })
 
-router.get(config.basePath || '/', async ctx => {
+router.get(/.*/, async ctx => {
   if (ctx.path === '/favicon.ico') {
     ctx.status = 404
     return
