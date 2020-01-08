@@ -592,6 +592,9 @@ definitions:
             proxy:
                 type: boolean
                 description: accepts x-forward-headers
+            basePath:
+                type: string
+                description: basepath of the proxy url
             defaultChain:
                 type: string
                 description: the default chainId in case the request does not contain one.
