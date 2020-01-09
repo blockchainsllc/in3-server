@@ -155,7 +155,7 @@ app.use(bodyParser())
 
 // route prom metric only when requested
 //if (process.env.STATS_ENABLE === 'true') {
-  router.get('/metrics', async ctx => {
+  router.get(config.basePath + '/metrics', async ctx => {
     ctx.set('Content-Type', promClient.register.contentType);
     ctx.body = promClient.register.metrics();
   });

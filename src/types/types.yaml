@@ -424,7 +424,7 @@ definitions:
                 description: number of servers
             proof:
                 $ref: "#/definitions/Proof"
-    
+
     WhiteList:
         type: object
         description: a List of white list nodes
@@ -502,10 +502,10 @@ definitions:
             registry:
                 type: string
                 description: the address of the server registry used in order to update the nodeList
-            maxWhiteListWatch: 
+            maxWhiteListWatch:
                 type: number
                 description: maximum number of white list contracts allowed to register in whitelist watch
-            cacheWhiteList: 
+            cacheWhiteList:
                 type: boolean
                 description: cache whitelist address in watch
             registryRPC:
@@ -542,7 +542,6 @@ definitions:
             maxGasLimit:
                 type: number
                 description: maximum allow gas of transaction which is allowed to pass in3 server
-
 
     ChainSpec:
         type: object
@@ -592,9 +591,15 @@ definitions:
             proxy:
                 type: boolean
                 description: accepts x-forward-headers
+            basePath:
+                type: string
+                description: basepath of the proxy url
             defaultChain:
                 type: string
                 description: the default chainId in case the request does not contain one.
+            basePath:
+                type: string
+                description: the basePath of the url for get-requests
             port:
                 type: integer
                 default: 8500

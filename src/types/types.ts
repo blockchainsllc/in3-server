@@ -754,6 +754,12 @@ export interface IN3RPCConfig {
          */
         prometheus?: string
     }
+
+    /**
+     * Basepath URL 
+     */
+    basePath?: string,
+    
     /**
      * logger config
      */

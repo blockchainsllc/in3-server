@@ -53,6 +53,7 @@ const config: IN3RPCConfig = {
   maxPointsPerMinute: 60 * 100, // per scond max a 100 points request
   maxBlocksSigned: 10,
   maxSignatures: 5,
+  basePath: '',
   profile: {
     noStats: true
   },
