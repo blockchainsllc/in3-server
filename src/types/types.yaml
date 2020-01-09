@@ -597,9 +597,6 @@ definitions:
             defaultChain:
                 type: string
                 description: the default chainId in case the request does not contain one.
-            basePath:
-                type: string
-                description: the basePath of the url for get-requests
             port:
                 type: integer
                 default: 8500
