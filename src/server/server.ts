@@ -54,7 +54,6 @@ import axios from 'axios'
 
 
 import requestTime from '../util/koa/requestTime'
-import { Signer } from 'in3/js/src/modules/eth/api';
 import { sign, PK } from '../chains/signatures';
 
 // Hook up Sentry error reporting
