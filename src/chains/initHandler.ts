@@ -56,6 +56,8 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
     return
   }
 
+  
+
 
   if (key.startsWith('0x')) {
     if (key.length != 66) throw new Error('The private key needs to have a length of 32 bytes!')
