@@ -1,15 +1,21 @@
-# INCUBED Server
+# Incubed Server
  [![Forks](https://img.shields.io/github/forks/slockit/in3-server)](https://github.com/slockit/in3-server/network/members)
   [![Stars](https://img.shields.io/github/stars/slockit/in3-server)](https://github.com/slockit/in3-server/stargazers)
   [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/slockit/in3-server/blob/master/LICENSE.AGPL)
  
- INCUBED (in3) is a minimal verification client for blockchain networks, this version of the in3 node is written
- in typescript. The in3-node provides the data and proof used by the client for verification.
+ The **Incubed** client is a
+* Crypto-Economic 
+* Non-syncronizing and stateless, but fully verifying
+* Minimal resource consuming
+
+blockchain client (Crypto-Economic Client, Minimal Verification Client, Ultra Light Client).
+
+This version of the in3 node (server) is written in typescript. The in3-node provides the data and proof used by the client for verification.
  
  The in3-node mainly provides data from the Ethereum clients to the in3-clients. The in3-node can act as a regular RPC-provider,
   but in3-nodes also have the ability to provide [merkle-proofs](https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getproof) 
   with signed blockhashes in their responses. The merkle-proofs can be used by the clients to make sure that the 
-  [response was correct](https://in3.readthedocs.io/en/develop/poa.html). The signed blockHeader in the response acts as 
+  [response was correct](https://in3.readthedocs.io/en/latest/poa.html). The signed blockHeader in the response acts as 
   a extra layer of security, in case the in3-node was found to have provided a blockHeader that is not part of the chain,
   their deposit can be taken away.
   Using this technique an in3-client has an insurance that it will receive a valid response, allowing it to query
@@ -17,7 +23,7 @@
     
   ![in3_image](in3_image.png)
   
-  A more detailed explanation of in3 can be found [here](https://in3.readthedocs.io/en/develop/intro.html).
+  A more detailed explanation of in3 can be found [here](https://in3.readthedocs.io/en/latest/intro.html).
  
   For information on the in3 typescript client, please go [here](https://github.com/slockit/in3).
 
@@ -28,7 +34,7 @@
  
  Please only run an in3-node if you have some experience with networking and private key management. It is not expected
  for regular users to run their own in3-node, you may always use public in3-nodes. A list of public nodes for use by 
- anyone can be found [here](https://in3.readthedocs.io/en/develop/getting_started.html#supported-chains).
+ anyone can be found [here](https://in3.readthedocs.io/en/latest/getting_started.html#supported-chains).
  
  
  |         | package manager           | Link  | Use case |
@@ -38,9 +44,9 @@
  ### Docker Hub
 1. Pull the image from docker using ```docker pull slockit/in3-node```
 2. In order to run your own in3-node, you must first register the node. The information for registering a node can be found 
-[here](https://in3.readthedocs.io/en/develop/getting_started.html#registering-an-incubed-node)
+[here](https://in3.readthedocs.io/en/latest/getting_started.html#registering-an-incubed-node)
 3. Run the in3-node image using a direct docker command, a docker-compose file(the parameters for which are explained 
-[here](https://in3.readthedocs.io/en/develop/api-node-server.html)) or use our [online helper tool](https://in3-setup.slock.it/) to generate a docker-compose file with 
+[here](https://in3.readthedocs.io/en/latest/api-node-server.html)) or use our [online helper tool](https://in3-setup.slock.it/) to generate a docker-compose file with 
 all needed parameters. In case you want to run the server helper tool yourself, [here](https://hub.docker.com/r/slockit/in3-server-setup) is the docker image. 
 
 
@@ -79,12 +85,12 @@ all needed parameters. In case you want to run the server helper tool yourself, 
  
  ## Resources 
  
- * [in3-Node API reference](https://in3.readthedocs.io/en/develop/api-node.html)
- * [Registering your node](https://in3.readthedocs.io/en/develop/api-node.html#registering-your-own-incubed-node)
+ * [in3-Node API reference](https://in3.readthedocs.io/en/latest/api-node.html)
+ * [Registering your node](https://in3.readthedocs.io/en/latest/api-node.html#registering-your-own-incubed-node)
  * [in3 typescript client](https://github.com/slockit/in3)
  * [in3 C client](https://github.com/slockit/in3-c)
  * [Website](https://slock.it/incubed/) 
- * [ReadTheDocs](https://in3.readthedocs.io/en/develop/)
+ * [ReadTheDocs](https://in3.readthedocs.io/en/latest/)
  * [Blog](https://blog.slock.it/)
  * [Incubed concept video by Christoph Jentzsch](https://www.youtube.com/watch?v=_vodQubed2A)
  * [Ethereum verification explained by Simon Jentzsch](https://www.youtube.com/watch?v=wlUlypmt6Oo)
