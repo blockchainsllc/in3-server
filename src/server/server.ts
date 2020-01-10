@@ -54,6 +54,8 @@ import axios from 'axios'
 
 
 import requestTime from '../util/koa/requestTime'
+import { Signer } from 'in3/js/src/modules/eth/api';
+import { sign, PK } from '../chains/signatures';
 
 // Hook up Sentry error reporting
 if (process.env.SENTRY_ENABLE === 'true') {
@@ -81,6 +83,14 @@ const histRequestTime =  new promClient.Histogram({
   labelNames: ["http_method","result","peer_ip"],
   buckets: promClient.exponentialBuckets(1, 2, 20)
 });
+
+const statsMetadata = new promClient.Gauge({
+	name: 'in3_metadata',
+	help: 'provides metadata',
+	labelNames: ['address','name','comment','icon','version','deposit','props','registertime']
+});
+
+
 
 
 // Hook to nodeJs events
@@ -276,6 +286,8 @@ checkNodeSync(() =>
     rpc = new RPC(config);
     (chainAliases as any).api = Object.keys(config.chains)[0]
 
+    
+
     const doInit = (retryCount: number) => {
       if (retryCount <= 0) {
         logger.error('Error initializing the server : Maxed out retries')
@@ -292,7 +304,34 @@ checkNodeSync(() =>
         INIT_ERROR = true
         return;
       }
-      rpc.init().catch(err => {
+      rpc.init()
+      .then(async () => {
+          // set static metadata
+          const version = process.env.SENTRY_RELEASE || "unknown";
+          const handler = rpc.getHandler(Object.keys(config.chains)[0]);
+
+          const signer: PK = (handler.config as any)._pk
+          const address = signer ? signer.address : 'Keyless';
+
+
+          const node = (await handler.getNodeList(false)).nodes.find(x => x.address.toLowerCase() === address.toLowerCase());
+
+          let deposit = 0;
+          let props = "";
+          let registerTime = 0;
+
+          if(node) {
+            deposit = parseInt(node.deposit.toString()); // 
+            props = node.props.toString(); // TODO: Replace with proper parser to get it human readable
+            registerTime = (node as any).registerTime;
+          }
+          
+
+          statsMetadata.labels(address, config.profile.name || 'Anonymous',config.profile.comment || '', config.profile.icon || '', version,deposit.toString(),props,registerTime.toString()).set(Date.now());
+
+          
+      })
+      .catch(err => {
         //console.error('Error initializing the server : ' + err.message)
         logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
 
@@ -311,7 +350,7 @@ checkNodeSync(() =>
           });
           Sentry.captureException(err);
         }
-      })
+      });
 
     }
 

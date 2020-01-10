@@ -45,6 +45,7 @@ import * as logger from '../util/logger'
 import { PK, createPK } from './signatures'
 
 export function checkPrivateKey(config: IN3RPCHandlerConfig) {
+  console.log("Do check priv key")
   if ((config as any)._pk) return
   if (!config.privateKey) return
   //    throw new Error('No private key set, which is needed in order to sign blockhashes')
@@ -55,6 +56,8 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
     (config as any)._pk = key
     return
   }
+
+  
 
 
   if (key.startsWith('0x')) {
@@ -97,6 +100,7 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
     throw new Error('Could not decode the private : ' + ex.message)
   }
 
+  console.log("priv key:" + JSON.stringify((config as any)._pk))
 }
 
 export async function checkRegistry(handler: BaseHandler): Promise<any> {
