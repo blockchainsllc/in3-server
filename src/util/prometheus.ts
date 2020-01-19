@@ -58,7 +58,7 @@ export default class PromUpdater {
    */
   constructor(profile: any) {
     this.profile = profile
-    this.registry = new client.Registry()
+    this.registry = client.register
 
     this.upSince = new client.Gauge({ name: 'in3_up_since', help: 'UNIX TS of server start.', labelNames: ['icon', 'url'] })
 
@@ -79,7 +79,6 @@ export default class PromUpdater {
    */
   update(stats: object) {
     this.convert(stats)
-    this.push()
   }
 
   /**
@@ -124,15 +123,5 @@ export default class PromUpdater {
     this.registry.registerMetric(this.requestTime)
 
     this.lastStats = { ...stats }
-  }
-
-  /**
-   * Pushes a registry to the gateway
-   * @param registry 
-   * @param jobName 
-   */
-  private push(registry?: client.Registry, jobName?: string) {
-    new client.Pushgateway(this.gateway, {}, (registry ? registry : this.registry))
-      .push({ jobName: (jobName ? jobName : this.profile.name) }, (err, resp, body) => { })
   }
 }

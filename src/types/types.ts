@@ -748,11 +748,10 @@ export interface IN3RPCConfig {
          * if active the stats will not be shown (default:false)
          */
         noStats?: boolean
-
         /**
-         * The prometheus-gateway
+         * Toggle prometheus
          */
-        prometheus?: string
+        prometheus?: boolean
     }
 
     /**
