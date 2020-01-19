@@ -138,7 +138,6 @@ function calcAverage(numbers: number[]) {
 }
 
 /**
- * Schedule pushing to prometheus with the current total stats every 10 sec
  * - Name has to be set, noStats has to be false
  * @param config 
  */
