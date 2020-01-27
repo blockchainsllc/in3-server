@@ -85,7 +85,7 @@
     "solhint": "^2.1.0",
     "source-map-support": "^0.5.12",
     "ts-node": "^6.0.3",
-    "typedoc": "^0.11.1",
+    "typedoc": "^0.16.9",
     "typescript": "^3.4.3",
     "yaml": "^1.7.2"
   },
