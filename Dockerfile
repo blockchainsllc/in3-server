@@ -53,6 +53,7 @@ FROM node:12
 WORKDIR /app
 COPY --from=build /app/js /app/js
 COPY --from=build /app/contracts /app/contracts
+COPY --from=build /app/node_modules/in3-contracts/contracts/* /app/contracts/
 COPY --from=build /app/node_modules /app/node_modules
 # setup ENTRYPOINT
 EXPOSE 8500
