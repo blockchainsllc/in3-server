@@ -45,6 +45,7 @@ import { analyseCall, getFromCache, CacheAccount } from './evm_run'
 import * as promClient from 'prom-client';
 import { SentryError } from '../../util/sentryError'
 import { toBuffer } from 'in3-common/js/src/util/util'
+import { TransactionReceipt } from 'in3'
 
 const histMerkleTreeTime = new promClient.Histogram({
   name: 'in3_merkle_tree_time',
@@ -501,6 +502,59 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
   return response
 }
 
+async function handleLogsNethermind(handler: EthHandler, request: RPCRequest, logs: LogData[], response: RPCResponse, proof: LogProof): Promise<boolean> {
+  const results = await handler.getAllFromServer(logs.map(_ => _.transactionHash).filter((hash, i, all) => all.indexOf(hash) === i).map(_ => ({ method: 'proof_getTransactionReceipt', params: [_, true] })), request)
+  const receipts: {
+    receipt: TransactionReceipt,
+    txProof: string[],
+    receiptProof: string[],
+    blockHeader: string
+  }[] = results.map(_ => {
+    if (_.error && ((_.error as any).code || 0) == 32601) {
+      supportsProofRPC = false
+      return null
+    }
+    else if (_.error) throw new SentryError('Error fetching receipts for eth_getLogs ' + JSON.stringify(_.error))
+    return _.result
+  })
+  if (!supportsProofRPC) return false
+
+  const blocks = Object.keys(proof).map(_ => proof[_])
+
+  // fetch signatures
+  const signatures = (request.in3.signers && request.in3.signers.length)
+    ? await collectSignatures(handler, request.in3.signers, blocks.map(b => ({ blockNumber: b.number, hash: (b as any).hash })), request.in3.verifiedHashes)
+    : []
+
+  for (const p of blocks) {
+    for (const r of receipts) {
+      if (!r.receipt || r.receipt.blockHash !== (p as any).hash) continue
+      p.receipts[r.receipt.transactionHash] = {
+        txHash: r.receipt.transactionHash,
+        txIndex: parseInt(r.receipt.transactionIndex as any),
+        proof: r.receiptProof,
+        txProof: r.txProof
+      }
+      if (!p.block) p.block = r.blockHeader
+    }
+    delete (p as any).hash
+    delete p.allReceipts
+  }
+  // attach prood to answer
+  response.in3 = {
+    proof: {
+      type: 'logProof',
+      logProof: proof,
+      signatures
+    },
+    version: in3ProtocolVersion
+  }
+
+
+  return true
+
+}
+
 export async function handleLogs(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   // ask the server for the logs
   const startTime = Date.now();
@@ -512,7 +566,14 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
 
     // find all needed blocks
     const proof: LogProof = {}
-    logs.forEach(l => proof[toHex(l.blockNumber)] || (proof[toHex(l.blockNumber)] = { number: toNumber(l.blockNumber), receipts: {}, allReceipts: [] } as any))
+    logs.forEach(l => proof[toHex(l.blockNumber)] || (proof[toHex(l.blockNumber)] = { number: toNumber(l.blockNumber), hash: toHex(l.blockHash), receipts: {}, allReceipts: [] } as any))
+
+    // try a shortcut to use nethermind for producing the proofs
+    if (supportsProofRPC && await handleLogsNethermind(handler, request, logs, response, proof)) {
+      histProofTime.labels("logs").observe(Date.now() - startTime);
+      return response
+    }
+
 
     // get the blocks from the server
     const blocks = await handler.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), true] })), request).then(all => all.map(_ => _.result as BlockData))
