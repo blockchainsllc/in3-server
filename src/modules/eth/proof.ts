@@ -321,7 +321,7 @@ export async function handeGetTransaction(handler: EthHandler, request: RPCReque
   let response: any = null
   let resp: any = supportsProofRPC
     ? await handler.getFromServer({ ...request, method: 'proof_getTransactionByHash', params: [request.params[0], true] }, request).then(_ => {
-      if (_.error && ((_.error as any).code || 0) == 32601) {
+      if (_.error && ((_.error as any).code || 0) == -32601) {
         supportsProofRPC = false
         return null
       }
@@ -510,7 +510,7 @@ async function handleLogsNethermind(handler: EthHandler, request: RPCRequest, lo
     receiptProof: string[],
     blockHeader: string
   }[] = results.map(_ => {
-    if (_.error && ((_.error as any).code || 0) == 32601) {
+    if (_.error && ((_.error as any).code || 0) == -32601) {
       supportsProofRPC = false
       return null
     }
