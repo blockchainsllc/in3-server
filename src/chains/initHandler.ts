@@ -65,8 +65,14 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
     (config as any)._pk = createPK(Buffer.from(key.substr(2), 'hex'))
     return
   }
-  const password = config.privateKeyPassphrase
-  delete config.privateKeyPassphrase
+  let password = ''
+  if(process.env.IN3KEYPASSPHRASE){
+    password = process.env.IN3KEYPASSPHRASE
+  }
+  else{
+    config.privateKeyPassphrase
+    delete config.privateKeyPassphrase
+  }
 
   try {
     const json = JSON.parse(fs.readFileSync(key, 'utf8'))
@@ -91,7 +97,7 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
     const ciphertext = new Buffer(json.crypto.ciphertext, 'hex');
     const mac = ethUtil.keccak(Buffer.concat([derivedKey.slice(16, 32), ciphertext])).toString('hex')
     if (mac !== json.crypto.mac)
-      throw new Error('Key derivation failed - possibly wrong password');
+      throw new Error('Key derivation failed - possibly wrong password given in --privateKeyPassphrase command line arg or IN3KEYPASSPHRASE env variable.');
 
     const decipher = cryp.createDecipheriv(json.crypto.cipher, derivedKey.slice(0, 16), new Buffer(json.crypto.cipherparams.iv, 'hex'));
     (config as any)._pk = createPK(Buffer.concat([decipher.update(ciphertext), decipher.final()]))

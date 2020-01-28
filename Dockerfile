@@ -45,8 +45,7 @@ ENV VERSION_SHA=$CI_COMMIT_SHA
 
 ADD . .
 # temporarily install dependencies for building packages
-RUN apt-get update && apt-get install -y build-essential python g++ cmake && echo "//npm.slock.it/:_authToken=\"$NPM_REGISTRY_TOKEN\"" > ~/.npmrc \
-    && npm set registry https://npm.slock.it \
+RUN apt-get update && apt-get install -y build-essential python g++ cmake \
     && npm install \
     && npm run build
 
@@ -54,6 +53,7 @@ FROM node:12
 WORKDIR /app
 COPY --from=build /app/js /app/js
 COPY --from=build /app/contracts /app/contracts
+COPY --from=build /app/node_modules/in3-contracts/contracts/* /app/contracts/
 COPY --from=build /app/node_modules /app/node_modules
 # setup ENTRYPOINT
 EXPOSE 8500
