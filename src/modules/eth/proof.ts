@@ -647,6 +647,45 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   const startTime = Date.now();
 
   if (request.params && request.params[0] && !request.params[0].value) request.params[0].value = '0x0'
+  const tx: TransactionData = request.params[0]
+
+  if (supportsProofRPC) {
+    const r = await handler.getFromServer({ ...request, method: 'proof_call' }, request)
+    if (r && r.error && (r.error as any).code == -32601)
+      supportsProofRPC = false
+    else if (r.error) throw new SentryError('Error fetich call from nethermind ' + JSON.stringify(request) + JSON.stringify(r.error))
+    else {
+
+      // remove sysaccount
+      if ((!tx.gasPrice || !toNumber(tx.gasPrice)) && !tx.from) r.result.accounts = r.result.accounts.filter(_ => _.address != '0xfffffffffffffffffffffffffffffffffffffffe')
+
+      histProofTime.labels("call").observe(Date.now() - startTime);
+      const block = toBuffer(r.result.blockHeaders[0])
+      const header = new serialize.Block(block)
+      const resp = {
+        id: request.id,
+        jsonrpc: '2.0',
+        result: r.result.result,
+        in3: {
+          proof: {
+            type: 'callProof',
+            block: r.result.blockHeaders[0],
+            signatures: (request.in3.signers && request.in3.signers.length) ? await collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(header.number), hash: toHex(header.hash()) }], request.in3.verifiedHashes) : [],
+            accounts: r.result.accounts.reduce((p, v) => { p[v.address] = v; return p }, {})
+          },
+          version: in3ProtocolVersion
+        }
+      }
+      block.number = toNumber(header.number)
+
+      // bundle the answer
+      return addFinality(request, resp as any, block, handler)
+
+    }
+  }
+
+
+
   //    console.log('handle call', this.config)
   // read the response,blockheader and trace from server
   const [response, blockResponse, trace] = await handler.getAllFromServer([
