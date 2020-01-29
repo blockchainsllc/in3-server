@@ -34,7 +34,7 @@
 
 
 
-FROM node:12 AS build
+FROM node:12-alpine AS build
 
 WORKDIR /app
 
@@ -45,11 +45,12 @@ ENV VERSION_SHA=$CI_COMMIT_SHA
 
 ADD . .
 # temporarily install dependencies for building packages
-RUN apt-get update && apt-get install -y build-essential python g++ cmake \
+#RUN apt-get update && apt-get install -y build-essential python g++ cmake \
+RUN apk -U add build-base python \
     && npm install \
     && npm run build
 
-FROM node:12
+FROM node:12-alpine
 WORKDIR /app
 COPY --from=build /app/js /app/js
 COPY --from=build /app/contracts /app/contracts
