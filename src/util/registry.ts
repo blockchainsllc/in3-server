@@ -42,7 +42,7 @@ import { PK } from '../chains/signatures';
 import { padEnd } from 'in3-common/js/src/util/util';
 const toHex = util.toHex
 
-const bin = JSON.parse(readFileSync('./contracts/contracts.json', 'utf8'))
+const bin = require('in3-contracts/contracts/contracts.json')
 
 const in3ContractBin = JSON.parse(readFileSync('node_modules/in3-contracts/contracts/contracts.json', 'utf8'))
 try {
