@@ -6,6 +6,7 @@ stages:
   - build
   - test
   - package
+  - analysis
   - deploy
 
 build-server:
@@ -94,23 +95,6 @@ test-geth:
     paths:
       - test/report
 
-pages:
-  stage: deploy
-  tags:
-    - short-jobs
-  environment:
-    name: test-results
-    url: http://in3.git-pages.slock.it/in3-server
-  dependencies:
-    - test-parity
-    - test-geth
-  script:
-    - mkdir -p public/
-    - cp -r test/report/* public/
-  artifacts:
-    paths:
-      - public
-
 package-docker:
   stage: package
   tags:
@@ -124,8 +108,45 @@ package-docker:
     - docker tag $COMMIT_IMAGE_TAG $RELEASE_IMAGE_TAG
     - docker push $RELEASE_IMAGE_TAG
     - docker push $COMMIT_IMAGE_TAG
+    - docker save $COMMIT_IMAGE_TAG -o dockerImage.tar
+  artifacts:
+    paths:
+      - dockerImage.tar
+
+##### analyse #####
+vulnerability-analysis:
+  stage: analysis
+  tags:
+    - short-jobs
+  dependencies:
+    - docker
+  image: docker.slock.it/build-images/vulnerability-testing-tools
+  script:
+    - trivy -f json -o vulnerability_analysis.json --input dockerImage.tar
+  artifacts:
+    paths:
+      - vulnerability_analysis.json
 
 # Deployment Section
+pages:
+  stage: deploy
+  tags:
+    - short-jobs
+  environment:
+    name: test-results
+    url: http://in3.git-pages.slock.it/in3-server
+  dependencies:
+    - test-parity
+    - test-geth
+    - analysis
+  script:
+    - mkdir -p public/
+    - cp -r test/report/* public/
+    - cp vulnerability_analysis.json public/
+  artifacts:
+    paths:
+      - public
+
 dockerhub-deploy:
   stage: deploy
   when: manual
