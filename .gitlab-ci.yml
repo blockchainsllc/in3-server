@@ -45,6 +45,7 @@ test-parity:
   stage: test
   tags:
     - short-jobs
+  allow_failure: true
   variables:
     RPCURL: http://parity:8545
     IPFS_URL: http://ipfs:5001
@@ -72,6 +73,7 @@ test-geth:
   stage: test
   tags:
     - short-jobs
+  allow_failure: true
   variables:
     RPCURL: http://geth:8545
     IPFS_URL: http://ipfs:5001
