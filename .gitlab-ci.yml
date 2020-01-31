@@ -138,12 +138,12 @@ pages:
     name: test-results
     url: http://in3.git-pages.slock.it/in3-server
   dependencies:
-    - test-parity
-    - test-geth
+#    - test-parity
+#    - test-geth
     - vulnerability-analysis
   script:
     - mkdir -p public/
-    - cp -r test/report/* public/
+#    - cp -r test/report/* public/
     - cp vulnerability_analysis.json public/
   artifacts:
     paths:
