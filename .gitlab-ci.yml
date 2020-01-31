@@ -145,6 +145,8 @@ pages:
     - mkdir -p public/
 #    - cp -r test/report/* public/
     - cp vulnerability_analysis.json public/
+    - echo "<html><body><h1>Incubed report for last develop CI pipeline</h1><ul><li><a href='vulnerability_analysis.json'>Vulnerability Analysis</a></li></ul></body></html>" > public/index.html
+
   artifacts:
     paths:
       - public
