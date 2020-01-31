@@ -119,7 +119,7 @@ vulnerability-analysis:
   tags:
     - short-jobs
   dependencies:
-    - docker
+    - package-docker
   image: docker.slock.it/build-images/vulnerability-testing-tools
   script:
     - trivy -f json -o vulnerability_analysis.json --input dockerImage.tar
