@@ -45,7 +45,6 @@ test-parity:
   stage: test
   tags:
     - short-jobs
-  allow_failure: true
   variables:
     RPCURL: http://parity:8545
     IPFS_URL: http://ipfs:5001
@@ -73,7 +72,6 @@ test-geth:
   stage: test
   tags:
     - short-jobs
-  allow_failure: true
   variables:
     RPCURL: http://geth:8545
     IPFS_URL: http://ipfs:5001
@@ -136,6 +134,9 @@ pages:
   environment:
     name: test-results
     url: http://in3.git-pages.slock.it/in3-server
+  only:
+    refs:
+      - develop
   dependencies:
     - test-parity
     - test-geth
