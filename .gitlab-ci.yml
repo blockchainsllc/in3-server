@@ -110,10 +110,6 @@ package-docker:
     - docker tag $COMMIT_IMAGE_TAG $RELEASE_IMAGE_TAG
     - docker push $RELEASE_IMAGE_TAG
     - docker push $COMMIT_IMAGE_TAG
-    - docker save $COMMIT_IMAGE_TAG -o dockerImage.tar
-  artifacts:
-    paths:
-      - dockerImage.tar
 
 ##### analyse #####
 vulnerability-analysis:
@@ -124,7 +120,10 @@ vulnerability-analysis:
     - package-docker
   image: docker.slock.it/build-images/vulnerability-testing-tools
   script:
-    - trivy -f json -o vulnerability_analysis.json --input dockerImage.tar
+    - export TRIVY_AUTH_URL=$CI_REGISTRY
+    - export TRIVY_USERNAME=gitlab-ci-token
+    - export TRIVY_PASSWORD=$CI_JOB_TOKEN
+    - trivy -f json -o vulnerability_analysis.json $COMMIT_IMAGE_TAG
   artifacts:
     paths:
       - vulnerability_analysis.json
