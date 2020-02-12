@@ -71,3 +71,5 @@ dev
 
 #compiled contracts
 contracts/contracts.json
+
+.DS_Store
