@@ -89,20 +89,9 @@ describe('Deploying Contracts', () => {
       }
     })
 
-    // read data
-    const data = await chainData.getChainData(client, '0x99')
-
-    logger.info('Resulting Data', data, registers)
-
     assert.lengthOf(registers.registry, 42, 'No serverRegistry')
     assert.equal(registers.chainId, '0x99')
 
-    assert.lengthOf(data.bootNodes, 2)
-    assert.equal(data.owner, pk.address)
-    assert.equal(data.contractChain, '0x99')
-    assert.equal(data.registryContract, registers.registry)
-    assert.equal(data.bootNodes[1], pk2.address + ':#2')
-    assert.equal(data.meta, 'dummy')
 
 
   })

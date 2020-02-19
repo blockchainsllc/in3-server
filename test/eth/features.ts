@@ -60,7 +60,7 @@ describe('Features', () => {
 
 
     const test = await TestTransport.createWithRegisteredNodes(2)
-    let lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 2
+    let lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber'))
     const client = await test.createClient({ requestCount: 1 })
     const watcher: Watcher = test.handlers['#1'].getHandler().watcher
     const events = new EventWatcher(client, 'nodeUpdateStarted', 'nodeUpdateFinished')
@@ -97,7 +97,7 @@ describe('Features', () => {
       deposit: util.toBN('10000000000000000'),
       timeout: 7200,
     }], test.chainId, test.url)
-    lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 1
+    lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber'))
 
 
     // the watcher will find an register-event and triggers an update of the server-nodelist

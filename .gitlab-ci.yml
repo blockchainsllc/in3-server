@@ -96,6 +96,7 @@ test-geth:
 
 test-nethermind:
   stage: test
+  allow_failure: true
   tags:
     - short-jobs
   variables:
