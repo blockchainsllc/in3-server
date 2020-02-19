@@ -100,7 +100,7 @@ describe('eth_call', () => {
       // we change the returned balance
       const ac = Object.values(re.in3.proof.accounts)[0]
       // remove an account from proof
-      ac.nonce += '0'
+      ac.nonce += '10'
       return re
     })
 
@@ -392,7 +392,7 @@ describe('eth_call', () => {
       ],
       id: 1
     }) as RPCResponse
-    
+
     assert.isUndefined(res3.error)
 
   })
