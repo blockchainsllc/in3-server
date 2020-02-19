@@ -74,7 +74,6 @@ export class TestTransport implements Transport {
   }
   url: string
 
-  chainRegistry: string
   chainId: string
   registryId: string
   registryContract: string
@@ -330,9 +329,8 @@ export class TestTransport implements Transport {
     }
 
     //  register 1 server
-    const registers = await registerNodes(pks[0], null, servers, test.chainId, null, test.url, new LoggingAxiosTransport())
+    const registers = await registerNodes(pks[0], null, servers, test.chainId, test.url, new LoggingAxiosTransport())
     const res = new TestTransport(count, registers.registry, pks)
-    res.chainRegistry = registers.chainRegistry
     res.registryId = registers.regId
     res.registryContract = registers.registry
     res.nodeList.contract = registers.regData
