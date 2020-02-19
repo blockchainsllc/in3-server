@@ -179,7 +179,7 @@ export function deployWhiteList(pk: PK, url = 'http://localhost:8545', whiteList
     // '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf(name) >= 0)].bin, 
     {
       privateKey: pk,
-      gas: 3000000,
+      gas: 4000000,
       confirm: true
     }, transport).then(_ => toChecksumAddress(_.contractAddress) as string)
 }

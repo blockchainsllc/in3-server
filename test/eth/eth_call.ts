@@ -113,11 +113,11 @@ describe('eth_call', () => {
     let test = new TestTransport(1) // create a network of 3 nodes
     let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
 
-    const pk1 = await test.createAccount(undefined, 500)
-    const pk2 = await test.createAccount(undefined, 1500)
+    const pk1 = await test.createAccount(undefined, util.toBN('5000000000000000000'))
+    const pk2 = await test.createAccount(undefined, util.toBN('15000000000000000000'))
 
-    // create a account with 500 wei
-    const user = await test.createAccount(undefined, 500).then(_ => _.address)
+    // create a account with 500 eth
+    const user = await test.createAccount(undefined, util.toBN('5000000000000000000')).then(_ => _.address)
 
 
     // check deployed code
@@ -165,10 +165,10 @@ describe('eth_call', () => {
     let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
 
     // deploy testcontract
-    const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
+    const adr = await deployContract('TestContract', await test.createAccount(null, util.toBN('5000000000000000000')), getTestClient())
     const block = (await test.getFromServer('eth_getBlockByNumber', 'latest', false)) as BlockData
 
-    const response = await clientRPC.callContractWithClient(client, adr, 'getBlockHash(uint)', toNumber(block.number))
+    //    const response = await clientRPC.callContractWithClient(client, adr, 'getBlockHash(uint)', toNumber(block.number))
 
     // TODO why is this returning 0x0?
     //    assert.equal(toHex(response.result, 32), toHex(block.hash, 32))
