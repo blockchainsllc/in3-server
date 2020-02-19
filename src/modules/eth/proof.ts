@@ -434,7 +434,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
         proof: {
           type: 'receiptProof',
           block: resp.blockHeader,
-          receiptProof: resp.receiptProof,
+          merkleProof: resp.receiptProof,
           txProof: resp.txProof,
           txIndex: parseInt(resp.receipt.transactionIndex),
           signatures: await collectSignatures(handler, request.in3.signers, [{ blockNumber: resp.receipt.blockNumber, hash: resp.receipt.blockHash }], request.in3.verifiedHashes)
@@ -650,7 +650,9 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   const tx: TransactionData = request.params[0]
 
   if (supportsProofRPC) {
-    const r = await handler.getFromServer({ ...request, method: 'proof_call' }, request)
+    // TODO currently we only send the to and data, because nethermind has issues with from-properties
+    // once fixed, remove the params here and take the original from the request
+    const r = await handler.getFromServer({ ...request, method: 'proof_call', params: [{ data: request.params[0].data || '0x', to: request.params[0].to }, request.params[1]] }, request)
     if (r && r.error && (r.error as any).code == -32601)
       supportsProofRPC = false
     else if (r.error) throw new SentryError('Error fetich call from nethermind ' + JSON.stringify(request) + JSON.stringify(r.error))
@@ -658,6 +660,12 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
 
       // remove sysaccount
       if ((!tx.gasPrice || !toNumber(tx.gasPrice)) && !tx.from) r.result.accounts = r.result.accounts.filter(_ => _.address != '0xfffffffffffffffffffffffffffffffffffffffe')
+      // fix storage keys
+      r.result.accounts.forEach(ac => {
+        ac.storageProof.forEach(s => {
+          s.key = toMinHex(s.key)
+        })
+      })
 
       histProofTime.labels("call").observe(Date.now() - startTime);
       const block = toBuffer(r.result.blockHeaders[0])
