@@ -96,7 +96,7 @@ describe('Features', () => {
       props: '0xffff',
       deposit: util.toBN('10000000000000000'),
       timeout: 7200,
-    }], test.chainRegistry, test.chainRegistry, test.url)
+    }], test.chainId, test.url)
     lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 1
 
 
