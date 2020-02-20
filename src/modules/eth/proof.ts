@@ -43,6 +43,9 @@ import * as evm from './evm_trace'
 import { in3ProtocolVersion } from '../../types/constants'
 import { analyseCall, getFromCache, CacheAccount } from './evm_run'
 import * as promClient from 'prom-client';
+import { SentryError } from '../../util/sentryError'
+import { toBuffer } from 'in3-common/js/src/util/util'
+import { TransactionReceipt } from 'in3'
 
 const histMerkleTreeTime = new promClient.Histogram({
   name: 'in3_merkle_tree_time',
@@ -201,7 +204,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
     block: createBlock(block, verifiedHashes),
     txProof, merkleProof,
     txIndex, signatures,
-    ...merkleProofPrev ? {} : { merkleProofPrev }
+    ...(merkleProofPrev ? {} : { merkleProofPrev })
   }
 }
 
@@ -313,24 +316,63 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
 }
 
 
-
+let supportsProofRPC: boolean = true
 export async function handeGetTransaction(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
-  // ask the server for the tx
-  const response = await handler.getFromServer(request, request)
-  const tx = response && response.result as any
-  // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
-  if (tx && tx.blockNumber) {
-    // get the block including all transactions from the server
-    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }, request).then(_ => _ && _.result as any)
-    if (block)
-      // create the proof
-      response.in3 = {
-        proof: await createTransactionProof(block, request.params[0] as string,
-          await collectSignatures(handler, request.in3.signers, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
-          request.in3.verifiedHashes, handler) as any,
-        version: in3ProtocolVersion
+  let response: any = null
+  let resp: any = supportsProofRPC
+    ? await handler.getFromServer({ ...request, method: 'proof_getTransactionByHash', params: [request.params[0], true] }, request).then(_ => {
+      if (_.error && ((_.error as any).code || 0) == -32601) {
+        supportsProofRPC = false
+        return null
       }
-    return addFinality(request, response, block, handler)
+      else if (_.error) throw new SentryError('invalid response ' + _.error)
+      return _.result
+    })
+    : null
+
+  if (supportsProofRPC) {
+    // we can build the response from the one request
+    response = {
+      id: request.id,
+      jsonrpc: '2.0',
+      result: resp.transaction
+    }
+    if (resp.transaction) {
+      response.in3 = {
+        proof: {
+          type: 'transactionProof',
+          block: resp.blockHeader,
+          merkleProof: resp.txProof,
+          txIndex: parseInt(resp.transaction.transactionIndex),
+          signatures: await collectSignatures(handler, request.in3.signers, [{ blockNumber: resp.transaction.blockNumber, hash: resp.transaction.blockHash }], request.in3.verifiedHashes)
+        }
+      }
+      if (request.in3.finality) {
+        const block = toBuffer(resp.blockHeader)
+        block.number = resp.transaction.blockNumber
+        return addFinality(request, response, block, handler)
+      }
+    }
+  }
+  else {
+    // ask the server for the tx
+    response = await handler.getFromServer(request, request)
+    const tx = response && response.result as any
+    // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
+    if (tx && tx.blockNumber) {
+      // get the block including all transactions from the server
+      const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }, request).then(_ => _ && _.result as any)
+      if (block)
+        // create the proof
+        response.in3 = {
+          proof: await createTransactionProof(block, request.params[0] as string,
+            await collectSignatures(handler, request.in3.signers, [{ blockNumber: tx.blockNumber, hash: block.hash }], request.in3.verifiedHashes),
+            request.in3.verifiedHashes, handler) as any,
+          version: in3ProtocolVersion
+        }
+      return addFinality(request, response, block, handler)
+    }
+
   }
   return response
 }
@@ -368,54 +410,149 @@ export async function handeGetTransactionFromBlock(handler: EthHandler, request:
 
 
 export async function handeGetTransactionReceipt(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
-  // ask the server for the tx
-  const response = await handler.getFromServer(request, request)
-  const tx = response && response.result as ReceiptData
-  // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
-  if (tx && tx.blockNumber) {
-    // get the block including all transactions from the server
-    const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }, request).then(_ => _ && _.result as BlockData)
-    if (block) {
-
-      const [signatures, receipts] = await Promise.all([
-        // signatures for the block of the transaction
-        collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes),
-
-        // get all receipts, because we need to build the MerkleTree
-        handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })), request)
-          .then(a => a.map(_ => _.result as ReceiptData)),
-
-        // get all txs to also proof the tx (in case of full proof)
-        // request.in3.useFullProof && handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })))
-        //  .then(a => a.map(_ => _.result as ReceiptData))
-
-
-
-
-
-      ])
-
-      // create the proof
-      response.in3 = {
-        proof: await createTransactionReceiptProof(
-          block,
-          receipts,
-          request.params[0] as string,
-          signatures,
-          request.in3.verifiedHashes,
-          handler
-        ),
-        version: in3ProtocolVersion
+  let response: any = null
+  let resp: any = supportsProofRPC
+    ? await handler.getFromServer({ ...request, method: 'proof_getTransactionReceipt', params: [request.params[0], true] }, request).then(_ => {
+      if (_.error && ((_.error as any).code || 0) == 32601) {
+        supportsProofRPC = false
+        return null
       }
+      else if (_.error) throw new SentryError('invalid response ' + _.error)
+      return _.result
+    })
+    : null
 
-
-      return addFinality(request, response, block, handler)
+  if (supportsProofRPC) {
+    // we can build the response from the one request
+    response = {
+      id: request.id,
+      jsonrpc: '2.0',
+      result: resp.receipt
+    }
+    if (resp.receipt) {
+      response.in3 = {
+        proof: {
+          type: 'receiptProof',
+          block: resp.blockHeader,
+          merkleProof: resp.receiptProof,
+          txProof: resp.txProof,
+          txIndex: parseInt(resp.receipt.transactionIndex),
+          signatures: await collectSignatures(handler, request.in3.signers, [{ blockNumber: resp.receipt.blockNumber, hash: resp.receipt.blockHash }], request.in3.verifiedHashes)
+        }
+      }
+      if (request.in3 && request.in3.useFullProof && parseInt(resp.transaction.transactionIndex) > 0) {
+        // TODO find previous 
+        //        response.in3.proof.merkleProofPrev =
+      }
+      if (request.in3.finality) {
+        const block = toBuffer(resp.blockHeader)
+        block.number = resp.receipt.blockNumber
+        return addFinality(request, response, block, handler)
+      }
     }
   }
-  // if we don't have a block, we will return nu result, since pending can not be proofed
-  else
-    return { ...response, result: null }
+  else {
+
+
+
+    // ask the server for the tx
+    response = await handler.getFromServer(request, request)
+    const tx = response && response.result as ReceiptData
+    // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
+    if (tx && tx.blockNumber) {
+      // get the block including all transactions from the server
+      const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }, request).then(_ => _ && _.result as BlockData)
+      if (block) {
+
+        const [signatures, receipts] = await Promise.all([
+          // signatures for the block of the transaction
+          collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes),
+
+          // get all receipts, because we need to build the MerkleTree
+          handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })), request)
+            .then(a => a.map(_ => _.result as ReceiptData)),
+
+          // get all txs to also proof the tx (in case of full proof)
+          // request.in3.useFullProof && handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })))
+          //  .then(a => a.map(_ => _.result as ReceiptData))
+        ])
+
+        // create the proof
+        response.in3 = {
+          proof: await createTransactionReceiptProof(
+            block,
+            receipts,
+            request.params[0] as string,
+            signatures,
+            request.in3.verifiedHashes,
+            handler
+          ),
+          version: in3ProtocolVersion
+        }
+
+
+        return addFinality(request, response, block, handler)
+      }
+    }
+    // if we don't have a block, we will return nu result, since pending can not be proofed
+    else
+      return { ...response, result: null }
+  }
+
   return response
+}
+
+async function handleLogsNethermind(handler: EthHandler, request: RPCRequest, logs: LogData[], response: RPCResponse, proof: LogProof): Promise<boolean> {
+  const results = await handler.getAllFromServer(logs.map(_ => _.transactionHash).filter((hash, i, all) => all.indexOf(hash) === i).map(_ => ({ method: 'proof_getTransactionReceipt', params: [_, true] })), request)
+  const receipts: {
+    receipt: TransactionReceipt,
+    txProof: string[],
+    receiptProof: string[],
+    blockHeader: string
+  }[] = results.map(_ => {
+    if (_.error && ((_.error as any).code || 0) == -32601) {
+      supportsProofRPC = false
+      return null
+    }
+    else if (_.error) throw new SentryError('Error fetching receipts for eth_getLogs ' + JSON.stringify(_.error))
+    return _.result
+  })
+  if (!supportsProofRPC) return false
+
+  const blocks = Object.keys(proof).map(_ => proof[_])
+
+  // fetch signatures
+  const signatures = (request.in3.signers && request.in3.signers.length)
+    ? await collectSignatures(handler, request.in3.signers, blocks.map(b => ({ blockNumber: b.number, hash: (b as any).hash })), request.in3.verifiedHashes)
+    : []
+
+  for (const p of blocks) {
+    for (const r of receipts) {
+      if (!r.receipt || r.receipt.blockHash !== (p as any).hash) continue
+      p.receipts[r.receipt.transactionHash] = {
+        txHash: r.receipt.transactionHash,
+        txIndex: parseInt(r.receipt.transactionIndex as any),
+        proof: r.receiptProof,
+        txProof: r.txProof
+      }
+      if (!p.block) p.block = r.blockHeader
+    }
+    delete (p as any).hash
+    delete p.allReceipts
+  }
+  // attach prood to answer
+  response.in3 = {
+    proof: {
+      type: 'logProof',
+      logProof: proof,
+      signatures
+    },
+    version: in3ProtocolVersion
+  }
+
+
+  return true
+
 }
 
 export async function handleLogs(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
@@ -429,7 +566,14 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
 
     // find all needed blocks
     const proof: LogProof = {}
-    logs.forEach(l => proof[toHex(l.blockNumber)] || (proof[toHex(l.blockNumber)] = { number: toNumber(l.blockNumber), receipts: {}, allReceipts: [] } as any))
+    logs.forEach(l => proof[toHex(l.blockNumber)] || (proof[toHex(l.blockNumber)] = { number: toNumber(l.blockNumber), hash: toHex(l.blockHash), receipts: {}, allReceipts: [] } as any))
+
+    // try a shortcut to use nethermind for producing the proofs
+    if (supportsProofRPC && await handleLogsNethermind(handler, request, logs, response, proof)) {
+      histProofTime.labels("logs").observe(Date.now() - startTime);
+      return response
+    }
+
 
     // get the blocks from the server
     const blocks = await handler.getAllFromServer(Object.keys(proof).map(bn => ({ method: 'eth_getBlockByNumber', params: [toMinHex(bn), true] })), request).then(all => all.map(_ => _.result as BlockData))
@@ -503,6 +647,53 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   const startTime = Date.now();
 
   if (request.params && request.params[0] && !request.params[0].value) request.params[0].value = '0x0'
+  const tx: TransactionData = request.params[0]
+
+  if (supportsProofRPC) {
+    // TODO currently we only send the to and data, because nethermind has issues with from-properties
+    // once fixed, remove the params here and take the original from the request
+    const r = await handler.getFromServer({ ...request, method: 'proof_call', params: [{ data: request.params[0].data || '0x', to: request.params[0].to }, request.params[1]] }, request)
+    if (r && r.error && (r.error as any).code == -32601)
+      supportsProofRPC = false
+    else if (r.error) throw new SentryError('Error fetich call from nethermind ' + JSON.stringify(request) + JSON.stringify(r.error))
+    else {
+
+      // remove sysaccount
+      if ((!tx.gasPrice || !toNumber(tx.gasPrice)) && !tx.from) r.result.accounts = r.result.accounts.filter(_ => _.address != '0xfffffffffffffffffffffffffffffffffffffffe')
+      // fix storage keys
+      r.result.accounts.forEach(ac => {
+        ac.storageProof.forEach(s => {
+          s.key = toMinHex(s.key)
+        })
+      })
+
+      histProofTime.labels("call").observe(Date.now() - startTime);
+      const block = toBuffer(r.result.blockHeaders[0])
+      const header = new serialize.Block(block)
+      const resp = {
+        id: request.id,
+        jsonrpc: '2.0',
+        result: r.result.result,
+        in3: {
+          proof: {
+            type: 'callProof',
+            block: r.result.blockHeaders[0],
+            signatures: (request.in3.signers && request.in3.signers.length) ? await collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(header.number), hash: toHex(header.hash()) }], request.in3.verifiedHashes) : [],
+            accounts: r.result.accounts.reduce((p, v) => { p[v.address] = v; return p }, {})
+          },
+          version: in3ProtocolVersion
+        }
+      }
+      block.number = toNumber(header.number)
+
+      // bundle the answer
+      return addFinality(request, resp as any, block, handler)
+
+    }
+  }
+
+
+
   //    console.log('handle call', this.config)
   // read the response,blockheader and trace from server
   const [response, blockResponse, trace] = await handler.getAllFromServer([

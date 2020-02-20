@@ -39,7 +39,7 @@ import 'mocha'
 import * as tx from '../../src/util/tx'
 import * as clientRPC from '../utils/clientRPC'
 import { util } from 'in3-common'
-import { TestTransport, getTestClient } from '../utils/transport'
+import { TestTransport, getTestClient, devPk } from '../utils/transport'
 import { createPK } from '../../src/chains/signatures'
 import { deployContract } from '../../src/util/registry';
 const getAddress = util.getAddress
@@ -85,7 +85,8 @@ describe('AbiCoder', () => {
     let test = new TestTransport(1) // create a network of 3 nodes
 
     // check deployed code
-    const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
+    const adr = await deployContract('TestContract', createPK(devPk), getTestClient())
+    await tx.callContract(test.url, adr, 'increase()', [], { privateKey: createPK(devPk), value: '0x0', confirm: true })
 
     const returnValue = await tx.callContract(test.url, adr, 'encodingTest(bytes[],bytes32):(bytes32,bytes[])', [['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20"])
 
@@ -98,12 +99,13 @@ describe('AbiCoder', () => {
     let test = new TestTransport(1) // create a network of 3 nodes
     let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
 
+    // check deployed code
+    const adr = await deployContract('TestContract', createPK(devPk), getTestClient())
+
     // create a account with 500 wei
     const user = await test.createAccount(undefined, 500).then(_ => _.address)
 
 
-    // check deployed code
-    const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
 
     const returnValue = await clientRPC.callContractWithClient(client, adr, 'encodingTest(bytes[],bytes32):(bytes32,bytes[])', ['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20")
     if (returnValue.error) throw new Error(returnValue.error)

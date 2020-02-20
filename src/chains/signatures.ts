@@ -51,9 +51,8 @@ const toNumber = util.toNumber
 const bytes32 = serialize.bytes32
 const address = serialize.address
 const bytes = serialize.bytes
-
-
 const cipherAlgorithm = 'aes-192-ofb'
+
 export const signatureCaches: LRUCache = new LRUCache();
 export interface PK {
   address: string
@@ -136,7 +135,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         scope.setExtra("requestedBlocks", requestedBlocks)
       });
 
-      throw new Error('The address ' + adr + ' does not exist within the current registered active nodeList!')
+      throw new Error('The address ' + adr + ' does not exist within the current registered active nodeList! ')
     }
     // get cache signatures and remaining blocks that have no signatures
     const cachedSignatures: Signature[] = []
@@ -282,6 +281,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
 export function sign(pk: PK, blocks: { blockNumber: number, hash: string, registryId: string }[]): Signature[] {
   if (!pk) throw new Error('Missing private key')
+  if (!Array.isArray(blocks)) throw new Error('blocks are missing or no array')
   return blocks.map(b => {
     const msgHash = keccak('0x' + toHex(b.hash).substr(2).padStart(64, '0') + toHex(b.blockNumber).substr(2).padStart(64, '0') + toHex(b.registryId).substr(2).padStart(64, '0'))
     const sig = pk.sign(msgHash)
@@ -298,7 +298,7 @@ export function sign(pk: PK, blocks: { blockNumber: number, hash: string, regist
 }
 
 export async function handleSign(handler: BaseHandler, request: RPCRequest): Promise<RPCResponse> {
-  if (!(handler.config as any)._pk) throw new Error('The server is configured to sign blockhashes')
+  if (!(handler.config as any)._pk) throw new Error('The server is not configured to sign blockhashes')
   const blocks = request.params as { blockNumber: number, hash: string }[]
   const blockData = await handler.getAllFromServer([
     ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })),

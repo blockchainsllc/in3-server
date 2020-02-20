@@ -57,13 +57,15 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
   }
 
 
+
+
   if (key.startsWith('0x')) {
     if (key.length != 66) throw new Error('The private key needs to have a length of 32 bytes!')
     logger.error("using a raw privated key is strongly discouraged!");
     (config as any)._pk = createPK(Buffer.from(key.substr(2), 'hex'))
     return
   }
-  const password = config.privateKeyPassphrase
+  const password = process.env.IN3KEYPASSPHRASE || config.privateKeyPassphrase
   delete config.privateKeyPassphrase
 
   try {
@@ -89,7 +91,7 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
     const ciphertext = new Buffer(json.crypto.ciphertext, 'hex');
     const mac = ethUtil.keccak(Buffer.concat([derivedKey.slice(16, 32), ciphertext])).toString('hex')
     if (mac !== json.crypto.mac)
-      throw new Error('Key derivation failed - possibly wrong password');
+      throw new Error('Key derivation failed - possibly wrong password given in --privateKeyPassphrase command line arg or IN3KEYPASSPHRASE env variable.');
 
     const decipher = cryp.createDecipheriv(json.crypto.cipher, derivedKey.slice(0, 16), new Buffer(json.crypto.cipherparams.iv, 'hex'));
     (config as any)._pk = createPK(Buffer.concat([decipher.update(ciphertext), decipher.final()]))
@@ -100,11 +102,8 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
 }
 
 export async function checkRegistry(handler: BaseHandler): Promise<any> {
-  if (!handler.config.registry || !handler.config.autoRegistry) {
-    // TODO get it from the chainRegistry?
-    // we will get the registry from the
+  if (!handler.config.registry || !handler.config.autoRegistry)
     return
-  }
 
   checkPrivateKey(handler.config)
 
@@ -164,7 +163,7 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
     props,
     deposit: deposit as any,
     timeout: 3600
-  }], handler.chainId, undefined, handler.config.registryRPC || handler.config.rpcUrl, undefined, false).catch(_ => {
+  }], handler.chainId, handler.config.registryRPC || handler.config.rpcUrl, undefined, false).catch(_ => {
     if (process.env.SENTRY_ENABLE === 'true') {
 
       handler.config.registry

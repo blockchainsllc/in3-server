@@ -54,6 +54,7 @@ import axios from 'axios'
 
 
 import requestTime from '../util/koa/requestTime'
+import { sign, PK } from '../chains/signatures';
 
 // Hook up Sentry error reporting
 if (process.env.SENTRY_ENABLE === 'true') {
@@ -66,21 +67,29 @@ if (process.env.SENTRY_ENABLE === 'true') {
 
 // Hook up prometheus instrumentation
 
-promClient.collectDefaultMetrics({prefix:"in3_"});
+promClient.collectDefaultMetrics({ prefix: "in3_" });
 
 // register top-level metrics
 const ctError = new promClient.Counter({
-	name: 'in3_errors',
-	help: 'Counts the number of errors occured',
-	labelNames: ['errtype']
+  name: 'in3_errors',
+  help: 'Counts the number of errors occured',
+  labelNames: ['errtype']
 });
 
-const histRequestTime =  new promClient.Histogram({
-	name: 'in3_frontend_request_time',
-	help: 'Total time requests take on the frontend',
-  labelNames: ["http_method","result","peer_ip"],
+const histRequestTime = new promClient.Histogram({
+  name: 'in3_frontend_request_time',
+  help: 'Total time requests take on the frontend',
+  labelNames: ["http_method", "result", "peer_ip"],
   buckets: promClient.exponentialBuckets(1, 2, 20)
 });
+
+const statsMetadata = new promClient.Gauge({
+  name: 'in3_metadata',
+  help: 'provides metadata',
+  labelNames: ['address', 'name', 'comment', 'icon', 'version', 'deposit', 'props', 'registertime']
+});
+
+
 
 
 // Hook to nodeJs events
@@ -155,10 +164,10 @@ app.use(bodyParser())
 
 // route prom metric only when requested
 //if (process.env.STATS_ENABLE === 'true') {
-  router.get(config.basePath + '/metrics', async ctx => {
-    ctx.set('Content-Type', promClient.register.contentType);
-    ctx.body = promClient.register.metrics();
-  });
+router.get(config.basePath + '/metrics', async ctx => {
+  ctx.set('Content-Type', promClient.register.contentType);
+  ctx.body = promClient.register.metrics();
+});
 //}
 
 router.post(/.*/, async ctx => {
@@ -182,7 +191,7 @@ router.post(/.*/, async ctx => {
       const res = requests.map(_ => ({ id: _.id, error: { code: - 32600, message: 'Too many requests from ' + ip }, jsonrpc: '2.0' }))
       ctx.status = 429
       ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
-      histRequestTime.labels("post","dos_protect",ip).observe(Date.now() - startTime);
+      histRequestTime.labels("post", "dos_protect", ip).observe(Date.now() - startTime);
       return
     }
     // assign ip
@@ -198,12 +207,12 @@ router.post(/.*/, async ctx => {
     }
     else
       ctx.body = body
-    
-      histRequestTime.labels("post","ok",ip).observe(Date.now() - startTime);
-    
-    logger.debug('request ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + _.params.map(JSON.stringify as any).join() + ')'))
+
+    histRequestTime.labels("post", "ok", ip).observe(Date.now() - startTime);
+
+    logger.debug('request ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + (Array.isArray(_.params) ? _.params.map(JSON.stringify as any).join() : '-') + ')'))
   } catch (err) {
-    histRequestTime.labels("post","error",ip).observe(Date.now() - startTime);
+    histRequestTime.labels("post", "error", ip).observe(Date.now() - startTime);
     ctx.status = err.status || 500
     ctx.body = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
     Sentry.withScope(scope => {
@@ -258,9 +267,9 @@ router.get(/.*/, async ctx => {
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
     ctx.body = result.result || result.error
-    histRequestTime.labels("get","ok",ip).observe(Date.now() - startTime);
+    histRequestTime.labels("get", "ok", ip).observe(Date.now() - startTime);
   } catch (err) {
-    histRequestTime.labels("get","error",ip).observe(Date.now() - startTime);
+    histRequestTime.labels("get", "error", ip).observe(Date.now() - startTime);
 
     ctx.status = err.status || 500
     ctx.body = err.message
@@ -275,6 +284,8 @@ checkNodeSync(() =>
   initConfig().then(() => {
     rpc = new RPC(config);
     (chainAliases as any).api = Object.keys(config.chains)[0]
+
+
 
     const doInit = (retryCount: number) => {
       if (retryCount <= 0) {
@@ -292,26 +303,53 @@ checkNodeSync(() =>
         INIT_ERROR = true
         return;
       }
-      rpc.init().catch(err => {
-        //console.error('Error initializing the server : ' + err.message)
-        logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
+      rpc.init()
+        .then(async () => {
+          // set static metadata
+          const version = process.env.SENTRY_RELEASE || "unknown";
+          const handler = rpc.getHandler(Object.keys(config.chains)[0]);
 
-        setTimeout(() => { doInit(retryCount - 1) }, 20000)
-        if (process.env.SENTRY_ENABLE === 'true') {
-          Sentry.configureScope((scope) => {
-            scope.setTag("server", "initConfig");
-            scope.setTag("server_status", "Error initializing the server");
+          const signer: PK = (handler.config as any)._pk
+          const address = signer ? signer.address : 'Keyless';
 
-            if ((config as any).privateKey) {
-              const tempConfig = config
-              delete (tempConfig as any).privateKey
-            } else {
-              scope.setExtra("config", config)
-            }
-          });
-          Sentry.captureException(err);
-        }
-      })
+
+          const node = (await handler.getNodeList(false)).nodes.find(x => x.address.toLowerCase() === address.toLowerCase());
+
+          let deposit = 0;
+          let props = "";
+          let registerTime = 0;
+
+          if (node) {
+            deposit = parseInt(node.deposit.toString()); // 
+            props = node.props.toString(); // TODO: Replace with proper parser to get it human readable
+            registerTime = (node as any).registerTime;
+          }
+
+
+          statsMetadata.labels(address, config.profile.name || 'Anonymous', config.profile.comment || '', config.profile.icon || '', version, deposit.toString(), props, registerTime.toString()).set(Date.now());
+
+
+        })
+        .catch(err => {
+          //console.error('Error initializing the server : ' + err.message)
+          logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
+
+          setTimeout(() => { doInit(retryCount - 1) }, 20000)
+          if (process.env.SENTRY_ENABLE === 'true') {
+            Sentry.configureScope((scope) => {
+              scope.setTag("server", "initConfig");
+              scope.setTag("server_status", "Error initializing the server");
+
+              if ((config as any).privateKey) {
+                const tempConfig = config
+                delete (tempConfig as any).privateKey
+              } else {
+                scope.setExtra("config", config)
+              }
+            });
+            Sentry.captureException(err);
+          }
+        });
 
     }
 
