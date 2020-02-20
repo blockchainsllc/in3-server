@@ -594,7 +594,6 @@ const iN3Config:types.IN3Config = {
   finality: 50,
   timeout: 3000,
   chainId: '0x1',
-  chainRegistry: '0xe36179e2286ef405e929C90ad3E70E649B22a945',
   mainChain: '0x1',
   autoUpdateList: true
 }
@@ -623,7 +622,6 @@ const iN3Config:types.IN3Config = {
 *  **finality** `number` - the number in percent needed in order reach finality (% of signature of the validators)   
 *  **timeout** `number` - specifies the number of milliseconds before the request times out. increasing may be helpful if the device uses a slow connection.   
 *  **chainId** `string` (required)  - servers to filter for the given chain. The chain-id based on EIP-155.   
-*  **chainRegistry** `string` - main chain-registry contract   
 *  **mainChain** `string` - main chain-id, where the chain registry is running.   
 *  **autoUpdateList** `boolean` - if true the nodelist will be automaticly updated if the lastBlock is newer   
 *  **cacheStorage** [{"description":"a cache handler offering 2 functions ( setItem(string,string), getItem(string) )"}](#{"description":"a cache handler offering 2 functions ( setitem(string,string), getitem(string) )"}) - a cache handler offering 2 functions ( setItem(string,string), getItem(string) )   

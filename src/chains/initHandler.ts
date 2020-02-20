@@ -102,11 +102,8 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
 }
 
 export async function checkRegistry(handler: BaseHandler): Promise<any> {
-  if (!handler.config.registry || !handler.config.autoRegistry) {
-    // TODO get it from the chainRegistry?
-    // we will get the registry from the
+  if (!handler.config.registry || !handler.config.autoRegistry)
     return
-  }
 
   checkPrivateKey(handler.config)
 
@@ -166,7 +163,7 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
     props,
     deposit: deposit as any,
     timeout: 3600
-  }], handler.chainId, undefined, handler.config.registryRPC || handler.config.rpcUrl, undefined, false).catch(_ => {
+  }], handler.chainId, handler.config.registryRPC || handler.config.rpcUrl, undefined, false).catch(_ => {
     if (process.env.SENTRY_ENABLE === 'true') {
 
       handler.config.registry

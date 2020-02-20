@@ -42,7 +42,7 @@ import { PK } from '../chains/signatures';
 import { padEnd } from 'in3-common/js/src/util/util';
 const toHex = util.toHex
 
-const bin = JSON.parse(readFileSync('./contracts/contracts.json', 'utf8'))
+const bin = require('in3-contracts/contracts/contracts.json')
 
 const in3ContractBin = JSON.parse(readFileSync('node_modules/in3-contracts/contracts/contracts.json', 'utf8'))
 try {
@@ -65,14 +65,6 @@ export function deployContract(name: string, pk: PK, url = 'http://localhost:854
 
 }
 
-export function deployChainRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
-  return tx.deployContract(url, '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf('ChainRegistry') >= 0)].bin, {
-    privateKey: pk,
-    gas: 3000000,
-    confirm: true
-  }, transport).then(_ => toChecksumAddress(_.contractAddress) as string)
-
-}
 
 export async function deployNodeRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
 
@@ -127,16 +119,13 @@ export async function registerNodes(pk: PK, registry: string, data: {
   deposit: any
   timeout: number
   weight?: number
-}[], chainId: string, chainRegistry?: string, url = 'http://localhost:8545', transport?: Transport, registerChain = true) {
+}[], chainId: string, url = 'http://localhost:8545', transport?: Transport, registerChain = true) {
   if (!registry)
     registry = await deployNodeRegistry(pk, url, transport)
 
   const regData = await tx.callContract(url, registry, "nodeRegistryData():(address)", []).then(_ => _[0])
   const erc20 = await tx.callContract(url, regData, "supportedToken():(address)", []).then(_ => _[0])
 
-  //  console.log("\n________\nregistry = " + registry)
-  //  console.log("regData  = " + regData)
-  //  console.log("erc20    = " + erc20)
   let ci = 1
 
   for (const c of data) {
@@ -169,23 +158,11 @@ export async function registerNodes(pk: PK, registry: string, data: {
       confirm: true,
       value: 0
     }, transport)
-
-    //    console.log(ci + ' : ' + c.url + ' address=' + c.pk.address + ' deposit=' + c.deposit)
   }
-
-  if (registerChain)
-    chainRegistry = await registerChains(pk, chainRegistry, [{
-      chainId,
-      bootNodes: data.map(c => c.pk.address + ':' + c.url),
-      meta: 'dummy',
-      registryContract: registry,
-      contractChain: chainId
-    }], url, transport)
 
   const regId = toHex((await tx.callContract(url, regData, "registryId():(bytes32)", []))[0])
 
   return {
-    chainRegistry,
     chainId,
     registry,
     regData,
@@ -195,38 +172,6 @@ export async function registerNodes(pk: PK, registry: string, data: {
 
 }
 
-export async function registerChains(pk: PK, chainRegistry: string, data: {
-  chainId: string,
-  bootNodes: string[],
-  meta: string,
-  registryContract: string,
-  contractChain: string
-}[], url = 'http://localhost:8545', transport?: Transport) {
-  if (!chainRegistry)
-    chainRegistry = await deployChainRegistry(pk, url, transport)
-
-  for (const c of data) {
-    //   const regId = await tx.callContract(url, c.registryContract, "registryId():(bytes32)", [])
-
-    const registerTx = await tx.callContract(url, chainRegistry, 'registerChain(bytes32,string,string,address,bytes32)', [
-      toHex(c.chainId, 32),
-      c.bootNodes.join(','),
-      c.meta,
-      c.registryContract,
-      //   regId,
-      toHex(c.contractChain, 32)
-    ], {
-      privateKey: pk,
-      gas: 3000000,
-      confirm: true,
-      value: 0
-    }, transport)
-  }
-
-
-  return chainRegistry
-}
-
 export function deployWhiteList(pk: PK, url = 'http://localhost:8545', whiteListAddrs: string, transport?: Transport) {
   return tx.deployContract(url,
     '0x' + bin.contracts[Object.keys(bin.contracts).
@@ -234,7 +179,7 @@ export function deployWhiteList(pk: PK, url = 'http://localhost:8545', whiteList
     // '0x' + bin.contracts[Object.keys(bin.contracts).find(_ => _.indexOf(name) >= 0)].bin, 
     {
       privateKey: pk,
-      gas: 3000000,
+      gas: 4000000,
       confirm: true
     }, transport).then(_ => toChecksumAddress(_.contractAddress) as string)
 }

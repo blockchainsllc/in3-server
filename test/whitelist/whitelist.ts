@@ -49,7 +49,7 @@ describe('WhiteList Tests', () => {
     let test = new TestTransport(1)
 
     // create a account with 500 wei
-    const acct = await test.createAccount(undefined, 500)
+    const acct = await test.createAccount(undefined, util.toBN('5000000000000000000'))
     //const addr = getAddress(acct)
 
     // check deployed code
@@ -96,7 +96,7 @@ describe('WhiteList Tests', () => {
 
     const whitelistedNode = "0x45d45e6Ff99E6c34A235d263965910298985fcFe"
     let test = new TestTransport(1)
-    const acct = await test.createAccount(undefined, 500)
+    const acct = await test.createAccount(undefined, util.toBN('5000000000000000000'))
 
     //register whitelist A
     const adr = await deployWhiteList(acct, getTestClient(), "0")
@@ -159,7 +159,7 @@ describe('WhiteList Tests', () => {
     let test = new TestTransport(1)
 
     // create a account with 500 wei
-    const acct = await test.createAccount(undefined, 500)
+    const acct = await test.createAccount(undefined, util.toBN('5000000000000000000'))
     //const addr = getAddress(acct)
 
     // check deployed code
@@ -213,7 +213,7 @@ describe('WhiteList Tests', () => {
     let test = new TestTransport(1)
 
     // create a account with 500 wei
-    const acct = await test.createAccount(undefined, 500)
+    const acct = await test.createAccount(undefined, util.toBN('5000000000000000000'))
     //const addr = getAddress(acct)
 
     // check deployed code

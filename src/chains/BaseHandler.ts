@@ -33,7 +33,7 @@
  *******************************************************************************/
 const Sentry = require('@sentry/node');
 
-import { Transport, AxiosTransport, serialize, util as in3Util } from 'in3-common'
+import { Transport, AxiosTransport, NoneRejectingAxiosTransport, serialize, util as in3Util } from 'in3-common'
 import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
@@ -49,10 +49,10 @@ import WhiteListManager from './whiteListManager'
 import * as promClient from 'prom-client';
 
 
-const histRequestTime =  new promClient.Histogram({
-	name: 'in3_upstream_request_time',
-	help: 'Total time requests take talking to the upstream',
-  labelNames: ["rpc_method","result","type","peer_ip"],
+const histRequestTime = new promClient.Histogram({
+  name: 'in3_upstream_request_time',
+  help: 'Total time requests take talking to the upstream',
+  labelNames: ["rpc_method", "result", "type", "peer_ip"],
   buckets: promClient.exponentialBuckets(1, 2, 20)
 });
 
@@ -73,7 +73,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
-    this.transport = transport || new AxiosTransport()
+    this.transport = transport || new NoneRejectingAxiosTransport()
     this.nodeList = nodeList || { nodes: undefined }
     this.counter = 1
     this.openRequests = 0
@@ -148,7 +148,7 @@ export default abstract class BaseHandler implements RPCHandler {
           scope.setExtra("request", request)
         });
       }
-      histRequestTime.labels(request.method || "unknown","error","single",ip).observe(Date.now() - startTime);
+      histRequestTime.labels(request.method || "unknown", "error", "single", ip).observe(Date.now() - startTime);
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
     }).then(res => {
       logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
@@ -164,13 +164,13 @@ export default abstract class BaseHandler implements RPCHandler {
       }
 
       if (r) {
-          // TODO : add prom hsitogram
+        // TODO : add prom hsitogram
 
         r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
         r.rpcCount = (r.rpcCount || 0) + 1
       }
-      histRequestTime.labels(request.method || "unknown","ok","single",ip ).observe(Date.now() - startTime);
-      return res
+      histRequestTime.labels(request.method || "unknown", "ok", "single", ip).observe(Date.now() - startTime);
+      return fixResponse(request, res)
     })
   }
 
@@ -187,8 +187,8 @@ export default abstract class BaseHandler implements RPCHandler {
     return request.length
       ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers }).then(_ => _.data, err => {
         logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
-        
-        histRequestTime.labels("bulk","error","bulk",ip).observe(Date.now() - startTime);
+
+        histRequestTime.labels("bulk", "error", "bulk", ip).observe(Date.now() - startTime);
         throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
       }).then(res => {
         if (process.env.SENTRY_ENABLE === 'true') {
@@ -214,7 +214,9 @@ export default abstract class BaseHandler implements RPCHandler {
           r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
           r.rpcCount = (r.rpcCount || 0) + 1
         }
-        histRequestTime.labels("bulk","ok","bulk",ip).observe(Date.now() - startTime);
+        histRequestTime.labels("bulk", "ok", "bulk", ip).observe(Date.now() - startTime);
+        if (Array.isArray(res))
+          request.forEach((req, i) => fixResponse(req, res[i]))
 
         return res
       })
@@ -290,4 +292,20 @@ export default abstract class BaseHandler implements RPCHandler {
       jsonrpc: '2.0'
     }
   }
+}
+
+
+function fixResponse(req: Partial<RPCRequest>, res: RPCResponse) {
+  if (!res || typeof (res.result) !== 'object') return res
+  if (req && req.method === 'eth_getProof') fixAccount(res.result)
+  if (req && req.method === 'proof_call' && Array.isArray(res.result.accounts)) res.result.accounts.forEach(fixAccount)
+  return res
+}
+
+function fixAccount(ac) {
+  if (ac.codeHash === null) ac.codeHash = '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'
+  if (ac.storageHash === null) ac.storageHash = '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+  if (ac.storageProof) ac.storageProof.forEach(s => {
+    if (!s.value) s.value = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  })
 }

@@ -32,48 +32,45 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-
-
 pragma solidity ^0.4.19;
 pragma experimental ABIEncoderV2;
 
 contract TestContract {
+    event LogInc(uint256 counter, address caller);
 
-    event LogInc(uint counter, address caller);
-
-    uint public counter;
+    uint256 public counter;
 
     function increase() public {
         counter = counter + 1;
-        LogInc(counter,msg.sender);
+        LogInc(counter, msg.sender);
     }
 
-    function add(TestContract c) public view returns(uint) {
+    function add(TestContract c) public view returns (uint256) {
         return c.counter() + counter;
     }
 
-    function getBlockHash(uint number) public view returns (bytes32) {
+    function getBlockHash(uint256 number) public view returns (bytes32) {
         return block.blockhash(number);
     }
 
-    function getBalance(address adr)  public view returns(uint){
+    function getBalance(address adr) public view returns (uint256) {
         return adr.balance;
     }
 
-    function testInternCall(TestContract adr)  public view returns(uint){
+    function testInternCall(TestContract adr) public view returns (uint256) {
         return adr.counter();
     }
 
-    function testCallCode(address adr)  public view returns(uint){
+    function testCallCode(address adr) public view returns (uint256) {
         adr.callcode(bytes4(keccak256("increase()")));
         return 0;
     }
-   function testCall(address adr)  public view returns(uint){
+    function testCall(address adr) public view returns (uint256) {
         adr.call(bytes4(keccak256("increase()")));
         return 0;
     }
 
-    function testDelegateCall(address adr)  public view returns(uint){
+    function testDelegateCall(address adr) public view returns (uint256) {
         adr.delegatecall(bytes4(keccak256("increase()")));
         return 0;
     }
@@ -87,7 +84,10 @@ contract TestContract {
             // by using o_code = new bytes(size)
             o_code := mload(0x40)
             // new "memory end" including padding
-            mstore(0x40, add(o_code, and(add(add(size, 0x20), 0x1f), not(0x1f))))
+            mstore(
+                0x40,
+                add(o_code, and(add(add(size, 0x20), 0x1f), not(0x1f)))
+            )
             // store length in memory
             mstore(o_code, size)
             // actually retrieve the code, this needs assembly
@@ -95,11 +95,12 @@ contract TestContract {
         }
     }
 
-    function encodingTest(bytes[] memory _a, bytes32 _b) public pure returns (bytes32, bytes[]){
+    function encodingTest(bytes[] memory _a, bytes32 _b)
+        public
+        pure
+        returns (bytes32, bytes[])
+    {
         return (_b, _a);
     }
-
-
-    
 
 }

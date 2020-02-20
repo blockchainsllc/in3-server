@@ -75,6 +75,8 @@ properties:
         $ref: "#/definitions/address"
       noStats:
         description: exclude from stats
+      metrics:
+        description: include in metrics ( default= true)
 
 definitions:
   tx:

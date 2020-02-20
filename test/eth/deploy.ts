@@ -67,14 +67,13 @@ describe('Deploying Contracts', () => {
       props: '0xFF',
       deposit: util.toBN('10000000000000000'),
       timeout: 3600
-    }], '0x99', null, getTestClient(), new LoggingAxiosTransport())
+    }], '0x99', getTestClient(), new LoggingAxiosTransport())
 
 
     // create a client which reads the chainData from the contract
     const client = new Client({
       chainId: '0x99',
       mainChain: '0x99',
-      chainRegistry: registers.chainRegistry,
       servers: {
         '0x99': {
           contract: registers.registry,
@@ -90,21 +89,9 @@ describe('Deploying Contracts', () => {
       }
     })
 
-    // read data
-    const data = await chainData.getChainData(client, '0x99')
-
-    logger.info('Resulting Data', data, registers)
-
-    assert.lengthOf(registers.chainRegistry, 42, 'No chainRegistry')
     assert.lengthOf(registers.registry, 42, 'No serverRegistry')
     assert.equal(registers.chainId, '0x99')
 
-    assert.lengthOf(data.bootNodes, 2)
-    assert.equal(data.owner, pk.address) // owner of the chainRegistry must be the pk
-    assert.equal(data.contractChain, '0x99')
-    assert.equal(data.registryContract, registers.registry)
-    assert.equal(data.bootNodes[1], pk2.address + ':#2')
-    assert.equal(data.meta, 'dummy')
 
 
   })
