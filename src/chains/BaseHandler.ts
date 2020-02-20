@@ -299,7 +299,19 @@ function fixResponse(req: Partial<RPCRequest>, res: RPCResponse) {
   if (!res || typeof (res.result) !== 'object') return res
   if (req && req.method === 'eth_getProof') fixAccount(res.result)
   if (req && req.method === 'proof_call' && Array.isArray(res.result.accounts)) res.result.accounts.forEach(fixAccount)
+  if (res.result.transactions) res.result.transactions.forEach(fixTransaction)
+  if (req && req.method.indexOf('eth_getTransactionBy') === 0) fixTransaction(res.result)
   return res
+}
+
+function fixTransaction(t) {
+  if (typeof t !== 'object') return
+  if (!t.input && t.data) {
+    t.input = t.data
+    delete t.data
+  }
+  delete t.creates
+  delete t.condition
 }
 
 function fixAccount(ac) {
