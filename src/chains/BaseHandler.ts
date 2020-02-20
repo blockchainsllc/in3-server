@@ -33,7 +33,7 @@
  *******************************************************************************/
 const Sentry = require('@sentry/node');
 
-import { Transport, AxiosTransport, serialize, util as in3Util } from 'in3-common'
+import { Transport, AxiosTransport, NoneRejectingAxiosTransport, serialize, util as in3Util } from 'in3-common'
 import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
@@ -73,7 +73,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
-    this.transport = transport || new AxiosTransport()
+    this.transport = transport || new NoneRejectingAxiosTransport()
     this.nodeList = nodeList || { nodes: undefined }
     this.counter = 1
     this.openRequests = 0
@@ -305,4 +305,7 @@ function fixResponse(req: Partial<RPCRequest>, res: RPCResponse) {
 function fixAccount(ac) {
   if (ac.codeHash === null) ac.codeHash = '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'
   if (ac.storageHash === null) ac.storageHash = '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+  if (ac.storageProof) ac.storageProof.forEach(s => {
+    if (!s.value) s.value = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  })
 }
