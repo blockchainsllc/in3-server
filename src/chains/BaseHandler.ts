@@ -305,12 +305,12 @@ function fixResponse(req: Partial<RPCRequest>, res: RPCResponse) {
 }
 
 function fixTransaction(t) {
-  if (typeof t !== 'object') return
+  if (typeof t !== 'object' || !t.r) return
   if (!t.input && t.data) {
     t.input = t.data
     delete t.data
   }
-  delete t.creates
+  //  delete t.creates
   delete t.condition
 }
 
