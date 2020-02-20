@@ -65,14 +65,8 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
     (config as any)._pk = createPK(Buffer.from(key.substr(2), 'hex'))
     return
   }
-  let password = ''
-  if (process.env.IN3KEYPASSPHRASE) {
-    password = process.env.IN3KEYPASSPHRASE
-  }
-  else {
-    config.privateKeyPassphrase
-    delete config.privateKeyPassphrase
-  }
+  const password = process.env.IN3KEYPASSPHRASE || config.privateKeyPassphrase
+  delete config.privateKeyPassphrase
 
   try {
     const json = JSON.parse(fs.readFileSync(key, 'utf8'))
