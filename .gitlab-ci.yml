@@ -42,7 +42,7 @@ compile-contracts:
       - contracts/contracts.json
 
 test-parity:
-  stage: test
+  stage: build
   tags:
     - short-jobs
   variables:
@@ -60,9 +60,6 @@ test-parity:
     - sh /prepare.sh
     - npm install
     - npm run testCoverage
-  dependencies:
-    - build-server
-    - compile-contracts
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
