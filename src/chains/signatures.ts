@@ -135,7 +135,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         scope.setExtra("requestedBlocks", requestedBlocks)
       });
 
-      throw new Error('The address ' + adr + ' does not exist within the current registered active nodeList!')
+      throw new Error('The address ' + adr + ' does not exist within the current registered active nodeList! ')
     }
     // get cache signatures and remaining blocks that have no signatures
     const cachedSignatures: Signature[] = []

@@ -25,21 +25,8 @@ build-server:
     - npm run build
   artifacts:
     paths:
-      - node_modules/
       - js/
 
-compile-contracts:
-  stage: build
-  tags:
-    - short-jobs
-  services:
-    - docker:dind
-  image: docker.slock.it/build-images/deployment
-  script:
-    - docker run -v $(pwd)/contracts:/contracts ethereum/solc:0.5.10 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/IN3WhiteList.sol > contracts/contracts.json; docker run -v $(pwd)/test:/test ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /test/contracts/TestContract.sol > test/contracts/contracts.json
-  artifacts:
-    paths:
-      - contracts/contracts.json
 
 test-parity:
   stage: test
@@ -60,9 +47,6 @@ test-parity:
     - sh /prepare.sh
     - npm install
     - npm run testCoverage
-  dependencies:
-    - build-server
-    - compile-contracts
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
@@ -87,9 +71,6 @@ test-geth:
     - sh /prepare.sh
     - npm install
     - npm run testCoverage
-  dependencies:
-    - build-server
-    - compile-contracts
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
@@ -115,13 +96,11 @@ test-nethermind:
     - sh /prepare.sh
     - npm install
     - npm run testCoverage
-  dependencies:
-    - build-server
-    - compile-contracts
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
       - test/report
+
 test-geth:
   stage: test
   tags:
@@ -141,9 +120,6 @@ test-geth:
     - sh /prepare.sh
     - npm install
     - npm run testCoverage
-  dependencies:
-    - build-server
-    - compile-contracts
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
