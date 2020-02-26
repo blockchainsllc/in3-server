@@ -194,7 +194,7 @@ router.post(/.*/, async ctx => {
       const res = requests.map(_ => ({ id: _.id, error: { code: - 32600, message: 'Too many requests from ' + ip }, jsonrpc: '2.0' }))
       ctx.status = 429
       ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
-      histRequestTime.labels("post", "dos_protect", ip, ua, stats ? '' : 'true').observe(Date.now() - startTime);
+      histRequestTime.labels("post", "dos_protect", ip, ua, stats ? 'false' : 'true').observe(Date.now() - startTime);
       return
     }
     // assign ip
@@ -211,7 +211,7 @@ router.post(/.*/, async ctx => {
     else
       ctx.body = body
 
-    histRequestTime.labels("post", "ok", ip, ua, stats ? '' : 'true').observe(Date.now() - startTime);
+    histRequestTime.labels("post", "ok", ip, ua, stats ? 'false' : 'true').observe(Date.now() - startTime);
 
     logger.debug('request ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + (Array.isArray(_.params) ? _.params.map(JSON.stringify as any).join() : '-') + ')'))
   } catch (err) {
