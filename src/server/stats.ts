@@ -55,7 +55,7 @@ export class Stat {
   }
 
   update(r: RPCRequest, proof: boolean = false, sig: boolean = false, isError = false) {
-    if (r.in3 && ((r.in3 as any).noStats || (r.in3 as any).metrics === false)) return
+    if (r.in3 && ((r.in3 as any).noStats || (r.in3 as any).stats === false)) return
     this.data.requests++
     if (isError) this.data.requests_error++
     if (proof) this.data.requests_proof++

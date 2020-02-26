@@ -79,7 +79,7 @@ const ctError = new promClient.Counter({
 const histRequestTime = new promClient.Histogram({
   name: 'in3_frontend_request_time',
   help: 'Total time requests take on the frontend',
-  labelNames: ["http_method", "result", "peer_ip"],
+  labelNames: ["http_method", "result", "peer_ip", "user_agent", "internal"],
   buckets: promClient.exponentialBuckets(1, 2, 20)
 });
 
@@ -179,11 +179,14 @@ router.post(/.*/, async ctx => {
 
   // find ip
   const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
+  const ua = ctx.headers['User-Agent'] || ctx.header['user-agent'] || 'no-ua'
 
   try {
     // check for valid req
     if ((!ctx.request.body || (typeof (ctx.request.body) === 'object' && !ctx.request.body.method)) && ctx.headers['content-type'] !== 'application/json')
       throw new Error('Request must contain header "Content-Type:application/json"')
+
+    const stats = requests && requests.length && requests[0].in3 ? ((requests[0].in3 as any).stats === false ? false : ((requests[0].in3 as any).noStats ? false : true)) : true
 
 
     // DOS protection
@@ -191,7 +194,7 @@ router.post(/.*/, async ctx => {
       const res = requests.map(_ => ({ id: _.id, error: { code: - 32600, message: 'Too many requests from ' + ip }, jsonrpc: '2.0' }))
       ctx.status = 429
       ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
-      histRequestTime.labels("post", "dos_protect", ip).observe(Date.now() - startTime);
+      histRequestTime.labels("post", "dos_protect", ip, ua, stats ? '' : 'true').observe(Date.now() - startTime);
       return
     }
     // assign ip
@@ -208,11 +211,11 @@ router.post(/.*/, async ctx => {
     else
       ctx.body = body
 
-    histRequestTime.labels("post", "ok", ip).observe(Date.now() - startTime);
+    histRequestTime.labels("post", "ok", ip, ua, stats ? '' : 'true').observe(Date.now() - startTime);
 
     logger.debug('request ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + (Array.isArray(_.params) ? _.params.map(JSON.stringify as any).join() : '-') + ')'))
   } catch (err) {
-    histRequestTime.labels("post", "error", ip).observe(Date.now() - startTime);
+    histRequestTime.labels("post", "error", ip, ua, '').observe(Date.now() - startTime);
     ctx.status = err.status || 500
     ctx.body = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
     Sentry.withScope(scope => {
@@ -237,6 +240,7 @@ router.get(/.*/, async ctx => {
   //  '/:chain/:method/:args'
   const path = ctx.path.split('/')
   const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
+  const ua = ctx.headers['User-Agent'] || ctx.header['user-agent'] || 'no-ua'
 
 
   if (path[path.length - 1] === 'health') return checkHealth(ctx)
@@ -267,9 +271,9 @@ router.get(/.*/, async ctx => {
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
     ctx.body = result.result || result.error
-    histRequestTime.labels("get", "ok", ip).observe(Date.now() - startTime);
+    histRequestTime.labels("get", "ok", ip, ua, 'true').observe(Date.now() - startTime);
   } catch (err) {
-    histRequestTime.labels("get", "error", ip).observe(Date.now() - startTime);
+    histRequestTime.labels("get", "error", ip, ua, 'true').observe(Date.now() - startTime);
 
     ctx.status = err.status || 500
     ctx.body = err.message
