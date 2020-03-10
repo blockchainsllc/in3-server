@@ -316,17 +316,21 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
 }
 
 
-let supportsProofRPC: boolean = true
+let supportsProofRPC: number = 1
 export async function handeGetTransaction(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   let response: any = null
   let resp: any = supportsProofRPC
     ? await handler.getFromServer({ ...request, method: 'proof_getTransactionByHash', params: [request.params[0], true] }, request).then(_ => {
       if (_.error && ((_.error as any).code || 0) == -32601) {
-        supportsProofRPC = false
+        supportsProofRPC = 0
         return null
       }
       else if (_.error) throw new SentryError('invalid response ' + _.error)
+      supportsProofRPC = 2
       return _.result
+    }, err => {
+      if (supportsProofRPC < 2) supportsProofRPC = 0
+      throw err
     })
     : null
 
@@ -414,11 +418,15 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
   let resp: any = supportsProofRPC
     ? await handler.getFromServer({ ...request, method: 'proof_getTransactionReceipt', params: [request.params[0], true] }, request).then(_ => {
       if (_.error && ((_.error as any).code || 0) == 32601) {
-        supportsProofRPC = false
+        supportsProofRPC = 0
         return null
       }
       else if (_.error) throw new SentryError('invalid response ' + _.error)
+      supportsProofRPC = 2
       return _.result
+    }, err => {
+      if (supportsProofRPC < 2) supportsProofRPC = 0
+      throw err
     })
     : null
 
@@ -503,7 +511,10 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
 }
 
 async function handleLogsNethermind(handler: EthHandler, request: RPCRequest, logs: LogData[], response: RPCResponse, proof: LogProof): Promise<boolean> {
-  const results = await handler.getAllFromServer(logs.map(_ => _.transactionHash).filter((hash, i, all) => all.indexOf(hash) === i).map(_ => ({ method: 'proof_getTransactionReceipt', params: [_, true] })), request)
+  const results = await handler.getAllFromServer(logs.map(_ => _.transactionHash).filter((hash, i, all) => all.indexOf(hash) === i).map(_ => ({ method: 'proof_getTransactionReceipt', params: [_, true] })), request).catch(err => {
+    if (supportsProofRPC < 2) supportsProofRPC = 0;
+    throw err
+  })
   const receipts: {
     receipt: TransactionReceipt,
     txProof: string[],
@@ -511,10 +522,11 @@ async function handleLogsNethermind(handler: EthHandler, request: RPCRequest, lo
     blockHeader: string
   }[] = results.map(_ => {
     if (_.error && ((_.error as any).code || 0) == -32601) {
-      supportsProofRPC = false
+      supportsProofRPC = 0
       return null
     }
     else if (_.error) throw new SentryError('Error fetching receipts for eth_getLogs ' + JSON.stringify(_.error))
+    supportsProofRPC = 2
     return _.result
   })
   if (!supportsProofRPC) return false
@@ -653,10 +665,15 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     // TODO currently we only send the to and data, because nethermind has issues with from-properties
     // once fixed, remove the params here and take the original from the request
     const r = await handler.getFromServer({ ...request, method: 'proof_call', params: [{ data: request.params[0].data || '0x', to: request.params[0].to }, request.params[1]] }, request)
+      .catch(err => {
+        if (supportsProofRPC < 2) supportsProofRPC = 0
+        throw err
+      })
     if (r && r.error && (r.error as any).code == -32601)
-      supportsProofRPC = false
+      supportsProofRPC = 0
     else if (r.error) throw new SentryError('Error fetich call from nethermind ' + JSON.stringify(request) + JSON.stringify(r.error))
     else {
+      supportsProofRPC = 2
 
       // remove sysaccount
       if ((!tx.gasPrice || !toNumber(tx.gasPrice)) && !tx.from) r.result.accounts = r.result.accounts.filter(_ => _.address != '0xfffffffffffffffffffffffffffffffffffffffe')
