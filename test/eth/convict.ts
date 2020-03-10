@@ -85,6 +85,8 @@ describe('Convict', () => {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 
+    if (!res.in3 || !res.in3.proof || !res.in3.proof.signatures) throw new Error('No Signatures : ' + JSON.stringify(res, null, 2))
+
     assert.isDefined(res.in3.proof.signatures[0])
     test.injectRandom([0.01, 0.9])
     test.injectRandom([0.02, 0.8])

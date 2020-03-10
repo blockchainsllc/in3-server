@@ -55,7 +55,7 @@ export class Stat {
   }
 
   update(r: RPCRequest, proof: boolean = false, sig: boolean = false, isError = false) {
-    if (r.in3 && ((r.in3 as any).noStats)) return
+    if (r.in3 && ((r.in3 as any).noStats || (r.in3 as any).stats === false)) return
     this.data.requests++
     if (isError) this.data.requests_error++
     if (proof) this.data.requests_proof++
@@ -73,6 +73,9 @@ export class Stat {
       this.data.lastRequest = 0
       this.data.methods = {}
       this.data.requests = 0
+      this.data.requests_error = 0
+      this.data.requests_proof = 0
+      this.data.requests_sig = 0
     }
   }
 }
@@ -135,16 +138,15 @@ function calcAverage(numbers: number[]) {
 }
 
 /**
- * Schedule pushing to prometheus with the current total stats every 10 sec
  * - Name has to be set, noStats has to be false
  * @param config 
  */
 export function schedulePrometheus(config: IN3RPCConfig) {
   if (!config.profile) return
-  if (config.profile && config.profile.noStats) return // saves power
+  if (config.profile && config.profile.noStats) return
   if (!config.profile.name || !config.profile.prometheus) return
-  const prometheus = new PromUpdater({ ...config.profile, url: config.profile.prometheus } /* , 'http://127.0.0.1:9091' */)
-  setInterval(() => {
+  const prometheus = new PromUpdater({ ...config.profile })
+  setInterval(async () => {
     let avgTime = calcAverage(buffer)
     let push = {
       ...stats.currentTotal,
@@ -153,5 +155,5 @@ export function schedulePrometheus(config: IN3RPCConfig) {
     }
     buffer = []
     prometheus.update(push)
-  }, 5 * 1000)
+  }, 3 * 1000)
 }

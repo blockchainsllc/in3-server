@@ -6,6 +6,7 @@ stages:
   - build
   - test
   - package
+  - analysis
   - deploy
 
 build-server:
@@ -24,21 +25,8 @@ build-server:
     - npm run build
   artifacts:
     paths:
-      - node_modules/
       - js/
 
-compile-contracts:
-  stage: build
-  tags:
-    - short-jobs
-  services:
-    - docker:dind
-  image: docker.slock.it/build-images/deployment
-  script:
-    - docker run -v $(pwd)/contracts:/contracts ethereum/solc:0.5.10 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/ChainRegistry.sol /contracts/IN3WhiteList.sol > contracts/contracts.json; docker run -v $(pwd)/test:/test ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /test/contracts/TestContract.sol > test/contracts/contracts.json
-  artifacts:
-    paths:
-      - contracts/contracts.json
 
 test-parity:
   stage: test
@@ -59,9 +47,6 @@ test-parity:
     - sh /prepare.sh
     - npm install
     - npm run testCoverage
-  dependencies:
-    - build-server
-    - compile-contracts
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
@@ -86,30 +71,59 @@ test-geth:
     - sh /prepare.sh
     - npm install
     - npm run testCoverage
-  dependencies:
-    - build-server
-    - compile-contracts
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
       - test/report
 
-pages:
-  stage: deploy
+test-nethermind:
+  stage: test
+  allow_failure: true
   tags:
     - short-jobs
-  environment:
-    name: test-results
-    url: http://in3.git-pages.slock.it/in3-server
-  dependencies:
-    - test-parity
-    - test-geth
+  variables:
+    RPCURL: http://nethermind:8545
+    IPFS_URL: http://ipfs:5001
+  services:
+    - name: jbenet/go-ipfs:latest
+      command:
+        - daemon
+        - --offline
+      alias: ipfs
+    - name: docker.slock.it/build-images/nethermind
+      alias: nethermind
   script:
-    - mkdir -p public/
-    - cp -r test/report/* public/
+    - sh /prepare.sh
+    - npm install
+    - npm run testCoverage
   artifacts:
+    name: "test-reports-$CI_JOB_NAME"
     paths:
-      - public
+      - test/report
+
+test-geth:
+  stage: test
+  tags:
+    - short-jobs
+  variables:
+    RPCURL: http://geth:8545
+    IPFS_URL: http://ipfs:5001
+  services:
+    - name: jbenet/go-ipfs:latest
+      command:
+        - daemon
+        - --offline
+      alias: ipfs
+    - name: docker.slock.it/core-technology/geth-timemachine:master
+      alias: geth
+  script:
+    - sh /prepare.sh
+    - npm install
+    - npm run testCoverage
+  artifacts:
+    name: "test-reports-$CI_JOB_NAME"
+    paths:
+      - test/report
 
 package-docker:
   stage: package
@@ -125,7 +139,48 @@ package-docker:
     - docker push $RELEASE_IMAGE_TAG
     - docker push $COMMIT_IMAGE_TAG
 
+##### analyse #####
+vulnerability-analysis:
+  stage: analysis
+  tags:
+    - short-jobs
+  dependencies:
+    - package-docker
+  image: docker.slock.it/build-images/vulnerability-testing-tools
+  script:
+    - cat deployment/vulnerability-analysis-message.txt
+    - export TRIVY_AUTH_URL=$CI_REGISTRY
+    - export TRIVY_USERNAME=gitlab-ci-token
+    - export TRIVY_PASSWORD=$CI_JOB_TOKEN
+    - trivy -f json -o vulnerability_analysis.json $COMMIT_IMAGE_TAG
+  artifacts:
+    paths:
+      - vulnerability_analysis.json
+
 # Deployment Section
+pages:
+  stage: deploy
+  tags:
+    - short-jobs
+  environment:
+    name: test-results
+    url: http://in3.git-pages.slock.it/in3-server
+  only:
+    refs:
+      - develop
+  dependencies:
+    - test-parity
+    - test-geth
+    - vulnerability-analysis
+  script:
+    - mkdir -p public/
+    - cp -r test/report/* public/
+    - cp vulnerability_analysis.json public/
+    - echo "<html><body><h1>Incubed report for last develop CI pipeline</h1><ul><li><a href='vulnerability_analysis.json'>Vulnerability Analysis</a></li></ul></body></html>" > public/index.html
+  artifacts:
+    paths:
+      - public
+
 dockerhub-deploy:
   stage: deploy
   when: manual

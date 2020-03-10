@@ -39,7 +39,7 @@ import 'mocha'
 import { serialize, BlockData, util, LogData, } from 'in3-common'
 import { RPCResponse, Proof, IN3Config, RPCRequest } from '../../src/types/types'
 import { TestTransport, getTestClient } from '../utils/transport'
-import { deployChainRegistry, deployContract } from '../../src/util/registry';
+import { deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
 import * as logger from 'in3-common/js/test/util/memoryLogger'
 
@@ -559,7 +559,7 @@ describe('ETH Standard JSON-RPC', () => {
     await client.sendRPC('eth_getCode', [pk1.address, 'latest'], null, { keepIn3: true })
 
     // check deployed code
-    const adr = await deployChainRegistry(pk1, getTestClient())
+    const adr = await deployContract('TestContract', pk1, getTestClient())
     const b = await client.sendRPC('eth_getCode', [adr, 'latest'], null, { keepIn3: true })
     const result = b.result as any as BlockData
     assert.exists(b.in3)
