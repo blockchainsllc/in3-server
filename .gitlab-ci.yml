@@ -302,7 +302,7 @@ register-with-sentry-production:
   variables:
     CHAIN: ipfs
     CHAIN_ID: "0x7d0"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan/archive
+    RPC_ENDPOINT: http://lb.parity-rpc/mainnet/archive
 
 # Stage deployments
 deploy-stage-kovan:
@@ -363,4 +363,4 @@ deploy-production-ipfs:
     - cd deployment
     - rancher -w up -f docker-compose.ipfs.yml -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
   variables:
-    REGISTRY_CONTRACT_ADDR: "0xf0fb87f4757c77ea3416afe87f36acaa0496c7e9"
+    REGISTRY_CONTRACT_ADDR: "0xcB61736dE539aCFA0eE97bC6BbF9108EF906c88C"
