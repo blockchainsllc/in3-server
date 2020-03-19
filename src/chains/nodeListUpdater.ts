@@ -40,7 +40,7 @@ import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig, WhiteList }
 import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
-
+import { setOpError } from '../server/server'
 
 const toHex = util.toHex
 const toBuffer = util.toBuffer
@@ -79,93 +79,97 @@ async function updateContractAdr(handler: RPCHandler, list: ServerList): Promise
 
 /** returns a nodelist filtered by the given params and proof. */
 export async function getNodeList(handler: RPCHandler, nodeList: ServerList, includeProof = false, limit = 0, seed?: string, addresses: string[] = []): Promise<ServerList> {
-  if (process.env.SENTRY_ENABLE === 'true') {
-    Sentry.addBreadcrumb({
-      category: "getNodeList",
-      data: {
-        includeProof: includeProof,
-        limit: limit,
-        seed: seed,
-        addresses: addresses
-      }
-    })
-  }
-
-  // TODO check blocknumber of last event.
-  if (!nodeList.nodes)
-    await updateNodeList(handler, nodeList)
-
-
-  if (!nodeList.registryId || nodeList.registryId === '0x') {
-    await updateContractAdr(handler, nodeList)
-    const registryIdRequest: RPCRequest = {
-      jsonrpc: '2.0',
-      id: 0,
-      method: 'eth_call', params: [{
-        to: nodeList.contract,
-        data: '0x' + abi.simpleEncode('registryId()').toString('hex')
-      },
-        'latest']
-    }
-
+  try{
     if (process.env.SENTRY_ENABLE === 'true') {
-
       Sentry.addBreadcrumb({
-        category: "registryId request",
-        data: registryIdRequest
+        category: "getNodeList",
+        data: {
+          includeProof: includeProof,
+          limit: limit,
+          seed: seed,
+          addresses: addresses
+        }
       })
     }
-    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string).catch(_ => {
+    // TODO check blocknumber of last event.
+    if (!nodeList.nodes)
+      await updateNodeList(handler, nodeList)
 
-      Sentry.configureScope((scope) => {
-        scope.setTag("nodeListUpdater", "registryId");
-        scope.setTag("NodeList-address", nodeList.contract)
-        scope.setExtra("NodeList-response", _)
+
+    if (!nodeList.registryId || nodeList.registryId === '0x') {
+      await updateContractAdr(handler, nodeList)
+      const registryIdRequest: RPCRequest = {
+        jsonrpc: '2.0',
+        id: 0,
+        method: 'eth_call', params: [{
+          to: nodeList.contract,
+          data: '0x' + abi.simpleEncode('registryId()').toString('hex')
+        },
+          'latest']
+      }
+
+      if (process.env.SENTRY_ENABLE === 'true') {
+
+        Sentry.addBreadcrumb({
+          category: "registryId request",
+          data: registryIdRequest
+        })
+      }
+      const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string).catch(_ => {
+
+        Sentry.configureScope((scope) => {
+          scope.setTag("nodeListUpdater", "registryId");
+          scope.setTag("NodeList-address", nodeList.contract)
+          scope.setExtra("NodeList-response", _)
+        });
+        throw new Error(_)
       });
-      throw new Error(_)
-    });
-    if (registryId != undefined) nodeList.registryId = registryId
-  }
-
-  // if the client requires a portion of the list
-  if (limit && limit < nodeList.nodes.length) {
-    const nodes = nodeList.nodes
-
-    // try to find the addresses in the node list
-    const result = addresses.map(adr => nodes.findIndex(_ => _.address === adr))
-    if (result.indexOf(-1) >= 0)// throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist', "getNodeList")
-      throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist')
-    createRandomIndexes(nodes.length, limit, bytes32(seed), result)
-
-    const nl: ServerList = {
-      totalServers: nodeList.totalServers,
-      contract: nodeList.contract,
-      lastBlockNumber: nodeList.lastBlockNumber,
-      nodes: result.map(i => nodeList.nodes[i]),
-      registryId: nodeList.registryId
+      if (registryId != undefined) nodeList.registryId = registryId
     }
 
-    if (includeProof) {
-      const storageProof = nodeList.proof.accounts[nodeList.contract].storageProof
-      nl.proof = {
-        ...nodeList.proof,
-        accounts: {
-          [nodeList.contract]: {
-            ...nodeList.proof.accounts[nodeList.contract],
-            storageProof: getStorageKeys(nl.nodes).map(k => storageProof.find(_ => bytes32(_.key).equals(k)))
+    // if the client requires a portion of the list
+    if (limit && limit < nodeList.nodes.length) {
+      const nodes = nodeList.nodes
+
+      // try to find the addresses in the node list
+      const result = addresses.map(adr => nodes.findIndex(_ => _.address === adr))
+      if (result.indexOf(-1) >= 0)// throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist', "getNodeList")
+        throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist')
+      createRandomIndexes(nodes.length, limit, bytes32(seed), result)
+
+      const nl: ServerList = {
+        totalServers: nodeList.totalServers,
+        contract: nodeList.contract,
+        lastBlockNumber: nodeList.lastBlockNumber,
+        nodes: result.map(i => nodeList.nodes[i]),
+        registryId: nodeList.registryId
+      }
+
+      if (includeProof) {
+        const storageProof = nodeList.proof.accounts[nodeList.contract].storageProof
+        nl.proof = {
+          ...nodeList.proof,
+          accounts: {
+            [nodeList.contract]: {
+              ...nodeList.proof.accounts[nodeList.contract],
+              storageProof: getStorageKeys(nl.nodes).map(k => storageProof.find(_ => bytes32(_.key).equals(k)))
+            }
           }
         }
       }
+
+      return nl
     }
+    
+    // clone result
+    const list: ServerList = { ...nodeList, proof: { ...nodeList.proof } }
+    if (!includeProof) delete list.proof
+    return list
 
-    return nl
+  }catch(e){
+    //sending call to adapter
+    setOpError(e);
   }
-
-  // clone result
-  const list: ServerList = { ...nodeList, proof: { ...nodeList.proof } }
-  if (!includeProof) delete list.proof
-  return list
-
 }
 
 /**
