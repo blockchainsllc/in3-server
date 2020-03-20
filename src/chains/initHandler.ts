@@ -102,17 +102,18 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
 }
 
 export async function checkRegistry(handler: BaseHandler): Promise<any> {
+  checkPrivateKey(handler.config)
+  
   //first checking if server is registered in registry or not
-    const nl = await handler.getNodeList(false);
-    const pk: PK = (handler.config as any)._pk
-    if (pk && !nl.nodes.find(_ => _.address.toLowerCase() === pk.address.toLowerCase()))
-        logger.error("IN3 Server " + pk.address.toLowerCase() + " is not registered in contract " + handler.config.registry + " for chain ID "+handler.chainId);
+  const nl = await handler.getNodeList(false);
+  const pk: PK = (handler.config as any)._pk
+  if (pk && !nl.nodes.find(_ => _.address.toLowerCase() === pk.address.toLowerCase()))
+    logger.error("IN3 Server " + pk.address.toLowerCase() + " is not registered in contract " + handler.config.registry + " for chain ID "+handler.chainId);
 
   //now moving on to normal auto registry checks and functionality
   if (!handler.config.registry || !handler.config.autoRegistry)
     return
 
-  checkPrivateKey(handler.config)
 
   const autoReg = handler.config.autoRegistry
   if (nl.nodes.find(_ => _.url === autoReg.url))
