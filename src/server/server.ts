@@ -183,7 +183,7 @@ router.post(/.*/, async ctx => {
 
   try {
     // check for valid req
-    if ((!ctx.request.body || (typeof (ctx.request.body) === 'object' && !ctx.request.body.method)) && ctx.headers['content-type'] !== 'application/json')
+    if ((!ctx.request.body || (typeof (ctx.request.body) === 'object' && !ctx.request.body.method)) && (!ctx.headers['content-type'] || ctx.headers['content-type'].indexOf('application/json') !== 0))
       throw new Error('Request must contain header "Content-Type:application/json"')
 
     const stats = requests && requests.length && requests[0].in3 ? ((requests[0].in3 as any).stats === false ? false : ((requests[0].in3 as any).noStats ? false : true)) : true
