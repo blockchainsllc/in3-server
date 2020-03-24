@@ -126,15 +126,6 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
     const config = nodes.nodes.find(_ => _.address.toLowerCase() === adr.toLowerCase())
     if (!config) { // TODO do we need to throw here or is it ok to simply not deliver the signature?
 
-      Sentry.configureScope((scope) => {
-
-        scope.setTag("NodeListFunction", "collectSignatures");
-        scope.setTag("collectSignatures", "address not found");
-        scope.setTag("nodeList-contract", nodes.registryId)
-        scope.setExtra("nodes", nodes.nodes)
-        scope.setExtra("requestedBlocks", requestedBlocks)
-      });
-
       throw new Error('The address ' + adr + ' does not exist within the current registered active nodeList! ')
     }
     // get cache signatures and remaining blocks that have no signatures
