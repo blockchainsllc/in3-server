@@ -176,7 +176,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
             scope.setExtra("blocks", blocks)
             scope.setExtra("response", response)
           });
-          Sentry.captureMessage('Could not get the signature')
+          Sentry.captureMessage(response.error)
         }
 
         //sthrow new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
