@@ -40,6 +40,7 @@ import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig, WhiteList }
 import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
+import { setOpError } from '../server/server';
 
 
 const toHex = util.toHex
@@ -378,8 +379,19 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
   })).then(_ => _)
 
-  // create the proof
-  list.proof = await createNodeListProof(handler, list)
+  // create the proof and ensure proof is not null, in case it is always null after multiple attempts then mark server unhealthy
+  let attempt: number = 1
+  let proof: Proof = undefined
+  do{
+    proof = await createNodeListProof(handler, list)
+    attempt++
+  }while(!proof && attempt <= 5)
+
+  if(!proof){
+    setOpError(new Error ("Unable to prepare proof for nodelist."))
+  }
+  list.proof = proof
+  
   logger.info('... finish updating nodelist execTime: ' + (Date.now() - start) + 'ms')
   //    delete (handler as any).isUpdating
   //    isUpdating.forEach(_ => _.res())
