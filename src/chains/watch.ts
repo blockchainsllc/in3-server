@@ -65,6 +65,7 @@ export default class Watcher extends EventEmitter {
   }
 
   _lastBlockTime: number
+  _health: number
 
   _interval: any
   handler: RPCHandler
@@ -106,6 +107,7 @@ export default class Watcher extends EventEmitter {
 
     this.futureConvicts = []
     this._lastBlockTime = 0
+    this._health = 5  //5 is max health
     // regsiter Cancel-Handler for 
     this.on('LogNodeUnregisterRequested', handleUnregister)
 
@@ -201,6 +203,12 @@ export default class Watcher extends EventEmitter {
        this._lastBlockTime != 0 && 
        (performance.now() - this._lastBlockTime) > maxBlockTimeout){
         setOpError(new Error("Watcher error. Last block num is updated in "+(performance.now() - this._lastBlockTime)+" ms. Max allowed time is "+maxBlockTimeout+" ms"))
+        this._health--
+      }
+    
+    if(this._health == 0){
+      setOpError(new Error("Watcher is unhealthy so exiting server. Current block number visible to watcher is: "+currentBlock))
+      process.exit(1)
     }
 
     if (this.block.number == currentBlock) return
