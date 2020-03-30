@@ -47,6 +47,7 @@ import * as tx from '../../src/util/tx'
 import { RPC } from '../../src/server/rpc';
 import * as clientRPC from '../utils/clientRPC'
 import { toHex } from 'in3-common/js/src/util/util'
+import EthHandler from '../../src/modules/eth/EthHandler'
 
 const toNumber = util.toNumber
 const getAddress = util.getAddress
@@ -221,6 +222,93 @@ describe('Features', () => {
     assert.equal(ctx.blockCache.length, 1)
     assert.equal(resp2.in3.proof.signatures.length, 0)
   })
+
+  it('check nodelist finality', async () => {
+    /**
+     * First prepare test environment
+     */
+
+    //create test transport
+    const test = await TestTransport.createWithRegisteredNodes(2)
+    await test.getHandler(0).updateNodeList(undefined)
+
+    //test accounts
+    const pk1 = await test.createAccount('0x01')
+    const pk2 = await test.createAccount('0x02')
+    const pk = await test.createAccount('0x03')
+
+    const watcher: Watcher = test.handlers['#1'].getHandler().watcher
+    await watcher.update()
+    assert.equal((watcher.handler as EthHandler).nodeList.nodes.length, 2)
+
+
+    //sleep function
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    //15 block distance before next node registration
+    let lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber'))
+    let currentBlock = lastChangeBlock
+    while(currentBlock - lastChangeBlock <= 15){
+      // test Tx in new blocks
+      await tx.sendTransaction(test.url, { privateKey: pk1, gas: 22000,to: pk2.address,data: '', value: 10,confirm: true})
+      sleep(200)
+      currentBlock = toNumber(await test.getFromServer('eth_blockNumber')) 
+      assert.isNull(await watcher.update())
+    }
+
+    /**
+     * Test with block height and node list finality
+     */
+    //now set block height to 10
+    test.handlers['#1'].getHandler().config.minBlockHeight = 10
+
+    //register a node
+    await registerNodes(pk, test.registryContract, [{
+      url: '#13',
+      pk,
+      props: '0xfff',
+      deposit: util.toBN('10000000000000000'),
+      timeout: 7200,
+    }], test.chainId, test.url)
+
+    lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber'))
+    //now wait until 10 blocks are mined
+    currentBlock = lastChangeBlock
+
+    while(currentBlock - lastChangeBlock < 9){
+      // test Tx in new blocks
+      await tx.sendTransaction(test.url, { privateKey: pk1, gas: 22000,to: pk2.address,data: '', value: 10,confirm: true})
+      sleep(200)
+
+      currentBlock = toNumber(await test.getFromServer('eth_blockNumber'))
+      //no new node should be detected as we have not reached block height
+      assert.equal((watcher.handler as EthHandler).nodeList.nodes.length, 2)
+      //the watcher should not detect new node as it will after 10 blocks so it should return null
+      assert.isNull(await watcher.update())
+    }
+
+    let logs = undefined
+    while(!logs){
+      // test Tx in new blocks
+      await tx.sendTransaction(test.url, { privateKey: pk1, gas: 22000,to: pk2.address,data: '', value: 10,confirm: true})
+      sleep(200)
+      logs = await watcher.update()
+      currentBlock = toNumber(await test.getFromServer('eth_blockNumber'))
+    }
+
+    assert.equal(logs.length, 1)
+    assert.equal(logs[0].event, 'LogNodeRegistered')
+    assert.equal(logs[0].url, '#13')
+    assert.equal(logs[0].props, 0xfff)
+    assert.equal(logs[0].signer, pk.address)
+
+    //now we should have 3 nodes
+    assert.equal((watcher.handler as EthHandler).nodeList.nodes.length, 3)
+
+    assert.equal((watcher.handler as EthHandler).nodeList.lastBlockNumber , lastChangeBlock)
+    assert.equal(currentBlock-lastChangeBlock,10)
+
+  }).timeout(100000)
 
 })
 
