@@ -69,7 +69,7 @@ export async function callContract(url: string, contract: string, signature: str
   data?: string
   value: any
   confirm?: boolean
-}, transport?: Transport) {
+}, transport?: Transport, blockNumber?: number) {
   if (!transport) transport = new AxiosTransport()
   const data = '0x' + encodeFunction(signature, args)
 
@@ -103,7 +103,7 @@ export async function callContract(url: string, contract: string, signature: str
       to: contract,
       data
     },
-      'latest']
+      (blockNumber? toHex(blockNumber) : 'latest' ) ]
   }).then((_: RPCResponse) => _.error
     ? Promise.reject(new Error('Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
     : _.result + ''
