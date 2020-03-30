@@ -198,7 +198,10 @@ export default class Watcher extends EventEmitter {
       method: 'eth_getBlockByNumber', params: [toMinHex(currentBlock), false]
     },
     ... (nodeList && nodeList.contract ? [{
-      method: 'eth_getLogs', params: [{ fromBlock: toMinHex(this.block.number + 1), toBlock: toMinHex(currentBlock), address: this.handler.config.registry }]
+      method: 'eth_getLogs', params: [
+        { fromBlock: toMinHex( this.handler.config.minBlockHeight ?  ((this.block.number + 1) - this.handler.config.minBlockHeight) : (this.block.number + 1)), 
+          toBlock: toMinHex( this.handler.config.minBlockHeight ?  (currentBlock - this.handler.config.minBlockHeight) : currentBlock), 
+          address: this.handler.config.registry }]
     }] : [])
     ])
 
