@@ -308,7 +308,7 @@ describe('Features', () => {
     assert.equal((watcher.handler as EthHandler).nodeList.lastBlockNumber , lastChangeBlock)
     assert.equal(currentBlock-lastChangeBlock,10)
 
-  }).timeout(100000)
+  }).timeout(5000)
 
 })
 
