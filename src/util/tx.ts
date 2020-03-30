@@ -42,6 +42,7 @@ import * as ETx from 'ethereumjs-tx'
 import { SentryError } from '../util/sentryError'
 import { AbiCoder } from '@ethersproject/abi'
 import { PK } from '../chains/signatures'
+import { toMinHex } from 'in3-common/js/src/util/util';
 const BN = require('bn.js')
 
 const toHex = util.toHex
@@ -103,7 +104,7 @@ export async function callContract(url: string, contract: string, signature: str
       to: contract,
       data
     },
-      (blockNumber? toHex(blockNumber) : 'latest' ) ]
+      (blockNumber? toMinHex(blockNumber) : 'latest' ) ]
   }).then((_: RPCResponse) => _.error
     ? Promise.reject(new Error('Could not call ' + contract + ' with ' + signature + ' params=' + JSON.stringify(args) + ':' + _.error)) as any
     : _.result + ''
