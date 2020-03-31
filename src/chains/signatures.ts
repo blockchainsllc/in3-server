@@ -314,6 +314,35 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
   if (tooYoungBlock)
     throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
 
+  //if secondary ethereum node URL is provided, check for high consistency and RPC data integraity
+  if(handler.config.secondaryRpcUrl){
+    const scndryBlockData = await handler.getAllFromServer([
+      ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })),
+      { method: 'eth_blockNumber', params: [] },
+    ], request, true).then(a => a.map(_ => _.result as BlockData))
+    const scndryBlockNumber = scndryBlockData.pop() as any as string
+
+    if (!scndryBlockNumber) throw new Error('no current blocknumber detectable ')
+    if (scndryBlockData.find(_ => !_)) throw new Error('requested block could not be found ')
+
+    var mapBlockData = scndryBlockData.reduce(function(map, bl) {
+      map[bl.number] = bl.hash;
+      return map;
+    }, {});
+
+    blockData.map(b => {
+      if(!mapBlockData[b.number])
+        throw new Error("Block number "+b.number+" not found on secondary RPC, cannot sign.")
+
+      if(mapBlockData[b.number]!=b.hash)
+        throw new Error("Invalid block hash detected, cannot sign. block#: "+b.number+" primary RPC block hash: "+b.hash+" secondary RPC blockhash: "+mapBlockData[b.number])
+    })
+  }
+
+
+  if (!blockNumber) throw new Error('no current blocknumber detectable ')
+  if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
+
   return {
     id: request.id,
     jsonrpc: request.jsonrpc,
