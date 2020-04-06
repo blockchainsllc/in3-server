@@ -317,8 +317,8 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
   }
 
-  const latestBlockNum = parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
-  const finalityBlockNum = (handler.config.minBlockHeight ? (latestBlockNum - handler.config.minBlockHeight ) : undefined)
+  const latestBlockNum = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result as string))
+  const finalityBlockNum = handler.config.minBlockHeight ? (latestBlockNum - handler.config.minBlockHeight ) : latestBlockNum
   // number of registered servers
   const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [],undefined,undefined,finalityBlockNum)
 
