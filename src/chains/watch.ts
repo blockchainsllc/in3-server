@@ -194,11 +194,15 @@ export default class Watcher extends EventEmitter {
 
     this.emit('newBlock', currentBlock)
 
+    const fromBlockNum: number = (this.block.number + 1) - this.handler.config.minBlockHeight
     const [blockResponse, logResponse] = await this.handler.getAllFromServer([{
       method: 'eth_getBlockByNumber', params: [toMinHex(currentBlock), false]
     },
     ... (nodeList && nodeList.contract ? [{
-      method: 'eth_getLogs', params: [{ fromBlock: toMinHex(this.block.number + 1), toBlock: toMinHex(currentBlock), address: this.handler.config.registry }]
+      method: 'eth_getLogs', params: [
+        { fromBlock: toMinHex( this.handler.config.minBlockHeight ?  (this.block.number < 0 ? 0 : fromBlockNum) : (this.block.number + 1)), 
+          toBlock: toMinHex( this.handler.config.minBlockHeight ?  (currentBlock - this.handler.config.minBlockHeight) : currentBlock), 
+          address: this.handler.config.registry }]
     }] : [])
     ])
 
@@ -206,7 +210,7 @@ export default class Watcher extends EventEmitter {
     if (!blockResponse.result) throw new Error('No block found for currentBlock=´' + currentBlock + ' maybe this block is still too young, but this should no happen too often.')
 
     if (logResponse) {
-      if (logResponse.error) throw new Error('Error getting the logs : ' + logResponse.error)
+      if (logResponse.error) throw new Error('Error getting the logs : ' + JSON.stringify(logResponse.error))
 
       const logs = logResponse.result as LogData[]
       if (logs.length) {
