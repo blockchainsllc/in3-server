@@ -79,13 +79,15 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async getBlock(hash: string, json: boolean = true, finality: number = 0, r: any) {
-    const block = await this.getFromServer({ method: "getblock", params: [hash, json === undefined ? true : false] }, r).then(asResult)
+    if (json === undefined) json = true
+    const block = await this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult)
     const proof: any = {}
     if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
     return { result: block, in3: { proof } }
   }
 
   async getBlockHeader(hash: string, json: boolean = true, finality: number = 0, r: any) {
+    if (json === undefined) json = true
     const block = await this.getFromServer({ method: "getblockheader", params: [hash, json] }, r).then(asResult)
     const proof: any = {}
     if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
@@ -93,6 +95,7 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async getTransaction(hash: string, json: boolean = true, finality: number = 0, r: any) {
+    if (json === undefined) json = true
     const tx = await this.getFromServer({ method: "getrawtransaction", params: [hash, true] }, r).then(asResult)
     if (!tx) throw new Error("Transaction not found")
     const [block, header] = await this.getAllFromServer([{ method: "getblock", params: [tx.blockhash, true] }, { method: "getblockheader", params: [tx.blockhash, false] }], r).then(a => a.map(asResult))
