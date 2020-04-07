@@ -79,7 +79,7 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async getBlock(hash: string, json: boolean = true, finality: number = 0, r: any) {
-    const block = await this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult)
+    const block = await this.getFromServer({ method: "getblock", params: [hash, json === undefined ? true : false] }, r).then(asResult)
     const proof: any = {}
     if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
     return { result: block, in3: { proof } }
