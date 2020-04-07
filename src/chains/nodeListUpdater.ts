@@ -383,7 +383,10 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   let attempt: number = 1
   let proof: Proof = undefined
   do{
-    proof = await createNodeListProof(handler, list)
+    proof = await createNodeListProof(handler, list).catch(err=>{
+        logger.error('... no proof created : attempt '+attempt+ ':'+err.message)
+        return undefined
+    })
     attempt++
   }while(!proof && attempt <= 5)
 
