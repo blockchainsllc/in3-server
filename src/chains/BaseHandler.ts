@@ -114,11 +114,6 @@ export default abstract class BaseHandler implements RPCHandler {
     return checkRegistry(this)
   }
 
-  getAxiosConfig(): any {
-    return { headers: { 'Content-Type': 'application/json' } }
-  }
-
-
 
   /** returns the result directly from the server */
   getFromServer(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse> {
