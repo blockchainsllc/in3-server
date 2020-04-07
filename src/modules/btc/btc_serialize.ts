@@ -45,9 +45,9 @@ export interface BTCBlock {
 export function btcHash(data: Buffer) {
     return crypto.createHash('sha256').update(crypto.createHash('sha256').update(data).digest()).digest()
 }
+
 export function copyReverse(dst: Buffer, src: Buffer, dstOffset: number = 0) {
-    for (let i = 0; i < src.length; i++)
-        dst[src.length - i - 1 + dstOffset] = src[i]
+    for (let i = 0; i < src.length; i++) dst[src.length - i - 1 + dstOffset] = src[i]
 }
 
 export function serialize_blockheader(block: BTCBlock): Buffer {

@@ -26,12 +26,9 @@ import { createMerkleProof } from './btc_merkle'
 
 
 /**
- * handles EVM-Calls
+ * handles BTC-Proofs
  */
 export default class BTCHandler extends BaseHandler {
-
-
-
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     super(config, transport, nodeList)
@@ -64,23 +61,21 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async getFinalityBlocks(blockNumber: number, finality: number, r?: any): Promise<string> {
-    if (finality) {
-      const bn = []
-      for (let n = blockNumber + 1; n <= blockNumber + finality; n++)
-        bn.push({
-          method: 'getblockhash',
-          params: [n]
-        })
-      const hashes = await this.getAllFromServer(bn, r)
-      let er = hashes.find(_ => _.error)
-      if (er) throw new Error('Error getting the finality block hashes: ' + er)
-      const blocks = await this.getAllFromServer(hashes.map(_ => ({ method: 'getblockheader', params: [_.result, false] })), r)
-      er = blocks.find(_ => _.error)
-      if (er) throw new Error('Error getting the finality blocks: ' + er)
-      return '0x' + blocks.map(_ => _.result).join('')
-    }
-    return null
+    if (!finality) return null
 
+    // we need to determine, what are the blockhashes of the next blocks.
+    const bn = []
+    for (let n = blockNumber + 1; n <= blockNumber + finality; n++)
+      bn.push({ method: 'getblockhash', params: [n] })
+
+    // get all the hashes from the node
+    const hashes = await this.getAllFromServer(bn, r).then(_ => _.map(asResult))
+
+    // now we get the headers for those blocks
+    const blocks = await this.getAllFromServer(hashes.map(_ => ({ method: 'getblockheader', params: [_, false] })), r).then(_ => _.map(asResult))
+
+    // now we simply concate all headers
+    return '0x' + blocks.join('')
   }
 
   async getBlock(hash: string, json: boolean = true, finality: number = 0, r: any) {
@@ -89,6 +84,7 @@ export default class BTCHandler extends BaseHandler {
     if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
     return { result: block, in3: { proof } }
   }
+
   async getBlockHeader(hash: string, json: boolean = true, finality: number = 0, r: any) {
     const block = await this.getFromServer({ method: "getblockheader", params: [hash, json] }, r).then(asResult)
     const proof: any = {}
