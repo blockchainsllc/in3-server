@@ -116,8 +116,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
 
   /** returns the result directly from the server */
-  getFromServer(request: Partial<RPCRequest>, r?: any): Promise<RPCResponse> {
-
+  getFromServer(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse> {
     const startTime = Date.now()
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
@@ -136,9 +135,7 @@ export default abstract class BaseHandler implements RPCHandler {
       ip = r.ip;
     }
 
-
-
-    return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
+    return axios.post(rpc || this.config.rpcUrl, this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
 
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       if (process.env.SENTRY_ENABLE === 'true') {
@@ -175,7 +172,7 @@ export default abstract class BaseHandler implements RPCHandler {
   }
 
   /** returns a array of requests from the server */
-  getAllFromServer(request: Partial<RPCRequest>[], r?: any): Promise<RPCResponse[]> {
+  getAllFromServer(request: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]> {
 
     const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
     let ip = "0.0.0.0"
@@ -185,7 +182,7 @@ export default abstract class BaseHandler implements RPCHandler {
     }
     const startTime = Date.now()
     return request.length
-      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers }).then(_ => _.data, err => {
+      ? axios.post(rpc || this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers }).then(_ => _.data, err => {
         logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
 
         histRequestTime.labels("bulk", "error", "bulk").observe(Date.now() - startTime);

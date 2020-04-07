@@ -227,11 +227,20 @@ export class TestTransport implements Transport {
   }
 
   async createClient(conf?: Partial<IN3Config>): Promise<Client> {
+    const cache = {}
     const client = new Client({
       keepIn3: true,
       chainId: this.chainId,
       timeout: 9999999,
       loggerUrl: '',
+      cacheStorage: {
+        setItem(k: string, v: string) {
+          cache[k] = v
+        },
+        getItem(k: string) {
+          return cache[k]
+        }
+      },
       servers: {
         [this.chainId]: {
           contract: this.nodeList.contract || 'dummy',
