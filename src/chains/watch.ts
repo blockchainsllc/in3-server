@@ -163,7 +163,7 @@ export default class Watcher extends EventEmitter {
         this.running = false
     }
     if (!this._lastBlock || this.block.number < 0)
-      this.handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['latest', false] })
+      this.handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['latest', false] }, undefined, this.handler.config.registryRPC)
         .then(_ => {
           if (_.error) throw new Error((_.error as any).message || _.error)
           if (!_.result || !_.result.hash) throw new Error('Missing hash when fetching inital block')
@@ -200,9 +200,11 @@ export default class Watcher extends EventEmitter {
     },
     ... (nodeList && nodeList.contract ? [{
       method: 'eth_getLogs', params: [
-        { fromBlock: toMinHex( this.handler.config.minBlockHeight ?  (this.block.number < 0 ? 0 : fromBlockNum) : (this.block.number + 1)), 
-          toBlock: toMinHex( this.handler.config.minBlockHeight ?  (currentBlock - this.handler.config.minBlockHeight) : currentBlock), 
-          address: this.handler.config.registry }]
+        {
+          fromBlock: toMinHex(this.handler.config.minBlockHeight ? (this.block.number < 0 ? 0 : fromBlockNum) : (this.block.number + 1)),
+          toBlock: toMinHex(this.handler.config.minBlockHeight ? (currentBlock - this.handler.config.minBlockHeight) : currentBlock),
+          address: this.handler.config.registry
+        }]
     }] : [])
     ], undefined, this.handler.config.registryRPC)
 
