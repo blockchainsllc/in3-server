@@ -318,10 +318,12 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
   }
 
+  const latestBlockNum = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result as string))
+  const finalityBlockNum = handler.config.minBlockHeight ? (latestBlockNum - handler.config.minBlockHeight ) : latestBlockNum
   // number of registered servers
-  const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [])
+  const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [],undefined,undefined,finalityBlockNum)
 
-  list.lastBlockNumber = lastBlockNumber || parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
+  list.lastBlockNumber = (finalityBlockNum ? finalityBlockNum : latestBlockNum)
   list.totalServers = serverCount.toNumber()
 
   // build the requests per server-entry
@@ -334,7 +336,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
         to: list.contract,
         data: '0x' + abi.simpleEncode('nodes(uint)', toHex(i, 32)).toString('hex')
       },
-        'latest']
+        (finalityBlockNum ? toHex(finalityBlockNum) : 'latest')]
     })
 
   list.nodes = await handler.getAllFromServer(nodeRequests).then(all => all.map((n, i) => {
