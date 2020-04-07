@@ -70,11 +70,13 @@ test-geth:
   script:
     - sh /prepare.sh
     - npm install
-    - npm run testCoverage
+    - npm run testReport
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
       - test/report
+    reports:
+      junit: mocha.xml
 
 test-nethermind:
   stage: test
@@ -95,11 +97,13 @@ test-nethermind:
   script:
     - sh /prepare.sh
     - npm install
-    - npm run testCoverage
+    - npm run testReport
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
       - test/report
+    reports:
+      junit: mocha.xml
 
 test-geth:
   stage: test
@@ -119,11 +123,13 @@ test-geth:
   script:
     - sh /prepare.sh
     - npm install
-    - npm run testCoverage
+    - npm run testReport
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
       - test/report
+    reports:
+      junit: mocha.xml
 
 package-docker:
   stage: package
