@@ -1,35 +1,59 @@
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
+const Sentry = require('@sentry/node');
 
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
 
 import { Transport, AxiosTransport, util } from 'in3-common'
-import { RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
+import { WhiteList, RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
-import { getStats, currentHour } from './stats'
+import { getStats, currentHour, schedulePrometheus } from './stats'
 
 import BTCHandler from '../modules/btc/BTCHandler'
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
 import { SentryError } from '../util/sentryError'
+import { in3ProtocolVersion } from '../types/constants'
+import { getSafeMinBlockHeight } from './config'
+import { verifyRequest } from '../types/verify'
+import * as logger from '../util/logger'
+import WhiteListManager from '../chains/whiteListManager';
 
+export { submitRequestTime } from './stats'
+
+const in3ProtocolVersionA = in3ProtocolVersion.split('.').map(_ => parseInt(_))
 
 export class RPC {
   conf: IN3RPCConfig
@@ -42,9 +66,12 @@ export class RPC {
     this.initHandlers(conf, transport, nodeList)
 
     this.conf = conf
+
+    // Start pushing to the prometheus gateway every 10 seconds if noStats is false
+    schedulePrometheus(this.conf)
   }
 
-  private initHandlers(conf, transport, nodeList) {
+  private initHandlers(conf: IN3RPCConfig, transport, nodeList) {
     for (const c of Object.keys(conf.chains)) {
       let h: RPCHandler
       const rpcConf = conf.chains[c]
@@ -66,22 +93,53 @@ export class RPC {
       this.handlers[h.chainId = util.toMinHex(c)] = h
       if (!conf.defaultChain)
         conf.defaultChain = h.chainId
+      if (rpcConf.minBlockHeight !== undefined && rpcConf.minBlockHeight < getSafeMinBlockHeight(h.chainId))
+        logger.error('Warning: You have configured a minBlockHeight of ' + rpcConf.minBlockHeight + ' which has a high risc of signing a wrong blockhash in case of an reorg. ' + getSafeMinBlockHeight(h.chainId) + ' should be a safe value!')
     }
   }
 
   async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
+
+      // verify request
+      try {
+        verifyRequest(r)
+      }
+      catch (ex) {
+        return { id: r.id, error: { code: -32600, message: ex.message }, jsonrpc: '2.0' } as any
+      }
+
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
       const handler = this.handlers[in3Request.chainId = util.toMinHex(in3Request.chainId || this.conf.defaultChain)]
       const in3: IN3ResponseConfig = {} as any
       const start = Date.now()
 
       if (!handler)
-        throw new Error("Unable to connect Ethereum and/or invalid chainId give.")
+        throw new Error("Unable to connect Ethereum and/or invalid chainId given.")
 
-      // update stats
-      currentHour.update(r)
-
+      //check if requested in3 protocol version is same as server is serving
+      if (in3Request.version) {
+        //
+        const v = in3Request.version.split('.').map(_ => parseInt(_))
+        if (v.length != 3 || v[0] != in3ProtocolVersionA[0] || v[1] < in3ProtocolVersionA[1]) {
+          return {
+            id: r.id,
+            error: {
+              message: "Unable to serve request for protocol level " + in3Request.version + " currently Server is at IN3 Protocol Version " + in3ProtocolVersion,
+              code: -32600
+            },
+            jsonrpc: r.jsonrpc,
+            in3: {
+              ...in3,
+              execTime: Date.now() - start,
+              rpcTime: (r as any).rpcTime || 0,
+              rpcCount: (r as any).rpcCount || 0,
+              currentBlock: handler.watcher && handler.watcher.block && handler.watcher.block.number,
+              version: in3ProtocolVersion
+            }
+          } as any as RPCResponse
+        }
+      }
 
       if (r.method === 'in3_nodeList')
         return manageRequest(handler, Promise.all([handler.getNodeList(
@@ -89,7 +147,7 @@ export class RPC {
           r.params[0] || 0,
           r.params[1],
           r.params[2] || [],
-          in3Request.signatures,
+          in3Request.signers || in3Request.signatures,
           in3Request.verifiedHashes
         ),
         getValidatorHistory(handler)]).then(async ([result, validators]) => {
@@ -105,10 +163,48 @@ export class RPC {
             res.in3.proof = proof
           }
           return res as RPCResponse
-        }))
+        }), r)
 
-      else if (r.method === 'in3_validatorlist')
-        return manageRequest(handler, getValidatorHistory(handler)).then(async (result) => {
+      else if (r.method === 'in3_whiteList')
+        return manageRequest(
+
+          handler,
+
+          Promise.all(
+            [handler.getWhiteList(
+              in3Request.verification && in3Request.verification.startsWith('proof'),
+              r.params[0],
+              in3Request.signers || in3Request.signatures,
+              in3Request.verifiedHashes),
+
+            getValidatorHistory(handler)])
+
+            .then(async ([result, validators]) => {
+              const res = {
+                id: r.id,
+                result: result as any,
+                jsonrpc: r.jsonrpc,
+                in3: { ...in3, execTime: Date.now() - start, lastValidatorChange: validators.lastValidatorChange } as IN3ResponseConfig
+              }
+              const proof = res.result.proof
+              if (proof) {
+                delete res.result.proof
+                res.in3.proof = proof
+              }
+
+              if (r.params[0])
+                await handler.whiteListMgr.addWhiteListWatch(r.params[0])
+
+              if (handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) && handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0]) != -1)
+                res.in3.lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.params[0])
+
+              return res as RPCResponse
+            }
+            )
+        )
+
+      else if (r.method === 'in3_validatorList' || r.method === 'in3_validatorlist') // 'in3_validatorlist' is only supported for legacy, but deprecated
+        return manageRequest(handler, getValidatorHistory(handler), r).then(async (result) => {
 
           const startIndex: number = (r.params && r.params.length > 0) ? util.toNumber(r.params[0]) : 0
           const limit: number = (r.params && r.params.length > 1) ? util.toNumber(r.params[1]) : 0
@@ -126,6 +222,7 @@ export class RPC {
 
       else if (r.method === 'in3_stats') {
         const p = this.conf.profile || {}
+        updateStats(r)
         return {
           id: r.id,
           jsonrpc: r.jsonrpc,
@@ -144,11 +241,21 @@ export class RPC {
           (in3 as any).rpcTime = (r as any).rpcTime || 0;
           (in3 as any).rpcCount = (r as any).rpcCount || 0;
           (in3 as any).currentBlock = handler.watcher && handler.watcher.block && handler.watcher.block.number;
+          (in3 as any).version = in3ProtocolVersion;
+
+          if (r.in3 && r.in3.whiteList && handler.watcher && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) != -1)
+            (in3 as any).lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList)
           return _
         })
       ])
-        .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })))
-    }))
+        .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })), r)
+    })).catch(e => {
+      Sentry.configureScope((scope) => {
+        scope.setExtra("request", request)
+      })
+      throw new Error(e)
+
+    })
   }
 
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest {
@@ -174,19 +281,50 @@ export class RPC {
   getHandler(chainId?: string) {
     return this.handlers[util.toMinHex(chainId || this.conf.defaultChain)]
   }
-
 }
 
-function manageRequest<T>(handler: RPCHandler, p: Promise<T>): Promise<T> {
+function manageRequest<T>(handler: RPCHandler, p: Promise<T>, req?: RPCRequest): Promise<T> {
   handler.openRequests++
+
   return p.then((r: T) => {
     handler.openRequests--
+
+    // Update stats
+    if (req) updateStats(req, (r as unknown as RPCResponse))
+
     return r
   }, err => {
     handler.openRequests--
-    throw err
+    if (req) updateStats(req, null)
+    if (process.env.SENTRY_ENABLE === 'true')
+      Sentry.configureScope(function (scope) {
+        scope.setExtra("user_req", req);
+        scope.setExtra("err_stack", err && err.stack);
+        scope.setExtra("openRequests", handler.openRequests);
+      })
+
+    throw new SentryError(err, "manageRequest", "error handling request")
   })
 }
+
+/**
+ * Updates the stats
+ * @param r 
+ * @param resp 
+ */
+function updateStats(r: RPCRequest, resp?: RPCResponse) {
+  let proof = false
+  let sig = false
+  if (resp && resp.in3) {
+    if (resp.in3.proof) {
+      proof = true
+      if (resp.in3.proof.signatures
+        && resp.in3.proof.signatures.length !== 0) sig = true
+    }
+  }
+  currentHour.update(r, proof, sig, !resp || !!resp.error)
+}
+
 
 export interface RPCHandler {
   openRequests: number
@@ -199,8 +337,10 @@ export interface RPCHandler {
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
   checkRegistry(): Promise<any>
+  getWhiteList(includeProof: boolean, whiteListContract: string, signers?: string[], verifiedHashes?: string[]): Promise<WhiteList>
   config: IN3RPCHandlerConfig
   watcher?: Watcher
+  whiteListMgr?: WhiteListManager
 }
 
 /**
@@ -221,10 +361,11 @@ export class HandlerTransport extends AxiosTransport {
     if (url === this.handler.config.rpcUrl) return this.handler.getAllFromServer(requests).then(_ => Array.isArray(data) ? _ : _[0])
 
     // add cbor-config
-    const conf = { headers: { 'Content-Type': 'application/json' } }
+    const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
+    const conf = { headers }
     // execute request
     try {
-      const res = await axios.post(url, requests, { headers: { 'Content-Type': 'application/json' } })
+      const res = await axios.post(url, requests, conf)
 
       // throw if the status is an error
       if (res.status > 200) throw new SentryError('Invalid status', 'status_error', res.status.toString())
@@ -232,7 +373,17 @@ export class HandlerTransport extends AxiosTransport {
       // if this was not given as array, we need to convert it back to a single object
       return Array.isArray(data) ? res.data : res.data[0]
     } catch (err) {
-      throw new SentryError(err, 'status_error', 'Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
+
+      if (process.env.SENTRY_ENABLE === 'true') {
+        Sentry.configureScope((scope) => {
+          scope.setTag("rpc", "handle");
+          scope.setTag("status_error", "invalid response");
+          scope.setExtra("url", url)
+          scope.setExtra("data", data)
+        });
+        Sentry.captureException(err);
+      }
+      throw new SentryError(err, 'status_error', 'Invalid response')
     }
   }
 

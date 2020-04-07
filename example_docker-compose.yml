@@ -1,26 +1,55 @@
-version: '2'
-services:
-  incubed-server:
-    image: slockit/in3-server:0.1
-    volumes:
-    - $PWD/keys:/secure                                     # directory where the private key is stored 
-    ports:
-    - 8500:8500/tcp                                         # open the port 8500 to be accessed by public
-    command:
-    - --privateKey=/secure/myKey.json                       # internal path to the key
-    - --privateKeyPassphrase=dummy                          # passphrase to unlock the key
-    - --chain=0x2a                                          # chain (kovan)
-    - --rpcUrl=http://incubed-parity:8545                   # url of the kovan-client
-    - --registry=0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e # url of the incubed-registry 
-    - --autoRegistry-url=http://in3.server:8500             # check or register this node for this url
-    - --autoRegistry-deposit=2                              # deposit to use when registering
-
-  incubed-parity:
-    image: slockit/parity-in3:v1.11.7                       # parity-image with the getProof-function implemented
-    command:
-    - --auto-update=none                                    # do not automaticly update the client
-    - --pruning=archive 
-    - --pruning-memory=30000                                # limit storage
-    - --testnet                                             # kovan
-
-
+version: '2.1' 
+services: 
+ 
+    incubed-server: 
+        depends_on: 
+            incubed-parity: 
+                condition : service_healthy 
+        image: slockit/in3-node:latest 
+        volumes: 
+        - ./:/secure                                                          # directory where the private key is stored 
+        ports: 
+        - 8500:8500/tcp                                                       # open the port 8500 to be accessed by the public 
+        command: 
+        - --privateKey=/secure/MYKEYFILE.json                                 # internal path to the key 
+        - --privateKeyPassphrase=PASSWD                                       # passphrase to unlock the key 
+        - --chain=0x2a                                                        # chain 
+        - --rpcUrl=http://172.15.0.3:8545                                     # URL of the eth client 
+        - --registry=0x33f55122c21cc87b539e7003f7ab16229bc3af69               #Incubed Registry contract address 
+        - --logging-level=Error
+        - --minBlockHeight=6
+        networks: 
+            incubed_net: 
+               ipv4_address: '172.15.0.2' 
+ 
+    incubed-parity:  
+        image:  parity/parity:stable                                 
+        command:  
+        - --auto-update=none                                                  # do not automatically update the client 
+        - --pruning=auto 
+        - --pruning-memory=30000                                              # limit storage 
+        - --chain=kovan 
+        - --jsonrpc-interface=172.15.0.3 
+        - --jsonrpc-port=8545 
+        - --ws-interface=172.15.0.3 
+        - --ws-port=8546 
+        - --jsonrpc-experimental 
+        ports: 
+        - 8545:8545 
+        - 8546:8546 
+        healthcheck: 
+            test: ["CMD-SHELL", "curl --data '{\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1,\"jsonrpc\":\"2.0\"}' -H 'Content-Type: application/json' -X POST http://172.15.0.3:8545"] 
+            interval: 10s 
+            timeout: 10s 
+            retries: 5 
+        networks: 
+            incubed_net: 
+                ipv4_address: '172.15.0.3' 
+  
+networks: 
+    incubed_net: 
+        driver: bridge 
+        ipam: 
+            driver: default 
+            config: 
+            - subnet: 172.15.0.0/16 

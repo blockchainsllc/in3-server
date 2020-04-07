@@ -1,26 +1,42 @@
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
+const Sentry = require('@sentry/node');
 
 import { RPCHandler, HandlerTransport } from '../server/rpc'
 import * as tx from '../util/tx'
 import { createRandomIndexes, Transport, BlockData, util, storage, serialize } from 'in3-common'
-import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig } from '../types/types'
+import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig, WhiteList } from '../types/types'
 import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
@@ -30,8 +46,50 @@ const toHex = util.toHex
 const toBuffer = util.toBuffer
 const bytes32 = serialize.bytes32
 
+async function updateContractAdr(handler: RPCHandler, list: ServerList): Promise<boolean> {
+  const nodeRegistryData: RPCRequest = {
+    jsonrpc: '2.0',
+    id: 0,
+    method: 'eth_call', params: [{
+      to: handler.config.registry,
+      data: '0x' + abi.simpleEncode('nodeRegistryData()').toString('hex')
+    },
+      'latest']
+  }
+
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "nodeRegistryData request",
+      data: nodeRegistryData
+    })
+  }
+
+  let contractVersion2: boolean = false
+
+  // we try to read the registryData-contract. If there is none, this is an old contract and we use the registry, but if there is, we use the data contract.
+  list.contract = await handler.getFromServer(nodeRegistryData).then(_ => {
+    const r = _.result as string
+    if (r === '0x' || _.error) return handler.config.registry // the error occurs on parity because the method does not exist.
+    contractVersion2 = true
+    return '0x' + r.substr(r.length - 40)
+  })
+
+  return contractVersion2
+}
+
 /** returns a nodelist filtered by the given params and proof. */
 export async function getNodeList(handler: RPCHandler, nodeList: ServerList, includeProof = false, limit = 0, seed?: string, addresses: string[] = []): Promise<ServerList> {
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "getNodeList",
+      data: {
+        includeProof: includeProof,
+        limit: limit,
+        seed: seed,
+        addresses: addresses
+      }
+    })
+  }
 
   // TODO check blocknumber of last event.
   if (!nodeList.nodes)
@@ -39,6 +97,7 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
 
 
   if (!nodeList.registryId || nodeList.registryId === '0x') {
+    await updateContractAdr(handler, nodeList)
     const registryIdRequest: RPCRequest = {
       jsonrpc: '2.0',
       id: 0,
@@ -49,8 +108,22 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
         'latest']
     }
 
+    if (process.env.SENTRY_ENABLE === 'true') {
 
-    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string);
+      Sentry.addBreadcrumb({
+        category: "registryId request",
+        data: registryIdRequest
+      })
+    }
+    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string).catch(_ => {
+
+      Sentry.configureScope((scope) => {
+        scope.setTag("nodeListUpdater", "registryId");
+        scope.setTag("NodeList-address", nodeList.contract)
+        scope.setExtra("NodeList-response", _)
+      });
+      throw new Error(_)
+    });
     if (registryId != undefined) nodeList.registryId = registryId
   }
 
@@ -60,8 +133,8 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
 
     // try to find the addresses in the node list
     const result = addresses.map(adr => nodes.findIndex(_ => _.address === adr))
-    if (result.indexOf(-1) >= 0) throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist')
-
+    if (result.indexOf(-1) >= 0)// throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist', "getNodeList")
+      throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist')
     createRandomIndexes(nodes.length, limit, bytes32(seed), result)
 
     const nl: ServerList = {
@@ -101,11 +174,11 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
  */
 export function getStorageKeys(list: IN3NodeConfig[]) {
   // create the keys with the serverCount
-  const keys: Buffer[] = [storage.getStorageArrayKey(0)]
-
-  keys.push(storage.getStorageArrayKey(1))
-  for (const n of list) {
-
+  const keys: Buffer[] = [
+    storage.getStorageArrayKey(0),
+    storage.getStorageArrayKey(1)
+  ]
+  for (const n of list.filter(_ => _)) {
     keys.push(storage.getStorageArrayKey(0, n.index, 5, 4))
   }
   return keys
@@ -116,28 +189,62 @@ export function getStorageKeys(list: IN3NodeConfig[]) {
  * @param handler creates the proof for the storage of the registry
  * @param nodeList 
  */
-export async function createNodeListProof(handler: RPCHandler, nodeList: ServerList) {
+export async function createNodeListProof(handler: RPCHandler, nodeList: ServerList | WhiteList, paramKeys?: string[], paramBlockNr?: number) {
 
-  // create the keys with the serverCount
-  const keys: Buffer[] = getStorageKeys(nodeList.nodes)
+  let keys: Buffer[] = []
+  if (!paramKeys)
+    // create the keys with the serverCount
+    keys = getStorageKeys((nodeList as ServerList).nodes)
 
   // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
   const address = nodeList.contract
-  const lastBlock = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, handler.config.registryRPC).then(_ => parseInt(_.result))
-  const blockNr = lastBlock ? '0x' + Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0)).toString(16) : 'latest'
+  const lastBlock = paramBlockNr ? 0 : (await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result))) //no need to see last block if paramBlockNr is alreay provided in params
+  const blockNr = paramBlockNr ? toHex(paramBlockNr) : (lastBlock ? toHex(Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0))) : 'latest')
   let req: any = ''
 
   // read the response,blockheader and trace from server
   const [blockResponse, proof] = await handler.getAllFromServer(req = [
     { method: 'eth_getBlockByNumber', params: [blockNr, false] },
-    { method: 'eth_getProof', params: [toHex(address, 20), keys.map(_ => toHex(_, 32)), blockNr] }
-  ], undefined, handler.config.registryRPC)
+    { method: 'eth_getProof', params: [toHex(address, 20), paramKeys || keys.map(_ => toHex(_, 32)), blockNr] }
+  ])
+
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "createNodeListProof",
+      data: {
+        blockResponse: blockResponse,
+        proof: proof
+      }
+    })
+  }
 
   // console.log(proof.result.storageProof.map(_ => _.key + ' = ' + _.value).join('\n'))
   // error checking
-  if (blockResponse.error) throw new Error('Could not get the block for ' + blockNr + ':' + JSON.stringify(blockResponse.error) + ' req: ' + JSON.stringify(req, null, 2))
-  if (proof.error) throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), keys.map(toHex), blockNr] }, null, 2))
+  if (blockResponse.error) {
+    if (process.env.SENTRY_ENABLE === 'true') {
 
+      Sentry.configureScope((scope) => {
+        scope.setTag("nodeListUpdater", "createNodeListProof");
+        scope.setTag("nodeList-contract", this.config.registry)
+        scope.setExtra("params", blockNr)
+        scope.setExtra("blockResponse", blockResponse)
+      });
+    }
+    throw new Error('Could not get the block for ' + blockNr + ':' + JSON.stringify(blockResponse.error) + ' req: ' + JSON.stringify(req, null, 2))
+  }
+  if (proof.error) {
+
+    if (process.env.SENTRY_ENABLE === 'true') {
+
+      Sentry.configureScope((scope) => {
+        scope.setTag("nodeListUpdater", "createNodeListProof");
+        scope.setTag("nodeList-contract", this.config.registry)
+        scope.setExtra("params", [toHex(address, 20), keys.map(_ => toHex(_, 32)), blockNr])
+        scope.setExtra("proof", proof)
+      });
+    }
+    throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), keys.map(toHex), blockNr] }, null, 2))
+  }
 
   // make sure we use minHex for the proof-keys
   if (proof.result && proof.result.storageProof)
@@ -167,25 +274,55 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
   //  try {
 
+  const contractVersion2 = await updateContractAdr(handler, list)
 
   const start = Date.now()
   logger.info('updating nodelist ....')
+  if (process.env.SENTRY_ENABLE === 'true') {
+    Sentry.addBreadcrumb({
+      category: "updateNodeList",
+      data: {
+        list: list,
+        lastBlockNumber: lastBlockNumber,
+        contract: handler.config.registry
+      }
+    })
+  }
 
   // first get the registry
-  if (!list.contract) {
-    list.contract = handler.config.registry
-    //    const [owner, bootNodes, meta, registryContract, contractChain] = await tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'chains(bytes32):(address,string,string,address,bytes32)', [handler.chainId])
-    //    list.contract = toChecksumAddress('0x' + registryContract)
-  }
+  //  if (!list.contract) {
+
+  // let us find the data contract
 
   if (!list.registryId) {
-    const [registryId] = await tx.callContract(handler.config.registryRPC, list.contract, 'registryId():(bytes32)', [])
-    list.registryId = toHex(registryId)
+    const registryIdRequest: RPCRequest = {
+      jsonrpc: '2.0',
+      id: 0,
+      method: 'eth_call', params: [{
+        to: list.contract,
+        data: '0x' + abi.simpleEncode('registryId()').toString('hex')
+      },
+        'latest']
+    }
+
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.addBreadcrumb({
+        category: "registryId request",
+        data: registryIdRequest
+      })
+    }
+
+    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string);
+    list.registryId = registryId
+
   }
 
+  const latestBlockNum = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result as string))
+  const finalityBlockNum = handler.config.minBlockHeight ? (latestBlockNum - handler.config.minBlockHeight) : latestBlockNum
   // number of registered servers
-  const [serverCount] = await tx.callContract(handler.config.registryRPC, list.contract, 'totalNodes():(uint)', [])
-  list.lastBlockNumber = lastBlockNumber || parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, handler.config.registryRPC).then(_ => _.result as string))
+  const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [], undefined, undefined, finalityBlockNum)
+
+  list.lastBlockNumber = (finalityBlockNum ? finalityBlockNum : latestBlockNum)
   list.totalServers = serverCount.toNumber()
 
   // build the requests per server-entry
@@ -198,26 +335,48 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
         to: list.contract,
         data: '0x' + abi.simpleEncode('nodes(uint)', toHex(i, 32)).toString('hex')
       },
-        'latest']
+      (finalityBlockNum ? toHex(finalityBlockNum) : 'latest')]
     })
 
   list.nodes = await handler.getAllFromServer(nodeRequests, undefined, handler.config.registryRPC).then(all => all.map((n, i) => {
     // invalid requests must be filtered out
     if (n.error) return null
-    const [url, deposit, timeout, registerTime, props, weight, signer, proofHash] = abi.simpleDecode('nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)', toBuffer(n.result))
 
-    return {
-      url,
-      address: toChecksumAddress(signer),
-      index: i,
-      deposit: deposit.toString(),
-      props: props.toString(),
-      chainIds: [handler.chainId],
-      timeout: timeout.toString(),
-      registerTime: registerTime.toString(),
-      weight: weight.toString(),
-      proofHash: (proofHash).toString('hex')
-    } as IN3NodeConfig
+    try {
+      let url: string = '', deposit: any, timeout = 40 * 24 * 3600, registerTime: any, props: any, weight: any, signer: string, proofHash: any
+
+      if (contractVersion2)
+        [url, deposit, registerTime, props, weight, signer, proofHash] = abi.simpleDecode(
+          'nodes(uint):(string,uint,uint64,uint192,uint64,address,bytes32)'
+          , toBuffer(n.result))
+      else
+        [url, deposit, timeout, registerTime, props, weight, signer, proofHash] = abi.simpleDecode(
+          'nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)'
+          , toBuffer(n.result))
+
+
+      return {
+        url,
+        address: '0x' + signer.toLowerCase(),
+        index: i,
+        deposit: '0x' + deposit.toString(16),
+        props: '0x' + props.toString(16),
+        timeout: util.toNumber(timeout),
+        registerTime: util.toNumber(registerTime),
+        weight: util.toNumber(weight)
+      } as any as IN3NodeConfig
+    } catch (e) {
+      if (process.env.SENTRY_ENABLE === 'true') {
+
+        Sentry.configureScope((scope) => {
+          scope.setTag("nodeListUpdater", "updateNodeList");
+          scope.setTag("ABIError", "decode");
+          scope.setTag("nodeList-contract", handler.config.registry)
+          scope.setExtra("node", n.result)
+        });
+      }
+      throw new Error(e)
+    }
 
   })).then(_ => _)
 

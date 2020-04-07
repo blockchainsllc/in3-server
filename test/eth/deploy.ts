@@ -1,22 +1,38 @@
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
+
 
 import { assert } from 'chai'
 import 'mocha'
@@ -51,44 +67,31 @@ describe('Deploying Contracts', () => {
       props: '0xFF',
       deposit: util.toBN('10000000000000000'),
       timeout: 3600
-    }], '0x99', null, getTestClient(), new LoggingAxiosTransport())
+    }], '0x99', getTestClient(), new LoggingAxiosTransport())
 
 
     // create a client which reads the chainData from the contract
     const client = new Client({
       chainId: '0x99',
       mainChain: '0x99',
-      chainRegistry: registers.chainRegistry,
       servers: {
         '0x99': {
           contract: registers.registry,
           contractChain: '0x99',
           // we give him a bootnode which simply reads directly from parity
           nodeList: [{
-            address: util.getAddress(pk),
+            address: pk.address,
             url: getTestClient(),
             chainIds: ['0x99'],
-            deposit: util.toBN('10000000000000000')
+            deposit: util.toBN('10000000000000000') as any
           }]
         }
       }
     })
 
-    // read data
-    const data = await chainData.getChainData(client, '0x99')
-
-    logger.info('Resulting Data', data, registers)
-
-    assert.lengthOf(registers.chainRegistry, 42, 'No chainRegistry')
     assert.lengthOf(registers.registry, 42, 'No serverRegistry')
     assert.equal(registers.chainId, '0x99')
 
-    assert.lengthOf(data.bootNodes, 2)
-    assert.equal(data.owner, util.getAddress(pk)) // owner of the chainRegistry must be the pk
-    assert.equal(data.contractChain, '0x99')
-    assert.equal(data.registryContract, registers.registry)
-    assert.equal(data.bootNodes[1], util.getAddress(pk2) + ':#2')
-    assert.equal(data.meta, 'dummy')
 
 
   })

@@ -1,27 +1,42 @@
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
 
 import { assert } from 'chai'
 import 'mocha'
-import { BlockData,  util,  LogData } from 'in3-common'
-import {  RPCResponse,  Proof } from '../../src/types/types'
+import { BlockData, util, LogData } from 'in3-common'
+import { RPCResponse, Proof } from '../../src/types/types'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
@@ -42,7 +57,7 @@ describe('eth_call', () => {
     let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
 
     // create a account with 500 wei
-    const user = getAddress(await test.createAccount(undefined, 500))
+    const user = await test.createAccount(undefined, 500).then(_ => _.address)
 
 
     // check deployed code
@@ -85,7 +100,7 @@ describe('eth_call', () => {
       // we change the returned balance
       const ac = Object.values(re.in3.proof.accounts)[0]
       // remove an account from proof
-      ac.nonce += '0'
+      ac.nonce += '10'
       return re
     })
 
@@ -98,11 +113,11 @@ describe('eth_call', () => {
     let test = new TestTransport(1) // create a network of 3 nodes
     let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
 
-    const pk1 = await test.createAccount(undefined, 500)
-    const pk2 = await test.createAccount(undefined, 1500)
+    const pk1 = await test.createAccount(undefined, util.toBN('5000000000000000000'))
+    const pk2 = await test.createAccount(undefined, util.toBN('15000000000000000000'))
 
-    // create a account with 500 wei
-    const user = getAddress(await test.createAccount(undefined, 500))
+    // create a account with 500 eth
+    const user = await test.createAccount(undefined, util.toBN('5000000000000000000')).then(_ => _.address)
 
 
     // check deployed code
@@ -150,10 +165,10 @@ describe('eth_call', () => {
     let client = await test.createClient({ proof: 'standard', requestCount: 1, includeCode: true })
 
     // deploy testcontract
-    const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
+    const adr = await deployContract('TestContract', await test.createAccount(null, util.toBN('5000000000000000000')), getTestClient())
     const block = (await test.getFromServer('eth_getBlockByNumber', 'latest', false)) as BlockData
 
-    const response = await clientRPC.callContractWithClient(client, adr, 'getBlockHash(uint)', toNumber(block.number))
+    //    const response = await clientRPC.callContractWithClient(client, adr, 'getBlockHash(uint)', toNumber(block.number))
 
     // TODO why is this returning 0x0?
     //    assert.equal(toHex(response.result, 32), toHex(block.hash, 32))
@@ -313,6 +328,72 @@ describe('eth_call', () => {
     })
     await test.mustFail(clientRPC.callContractWithClient(client, adr, 'testCallCode(address)', adr2))
 
+
+  })
+
+  it('eth_call Gas Limit', async () => {
+
+    let test = new TestTransport(1) // create a network of 1 nodes
+
+    // check deployed code
+    const adr = await deployContract('TestContract', await test.createAccount(), getTestClient())
+
+    const signature = 'encodingTest(bytes[],bytes32):(bytes32,bytes[])'
+    const data = '0x' + tx.encodeFunction(signature, [['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20"])
+
+    // create a account with 500 wei
+    const user = (await test.createAccount(undefined, 500)).address
+
+    let res = await test.handle("#1", {
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [
+        {
+          from: user,
+          to: adr,
+          data: data,
+          gas: "0x55D4A80"
+        },
+        "latest"
+      ],
+      id: 1
+    }) as RPCResponse
+
+    assert.isUndefined(res.result)
+    assert.isTrue(res.error.includes("eth_call with a gaslimit > 10000000 are not allowed"))
+
+    let res2 = await test.handle("#1", {
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [
+        {
+          from: user,
+          to: adr,
+          data: data,
+          gas: "0x989680" //boundary check, 10M
+        },
+        "latest"
+      ],
+      id: 1
+    }) as RPCResponse
+
+    assert.isUndefined(res2.error)
+
+    let res3 = await test.handle("#1", {
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [
+        {
+          from: user,
+          to: adr,
+          data: data
+        },
+        "latest"
+      ],
+      id: 1
+    }) as RPCResponse
+
+    assert.isUndefined(res3.error)
 
   })
 

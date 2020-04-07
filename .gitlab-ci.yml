@@ -3,10 +3,10 @@ variables:
   COMMIT_IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
   RELEASE_IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
 stages:
-  - lint
   - build
   - test
   - package
+  - analysis
   - deploy
 
 build-server:
@@ -25,39 +25,8 @@ build-server:
     - npm run build
   artifacts:
     paths:
-      - node_modules/
       - js/
 
-lint-contracts-solium:
-  stage: lint
-  tags:
-    - short-jobs
-  script: 
-    - sh /prepare.sh
-    - npm i ethlint
-    - npm run lint:solium
-
-lint-contracts-solhint:
-  stage: lint
-  tags:
-    - short-jobs
-  script: 
-    - sh /prepare.sh
-    - npm i solhint
-    - npm run lint:solhint
-
-compile-contracts:
-  stage: build
-  tags:
-    - short-jobs
-  services:
-    - docker:dind
-  image: jonaskello/docker-and-compose:latest
-  script:
-    - docker run -v $(pwd)/contracts:/contracts ethereum/solc:0.5.10 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /contracts/NodeRegistry.sol /contracts/ChainRegistry.sol /contracts/BlockhashRegistry.sol > contracts/contracts.json; docker run -v $(pwd)/test:/test ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /test/contracts/TestContract.sol > test/contracts/contracts.json
-  artifacts:
-    paths:
-      - contracts/contracts.json
 
 test-parity:
   stage: test
@@ -72,15 +41,12 @@ test-parity:
         - daemon
         - --offline
       alias: ipfs
-    - name: docker.slock.it/core-technology/parity-timemachine:master
+    - name: slockit/parity-time-maschine:v0.0.1
       alias: parity
   script:
     - sh /prepare.sh
     - npm install
     - npm run testCoverage
-  dependencies:
-    - build-server
-    - compile-contracts
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
@@ -103,32 +69,61 @@ test-geth:
       alias: geth
   script:
     - sh /prepare.sh
-    - npm install 
-    - npm run testCoverage 
-  dependencies:
-    - build-server
-    - compile-contracts
+    - npm install
+    - npm run testCoverage
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
       - test/report
 
-pages:
-  stage: deploy
+test-nethermind:
+  stage: test
+  allow_failure: true
   tags:
     - short-jobs
-  environment:
-    name: test-results
-    url: http://in3.git-pages.slock.it/in3-server
-  dependencies:
-    - test-parity
-    - test-geth
+  variables:
+    RPCURL: http://nethermind:8545
+    IPFS_URL: http://ipfs:5001
+  services:
+    - name: jbenet/go-ipfs:latest
+      command:
+        - daemon
+        - --offline
+      alias: ipfs
+    - name: docker.slock.it/build-images/nethermind
+      alias: nethermind
   script:
-    - mkdir -p public/
-    - cp -r test/report/* public/
+    - sh /prepare.sh
+    - npm install
+    - npm run testCoverage
   artifacts:
+    name: "test-reports-$CI_JOB_NAME"
     paths:
-      - public
+      - test/report
+
+test-geth:
+  stage: test
+  tags:
+    - short-jobs
+  variables:
+    RPCURL: http://geth:8545
+    IPFS_URL: http://ipfs:5001
+  services:
+    - name: jbenet/go-ipfs:latest
+      command:
+        - daemon
+        - --offline
+      alias: ipfs
+    - name: docker.slock.it/core-technology/geth-timemachine:master
+      alias: geth
+  script:
+    - sh /prepare.sh
+    - npm install
+    - npm run testCoverage
+  artifacts:
+    name: "test-reports-$CI_JOB_NAME"
+    paths:
+      - test/report
 
 package-docker:
   stage: package
@@ -136,7 +131,7 @@ package-docker:
     - short-jobs
   services:
     - docker:dind
-  image: jonaskello/docker-and-compose:latest
+  image: docker.slock.it/build-images/deployment
   script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
     - docker build --build-arg NPM_REGISTRY_TOKEN=${NPM_REGISTRY_TOKEN} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} -t $COMMIT_IMAGE_TAG .
@@ -144,7 +139,69 @@ package-docker:
     - docker push $RELEASE_IMAGE_TAG
     - docker push $COMMIT_IMAGE_TAG
 
+##### analyse #####
+vulnerability-analysis:
+  stage: analysis
+  tags:
+    - short-jobs
+  dependencies:
+    - package-docker
+  image: docker.slock.it/build-images/vulnerability-testing-tools
+  script:
+    - cat deployment/vulnerability-analysis-message.txt
+    - export TRIVY_AUTH_URL=$CI_REGISTRY
+    - export TRIVY_USERNAME=gitlab-ci-token
+    - export TRIVY_PASSWORD=$CI_JOB_TOKEN
+    - trivy -f json -o vulnerability_analysis.json $COMMIT_IMAGE_TAG
+  artifacts:
+    paths:
+      - vulnerability_analysis.json
+
 # Deployment Section
+pages:
+  stage: deploy
+  tags:
+    - short-jobs
+  environment:
+    name: test-results
+    url: http://in3.git-pages.slock.it/in3-server
+  only:
+    refs:
+      - develop
+  dependencies:
+    - test-parity
+    - test-geth
+    - vulnerability-analysis
+  script:
+    - mkdir -p public/
+    - cp -r test/report/* public/
+    - cp vulnerability_analysis.json public/
+    - echo "<html><body><h1>Incubed report for last develop CI pipeline</h1><ul><li><a href='vulnerability_analysis.json'>Vulnerability Analysis</a></li></ul></body></html>" > public/index.html
+  artifacts:
+    paths:
+      - public
+
+dockerhub-deploy:
+  stage: deploy
+  when: manual
+  only:
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
+  except:
+    - branches
+  tags:
+    - short-jobs
+  services:
+    - docker:dind
+  image: docker.slock.it/build-images/deployment
+  variables:
+    IMAGE_TAG: slockit/in3-node:$CI_COMMIT_TAG
+  before_script:
+    - docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} ${DOCKERHUB_REGISTRY}
+  script:
+    - docker build --build-arg NPM_REGISTRY_TOKEN=${NPM_REGISTRY_TOKEN} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} -t $IMAGE_TAG .
+    - docker push $IMAGE_TAG
+    - docker tag $IMAGE_TAG slockit/in3-node:latest
+    - docker push slockit/in3-node:latest
 
 .register-with-sentry:
   stage: deploy
@@ -168,7 +225,7 @@ register-with-sentry-stage:
 register-with-sentry-production:
   extends: .register-with-sentry
   only:
-    - /^v[0-9]+.[0-9]+.[0-9]+$/
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
   except:
     - branches
   variables:
@@ -183,10 +240,9 @@ register-with-sentry-production:
     - docker:dind
   script:
     - cd deployment
-    - rancher -w up -d --prune -p -s in3-server-${TARGET}-${CHAIN} -c --force-upgrade
-    
+    - rancher -w up -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
 
-## Environments 
+## Environments
 .deploy-tmpl-stage:
   extends: .deploy-tmpl
   only:
@@ -195,20 +251,25 @@ register-with-sentry-production:
     - branches
   environment:
     name: stage-${CHAIN}
+  when: manual
   variables:
     TARGET: stage
+    STACKNAME: server
+    BLOCKHEIGHT: "0"
     REGISTRY_CONTRACT_ADDR: "0xa412D519199C3c0ebaea3A9f73f1f89A935F9F14"
 
 .deploy-tmpl-production:
   extends: .deploy-tmpl
   only:
-    - /^v[0-9]+.[0-9]+.[0-9]+$/
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
   except:
     - branches
   environment:
     name: production-${CHAIN}
   variables:
+    STACKNAME: server-v2
     TARGET: production
+    BLOCKHEIGHT: "0"
   when: manual
   allow_failure: false
 
@@ -231,18 +292,6 @@ register-with-sentry-production:
     CHAIN_ID: "0x1"
     RPC_ENDPOINT: http://lb.parity-rpc/mainnet
 
-.chain-tmpl-evan:
-  variables:
-    CHAIN: evan
-    CHAIN_ID: "0x4b1"
-    RPC_ENDPOINT: http://lb.parity-rpc/evan
-
-.chain-tmpl-tobalaba:
-  variables:
-    CHAIN: tobalaba
-    CHAIN_ID: "0x44d"
-    RPC_ENDPOINT: http://lb.parity-rpc/tobalaba
-
 .chain-tmpl-volta:
   variables:
     CHAIN: tobalaba
@@ -253,73 +302,65 @@ register-with-sentry-production:
   variables:
     CHAIN: ipfs
     CHAIN_ID: "0x7d0"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan/archive
-
+    RPC_ENDPOINT: http://lb.parity-rpc/mainnet/archive
 
 # Stage deployments
 deploy-stage-kovan:
-  extends: 
-    - .deploy-tmpl-stage 
+  extends:
+    - .deploy-tmpl-stage
     - .chain-tmpl-kovan
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x0604014f2a5fdfafce3f2ec10c77c31d8e15ce6f"
 
 deploy-stage-goerli:
-  extends: 
-    - .deploy-tmpl-stage 
+  extends:
+    - .deploy-tmpl-stage
     - .chain-tmpl-goerli
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x0bfe6c538877aed3a0e0c6db78d07234c9100853"
 
 # disable until v2 stage contract is deployed to mainnet
 #deploy-stage-mainnet:
-#  extends: 
+#  extends:
 #    - .deploy-tmpl-stage
 #    - .chain-tmpl-mainnet
 
 # Production deployments
 deploy-production-mainnet:
-  extends: 
+  extends:
     - .deploy-tmpl-production
     - .chain-tmpl-mainnet
   variables:
-    REGISTRY_CONTRACT_ADDR: "0x2736D225f85740f42D17987100dc8d58e9e16252"
-deploy-production-evan:
-  extends: 
-    - .deploy-tmpl-production
-    - .chain-tmpl-evan
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e"
+    BLOCKHEIGHT: "6"
+    REGISTRY_CONTRACT_ADDR: "0x6c095a05764a23156efd9d603eada144a9b1af33"
+
 deploy-production-kovan:
-  extends: 
+  extends:
     - .deploy-tmpl-production
     - .chain-tmpl-kovan
   variables:
-    REGISTRY_CONTRACT_ADDR: "0x27a37a1210df14f7e058393d026e2fb53b7cf8c1"
+    REGISTRY_CONTRACT_ADDR: "0xf14d54e349ac971ab6280d6d99f7152c9a06b0b3"
+
 deploy-production-goerli:
-  extends: 
+  extends:
     - .deploy-tmpl-production
     - .chain-tmpl-goerli
   variables:
-    REGISTRY_CONTRACT_ADDR: "0x85613723dB1Bc29f332A37EeF10b61F8a4225c7e"
+    REGISTRY_CONTRACT_ADDR: "0x635cccc1db6fc9e3b029814720595092affba12f"
 
 deploy-production-volta:
-  extends: 
+  extends:
     - .deploy-tmpl-production
     - .chain-tmpl-volta
   variables:
     REGISTRY_CONTRACT_ADDR: "0x8d8Fd38311d57163524478404C75008fBEaACccB"
 
-deploy-production-tobalaba:
-  extends: 
-    - .deploy-tmpl-production
-    - .chain-tmpl-tobalaba
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0x845E484b505443814B992Bf0319A5e8F5e407879"
 deploy-production-ipfs:
-  extends: 
+  extends:
     - .deploy-tmpl-production
     - .chain-tmpl-ipfs
   script:
     - cd deployment
-    - rancher -w up -f docker-compose.ipfs.yml -d --prune -p -s in3-server-${TARGET}-${CHAIN} -c --force-upgrade
+    - rancher -w up -f docker-compose.ipfs.yml -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
   variables:
-    REGISTRY_CONTRACT_ADDR: "0xf0fb87f4757c77ea3416afe87f36acaa0496c7e9"
-
-  
+    REGISTRY_CONTRACT_ADDR: "0xcB61736dE539aCFA0eE97bC6BbF9108EF906c88C"

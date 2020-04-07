@@ -1,8 +1,5 @@
 version: '2'
 services:
-  lb-monitor:
-    scale: 1
-    start_on_create: true
   nd-1:
     scale: 1
     start_on_create: true

@@ -1,22 +1,37 @@
+/*******************************************************************************
+ * This file is part of the Incubed project.
+ * Sources: https://github.com/slockit/in3-server
+ * 
+ * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
+ * 
+ * 
+ * COMMERCIAL LICENSE USAGE
+ * 
+ * Licensees holding a valid commercial license may use this file in accordance 
+ * with the commercial license agreement provided with the Software or, alternatively, 
+ * in accordance with the terms contained in a written agreement between you and 
+ * slock.it GmbH/Blockchains LLC. For licensing terms and conditions or further 
+ * information please contact slock.it at in3@slock.it.
+ * 	
+ * Alternatively, this file may be used under the AGPL license as follows:
+ *    
+ * AGPL LICENSE USAGE
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Affero General Public License as published by the Free Software 
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ * PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+ * [Permissions of this strong copyleft license are conditioned on making available 
+ * complete source code of licensed works and modifications, which include larger 
+ * works using a licensed work, under the same license. Copyright and license notices 
+ * must be preserved. Contributors provide an express grant of patent rights.]
+ * You should have received a copy of the GNU Affero General Public License along 
+ * with this program. If not, see <https://www.gnu.org/licenses/>.
+ *******************************************************************************/
 
-/***********************************************************
-* This file is part of the Slock.it IoT Layer.             *
-* The Slock.it IoT Layer contains:                         *
-*   - USN (Universal Sharing Network)                      *
-*   - INCUBED (Trustless INcentivized remote Node Network) *
-************************************************************
-* Copyright (C) 2016 - 2018 Slock.it GmbH                  *
-* All Rights Reserved.                                     *
-************************************************************
-* You may use, distribute and modify this code under the   *
-* terms of the license contract you have concluded with    *
-* Slock.it GmbH.                                           *
-* For information about liability, maintenance etc. also   *
-* refer to the contract concluded with Slock.it GmbH.      *
-************************************************************
-* For more information, please refer to https://slock.it   *
-* For questions, please contact info@slock.it              *
-***********************************************************/
 
 import { assert } from 'chai'
 import 'mocha'
@@ -31,6 +46,8 @@ import EventWatcher from '../utils/EventWatcher';
 import * as tx from '../../src/util/tx'
 import { RPC } from '../../src/server/rpc';
 import * as clientRPC from '../utils/clientRPC'
+import { toHex } from 'in3-common/js/src/util/util'
+import EthHandler from '../../src/modules/eth/EthHandler'
 
 const toNumber = util.toNumber
 const getAddress = util.getAddress
@@ -44,7 +61,7 @@ describe('Features', () => {
 
 
     const test = await TestTransport.createWithRegisteredNodes(2)
-    let lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 2
+    let lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber'))
     const client = await test.createClient({ requestCount: 1 })
     const watcher: Watcher = test.handlers['#1'].getHandler().watcher
     const events = new EventWatcher(client, 'nodeUpdateStarted', 'nodeUpdateFinished')
@@ -74,14 +91,14 @@ describe('Features', () => {
     events.clear()
 
     // now we register another server
-    await registerNodes(pk, test.nodeList.contract, [{
+    await registerNodes(pk, test.registryContract, [{
       url: '#3',
       pk,
       props: '0xffff',
       deposit: util.toBN('10000000000000000'),
       timeout: 7200,
-    }], test.chainRegistry, test.chainRegistry, test.url)
-    lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber')) - 1
+    }], test.chainId, test.url)
+    lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber'))
 
 
     // the watcher will find an register-event and triggers an update of the server-nodelist
@@ -90,7 +107,7 @@ describe('Features', () => {
     assert.equal(logs[0].event, 'LogNodeRegistered')
     assert.equal(logs[0].url, '#3')
     assert.equal(logs[0].props, 0xffff)
-    assert.equal(logs[0].signer, util.getAddress(pk))
+    assert.equal(logs[0].signer, pk.address)
 
     // we still have only 2 nodes since the watchers has not been triggered yet
     assert.equal(client.defConfig.servers[test.chainId].nodeList.length, 2)
@@ -128,64 +145,17 @@ describe('Features', () => {
 
     // call with latest block and expect 1 because the counter was incremented
     assert.equal(
-      await client.sendRPC('eth_getStorageAt', [contract, '0x00', 'latest']).then(_ => toNumber(_.result)),
+      await client.sendRPC('eth_getStorageAt', [contract, toHex('0x00', 32), 'latest']).then(_ => toNumber(_.result)),
       1)
 
     // call with latest block of 1 which is the state before incrementing
     assert.equal(
-      await client.sendRPC('eth_getStorageAt', [contract, '0x00', 'latest'], undefined, { replaceLatestBlock: 1 }).then(_ => toNumber(_.result)),
+      await client.sendRPC('eth_getStorageAt', [contract, toHex('0x00', 32), 'latest'], undefined, { replaceLatestBlock: 1 }).then(_ => toNumber(_.result)),
       0)
 
   })
 
 
-
-  it('autoregister', async () => {
-
-    const test = await TestTransport.createWithRegisteredNodes(2)
-    const watcher = test.getHandler(0).watcher
-    // update the nodelist
-    await watcher.update()
-
-    const client = await test.createClient({ requestCount: 1 })
-    const pk = await test.createAccount(null, util.toBN('100000000000000000'))
-    const rpc = new RPC({
-      port: 1,
-      chains: {
-        [test.chainId]: {
-          watchInterval: -1,
-          minBlockHeight: 0,
-          autoRegistry: {
-            url: 'dummy',
-            deposit: util.toBN('10000000000000000'),
-            depositUnit: 'wei',
-            capabilities: {
-              proof: true,
-              multiChain: true
-            },
-          },
-          privateKey: pk,
-          rpcUrl: test.url,
-          registry: test.nodeList.contract
-        }
-      }
-    }, test, test.nodeList)
-
-    await rpc.init()
-
-    const events = await watcher.update()
-    assert.equal(events.length, 1)
-    assert.equal(events[0].event, 'LogNodeRegistered')
-    assert.equal(events[0].signer, getAddress(pk))
-    assert.equal(events[0].url, 'dummy')
-    assert.equal(events[0].props, 3)
-    assert.equal(events[0].deposit, util.toBN('10000000000000000'))
-
-    const nl = await rpc.getHandler().getNodeList(false)
-    assert.equal(nl.totalServers, 3)
-
-
-  })
 
   it('partial Server List', async () => {
 
@@ -244,14 +214,101 @@ describe('Features', () => {
     const ctx = client.getChainContext(client.defConfig.chainId) as EthChainContext
 
     assert.equal(ctx.blockCache.length, 0)
-    const resp1 = await client.sendRPC('eth_getBalance', [getAddress(pk), 'latest'])
+    const resp1 = await client.sendRPC('eth_getBalance', [pk.address, 'latest'])
     assert.equal(ctx.blockCache.length, 1)
     assert.equal(resp1.in3.proof.signatures.length, 1)
 
-    const resp2 = await client.sendRPC('eth_getBalance', [getAddress(pk), 'latest'])
+    const resp2 = await client.sendRPC('eth_getBalance', [pk.address, 'latest'])
     assert.equal(ctx.blockCache.length, 1)
     assert.equal(resp2.in3.proof.signatures.length, 0)
   })
+
+  it('check nodelist finality', async () => {
+    /**
+     * First prepare test environment
+     */
+
+    //create test transport
+    const test = await TestTransport.createWithRegisteredNodes(2)
+    await test.getHandler(0).updateNodeList(undefined)
+
+    //test accounts
+    const pk1 = await test.createAccount('0x01')
+    const pk2 = await test.createAccount('0x02')
+    const pk = await test.createAccount('0x03')
+
+    const watcher: Watcher = test.handlers['#1'].getHandler().watcher
+    await watcher.update()
+    assert.equal((watcher.handler as EthHandler).nodeList.nodes.length, 2)
+
+
+    //sleep function
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    //15 block distance before next node registration
+    let lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber'))
+    let currentBlock = lastChangeBlock
+    while(currentBlock - lastChangeBlock <= 15){
+      // test Tx in new blocks
+      await tx.sendTransaction(test.url, { privateKey: pk1, gas: 22000,to: pk2.address,data: '', value: 10,confirm: true})
+      sleep(200)
+      currentBlock = toNumber(await test.getFromServer('eth_blockNumber')) 
+      assert.isNull(await watcher.update())
+    }
+
+    /**
+     * Test with block height and node list finality
+     */
+    //now set block height to 10
+    test.handlers['#1'].getHandler().config.minBlockHeight = 10
+
+    //register a node
+    await registerNodes(pk, test.registryContract, [{
+      url: '#13',
+      pk,
+      props: '0xfff',
+      deposit: util.toBN('10000000000000000'),
+      timeout: 7200,
+    }], test.chainId, test.url)
+
+    lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber'))
+    //now wait until 10 blocks are mined
+    currentBlock = lastChangeBlock
+
+    while(currentBlock - lastChangeBlock < 9){
+      // test Tx in new blocks
+      await tx.sendTransaction(test.url, { privateKey: pk1, gas: 22000,to: pk2.address,data: '', value: 10,confirm: true})
+      sleep(200)
+
+      currentBlock = toNumber(await test.getFromServer('eth_blockNumber'))
+      //no new node should be detected as we have not reached block height
+      assert.equal((watcher.handler as EthHandler).nodeList.nodes.length, 2)
+      //the watcher should not detect new node as it will after 10 blocks so it should return null
+      assert.isNull(await watcher.update())
+    }
+
+    let logs = undefined
+    while(!logs){
+      // test Tx in new blocks
+      await tx.sendTransaction(test.url, { privateKey: pk1, gas: 22000,to: pk2.address,data: '', value: 10,confirm: true})
+      sleep(200)
+      logs = await watcher.update()
+      currentBlock = toNumber(await test.getFromServer('eth_blockNumber'))
+    }
+
+    assert.equal(logs.length, 1)
+    assert.equal(logs[0].event, 'LogNodeRegistered')
+    assert.equal(logs[0].url, '#13')
+    assert.equal(logs[0].props, 0xfff)
+    assert.equal(logs[0].signer, pk.address)
+
+    //now we should have 3 nodes
+    assert.equal((watcher.handler as EthHandler).nodeList.nodes.length, 3)
+
+    assert.equal((watcher.handler as EthHandler).nodeList.lastBlockNumber , lastChangeBlock)
+    assert.equal(currentBlock-lastChangeBlock,10)
+
+  }).timeout(5000)
 
 })
 

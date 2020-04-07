@@ -1,0 +1,415 @@
+$schema: http://json-schema.org/schema#
+$id: https://slock.it/rpc.json
+description: describes a rpc-request being handled by the in3-server
+type: object
+properties:
+  id:
+    type: [number, string]
+  jsonrpc:
+    const: "2.0"
+  method:
+    type: string
+  params:
+    type: array
+  in3:
+    description: additional config for a IN3 RPC-Request
+    additionalProperties: false
+    properties:
+      chainId:
+        description: the requested chainId
+        type: string
+        pattern: "^0x(0|[a-fA-F1-9]+[a-fA-F0-9]*)$"
+      includeCode:
+        description: if true, the request should include the codes of all accounts. otherwise only the the codeHash is returned. In this case the client may ask by calling eth_getCode() afterwards
+        type: boolean
+      verifiedHashes:
+        description: already verified blockhashes
+        type: array
+        items:
+          $ref: "#/definitions/hash"
+      latestBlock:
+        description: number of blocks to substract from the latest
+        type: integer
+        minimum: 0
+        maximum: 100
+        example: 6
+      useRef:
+        description: if true binary-data (starting with a 0x) will be refered if occuring again.
+        type: boolean
+      useBinary:
+        description: binary-form at switch
+        type: boolean
+      useFullProof:
+        description: switch for full verification
+        type: boolean
+      finality:
+        description: if given the server will deliver the blockheaders of the following blocks until at least the number in percent of the validators is reached.
+        type: integer
+        minimum: 0
+        maximum: 100
+      verification:
+        description: defines the kind of proof the client is asking for
+        type: string
+        enum: [never, proof, proofWithSignature]
+        example: "proof"
+      clientSignature:
+        description: the signature of the client
+      signers:
+        description: a list of addresses requested to sign the blockhash
+        type: array
+        example: ["0x6C1a01C2aB554930A937B0a2E8105fB47946c679"]
+        items:
+          $ref: "#/definitions/address"
+      signatures:
+        description: deprecated
+        type: array
+        items:
+          $ref: "#/definitions/address"
+      version:
+        description: IN3 protocol version that client can specify explicitly in request
+        type: string
+        example: "1.0.0"
+        pattern: ^\d+\.\d+\.\d+$
+      whiteList:
+        description: address of whitelist contract if added in3 server will register it in watch and will notify client the whitelist event block number in reponses it depends on cahce settings
+        $ref: "#/definitions/address"
+      noStats:
+        description: exclude from stats (depricated)
+      stats:
+        description: include in metrics ( default= true)
+
+definitions:
+  tx:
+    description: the transaction arguments
+    type: object
+    properties:
+      to:
+        $ref: "#/definitions/address"
+      from:
+        $ref: "#/definitions/address"
+      gas:
+        $ref: "#/definitions/quantity"
+      gasPrice:
+        $ref: "#/definitions/quantity"
+      value:
+        $ref: "#/definitions/quantity"
+      data:
+        type: string
+        pattern: "^0x[a-fA-F0-9]*$"
+
+  blockType:
+    description: the blocknumber
+    oneOf:
+      - type: string
+        enum: ["latest", "earliest", "pending"]
+      - type: string
+        pattern: "^0x(0|[a-fA-F1-9]+[a-fA-F0-9]*)$"
+
+  hash:
+    description: the hash
+    type: string
+    minLength: 66
+    maxLength: 66
+    pattern: "^0x[a-fA-F0-9]{64}$"
+
+  quantity:
+    description: a quantity hex number
+    type: string
+    minLength: 2
+    pattern: "^0x(0|[a-fA-F1-9]+[a-fA-F0-9]*)$"
+
+  address:
+    description: the address
+    type: string
+    minLength: 42
+    maxLength: 42
+    pattern: "^0x[a-fA-F0-9]{40}$"
+
+  eth_blockNumber:
+    type: array
+    maxItems: 0
+
+  eth_protocolVersion:
+    type: array
+    maxItems: 0
+
+  eth_gasPrice:
+    type: array
+    maxItems: 0
+
+  web3_sha3:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - type: string
+        pattern: "^0x[a-fA-F0-9]*$"
+
+  web3_clientVersion:
+    type: array
+    maxItems: 0
+
+  eth_getBlockByNumber:
+    type: array
+    maxItems: 2
+    minItems: 2
+    items:
+      - $ref: "#/definitions/blockType"
+        description: the block
+      - type: boolean
+        description: include Transactions
+
+  eth_getBlockByHash:
+    type: array
+    maxItems: 2
+    minItems: 2
+    items:
+      - $ref: "#/definitions/hash"
+        description: the block
+      - type: boolean
+        description: include Transactions
+
+  eth_getBalance:
+    type: array
+    maxItems: 2
+    minItems: 2
+    items:
+      - $ref: "#/definitions/address"
+      - $ref: "#/definitions/blockType"
+
+  eth_getStorageAt:
+    type: array
+    maxItems: 3
+    minItems: 3
+    items:
+      - $ref: "#/definitions/address"
+      - type: string
+        maxLength: 66
+        minLength: 3
+        pattern: "^0x[a-fA-F0-9]+$"
+        description: the storage key
+      - $ref: "#/definitions/blockType"
+
+  eth_getTransactionCount:
+    type: array
+    maxItems: 2
+    minItems: 2
+    items:
+      - $ref: "#/definitions/address"
+      - $ref: "#/definitions/blockType"
+
+  eth_getBlockTransactionCountByHash:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - $ref: "#/definitions/hash"
+
+  eth_getBlockTransactionCountByNumber:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - $ref: "#/definitions/blockType"
+
+  eth_getUncleCountByBlockHash:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - $ref: "#/definitions/hash"
+
+  eth_getUncleCountByBlockNumber:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - $ref: "#/definitions/blockType"
+
+  eth_getCode:
+    type: array
+    maxItems: 2
+    minItems: 2
+    items:
+      - $ref: "#/definitions/address"
+      - $ref: "#/definitions/blockType"
+
+  eth_sendRawTransaction:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - type: string
+        pattern: "^0x(0|[a-fA-F1-9]+[a-fA-F0-9]*)$"
+
+  eth_call:
+    type: array
+    maxItems: 2
+    minItems: 2
+    items:
+      - $ref: "#/definitions/tx"
+      - $ref: "#/definitions/blockType"
+
+  eth_estimateGas:
+    type: array
+    maxItems: 2
+    minItems: 1
+    items:
+      - $ref: "#/definitions/tx"
+      - $ref: "#/definitions/blockType"
+
+  eth_getTransactionByHash:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - $ref: "#/definitions/hash"
+
+  eth_getTransactionByBlockHashAndIndex:
+    type: array
+    maxItems: 2
+    minItems: 2
+    items:
+      - $ref: "#/definitions/hash"
+      - $ref: "#/definitions/quantity"
+
+  eth_getTransactionByBlockNumberAndIndex:
+    type: array
+    maxItems: 2
+    minItems: 2
+    items:
+      - $ref: "#/definitions/blockType"
+      - $ref: "#/definitions/quantity"
+
+  eth_getTransactionReceipt:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - $ref: "#/definitions/hash"
+
+  eth_getUncleByBlockHashAndIndex:
+    type: array
+    maxItems: 2
+    minItems: 2
+    items:
+      - $ref: "#/definitions/hash"
+      - $ref: "#/definitions/quantity"
+
+  eth_getUncleByBlockNumberAndIndex:
+    type: array
+    maxItems: 2
+    minItems: 2
+    items:
+      - $ref: "#/definitions/blockType"
+      - $ref: "#/definitions/quantity"
+
+  eth_getLogs:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - type: object
+        properties:
+          fromBlock:
+            $ref: "#/definitions/quantity"
+          toBlock:
+            $ref: "#/definitions/quantity"
+          address:
+            oneOf:
+              - $ref: "#/definitions/address"
+              - type: array
+                items:
+                  - $ref: "#/definitions/address"
+          topics:
+            type: array
+            items:
+              oneOf:
+                - type: "null"
+                - $ref: "#/definitions/hash"
+                - type: array
+                  items:
+                    - $ref: "#/definitions/hash"
+          blockhash:
+            $ref: "#/definitions/hash"
+
+  eth_getProof:
+    type: array
+    maxItems: 3
+    minItems: 3
+    items:
+      - $ref: "#/definitions/address"
+      - type: array
+        items:
+          - type: string
+            maxLength: 66
+            minLength: 3
+            pattern: "^0x[a-fA-F0-9]+$"
+
+      - $ref: "#/definitions/blockType"
+
+  in3_nodeList:
+    type: array
+    maxItems: 3
+    minItems: 0
+    items:
+      - oneOf:
+          - $ref: "#/definitions/quantity"
+          - type: integer
+            minimum: 0
+      - $ref: "#/definitions/hash"
+      - type: array
+        items:
+          - $ref: "#/definitions/address"
+
+  in3_whiteList:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - $ref: "#/definitions/address"
+
+  in3_validatorList:
+    type: array
+    maxItems: 2
+    minItems: 0
+    items:
+      - type: array
+        items:
+          - type: integer
+          - type: integer
+
+  in3_stats:
+    type: array
+    maxItems: 0
+
+  in3_sign:
+    type: array
+    minItems: 1
+    items:
+      - type: object
+        required: [blockNumber]
+        properties:
+          blockNumber:
+            type: integer
+            minimum: 0
+          hash:
+            $ref: "#/definitions/hash"
+
+  ipfs_get:
+    type: array
+    minItems: 1
+    maxItems: 2
+    items:
+      - type: string
+
+  ipfs_put:
+    type: array
+    minItems: 1
+    maxItems: 2
+    items:
+      - type: string
+
+  net_version:
+    type: array
+    maxItems: 0
