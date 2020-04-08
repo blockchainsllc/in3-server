@@ -447,16 +447,18 @@ definitions:
 
   gettransaction:
     type: array
-    maxItems: 2
+    maxItems: 3
     minItems: 1
     items:
       - type: string
       - type: boolean
+      - type: string
 
   getrawtransaction:
     type: array
-    maxItems: 2
+    maxItems: 3
     minItems: 1
     items:
       - type: string
       - type: boolean
+      - type: string

@@ -137,6 +137,9 @@ export default abstract class BaseHandler implements RPCHandler {
 
     return axios.post(rpc || this.config.rpcUrl, this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
 
+      if (err.response && err.response.data && typeof (err.response.data) === 'object' && err.response.data.error)
+        err.message = err.response.data.error.message || err.response.data.error
+
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       if (process.env.SENTRY_ENABLE === 'true') {
         Sentry.configureScope((scope) => {

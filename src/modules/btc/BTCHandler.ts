@@ -47,7 +47,8 @@ export default class BTCHandler extends BaseHandler {
       case 'getblockheader':
         return toRes(await this.getBlockHeader(request.params[0], request.params[1], request.in3 && request.in3.finality, request))
       case 'gettransaction':
-        return toRes(await this.getTransaction(request.params[0], request.params[1], request.in3 && request.in3.finality, request))
+      case 'getrawtransaction':
+        return toRes(await this.getTransaction(request.params[0], request.params[1], request.params[2], request.in3 && request.in3.finality, request))
       case 'scantxoutset':
         // https://bitcoincore.org/en/doc/0.18.0/rpc/blockchain/scantxoutset/
         return this.getFromServer(request)
@@ -94,10 +95,11 @@ export default class BTCHandler extends BaseHandler {
     return { result: block, in3: { proof } }
   }
 
-  async getTransaction(hash: string, json: boolean = true, finality: number = 0, r: any) {
+  async getTransaction(hash: string, json: boolean = true, blockhash: string = undefined, finality: number = 0, r: any) {
     if (json === undefined) json = true
-    const tx = await this.getFromServer({ method: "getrawtransaction", params: [hash, true] }, r).then(asResult)
+    const tx = await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [hash, true, blockhash] : [hash, true] }, r).then(asResult)
     if (!tx) throw new Error("Transaction not found")
+    if (blockhash && tx.blockhash != blockhash) throw new Error('invalid blockhash for tx')
     const [block, header] = await this.getAllFromServer([{ method: "getblock", params: [tx.blockhash, true] }, { method: "getblockheader", params: [tx.blockhash, false] }], r).then(a => a.map(asResult))
     const proof: any = { block: '0x' + header, merkleProof: '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(tx.hash, 'hex')).toString('hex') }
     if (finality) proof.final = await this.getFinalityBlocks(parseInt(block.height), finality, r)
