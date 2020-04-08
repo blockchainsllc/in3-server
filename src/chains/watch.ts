@@ -64,9 +64,6 @@ export default class Watcher extends EventEmitter {
     hash: string
   }
 
-  _lastBlockTime: number
-  _health: number
-
   _interval: any
   handler: RPCHandler
   interval: number
@@ -106,8 +103,6 @@ export default class Watcher extends EventEmitter {
       this._lastBlock = { number: startBlock, hash: toHex(0, 32) }
 
     this.futureConvicts = []
-    this._lastBlockTime = 0
-    this._health = 5  //5 is max health
     // regsiter Cancel-Handler for 
     this.on('LogNodeUnregisterRequested', handleUnregister)
 
@@ -137,7 +132,6 @@ export default class Watcher extends EventEmitter {
     number: number,
     hash: string
   }) {
-    this._lastBlockTime = performance.now();
     if (this._lastBlock && this._lastBlock.number === b.number) return
     if (useDB)
       exec('update node set last_block=$1, last_hash=$2, last_update=now() where id=$3', [b.number, b.hash, config.id])
@@ -197,19 +191,6 @@ export default class Watcher extends EventEmitter {
       this.handler.getNodeList(false),
       this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => toNumber(_.result))
     ])
-
-    const maxBlockTimeout = this.handler.config.watchBlockTimeout? this.handler.config.watchBlockTimeout : maxWatchBlockTimeout
-    if(this.block.number == currentBlock && 
-       this._lastBlockTime != 0 && 
-       (performance.now() - this._lastBlockTime) > maxBlockTimeout){
-        setOpError(new Error("Watcher error. Last block num is updated in "+(performance.now() - this._lastBlockTime)+" ms. Max allowed time is "+maxBlockTimeout+" ms"))
-        this._health--
-      }
-    
-    if(this._health == 0){
-      setOpError(new Error("Watcher is unhealthy so exiting server. Current block number visible to watcher is: "+currentBlock))
-      process.exit(1)
-    }
 
     if (this.block.number == currentBlock) return
     if (!currentBlock) throw new Error('The current Block was empty!')
