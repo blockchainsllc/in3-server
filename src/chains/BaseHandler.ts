@@ -53,7 +53,7 @@ import HealthCheck from '../util/healthCheck'
 const histRequestTime = new promClient.Histogram({
   name: 'in3_upstream_request_time',
   help: 'Total time requests take talking to the upstream',
-  labelNames: ["rpc_method", "result", "type", "peer_ip"],
+  labelNames: ["rpc_method", "result", "type"],
   buckets: promClient.exponentialBuckets(1, 2, 20)
 });
 
@@ -155,7 +155,7 @@ export default abstract class BaseHandler implements RPCHandler {
           scope.setExtra("request", request)
         });
       }
-      histRequestTime.labels(request.method || "unknown", "error", "single", ip).observe(Date.now() - startTime);
+      histRequestTime.labels(request.method || "unknown", "error", "single").observe(Date.now() - startTime);
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
     }).then(res => {
       logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
@@ -176,7 +176,7 @@ export default abstract class BaseHandler implements RPCHandler {
         r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
         r.rpcCount = (r.rpcCount || 0) + 1
       }
-      histRequestTime.labels(request.method || "unknown", "ok", "single", ip).observe(Date.now() - startTime);
+      histRequestTime.labels(request.method || "unknown", "ok", "single").observe(Date.now() - startTime);
       return fixResponse(request, res)
     })
   }
@@ -195,7 +195,7 @@ export default abstract class BaseHandler implements RPCHandler {
       ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers }).then(_ => _.data, err => {
         logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
 
-        histRequestTime.labels("bulk", "error", "bulk", ip).observe(Date.now() - startTime);
+        histRequestTime.labels("bulk", "error", "bulk").observe(Date.now() - startTime);
         throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
       }).then(res => {
         if (process.env.SENTRY_ENABLE === 'true') {
@@ -221,7 +221,7 @@ export default abstract class BaseHandler implements RPCHandler {
           r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
           r.rpcCount = (r.rpcCount || 0) + 1
         }
-        histRequestTime.labels("bulk", "ok", "bulk", ip).observe(Date.now() - startTime);
+        histRequestTime.labels("bulk", "ok", "bulk").observe(Date.now() - startTime);
         if (Array.isArray(res))
           request.forEach((req, i) => fixResponse(req, res[i]))
 
