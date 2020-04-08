@@ -49,7 +49,7 @@ import { getSafeMinBlockHeight } from './config'
 import { verifyRequest } from '../types/verify'
 import * as logger from '../util/logger'
 import WhiteListManager from '../chains/whiteListManager';
-
+import HealthCheck from '../util/healthCheck'
 export { submitRequestTime } from './stats'
 
 const in3ProtocolVersionA = in3ProtocolVersion.split('.').map(_ => parseInt(_))
@@ -270,6 +270,10 @@ export class RPC {
         const watcher = this.handlers[c].watcher
         // start the watcher
         if (watcher && watcher.interval > 0) watcher.check()
+
+        const healthMon = this.handlers[c].healthCheck
+        if(healthMon && !healthMon.running)
+          healthMon.start()
       })
     ))
   }
@@ -337,6 +341,7 @@ export interface RPCHandler {
   config: IN3RPCHandlerConfig
   watcher?: Watcher
   whiteListMgr?: WhiteListManager
+  healthCheck?: HealthCheck
 }
 
 /**
