@@ -506,7 +506,7 @@ export function setOpError(err: Error){
     OP_ERROR = true;
 
     //logging error on console
-    logger.error(" Error "+err.name+" "+err.message+" "+err.stack)
+    logger.error(" "+err.name+" "+err.message+" "+err.stack)
 
     //sending error to sentry
     if (process.env.SENTRY_ENABLE === 'true') {
