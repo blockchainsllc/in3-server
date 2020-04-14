@@ -126,15 +126,6 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
     const config = nodes.nodes.find(_ => _.address.toLowerCase() === adr.toLowerCase())
     if (!config) { // TODO do we need to throw here or is it ok to simply not deliver the signature?
 
-      Sentry.configureScope((scope) => {
-
-        scope.setTag("NodeListFunction", "collectSignatures");
-        scope.setTag("collectSignatures", "address not found");
-        scope.setTag("nodeList-contract", nodes.registryId)
-        scope.setExtra("nodes", nodes.nodes)
-        scope.setExtra("requestedBlocks", requestedBlocks)
-      });
-
       throw new Error('The address ' + adr + ' does not exist within the current registered active nodeList! ')
     }
     // get cache signatures and remaining blocks that have no signatures
@@ -151,43 +142,49 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
     // send the sign-request
     let response: RPCResponse
-    try {
-      const req: RPCRequest = { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest };
+    let req: RPCRequest
 
+    try {
+       req = { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest };
 
       response = (blocksToRequest.length
         ? await handler.transport.handle(config.url, req)
         : { result: [] }) as RPCResponse
 
+      } catch (error) {
+
+        logger.error(error.toString())
+  
+        if(!error.toString().toLowerCase().includes("because the blockheight must be at least")){
+          Sentry.configureScope((scope) => {
+            scope.setTag("signatures", "collectSignatures");
+            scope.setTag("collectSignatures", "could not get signature");
+            scope.setExtra("addresses", addresses)
+            scope.setExtra("requestedBlocks", requestedBlocks)
+          });
+          Sentry.captureException(error);
+        }
+
+        throw error
+      }
+
       if (response.error) {
-        Sentry.configureScope((scope) => {
-          scope.setTag("signatures", "collectSignatures");
-          scope.setExtra("address", adr)
-          scope.setExtra("blocks", blocks)
-          scope.setExtra("response", response)
-        });
-        Sentry.captureMessage('Could not get the signature')
+        if(!response.error.toString().toLowerCase().includes("because the blockheight must be at least")){
+          Sentry.configureScope((scope) => {
+            scope.setTag("signatures", "collectSignatures");
+            scope.setExtra("address", adr)
+            scope.setExtra("blocks", blocks)
+            scope.setExtra("response", response)
+          });
+          Sentry.captureMessage(response.error)
+        }
 
         //sthrow new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
         logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocksToRequest.map(_ => _.blockNumber).join() + ':' + response.error)
         throw new Error('Could not get the signature from ' + adr + ' at ' + config.url + ' request: ' + JSON.stringify(req) + ' for block ' + blocksToRequest.map(_ => _.blockNumber).join() + ':' + response.error)
         //        return null
       }
-    } catch (error) {
 
-      logger.error(error.toString())
-
-      Sentry.configureScope((scope) => {
-        scope.setTag("signatures", "collectSignatures");
-        scope.setTag("collectSignatures", "could not get signature");
-        scope.setExtra("addresses", addresses)
-        scope.setExtra("requestedBlocks", requestedBlocks)
-      });
-      Sentry.captureException(error);
-      throw error
-
-      //      return null
-    }
 
     const signatures = [...cachedSignatures, ...response.result] as Signature[]
     // if there are signature, we only return the valid ones

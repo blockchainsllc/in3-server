@@ -27,7 +27,6 @@ build-server:
     paths:
       - js/
 
-
 test-parity:
   stage: test
   tags:
@@ -46,35 +45,13 @@ test-parity:
   script:
     - sh /prepare.sh
     - npm install
-    - npm run testCoverage
+    - npm run testReport
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
       - test/report
-
-test-geth:
-  stage: test
-  tags:
-    - short-jobs
-  variables:
-    RPCURL: http://geth:8545
-    IPFS_URL: http://ipfs:5001
-  services:
-    - name: jbenet/go-ipfs:latest
-      command:
-        - daemon
-        - --offline
-      alias: ipfs
-    - name: docker.slock.it/core-technology/geth-timemachine:master
-      alias: geth
-  script:
-    - sh /prepare.sh
-    - npm install
-    - npm run testCoverage
-  artifacts:
-    name: "test-reports-$CI_JOB_NAME"
-    paths:
-      - test/report
+    reports:
+      junit: mocha.xml
 
 test-nethermind:
   stage: test
@@ -95,11 +72,13 @@ test-nethermind:
   script:
     - sh /prepare.sh
     - npm install
-    - npm run testCoverage
+    - npm run testReport
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
       - test/report
+    reports:
+      junit: mocha.xml
 
 test-geth:
   stage: test
@@ -119,11 +98,13 @@ test-geth:
   script:
     - sh /prepare.sh
     - npm install
-    - npm run testCoverage
+    - npm run testReport
   artifacts:
     name: "test-reports-$CI_JOB_NAME"
     paths:
       - test/report
+    reports:
+      junit: mocha.xml
 
 package-docker:
   stage: package
@@ -280,6 +261,13 @@ register-with-sentry-production:
     CHAIN_ID: "0x5"
     RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
 
+.chain-tmpl-btc:
+  variables:
+    CHAIN: btc
+    CHAIN_ID: "0x99"
+    RPC_ENDPOINT: "https://slockit:slockit@rpc.slock.it/bitcoin"
+    REGISTRY_RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
+
 .chain-tmpl-kovan:
   variables:
     CHAIN: kovan
@@ -318,6 +306,16 @@ deploy-stage-goerli:
     - .chain-tmpl-goerli
   variables:
     REGISTRY_CONTRACT_ADDR: "0x0bfe6c538877aed3a0e0c6db78d07234c9100853"
+
+deploy-stage-btc:
+  extends:
+    - .deploy-tmpl-stage
+    - .chain-tmpl-btc
+  script:
+    - cd deployment
+    - rancher -w up -f docker-compose.btc.yml -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x635cccc1db6fc9e3b029814720595092affba12f"
 
 # disable until v2 stage contract is deployed to mainnet
 #deploy-stage-mainnet:

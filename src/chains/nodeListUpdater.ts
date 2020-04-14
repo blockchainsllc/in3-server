@@ -67,7 +67,7 @@ async function updateContractAdr(handler: RPCHandler, list: ServerList): Promise
   let contractVersion2: boolean = false
 
   // we try to read the registryData-contract. If there is none, this is an old contract and we use the registry, but if there is, we use the data contract.
-  list.contract = await handler.getFromServer(nodeRegistryData).then(_ => {
+  list.contract = await handler.getFromServer(nodeRegistryData, nodeRegistryData, handler.config.registryRPC || handler.config.rpcUrl).then(_ => {
     const r = _.result as string
     if (r === '0x' || _.error) return handler.config.registry // the error occurs on parity because the method does not exist.
     contractVersion2 = true
@@ -198,7 +198,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
 
   // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
   const address = nodeList.contract
-  const lastBlock = paramBlockNr ? 0 : (await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result))) //no need to see last block if paramBlockNr is alreay provided in params
+  const lastBlock = paramBlockNr ? 0 : (await handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, handler.config.registryRPC).then(_ => parseInt(_.result))) //no need to see last block if paramBlockNr is alreay provided in params
   const blockNr = paramBlockNr ? toHex(paramBlockNr) : (lastBlock ? toHex(Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0))) : 'latest')
   let req: any = ''
 
@@ -206,7 +206,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
   const [blockResponse, proof] = await handler.getAllFromServer(req = [
     { method: 'eth_getBlockByNumber', params: [blockNr, false] },
     { method: 'eth_getProof', params: [toHex(address, 20), paramKeys || keys.map(_ => toHex(_, 32)), blockNr] }
-  ])
+  ], undefined, handler.config.registryRPC)
 
   if (process.env.SENTRY_ENABLE === 'true') {
     Sentry.addBreadcrumb({
@@ -312,15 +312,17 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
       })
     }
 
-    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string);
+    const registryId = await handler.getFromServer(registryIdRequest, registryIdRequest, handler.config.registryRPC).then(_ => _.result as string);
     list.registryId = registryId
 
   }
 
+  const latestBlockNum = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, handler.config.registryRPC).then(_ => parseInt(_.result as string))
+  const finalityBlockNum = handler.config.minBlockHeight ? (latestBlockNum - handler.config.minBlockHeight) : latestBlockNum
   // number of registered servers
-  const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [])
+  const [serverCount] = await tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [], undefined, undefined, finalityBlockNum)
 
-  list.lastBlockNumber = lastBlockNumber || parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
+  list.lastBlockNumber = (finalityBlockNum ? finalityBlockNum : latestBlockNum)
   list.totalServers = serverCount.toNumber()
 
   // build the requests per server-entry
@@ -333,10 +335,10 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
         to: list.contract,
         data: '0x' + abi.simpleEncode('nodes(uint)', toHex(i, 32)).toString('hex')
       },
-        'latest']
+      (finalityBlockNum ? toHex(finalityBlockNum) : 'latest')]
     })
 
-  list.nodes = await handler.getAllFromServer(nodeRequests).then(all => all.map((n, i) => {
+  list.nodes = await handler.getAllFromServer(nodeRequests, undefined, handler.config.registryRPC).then(all => all.map((n, i) => {
     // invalid requests must be filtered out
     if (n.error) return null
 

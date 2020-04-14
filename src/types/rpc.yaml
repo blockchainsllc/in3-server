@@ -413,3 +413,52 @@ definitions:
   net_version:
     type: array
     maxItems: 0
+
+  getblock:
+    type: array
+    maxItems: 2
+    minItems: 1
+    items:
+      - type: string
+      - type: boolean
+
+  getblockheader:
+    type: array
+    maxItems: 2
+    minItems: 1
+    items:
+      - type: string
+      - type: boolean
+
+  getbestblockhash:
+    type: array
+    maxItems: 0
+
+  getblockcount:
+    type: array
+    maxItems: 0
+
+  getblockhash:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - type: number
+
+  gettransaction:
+    type: array
+    maxItems: 3
+    minItems: 1
+    items:
+      - type: string
+      - type: boolean
+      - type: string
+
+  getrawtransaction:
+    type: array
+    maxItems: 3
+    minItems: 1
+    items:
+      - type: string
+      - type: boolean
+      - type: string
