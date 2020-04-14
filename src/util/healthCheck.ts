@@ -37,16 +37,19 @@ import { setOpError } from '../server/server'
 
 export default class HealthCheck {
 
-    _health: number
-    _lastBlockTime: number
-    _interval: any
-    interval: number
-    running: boolean
+    _health: number             // health meter of server (0 to 5) where 5 is highest
+    _lastBlockTime: number      // clock tick when last block was detected
+    _interval: any              // reference of setInterval
+    interval: number            // duration after which setInterval is invoked
+    running: boolean            //flag for determing if healthcheck is running
     
-    maxBlockTimeout: number
+    maxBlockTimeout: number     //max time out allowed until new block must be detectable 
 
-    //block timeout: max time supposed in which a block must be detected by server, it is configurable using watchBlockTimeout (ms) default is 120 sec
-    //interval : after each interval duration a function (checkHealth()) will check that how much duration it took since last block
+    /**
+     *constructor 
+     *block timeout: max time supposed in which a block must be detected by server, it is configurable using watchBlockTimeout (ms) default is 120 sec
+     *interval : after each interval duration a function (checkHealth()) will check that how much duration it took since last block
+    */
     constructor(blockTimeout , interval = 45000) {
         this.maxBlockTimeout = blockTimeout
         this.interval = interval
@@ -55,6 +58,9 @@ export default class HealthCheck {
         this._health = 5  //5 is max health
     }
 
+    /**
+     * Function for stopping healthcheck
+     */
     stop() {
         if (this.running) {
             this.running = false
@@ -65,6 +71,9 @@ export default class HealthCheck {
         }
     }
 
+    /**
+     * Function for starting healthcheck interval, in case of error it will stop permenently and mark server unhealthy
+     */
     start() {
         if (!this.running) {
             logger.info('Starting health monitoring ...')
@@ -80,6 +89,10 @@ export default class HealthCheck {
         }
     }
 
+    /*
+    * Funciton for checking health, currently there is one vital sign as if a new block is detected by server or not
+    * if no new block is detectable in maxBlockTimeout it will reduce health, until it will close server process
+    */
     checkHealth() {
         logger.debug("checking health ... ["+this._health+"/5]")
         let duration: number = new Date().getTime() - this._lastBlockTime
@@ -95,6 +108,9 @@ export default class HealthCheck {
         }
     }
 
+    /*
+    * Function for updating lastBlockTime
+    */
     updateBlock(){
         logger.debug("New block detected in health check")
         this._lastBlockTime = new Date().getTime()
