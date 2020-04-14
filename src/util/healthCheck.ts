@@ -50,7 +50,7 @@ export default class HealthCheck {
      *block timeout: max time supposed in which a block must be detected by server, it is configurable using watchBlockTimeout (ms) default is 120 sec
      *interval : after each interval duration a function (checkHealth()) will check that how much duration it took since last block
     */
-    constructor(blockTimeout , interval = 45000) {
+    constructor(blockTimeout: number , interval = 45000) {
         this.maxBlockTimeout = blockTimeout
         this.interval = interval
         this.running = false
