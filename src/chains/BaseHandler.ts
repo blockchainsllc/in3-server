@@ -90,7 +90,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
     //create health monitoring service
     const maxBlockTimeout = config.watchBlockTimeout? config.watchBlockTimeout : maxWatchBlockTimeout
-    this.healthCheck = new HealthCheck(maxBlockTimeout)
+    this.healthCheck = new HealthCheck(maxBlockTimeout, this.watcher)
     this.watcher.on('newBlock', () => this.healthCheck.updateBlock())
 
     this.whiteListMgr = new WhiteListManager(this, config.maxWhiteListWatch, config.cacheWhiteList)
