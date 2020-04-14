@@ -606,7 +606,7 @@ export interface IN3RPCHandlerConfig {
      */
     registryRPC?: string
     /**
-     * if set the watcher thread in server will report server as unhealthy if new block is not mined in this time duration milliseconds. By default this is 2 min .
+     * if set the watcher thread in server will report server as unhealthy if new block is not mined in this time duration milliseconds. By default this is 50 seconds
      */
     watchBlockTimeout?:number
     
