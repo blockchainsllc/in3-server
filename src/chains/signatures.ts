@@ -233,7 +233,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
               signature: s,
               expected: expectedBlock,
               chainId: handler.chainId,
-              registryRPC: handler.config.registryRPC || handler.config.rpcUrl,
+              registryRPC: handler.config.registryRPC || handler.config.rpcUrl[0],
             }
           })
         }
@@ -251,7 +251,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         if (foundAlready) return
 
         if (!handler.watcher.blockhashRegistry)
-          handler.watcher.blockhashRegistry = (await callContract(handler.config.rpcUrl, handler.config.registry, 'blockRegistry():(address)', []))[0]
+          handler.watcher.blockhashRegistry = (await callContract(handler.config.rpcUrl[0], handler.config.registry, 'blockRegistry():(address)', []))[0]
 
         handler.watcher.futureConvicts.push({
           startTime: Date.now(),
@@ -294,55 +294,51 @@ export function sign(pk: PK, blocks: { blockNumber: number, hash: string, regist
   })
 }
 
-export async function handleSign(handler: BaseHandler, request: RPCRequest): Promise<RPCResponse> {
-  if (!(handler.config as any)._pk) throw new Error('The server is not configured to sign blockhashes')
-  const blocks = request.params as { blockNumber: number, hash: string }[]
-  const blockData = await handler.getAllFromServer([
-    ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })),
-    { method: 'eth_blockNumber', params: [] },
-  ], request).then(a => a.map(_ => _.result as BlockData))
-  const blockNumber = blockData.pop() as any as string // the first arg is just the current blockNumber
+  export async function handleSign(handler: BaseHandler, request: RPCRequest): Promise<RPCResponse> {
+    if (!(handler.config as any)._pk) throw new Error('The server is not configured to sign blockhashes')
+    const blocks = request.params as { blockNumber: number, hash: string }[]
 
-  if (!blockNumber) throw new Error('no current blocknumber detectable ')
-  if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
+    const result = await Promise.all(
+      handler.config.rpcUrl.map(async rpcUrl => {
 
-  const blockHeight = handler.config.minBlockHeight === undefined ? getSafeMinBlockHeight(handler.chainId) : handler.config.minBlockHeight
-  const tooYoungBlock = blockData.find(block => toNumber(blockNumber) - toNumber(block.number) < blockHeight)
-  if (tooYoungBlock)
-    throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
+        const blockData = await handler.getAllFromServer([
+          ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })),
+          { method: 'eth_blockNumber', params: [] },
+        ], request,rpcUrl).then(a => a.map(_ => _.result as BlockData))
 
-  //if secondary ethereum node URL is provided, check for high consistency and RPC data integraity
-  if(handler.config.secondaryRpcUrl){
-    const scndryBlockData = await handler.getAllFromServer([
-      ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })),
-      { method: 'eth_blockNumber', params: [] },
-    ], request, true).then(a => a.map(_ => _.result as BlockData))
-    const scndryBlockNumber = scndryBlockData.pop() as any as string
+        const blockNumber = blockData.pop() as any as string // the first arg is just the current blockNumber
+      
+        if (!blockNumber) throw new Error('no current blocknumber detectable ')
+        if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
+      
+        const blockHeight = handler.config.minBlockHeight === undefined ? getSafeMinBlockHeight(handler.chainId) : handler.config.minBlockHeight
+        const tooYoungBlock = blockData.find(block => toNumber(blockNumber) - toNumber(block.number) < blockHeight)
+        if (tooYoungBlock)
+          throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
+           
+        return {BlockData: blockData}
+        }))
+    
+    //if multiple RPCs are specified then for higher security check blocks are same on all RPC by comparing hashes, before signature calls
+    if(handler.config.rpcUrl.length > 1){
 
-    if (!scndryBlockNumber) throw new Error('no current blocknumber detectable ')
-    if (scndryBlockData.find(_ => !_)) throw new Error('requested block could not be found ')
+      let rpc1Results = result[0].BlockData.reduce(function(map, obj) {map[obj.hash] = obj.hash;return map;}, {});
 
-    var mapBlockData = scndryBlockData.reduce(function(map, bl) {
-      map[bl.number] = bl.hash;
-      return map;
-    }, {});
+        for(let rpcIndex=1; rpcIndex < result.length; rpcIndex++){
+          if(result[0].BlockData.length != result[rpcIndex].BlockData.length)
+            throw new Error("Cannot sign, block numbers mismatch accross multiple RPCs."+JSON.stringify(request))
 
-    blockData.map(b => {
-      if(!mapBlockData[b.number])
-        throw new Error("Block number "+b.number+" not found on secondary RPC, cannot sign.")
+          for(let blockIndex=0; blockIndex < result[rpcIndex].BlockData.length; blockIndex++){
+            if(!rpc1Results[result[rpcIndex].BlockData[blockIndex].hash])
+              throw new Error("Cannot sign, block hashes mismatch accross multiple RPCs."+result[rpcIndex].BlockData[blockIndex].hash+" "+JSON.stringify(request))
+          }
+        }
+    }
 
-      if(mapBlockData[b.number]!=b.hash)
-        throw new Error("Invalid block hash detected, cannot sign. block#: "+b.number+" primary RPC block hash: "+b.hash+" secondary RPC blockhash: "+mapBlockData[b.number])
-    })
-  }
-
-
-  if (!blockNumber) throw new Error('no current blocknumber detectable ')
-  if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
-
-  return {
-    id: request.id,
-    jsonrpc: request.jsonrpc,
-    result: sign((handler.config as any)._pk, blockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
-  }
+    return {
+      id: request.id,
+      jsonrpc: request.jsonrpc,
+      result: sign((handler.config as any)._pk, result[0].BlockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
+    }
+  
 }
