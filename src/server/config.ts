@@ -59,7 +59,7 @@ const config: IN3RPCConfig = {
   },
   chains: {
     '0x1': {
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: ['http://localhost:8545'],
       privateKey: '',
       minBlockHeight: getSafeMinBlockHeight('0x1'),
       registry: '',     // registry-contract
