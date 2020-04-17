@@ -105,12 +105,6 @@ function parseDef(def: { properties: any, type: string }, targetPath = [], targe
 }
 
 export function readCargs(): IN3RPCConfig {
-  console.log("sleeping...")
-  var now = new Date().getTime();
-  var millisecondsToWait = 8000; /* i.e. 1 second */
-  //Using while loop:
-  while ( new Date().getTime() < now + millisecondsToWait ){}
-  //////////
   // take the config from config.json and overwrite it
   try {
     Object.assign(config, JSON.parse(fs.readFileSync('config.json', 'utf-8')))
