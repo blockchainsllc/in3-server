@@ -42,10 +42,7 @@ export default class HealthCheck {
     _lastBlockTime: number      // clock tick when last block was detected
     _interval: any              // reference of setInterval
     interval: number            // duration after which setInterval is invoked
-    running: boolean            //flag for determing if healthcheck is running
-    
     maxBlockTimeout: number     //max time out allowed until new block must be detectable 
-
     watcher: Watcher            //watcher reference
 
     /**
@@ -53,13 +50,19 @@ export default class HealthCheck {
      *block timeout: max time supposed in which a block must be detected by server, it is configurable using watchBlockTimeout (ms) default is 120 sec
      *interval : after each interval duration a function (checkHealth()) will check that how much duration it took since last block
     */
-    constructor(blockTimeout: number , watcher: Watcher, interval = 45000) {
+    constructor(blockTimeout: number, watcher: Watcher, interval = 45000) {
         this.maxBlockTimeout = blockTimeout
         this.interval = interval
-        this.running = false
         this._lastBlockTime = 0
         this._health = 5  //5 is max health
         this.watcher = watcher
+    }
+
+    /**
+     * returns true if the healthCheck is running.
+     */
+    get running() {
+        return !!this._interval;
     }
 
     /**
@@ -67,11 +70,8 @@ export default class HealthCheck {
      */
     stop() {
         if (this.running) {
-            this.running = false
-            if (this._interval) {
-                clearInterval(this._interval)
-                this._interval = undefined
-            }
+            clearInterval(this._interval)
+            this._interval = undefined
         }
     }
 
@@ -81,8 +81,6 @@ export default class HealthCheck {
     start() {
         if (!this.running) {
             logger.info('Starting health monitoring ...')
-            this.running = true
-
             try {
                 this._interval = setInterval(() => this.checkHealth(), this.interval)
                 this._lastBlockTime = new Date().getTime() //assuming every thing is good at start
@@ -98,31 +96,31 @@ export default class HealthCheck {
     * if no new block is detectable in maxBlockTimeout it will reduce health, it will restart watcher if failed then it will exist server process at end
     */
     checkHealth() {
-        logger.debug("checking health ... ["+this._health+"/5]")
+        logger.debug("checking health ... [" + this._health + "/5]")
         let duration: number = new Date().getTime() - this._lastBlockTime
 
-        if( this._lastBlockTime == 0 || duration >= this.maxBlockTimeout ){
+        if (this._lastBlockTime == 0 || duration >= this.maxBlockTimeout) {
             this._health--
-            setOpError(new Error("Watcher error. No new block is detected in "+( duration/1000 )+" sec. Max allowed time is "+(this.maxBlockTimeout/1000)+" sec ["+this._health+"]"))
+            setOpError(new Error("Watcher error. No new block is detected in " + (duration / 1000) + " sec. Max allowed time is " + (this.maxBlockTimeout / 1000) + " sec [" + this._health + "]"))
         }
 
-        if(this._health == 0){
-            setOpError(new Error("Watcher is unhealthy so exiting server. Last block detected "+(duration/1000)+" sec ago. ["+this._health+"]"))
-            process.exit(1) 
+        if (this._health == 0) {
+            setOpError(new Error("Watcher is unhealthy so exiting server. Last block detected " + (duration / 1000) + " sec ago. [" + this._health + "]"))
+            process.exit(1)
         }
 
-        if(this._health >0 && this._health<=3){
-            if(this.watcher && this.watcher.running && this.watcher.interval > 0){
-                try{
-                    logger.info("Restarting watcher. [H:"+this._health+"]")
+        if (this._health > 0 && this._health <= 3) {
+            if (this.watcher && this.watcher.running && this.watcher.interval > 0) {
+                try {
+                    logger.info("Restarting watcher. [H:" + this._health + "]")
                     this.watcher.stop()
 
                     this.watcher.check()
                     logger.info("Watcher restarted")
 
                 } catch (err) {
-                    setOpError(new Error("Unable to restart Watcher."+err.name + ":" + err.message))
-                    setOpError(new Error("Watcher is unhealthy so exiting server. Last block detected "+(duration/1000)+" sec ago."))
+                    setOpError(new Error("Unable to restart Watcher." + err.name + ":" + err.message))
+                    setOpError(new Error("Watcher is unhealthy so exiting server. Last block detected " + (duration / 1000) + " sec ago."))
                     process.exit(1)
                 }
             }
@@ -132,7 +130,7 @@ export default class HealthCheck {
     /*
     * Function for updating lastBlockTime
     */
-    updateBlock(){
+    updateBlock() {
         logger.debug("New block detected in health check")
         this._lastBlockTime = new Date().getTime()
     }

@@ -46,9 +46,6 @@ import { useDB, exec } from '../util/db'
 import config from '../server/config'
 import { updateValidatorHistory } from '../server/poa';
 import { SentryError } from '../util/sentryError'
-import { setOpError } from '../server/server'
-import { performance } from 'perf_hooks'
-import { maxWatchBlockTimeout } from '../types/constants'
 
 const toNumber = util.toNumber
 const toHex = util.toHex
