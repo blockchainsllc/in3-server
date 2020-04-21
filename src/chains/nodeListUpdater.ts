@@ -42,6 +42,7 @@ import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
 import { setOpError } from '../server/server'
 
+
 const toHex = util.toHex
 const toBuffer = util.toBuffer
 const bytes32 = serialize.bytes32
@@ -79,7 +80,7 @@ async function updateContractAdr(handler: RPCHandler, list: ServerList): Promise
 
 /** returns a nodelist filtered by the given params and proof. */
 export async function getNodeList(handler: RPCHandler, nodeList: ServerList, includeProof = false, limit = 0, seed?: string, addresses: string[] = []): Promise<ServerList> {
-  try{
+  try {
     if (process.env.SENTRY_ENABLE === 'true') {
       Sentry.addBreadcrumb({
         category: "getNodeList",
@@ -160,13 +161,13 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
 
       return nl
     }
-    
+
     // clone result
     const list: ServerList = { ...nodeList, proof: { ...nodeList.proof } }
     if (!includeProof) delete list.proof
     return list
 
-  }catch(e){
+  } catch (e) {
     //sending call to adapter
     setOpError(e);
   }
@@ -384,8 +385,22 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
   })).then(_ => _)
 
-  // create the proof
-  list.proof = await createNodeListProof(handler, list)
+  // create the proof and ensure proof is not null, in case it is always null after multiple attempts then mark server unhealthy
+  let attempt: number = 1
+  let proof: Proof = undefined
+  do {
+    proof = await createNodeListProof(handler, list).catch(err => {
+      logger.error('... no proof created : attempt ' + attempt + ':' + err.message)
+      return undefined
+    })
+    attempt++
+  } while (!proof && attempt <= 5)
+
+  if (!proof) {
+    setOpError(new Error("Unable to prepare proof for nodelist."))
+  }
+  list.proof = proof
+
   logger.info('... finish updating nodelist execTime: ' + (Date.now() - start) + 'ms')
   //    delete (handler as any).isUpdating
   //    isUpdating.forEach(_ => _.res())
