@@ -40,6 +40,7 @@ import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour, schedulePrometheus } from './stats'
 
+import BTCHandler from '../modules/btc/BTCHandler'
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
@@ -49,7 +50,7 @@ import { getSafeMinBlockHeight } from './config'
 import { verifyRequest } from '../types/verify'
 import * as logger from '../util/logger'
 import WhiteListManager from '../chains/whiteListManager';
-
+import HealthCheck from '../util/healthCheck'
 export { submitRequestTime } from './stats'
 
 const in3ProtocolVersionA = in3ProtocolVersion.split('.').map(_ => parseInt(_))
@@ -80,6 +81,9 @@ export class RPC {
           break
         case 'ipfs':
           h = new IPFSHandler({ ...rpcConf }, transport, nodeList)
+          break
+        case 'btc':
+          h = new BTCHandler({ ...rpcConf }, transport, nodeList)
           break
         // TODO implement other handlers later
         default:
@@ -270,6 +274,10 @@ export class RPC {
         const watcher = this.handlers[c].watcher
         // start the watcher
         if (watcher && watcher.interval > 0) watcher.check()
+
+        const healthMon = this.handlers[c].healthCheck
+        if(healthMon && !healthMon.running)
+          healthMon.start()
       })
     ))
   }
@@ -327,8 +335,8 @@ export interface RPCHandler {
   chainId: string
   handle(request: RPCRequest): Promise<RPCResponse>
   handleWithCache(request: RPCRequest): Promise<RPCResponse>
-  getFromServer(request: Partial<RPCRequest>, r?: any): Promise<RPCResponse>
-  getAllFromServer(request: Partial<RPCRequest>[], r?: any): Promise<RPCResponse[]>
+  getFromServer(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse>
+  getAllFromServer(request: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[]): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
@@ -337,6 +345,7 @@ export interface RPCHandler {
   config: IN3RPCHandlerConfig
   watcher?: Watcher
   whiteListMgr?: WhiteListManager
+  healthCheck?: HealthCheck
 }
 
 /**

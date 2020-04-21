@@ -40,6 +40,7 @@ import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig, WhiteList }
 import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
+import { setOpError } from '../server/server'
 
 
 const toHex = util.toHex
@@ -67,7 +68,7 @@ async function updateContractAdr(handler: RPCHandler, list: ServerList): Promise
   let contractVersion2: boolean = false
 
   // we try to read the registryData-contract. If there is none, this is an old contract and we use the registry, but if there is, we use the data contract.
-  list.contract = await handler.getFromServer(nodeRegistryData).then(_ => {
+  list.contract = await handler.getFromServer(nodeRegistryData, nodeRegistryData, handler.config.registryRPC || handler.config.rpcUrl).then(_ => {
     const r = _.result as string
     if (r === '0x' || _.error) return handler.config.registry // the error occurs on parity because the method does not exist.
     contractVersion2 = true
@@ -79,93 +80,97 @@ async function updateContractAdr(handler: RPCHandler, list: ServerList): Promise
 
 /** returns a nodelist filtered by the given params and proof. */
 export async function getNodeList(handler: RPCHandler, nodeList: ServerList, includeProof = false, limit = 0, seed?: string, addresses: string[] = []): Promise<ServerList> {
-  if (process.env.SENTRY_ENABLE === 'true') {
-    Sentry.addBreadcrumb({
-      category: "getNodeList",
-      data: {
-        includeProof: includeProof,
-        limit: limit,
-        seed: seed,
-        addresses: addresses
-      }
-    })
-  }
-
-  // TODO check blocknumber of last event.
-  if (!nodeList.nodes)
-    await updateNodeList(handler, nodeList)
-
-
-  if (!nodeList.registryId || nodeList.registryId === '0x') {
-    await updateContractAdr(handler, nodeList)
-    const registryIdRequest: RPCRequest = {
-      jsonrpc: '2.0',
-      id: 0,
-      method: 'eth_call', params: [{
-        to: nodeList.contract,
-        data: '0x' + abi.simpleEncode('registryId()').toString('hex')
-      },
-        'latest']
-    }
-
+  try {
     if (process.env.SENTRY_ENABLE === 'true') {
-
       Sentry.addBreadcrumb({
-        category: "registryId request",
-        data: registryIdRequest
+        category: "getNodeList",
+        data: {
+          includeProof: includeProof,
+          limit: limit,
+          seed: seed,
+          addresses: addresses
+        }
       })
     }
-    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string).catch(_ => {
+    // TODO check blocknumber of last event.
+    if (!nodeList.nodes)
+      await updateNodeList(handler, nodeList)
 
-      Sentry.configureScope((scope) => {
-        scope.setTag("nodeListUpdater", "registryId");
-        scope.setTag("NodeList-address", nodeList.contract)
-        scope.setExtra("NodeList-response", _)
+
+    if (!nodeList.registryId || nodeList.registryId === '0x') {
+      await updateContractAdr(handler, nodeList)
+      const registryIdRequest: RPCRequest = {
+        jsonrpc: '2.0',
+        id: 0,
+        method: 'eth_call', params: [{
+          to: nodeList.contract,
+          data: '0x' + abi.simpleEncode('registryId()').toString('hex')
+        },
+          'latest']
+      }
+
+      if (process.env.SENTRY_ENABLE === 'true') {
+
+        Sentry.addBreadcrumb({
+          category: "registryId request",
+          data: registryIdRequest
+        })
+      }
+      const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string).catch(_ => {
+
+        Sentry.configureScope((scope) => {
+          scope.setTag("nodeListUpdater", "registryId");
+          scope.setTag("NodeList-address", nodeList.contract)
+          scope.setExtra("NodeList-response", _)
+        });
+        throw new Error(_)
       });
-      throw new Error(_)
-    });
-    if (registryId != undefined) nodeList.registryId = registryId
-  }
-
-  // if the client requires a portion of the list
-  if (limit && limit < nodeList.nodes.length) {
-    const nodes = nodeList.nodes
-
-    // try to find the addresses in the node list
-    const result = addresses.map(adr => nodes.findIndex(_ => _.address === adr))
-    if (result.indexOf(-1) >= 0)// throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist', "getNodeList")
-      throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist')
-    createRandomIndexes(nodes.length, limit, bytes32(seed), result)
-
-    const nl: ServerList = {
-      totalServers: nodeList.totalServers,
-      contract: nodeList.contract,
-      lastBlockNumber: nodeList.lastBlockNumber,
-      nodes: result.map(i => nodeList.nodes[i]),
-      registryId: nodeList.registryId
+      if (registryId != undefined) nodeList.registryId = registryId
     }
 
-    if (includeProof) {
-      const storageProof = nodeList.proof.accounts[nodeList.contract].storageProof
-      nl.proof = {
-        ...nodeList.proof,
-        accounts: {
-          [nodeList.contract]: {
-            ...nodeList.proof.accounts[nodeList.contract],
-            storageProof: getStorageKeys(nl.nodes).map(k => storageProof.find(_ => bytes32(_.key).equals(k)))
+    // if the client requires a portion of the list
+    if (limit && limit < nodeList.nodes.length) {
+      const nodes = nodeList.nodes
+
+      // try to find the addresses in the node list
+      const result = addresses.map(adr => nodes.findIndex(_ => _.address === adr))
+      if (result.indexOf(-1) >= 0)// throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist', "getNodeList")
+        throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist')
+      createRandomIndexes(nodes.length, limit, bytes32(seed), result)
+
+      const nl: ServerList = {
+        totalServers: nodeList.totalServers,
+        contract: nodeList.contract,
+        lastBlockNumber: nodeList.lastBlockNumber,
+        nodes: result.map(i => nodeList.nodes[i]),
+        registryId: nodeList.registryId
+      }
+
+      if (includeProof) {
+        const storageProof = nodeList.proof.accounts[nodeList.contract].storageProof
+        nl.proof = {
+          ...nodeList.proof,
+          accounts: {
+            [nodeList.contract]: {
+              ...nodeList.proof.accounts[nodeList.contract],
+              storageProof: getStorageKeys(nl.nodes).map(k => storageProof.find(_ => bytes32(_.key).equals(k)))
+            }
           }
         }
       }
+
+      return nl
     }
 
-    return nl
+    // clone result
+    const list: ServerList = { ...nodeList, proof: { ...nodeList.proof } }
+    if (!includeProof) delete list.proof
+    return list
+
+  } catch (e) {
+    //sending call to adapter
+    setOpError(e);
   }
-
-  // clone result
-  const list: ServerList = { ...nodeList, proof: { ...nodeList.proof } }
-  if (!includeProof) delete list.proof
-  return list
-
 }
 
 /**
@@ -198,7 +203,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
 
   // TODO maybe we should use a block that is 6 blocks old since nobody would sign a blockhash for latest.
   const address = nodeList.contract
-  const lastBlock = paramBlockNr ? 0 : (await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => parseInt(_.result))) //no need to see last block if paramBlockNr is alreay provided in params
+  const lastBlock = paramBlockNr ? 0 : (await handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, handler.config.registryRPC).then(_ => parseInt(_.result))) //no need to see last block if paramBlockNr is alreay provided in params
   const blockNr = paramBlockNr ? toHex(paramBlockNr) : (lastBlock ? toHex(Math.max(nodeList.lastBlockNumber, lastBlock - (handler.config.minBlockHeight || 0))) : 'latest')
   let req: any = ''
 
@@ -206,7 +211,7 @@ export async function createNodeListProof(handler: RPCHandler, nodeList: ServerL
   const [blockResponse, proof] = await handler.getAllFromServer(req = [
     { method: 'eth_getBlockByNumber', params: [blockNr, false] },
     { method: 'eth_getProof', params: [toHex(address, 20), paramKeys || keys.map(_ => toHex(_, 32)), blockNr] }
-  ])
+  ], undefined, handler.config.registryRPC)
 
   if (process.env.SENTRY_ENABLE === 'true') {
     Sentry.addBreadcrumb({
@@ -312,15 +317,17 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
       })
     }
 
-    const registryId = await handler.getFromServer(registryIdRequest).then(_ => _.result as string);
+    const registryId = await handler.getFromServer(registryIdRequest, registryIdRequest, handler.config.registryRPC).then(_ => _.result as string);
     list.registryId = registryId
 
   }
 
+  const latestBlockNum = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, handler.config.registryRPC).then(_ => parseInt(_.result as string))
+  const finalityBlockNum = handler.config.minBlockHeight ? (latestBlockNum - handler.config.minBlockHeight) : latestBlockNum
   // number of registered servers
-  const [serverCount] = await tx.callContract(handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [])
+  const [serverCount] = await tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [], undefined, undefined, finalityBlockNum)
 
-  list.lastBlockNumber = lastBlockNumber || parseInt(await handler.getFromServer({ method: 'eth_blockNumber', params: [] }).then(_ => _.result as string))
+  list.lastBlockNumber = (finalityBlockNum ? finalityBlockNum : latestBlockNum)
   list.totalServers = serverCount.toNumber()
 
   // build the requests per server-entry
@@ -333,10 +340,10 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
         to: list.contract,
         data: '0x' + abi.simpleEncode('nodes(uint)', toHex(i, 32)).toString('hex')
       },
-        'latest']
+      (finalityBlockNum ? toHex(finalityBlockNum) : 'latest')]
     })
 
-  list.nodes = await handler.getAllFromServer(nodeRequests).then(all => all.map((n, i) => {
+  list.nodes = await handler.getAllFromServer(nodeRequests, undefined, handler.config.registryRPC).then(all => all.map((n, i) => {
     // invalid requests must be filtered out
     if (n.error) return null
 
@@ -378,8 +385,22 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
   })).then(_ => _)
 
-  // create the proof
-  list.proof = await createNodeListProof(handler, list)
+  // create the proof and ensure proof is not null, in case it is always null after multiple attempts then mark server unhealthy
+  let attempt: number = 1
+  let proof: Proof = undefined
+  do {
+    proof = await createNodeListProof(handler, list).catch(err => {
+      logger.error('... no proof created : attempt ' + attempt + ':' + err.message)
+      return undefined
+    })
+    attempt++
+  } while (!proof && attempt <= 5)
+
+  if (!proof) {
+    setOpError(new Error("Unable to prepare proof for nodelist."))
+  }
+  list.proof = proof
+
   logger.info('... finish updating nodelist execTime: ' + (Date.now() - start) + 'ms')
   //    delete (handler as any).isUpdating
   //    isUpdating.forEach(_ => _.res())

@@ -1,0 +1,144 @@
+version: "2"
+services:
+  lb:
+    image: rancher/lb-service-haproxy:v0.9.13
+    expose:
+      - 80:80/tcp
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
+      io.rancher.container.agent.role: environmentAdmin,agent
+      io.rancher.container.agent_service.drain_provider: "true"
+      io.rancher.container.create_agent: "true"
+
+  nd-1:
+    image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    stdin_open: true
+    tty: true
+    environment:
+      - SENTRY_ENABLE=true
+      - SENTRY_DSN=https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+      - SENTRY_ENVIRONMENT=${TARGET}
+      - SENTRY_RELEASE=in3-server@${CI_COMMIT_REF_NAME}
+    command:
+      - --privateKey=${SRV_PK1}
+      - --registry=${REGISTRY_CONTRACT_ADDR}
+      - --registryRPC=${REGISTRY_RPC_ENDPOINT}
+      - --rpcUrl=${RPC_ENDPOINT}
+      - --chain=${CHAIN_ID}
+      - --minBlockHeight=0
+      - --profile-name=Slockit1
+      - --profile-icon=https://slock.it/assets/slock_logo.png
+      - --profile-url=https://slock.it
+      - --persistentFile=false
+      - --handler=btc
+      - --profile-noStats=false
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+  nd-2:
+    image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    stdin_open: true
+    tty: true
+    environment:
+      - SENTRY_ENABLE=true
+      - SENTRY_DSN=https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+      - SENTRY_ENVIRONMENT=${TARGET}
+      - SENTRY_RELEASE=in3-server@${CI_COMMIT_REF_NAME}
+    command:
+      - --privateKey=${SRV_PK2}
+      - --registry=${REGISTRY_CONTRACT_ADDR}
+      - --registryRPC=${REGISTRY_RPC_ENDPOINT}
+      - --rpcUrl=${RPC_ENDPOINT}
+      - --chain=${CHAIN_ID}
+      - --minBlockHeight=0
+      - --profile-noStats=false
+      - --profile-name=Slockit2
+      - --profile-icon=https://slock.it/assets/slock_logo.png
+      - --profile-url=https://slock.it
+      - --persistentFile=false
+      - --handler=btc
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+  nd-3:
+    image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    stdin_open: true
+    tty: true
+    environment:
+      - SENTRY_ENABLE=true
+      - SENTRY_DSN=https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+      - SENTRY_ENVIRONMENT=${TARGET}
+      - SENTRY_RELEASE=in3-server@${CI_COMMIT_REF_NAME}
+    command:
+      - --privateKey=${SRV_PK3}
+      - --registry=${REGISTRY_CONTRACT_ADDR}
+      - --registryRPC=${REGISTRY_RPC_ENDPOINT}
+      - --rpcUrl=${RPC_ENDPOINT}
+      - --chain=${CHAIN_ID}
+      - --minBlockHeight=0
+      - --profile-name=Slockit3
+      - --profile-noStats=false
+      - --profile-icon=https://slock.it/assets/slock_logo.png
+      - --profile-url=https://slock.it
+      - --persistentFile=false
+      - --handler=btc
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+
+  nd-4:
+    image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    stdin_open: true
+    tty: true
+    environment:
+      - SENTRY_ENABLE=true
+      - SENTRY_DSN=https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+      - SENTRY_ENVIRONMENT=${TARGET}
+      - SENTRY_RELEASE=in3-server@${CI_COMMIT_REF_NAME}
+    command:
+      - --privateKey=${SRV_PK4}
+      - --registry=${REGISTRY_CONTRACT_ADDR}
+      - --registryRPC=${REGISTRY_RPC_ENDPOINT}
+      - --rpcUrl=${RPC_ENDPOINT}
+      - --chain=${CHAIN_ID}
+      - --minBlockHeight=0
+      - --profile-name=Slockit4
+      - --profile-noStats=false
+      - --profile-icon=https://slock.it/assets/slock_logo.png
+      - --profile-url=https://slock.it
+      - --persistentFile=false
+      - --handler=btc
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+
+  nd-5:
+    image: docker.slock.it/in3/ts/in3-server:${CI_COMMIT_REF_NAME}
+    stdin_open: true
+    tty: true
+    environment:
+      - SENTRY_ENABLE=true
+      - SENTRY_DSN=https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+      - SENTRY_ENVIRONMENT=${TARGET}
+      - SENTRY_RELEASE=in3-server@${CI_COMMIT_REF_NAME}
+    command:
+      - --privateKey=${SRV_PK5}
+      - --registry=${REGISTRY_CONTRACT_ADDR}
+      - --registryRPC=${REGISTRY_RPC_ENDPOINT}
+      - --rpcUrl=${RPC_ENDPOINT}
+      - --chain=${CHAIN_ID}
+      - --minBlockHeight=0
+      - --profile-name=Slockit5
+      - --profile-noStats=false
+      - --profile-icon=https://slock.it/assets/slock_logo.png
+      - --profile-url=https://slock.it
+      - --persistentFile=false
+      - --handler=btc
+    labels:
+      io.rancher.scheduler.affinity:host_label: environment=${TARGET},role=application
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always

@@ -44,15 +44,16 @@ import { RPCHandler } from '../server/rpc'
 import { SimpleCache } from '../util/cache'
 import * as logger from '../util/logger'
 import { toMinHex } from 'in3-common/js/src/util/util'
-import { in3ProtocolVersion } from '../types/constants'
+import { in3ProtocolVersion, maxWatchBlockTimeout } from '../types/constants'
 import WhiteListManager from './whiteListManager'
 import * as promClient from 'prom-client';
+import HealthCheck from '../util/healthCheck'
 
 
 const histRequestTime = new promClient.Histogram({
   name: 'in3_upstream_request_time',
   help: 'Total time requests take talking to the upstream',
-  labelNames: ["rpc_method", "result", "type", "peer_ip"],
+  labelNames: ["rpc_method", "result", "type"],
   buckets: promClient.exponentialBuckets(1, 2, 20)
 });
 
@@ -70,6 +71,7 @@ export default abstract class BaseHandler implements RPCHandler {
   watcher: Watcher
   cache: SimpleCache
   whiteListMgr: WhiteListManager
+  healthCheck: HealthCheck
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
@@ -85,6 +87,11 @@ export default abstract class BaseHandler implements RPCHandler {
 
     // create watcher checking the registry-contract for events
     this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock)
+
+    //create health monitoring service
+    const maxBlockTimeout = config.watchBlockTimeout ? config.watchBlockTimeout : maxWatchBlockTimeout
+    this.healthCheck = new HealthCheck(maxBlockTimeout, this.watcher)
+    this.watcher.on('newBlock', () => this.healthCheck.updateBlock())
 
     this.whiteListMgr = new WhiteListManager(this, config.maxWhiteListWatch, config.cacheWhiteList)
     this.watcher.on('newBlock', () => this.whiteListMgr.updateWhiteList())
@@ -116,8 +123,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
 
   /** returns the result directly from the server */
-  getFromServer(request: Partial<RPCRequest>, r?: any): Promise<RPCResponse> {
-
+  getFromServer(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse> {
     const startTime = Date.now()
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
@@ -136,9 +142,10 @@ export default abstract class BaseHandler implements RPCHandler {
       ip = r.ip;
     }
 
+    return axios.post(rpc || this.config.rpcUrl, this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
 
-
-    return axios.post(this.config.rpcUrl, this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
+      if (err.response && err.response.data && typeof (err.response.data) === 'object' && err.response.data.error)
+        err.message = err.response.data.error.message || err.response.data.error
 
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
       if (process.env.SENTRY_ENABLE === 'true') {
@@ -148,7 +155,7 @@ export default abstract class BaseHandler implements RPCHandler {
           scope.setExtra("request", request)
         });
       }
-      histRequestTime.labels(request.method || "unknown", "error", "single", ip).observe(Date.now() - startTime);
+      histRequestTime.labels(request.method || "unknown", "error", "single").observe(Date.now() - startTime);
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
     }).then(res => {
       logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
@@ -169,13 +176,13 @@ export default abstract class BaseHandler implements RPCHandler {
         r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
         r.rpcCount = (r.rpcCount || 0) + 1
       }
-      histRequestTime.labels(request.method || "unknown", "ok", "single", ip).observe(Date.now() - startTime);
+      histRequestTime.labels(request.method || "unknown", "ok", "single").observe(Date.now() - startTime);
       return fixResponse(request, res)
     })
   }
 
   /** returns a array of requests from the server */
-  getAllFromServer(request: Partial<RPCRequest>[], r?: any): Promise<RPCResponse[]> {
+  getAllFromServer(request: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]> {
 
     const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
     let ip = "0.0.0.0"
@@ -185,10 +192,10 @@ export default abstract class BaseHandler implements RPCHandler {
     }
     const startTime = Date.now()
     return request.length
-      ? axios.post(this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers }).then(_ => _.data, err => {
+      ? axios.post(rpc || this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers }).then(_ => _.data, err => {
         logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
 
-        histRequestTime.labels("bulk", "error", "bulk", ip).observe(Date.now() - startTime);
+        histRequestTime.labels("bulk", "error", "bulk").observe(Date.now() - startTime);
         throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
       }).then(res => {
         if (process.env.SENTRY_ENABLE === 'true') {
@@ -214,7 +221,7 @@ export default abstract class BaseHandler implements RPCHandler {
           r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
           r.rpcCount = (r.rpcCount || 0) + 1
         }
-        histRequestTime.labels("bulk", "ok", "bulk", ip).observe(Date.now() - startTime);
+        histRequestTime.labels("bulk", "ok", "bulk").observe(Date.now() - startTime);
         if (Array.isArray(res))
           request.forEach((req, i) => fixResponse(req, res[i]))
 

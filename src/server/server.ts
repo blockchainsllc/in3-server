@@ -79,7 +79,7 @@ const ctError = new promClient.Counter({
 const histRequestTime = new promClient.Histogram({
   name: 'in3_frontend_request_time',
   help: 'Total time requests take on the frontend',
-  labelNames: ["http_method", "result", "peer_ip", "user_agent", "internal"],
+  labelNames: ["http_method", "result", "user_agent", "internal"],
   buckets: promClient.exponentialBuckets(1, 2, 20)
 });
 
@@ -123,6 +123,7 @@ let AUTO_REGISTER_FLAG: boolean
 if (config.chains[Object.keys(config.chains)[0]].autoRegistry)
   AUTO_REGISTER_FLAG = true
 let INIT_ERROR = false;
+let OP_ERROR = false; //operational error, if server encountered error during normal working
 
 export const app = new Koa()
 const router = new Router()
@@ -183,7 +184,7 @@ router.post(/.*/, async ctx => {
 
   try {
     // check for valid req
-    if ((!ctx.request.body || (typeof (ctx.request.body) === 'object' && !ctx.request.body.method)) && ctx.headers['content-type'] !== 'application/json')
+    if ((!ctx.request.body || (typeof (ctx.request.body) === 'object' && !ctx.request.body.method)) && (!ctx.headers['content-type'] || ctx.headers['content-type'].indexOf('application/json') !== 0))
       throw new Error('Request must contain header "Content-Type:application/json"')
 
     const stats = requests && requests.length && requests[0].in3 ? ((requests[0].in3 as any).stats === false ? false : ((requests[0].in3 as any).noStats ? false : true)) : true
@@ -194,7 +195,7 @@ router.post(/.*/, async ctx => {
       const res = requests.map(_ => ({ id: _.id, error: { code: - 32600, message: 'Too many requests from ' + ip }, jsonrpc: '2.0' }))
       ctx.status = 429
       ctx.body = Array.isArray(ctx.request.body) ? res : res[0]
-      histRequestTime.labels("post", "dos_protect", ip, ua, stats ? 'false' : 'true').observe(Date.now() - startTime);
+      histRequestTime.labels("post", "dos_protect", ua, stats ? 'false' : 'true').observe(Date.now() - startTime);
       return
     }
     // assign ip
@@ -211,11 +212,11 @@ router.post(/.*/, async ctx => {
     else
       ctx.body = body
 
-    histRequestTime.labels("post", "ok", ip, ua, stats ? 'false' : 'true').observe(Date.now() - startTime);
+    histRequestTime.labels("post", "ok", ua, stats ? 'false' : 'true').observe(Date.now() - startTime);
 
     logger.debug('request ' + ((Date.now() - start) + '').padStart(6, ' ') + 'ms : ' + requests.map(_ => _.method + '(' + (Array.isArray(_.params) ? _.params.map(JSON.stringify as any).join() : '-') + ')'))
   } catch (err) {
-    histRequestTime.labels("post", "error", ip, ua, '').observe(Date.now() - startTime);
+    histRequestTime.labels("post", "error", ua, '').observe(Date.now() - startTime);
     ctx.status = err.status || 500
     ctx.body = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
     Sentry.withScope(scope => {
@@ -271,9 +272,9 @@ router.get(/.*/, async ctx => {
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
     ctx.body = result.result || result.error
-    histRequestTime.labels("get", "ok", ip, ua, 'true').observe(Date.now() - startTime);
+    histRequestTime.labels("get", "ok", ua, 'true').observe(Date.now() - startTime);
   } catch (err) {
-    histRequestTime.labels("get", "error", ip, ua, 'true').observe(Date.now() - startTime);
+    histRequestTime.labels("get", "error", ua, 'true').observe(Date.now() - startTime);
 
     ctx.status = err.status || 500
     ctx.body = err.message
@@ -391,6 +392,10 @@ async function checkHealth(ctx: Router.IRouterContext) {
     ctx.body = { status: 'healthy' }
     ctx.status = 200
   }
+  else if (OP_ERROR) {
+    ctx.body = { status: 'unhealthy', message: "server error during operation" }
+    ctx.status = 500
+  }
   else if (INIT_ERROR) {
     ctx.body = { status: 'unhealthy', message: "server initialization error" }
     ctx.status = 500
@@ -486,11 +491,32 @@ function checkNodeSync(_callback) {
 
 async function sendToNode(config: IN3RPCConfig, request: RPCRequest) {
   const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
-  const url = config.chains[Object.keys(config.chains)[0]].rpcUrl
+  const handlerConfig = config.chains[Object.keys(config.chains)[0]]
+  const url = handlerConfig.registryRPC || handlerConfig.rpcUrl
 
   return axios.post(url, request, { headers }).then(_ => _.data,
     err => {
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + url)
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + url)
     }).then(res => { return res })
+}
+
+export function setOpError(err: Error) {
+  if (err) {
+    //mark flag true so /health endpoint responds with error state
+    OP_ERROR = true;
+
+    //logging error on console
+    logger.error(" " + err.name + " " + err.message + " " + err.stack)
+
+    //sending error to sentry
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.configureScope((scope) => {
+        scope.setTag("server", "checkHealth");
+        scope.setTag("unhealthy", "server operation error");
+        scope.setExtra("ctx", err.name + " " + err.message + " " + err.stack)
+      });
+      Sentry.captureException(new Error("operation error " + err.name + " " + err.message + " " + err.stack));
+    }
+  }
 }
