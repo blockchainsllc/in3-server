@@ -40,6 +40,7 @@ import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour, schedulePrometheus } from './stats'
 
+import BTCHandler from '../modules/btc/BTCHandler'
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
@@ -80,6 +81,9 @@ export class RPC {
           break
         case 'ipfs':
           h = new IPFSHandler({ ...rpcConf }, transport, nodeList)
+          break
+        case 'btc':
+          h = new BTCHandler({ ...rpcConf }, transport, nodeList)
           break
         // TODO implement other handlers later
         default:
@@ -331,8 +335,8 @@ export interface RPCHandler {
   chainId: string
   handle(request: RPCRequest): Promise<RPCResponse>
   handleWithCache(request: RPCRequest): Promise<RPCResponse>
-  getFromServer(request: Partial<RPCRequest>, r?: any): Promise<RPCResponse>
-  getAllFromServer(request: Partial<RPCRequest>[], r?: any): Promise<RPCResponse[]>
+  getFromServer(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse>
+  getAllFromServer(request: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[]): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest

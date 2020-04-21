@@ -70,10 +70,10 @@
       "program": "${workspaceFolder}/js/src/server/server.js",
       "args": [
         "--chain=0x99",
-        "--rpcUrl=http://btc:btc@localhost:8332",
+        "--rpcUrl=https://slockit:slockit@rpc.slock.it/bitcoin",
         "--registryRPC=https://rpc.slock.it/goerli",
         "--minBlockHeight=0",
-        "--registry=0xa412D519199C3c0ebaea3A9f73f1f89A935F9F14",
+        "--registry=0x635cccc1db6fc9e3b029814720595092affba12f",
         "--persistentFile=false",
         "--handler=btc"
       ],

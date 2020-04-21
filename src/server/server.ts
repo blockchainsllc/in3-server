@@ -491,7 +491,8 @@ function checkNodeSync(_callback) {
 
 async function sendToNode(config: IN3RPCConfig, request: RPCRequest) {
   const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
-  const url = config.chains[Object.keys(config.chains)[0]].rpcUrl
+  const handlerConfig = config.chains[Object.keys(config.chains)[0]]
+  const url = handlerConfig.registryRPC || handlerConfig.rpcUrl
 
   return axios.post(url, request, { headers }).then(_ => _.data,
     err => {
