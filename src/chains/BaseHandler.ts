@@ -44,9 +44,10 @@ import { RPCHandler } from '../server/rpc'
 import { SimpleCache } from '../util/cache'
 import * as logger from '../util/logger'
 import { toMinHex } from 'in3-common/js/src/util/util'
-import { in3ProtocolVersion } from '../types/constants'
+import { in3ProtocolVersion, maxWatchBlockTimeout } from '../types/constants'
 import WhiteListManager from './whiteListManager'
 import * as promClient from 'prom-client';
+import HealthCheck from '../util/healthCheck'
 
 
 const histRequestTime = new promClient.Histogram({
@@ -70,6 +71,7 @@ export default abstract class BaseHandler implements RPCHandler {
   watcher: Watcher
   cache: SimpleCache
   whiteListMgr: WhiteListManager
+  healthCheck: HealthCheck
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
@@ -85,6 +87,11 @@ export default abstract class BaseHandler implements RPCHandler {
 
     // create watcher checking the registry-contract for events
     this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock)
+
+    //create health monitoring service
+    const maxBlockTimeout = config.watchBlockTimeout ? config.watchBlockTimeout : maxWatchBlockTimeout
+    this.healthCheck = new HealthCheck(maxBlockTimeout, this.watcher)
+    this.watcher.on('newBlock', () => this.healthCheck.updateBlock())
 
     this.whiteListMgr = new WhiteListManager(this, config.maxWhiteListWatch, config.cacheWhiteList)
     this.watcher.on('newBlock', () => this.whiteListMgr.updateWhiteList())
