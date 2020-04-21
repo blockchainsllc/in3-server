@@ -152,7 +152,7 @@ export default abstract class BaseHandler implements RPCHandler {
       }
       histRequestTime.labels(request.method || "unknown", "error", "single").observe(Date.now() - startTime);
       //re attempt if request failed and if there are more then 1 RPC URLs are specified
-      if(err.response && err.response.status !== 200 && 
+      if( ((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED")!=-1) && 
         this.config.rpcUrl.length > 1 && this.activeRPC+1 <= this.config.rpcUrl.length-1){
 
         logger.error('Request failed for RPC URL '+this.config.rpcUrl[this.activeRPC]+ 'Error ' + err.message + ' fetching request ' + JSON.stringify(request)+'Reattempting request on '+this.config.rpcUrl[this.activeRPC+1])
@@ -202,7 +202,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
         histRequestTime.labels("bulk", "error", "bulk").observe(Date.now() - startTime);
         //re attempt if request failed and if there are more then 1 RPC URLs are specified
-        if(err.response && err.response.status !== 200 && 
+        if( ((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED")!=-1) && 
           this.config.rpcUrl.length > 1 && this.activeRPC+1 <= this.config.rpcUrl.length-1){
             logger.error('Request failed for RPC URL '+this.config.rpcUrl[this.activeRPC]+ 'Error ' + err.message + ' fetching request ' + JSON.stringify(request)+'Reattempting request on '+this.config.rpcUrl[this.activeRPC+1])
             this.activeRPC++
