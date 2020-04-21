@@ -27,6 +27,10 @@ properties:
         type: array
         items:
           $ref: "#/definitions/hash"
+      sig:
+        description: the signature of the request
+        type: string
+        pattern: "^0x[a-fA-F0-9]{130}$"
       latestBlock:
         description: number of blocks to substract from the latest
         type: integer
