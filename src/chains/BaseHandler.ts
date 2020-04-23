@@ -149,7 +149,7 @@ export default abstract class BaseHandler implements RPCHandler {
       if (err.response && err.response.data && typeof (err.response.data) === 'object' && err.response.data.error)
         err.message = err.response.data.error.message || err.response.data.error
 
-      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[0] + ' in ' + ((Date.now() - startTime)) + 'ms')
+      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
       if (process.env.SENTRY_ENABLE === 'true') {
         Sentry.configureScope((scope) => {
           scope.setTag("BaseHandler", "getFromServer");
@@ -169,7 +169,7 @@ export default abstract class BaseHandler implements RPCHandler {
       else
         throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
     }).then(res => {
-      logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[0] + ' in ' + ((Date.now() - startTime)) + 'ms')
+      logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
 
       if (process.env.SENTRY_ENABLE === 'true') {
         Sentry.addBreadcrumb({
@@ -205,7 +205,7 @@ export default abstract class BaseHandler implements RPCHandler {
     return request.length
       ? axios.post(rpc || this.config.rpcUrl[this.activeRPC], request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers })
         .then(_ => _.data, err => {
-        logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[0] + ' in ' + ((Date.now() - startTime)) + 'ms')
+        logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
 
         histRequestTime.labels("bulk", "error", "bulk").observe(Date.now() - startTime);
         //re attempt if request failed and if there are more then 1 RPC URLs are specified
@@ -225,7 +225,7 @@ export default abstract class BaseHandler implements RPCHandler {
             scope.setExtra("request", request)
           });
         }
-        logger.trace('   ... send ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[0] + ' in ' + ((Date.now() - startTime)) + 'ms')
+        logger.trace('   ... send ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
         if (process.env.SENTRY_ENABLE === 'true') {
           Sentry.addBreadcrumb({
             category: "getAllFromServer response",
