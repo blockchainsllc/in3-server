@@ -71,7 +71,10 @@ export default abstract class BaseHandler implements RPCHandler {
   watcher: Watcher
   cache: SimpleCache
   whiteListMgr: WhiteListManager
+  activeRPC: number
   healthCheck: HealthCheck
+  resetRPCIndexTimer: any
+  switchBackRPCTime : number
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
@@ -79,6 +82,9 @@ export default abstract class BaseHandler implements RPCHandler {
     this.nodeList = nodeList || { nodes: undefined }
     this.counter = 1
     this.openRequests = 0
+    this.activeRPC = 0
+    this.switchBackRPCTime = 300000 // after 5 min default first RPC will be used for all requests
+    this.resetRPCIndexTimer = undefined
 
     const interval = config.watchInterval || 5
 
@@ -142,12 +148,12 @@ export default abstract class BaseHandler implements RPCHandler {
       ip = r.ip;
     }
 
-    return axios.post(rpc || this.config.rpcUrl, this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
+    return axios.post(rpc || this.config.rpcUrl[this.activeRPC], this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
 
       if (err.response && err.response.data && typeof (err.response.data) === 'object' && err.response.data.error)
         err.message = err.response.data.error.message || err.response.data.error
 
-      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
+      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
       if (process.env.SENTRY_ENABLE === 'true') {
         Sentry.configureScope((scope) => {
           scope.setTag("BaseHandler", "getFromServer");
@@ -156,9 +162,19 @@ export default abstract class BaseHandler implements RPCHandler {
         });
       }
       histRequestTime.labels(request.method || "unknown", "error", "single").observe(Date.now() - startTime);
-      throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
+      //re attempt if request failed and if there are more then 1 RPC URLs are specified
+      if( ((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED")!=-1) && 
+        this.config.rpcUrl.length > 1 && this.activeRPC+1 < this.config.rpcUrl.length){
+
+        logger.error('Request failed for RPC URL '+this.config.rpcUrl[this.activeRPC]+ 'Error ' + err.message + ' fetching request ' + JSON.stringify(request)+'Reattempting request on '+this.config.rpcUrl[this.activeRPC+1])
+        this.activeRPC++
+        this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
+        return this.getFromServer(request,r)
+      }
+      else
+        throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
     }).then(res => {
-      logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
+      logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
 
       if (process.env.SENTRY_ENABLE === 'true') {
         Sentry.addBreadcrumb({
@@ -192,11 +208,21 @@ export default abstract class BaseHandler implements RPCHandler {
     }
     const startTime = Date.now()
     return request.length
-      ? axios.post(rpc || this.config.rpcUrl, request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers }).then(_ => _.data, err => {
-        logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
+      ? axios.post(rpc || this.config.rpcUrl[this.activeRPC], request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers })
+        .then(_ => _.data, err => {
+        logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
 
         histRequestTime.labels("bulk", "error", "bulk").observe(Date.now() - startTime);
-        throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl)
+        //re attempt if request failed and if there are more then 1 RPC URLs are specified
+        if( ((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED")!=-1) && 
+          this.config.rpcUrl.length > 1 && this.activeRPC+1 < this.config.rpcUrl.length){
+            logger.error('Request failed for RPC URL '+this.config.rpcUrl[this.activeRPC]+ 'Error ' + err.message + ' fetching request ' + JSON.stringify(request)+'Reattempting request on '+this.config.rpcUrl[this.activeRPC+1])
+            this.activeRPC++
+            this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
+            return this.getAllFromServer(request,r)
+        }
+        else
+          throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
       }).then(res => {
         if (process.env.SENTRY_ENABLE === 'true') {
           Sentry.configureScope((scope) => {
@@ -205,7 +231,7 @@ export default abstract class BaseHandler implements RPCHandler {
             scope.setExtra("request", request)
           });
         }
-        logger.trace('   ... send ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl + ' in ' + ((Date.now() - startTime)) + 'ms')
+        logger.trace('   ... send ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
         if (process.env.SENTRY_ENABLE === 'true') {
           Sentry.addBreadcrumb({
             category: "getAllFromServer response",
@@ -228,6 +254,15 @@ export default abstract class BaseHandler implements RPCHandler {
         return res
       })
       : Promise.resolve([])
+  }
+
+  switchBackToMainRPCTimer(){
+    if(this.resetRPCIndexTimer == undefined){
+      this.resetRPCIndexTimer = setTimeout(function(){ 
+        this.activeRPC = 0
+        this.resetRPCIndexTimer = undefined
+        logger.info("Switching back to first RPC URL " + this.config.rpcUrl[this.activeRPC])
+      }, this.switchBackRPCTime)}
   }
 
   /** uses the updater to read the nodes from the contract */

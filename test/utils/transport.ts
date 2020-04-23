@@ -117,7 +117,7 @@ export class TestTransport implements Transport {
         chains: {
           [this.chainId]: {
             watchInterval: -1,
-            rpcUrl: getTestClient(),
+            rpcUrl: [getTestClient()],
             privateKey: privateKey as any,
             registry,
             minBlockHeight: 0,

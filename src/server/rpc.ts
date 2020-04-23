@@ -363,7 +363,7 @@ export class HandlerTransport extends AxiosTransport {
   async handle(url: string, data: RPCRequest | RPCRequest[], timeout?: number): Promise<RPCResponse | RPCResponse[]> {
     // convertto array
     const requests = Array.isArray(data) ? data : [data]
-    if (url === this.handler.config.rpcUrl) return this.handler.getAllFromServer(requests).then(_ => Array.isArray(data) ? _ : _[0])
+    if (url === this.handler.config.rpcUrl[0]) return this.handler.getAllFromServer(requests).then(_ => Array.isArray(data) ? _ : _[0])
 
     // add cbor-config
     const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
