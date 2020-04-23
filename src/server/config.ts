@@ -86,7 +86,7 @@ function parseDef(def: { properties: any, type: string }, targetPath = [], targe
         init: v => {
           const t = targetPath.reduce((t, pp) => t[pp] || (t[pp] = {}), targetOb)
 
-          if(p=='rpcUrl' && val.type=='array' && !Array.isArray(v))
+          if(p=='rpcUrl' && !Array.isArray(v))
             return t[p] = new Array(v)
 
           switch (val.type) {
