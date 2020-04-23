@@ -73,6 +73,8 @@ export default abstract class BaseHandler implements RPCHandler {
   whiteListMgr: WhiteListManager
   activeRPC: number
   healthCheck: HealthCheck
+  resetRPCIndexTimer: any
+  switchBackRPCTime : number
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
@@ -81,6 +83,8 @@ export default abstract class BaseHandler implements RPCHandler {
     this.counter = 1
     this.openRequests = 0
     this.activeRPC = 0
+    this.switchBackRPCTime = 300000 // after 5 min default first RPC will be used for all requests
+    this.resetRPCIndexTimer = undefined
 
     const interval = config.watchInterval || 5
 
@@ -164,6 +168,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
         logger.error('Request failed for RPC URL '+this.config.rpcUrl[this.activeRPC]+ 'Error ' + err.message + ' fetching request ' + JSON.stringify(request)+'Reattempting request on '+this.config.rpcUrl[this.activeRPC+1])
         this.activeRPC++
+        this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
         return this.getFromServer(request,r)
       }
       else
@@ -213,6 +218,7 @@ export default abstract class BaseHandler implements RPCHandler {
           this.config.rpcUrl.length > 1 && this.activeRPC+1 < this.config.rpcUrl.length){
             logger.error('Request failed for RPC URL '+this.config.rpcUrl[this.activeRPC]+ 'Error ' + err.message + ' fetching request ' + JSON.stringify(request)+'Reattempting request on '+this.config.rpcUrl[this.activeRPC+1])
             this.activeRPC++
+            this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
             return this.getAllFromServer(request,r)
         }
         else
@@ -248,6 +254,15 @@ export default abstract class BaseHandler implements RPCHandler {
         return res
       })
       : Promise.resolve([])
+  }
+
+  switchBackToMainRPCTimer(){
+    if(this.resetRPCIndexTimer == undefined){
+      this.resetRPCIndexTimer = setTimeout(function(){ 
+        this.activeRPC = 0
+        this.resetRPCIndexTimer = undefined
+        logger.info("Switching back to first RPC URL " + this.config.rpcUrl[this.activeRPC])
+      }, this.switchBackRPCTime)}
   }
 
   /** uses the updater to read the nodes from the contract */
