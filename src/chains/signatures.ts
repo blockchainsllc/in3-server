@@ -322,14 +322,14 @@ export function sign(pk: PK, blocks: { blockNumber: number, hash: string, regist
     //if multiple RPCs are specified then for higher security check blocks are same on all RPC by comparing hashes, before signature calls
     if(handler.config.rpcUrl.length > 1){
 
-      let rpc1Results = result[0].BlockData.reduce(function(map, obj) {map[obj.hash] = obj.hash;return map;}, {});
+      let rpc1Results = result[0].BlockData.reduce(function(map, obj) {map[obj.hash] = obj.number; return map;}, {});
 
         for(let rpcIndex=1; rpcIndex < result.length; rpcIndex++){
           if(result[0].BlockData.length != result[rpcIndex].BlockData.length)
             throw new Error("Cannot sign, block numbers mismatch accross multiple RPCs."+JSON.stringify(request))
 
           for(let blockIndex=0; blockIndex < result[rpcIndex].BlockData.length; blockIndex++){
-            if(!rpc1Results[result[rpcIndex].BlockData[blockIndex].hash])
+            if(rpc1Results[result[rpcIndex].BlockData[blockIndex].hash] != result[rpcIndex].BlockData[blockIndex].number)
               throw new Error("Cannot sign, block hashes mismatch accross multiple RPCs."+result[rpcIndex].BlockData[blockIndex].hash+" "+JSON.stringify(request))
           }
         }
