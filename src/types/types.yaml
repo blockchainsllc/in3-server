@@ -513,6 +513,9 @@ definitions:
             registryRPC:
                 type: string
                 description: the url of the client in case the registry is not on the same chain.
+            watchBlockTimeout:
+                type: number
+                description: if set the watcher thread in server will report server as unhealthy if new block is not mined in this time duration milliseconds. By default this is 2 min .
             autoRegistry:
                 type: object
                 required: [url, deposit]

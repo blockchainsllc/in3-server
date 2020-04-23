@@ -123,6 +123,7 @@ let AUTO_REGISTER_FLAG: boolean
 if (config.chains[Object.keys(config.chains)[0]].autoRegistry)
   AUTO_REGISTER_FLAG = true
 let INIT_ERROR = false;
+let OP_ERROR = false; //operational error, if server encountered error during normal working
 
 export const app = new Koa()
 const router = new Router()
@@ -391,6 +392,10 @@ async function checkHealth(ctx: Router.IRouterContext) {
     ctx.body = { status: 'healthy' }
     ctx.status = 200
   }
+  else if (OP_ERROR) {
+    ctx.body = { status: 'unhealthy', message: "server error during operation" }
+    ctx.status = 500
+  }
   else if (INIT_ERROR) {
     ctx.body = { status: 'unhealthy', message: "server initialization error" }
     ctx.status = 500
@@ -494,4 +499,24 @@ async function sendToNode(config: IN3RPCConfig, request: RPCRequest) {
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + url)
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + url)
     }).then(res => { return res })
+}
+
+export function setOpError(err: Error) {
+  if (err) {
+    //mark flag true so /health endpoint responds with error state
+    OP_ERROR = true;
+
+    //logging error on console
+    logger.error(" " + err.name + " " + err.message + " " + err.stack)
+
+    //sending error to sentry
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.configureScope((scope) => {
+        scope.setTag("server", "checkHealth");
+        scope.setTag("unhealthy", "server operation error");
+        scope.setExtra("ctx", err.name + " " + err.message + " " + err.stack)
+      });
+      Sentry.captureException(new Error("operation error " + err.name + " " + err.message + " " + err.stack));
+    }
+  }
 }
