@@ -250,7 +250,7 @@ export default class Watcher extends EventEmitter {
       const worthIt = costs < ci.signingNode.deposit / 2
 
       if (worthIt && ci.convictBlockNumber === 0) {
-        await tx.callContract(this.handler.config.rpcUrl, this.handler.config.registry, 'convict(bytes32)', [ci.signature], {
+        await tx.callContract(this.handler.config.rpcUrl[0], this.handler.config.registry, 'convict(bytes32)', [ci.signature], {
           privateKey: (this.handler.config as any)._pk,
           value: 0,
           confirm: true
@@ -263,7 +263,7 @@ export default class Watcher extends EventEmitter {
       if (ci.diffBlocks) {
         if (!ci.blocksToRecreate) {
           ci.blocksToRecreate = []
-          let latestSS = toNumber((await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [ci.wrongBlockNumber, ci.diffBlocks]))[0])
+          let latestSS = toNumber((await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [ci.wrongBlockNumber, ci.diffBlocks]))[0])
 
           if (latestSS === 0) latestSS == this.block.number
           ci.latestBlock = latestSS
@@ -271,7 +271,7 @@ export default class Watcher extends EventEmitter {
           // we did not found an entry in the registry yet, so we would have to create one
           if (latestSS === this.block.number && worthIt) {
 
-            await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'saveBlockNumber(uint):()', [this.block.number], {
+            await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'saveBlockNumber(uint):()', [this.block.number], {
               privateKey: (this.handler.config as any)._pk,
               value: 0,
               confirm: false
@@ -298,7 +298,7 @@ export default class Watcher extends EventEmitter {
 
           if (blocksToRecreate.firstSeen && worthIt) {
 
-            const blockHashInContract = (await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'blockhashMapping(uint):(bytes32)', [blocksToRecreate.number]))[0]
+            const blockHashInContract = (await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'blockhashMapping(uint):(bytes32)', [blocksToRecreate.number]))[0]
 
             if (blockHashInContract === "0x0000000000000000000000000000000000000000000000000000000000000000") {
               blocksToRecreate.currentBnr++
@@ -328,7 +328,7 @@ export default class Watcher extends EventEmitter {
                   serialzedBlocks.push(new serialize.Block(bresponse.result as any).serializeHeader());
                 }
 
-                await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
+                await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
                   privateKey: (this.handler.config as any)._pk,
                   value: 0,
                   confirm: true
@@ -336,7 +336,7 @@ export default class Watcher extends EventEmitter {
                   new SentryError(_, "recreateBlockheaders")
                 })
 
-                ci.latestBlock = toNumber((await tx.callContract(this.handler.config.rpcUrl, this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [blocksToRecreate.number - 10, 20]))[0])
+                ci.latestBlock = toNumber((await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [blocksToRecreate.number - 10, 20]))[0])
                 ci.blocksToRecreate = ci.blocksToRecreate.length > 1 ? ci.blocksToRecreate.slice(1) : ci.blocksToRecreate = []
 
                 if (ci.blocksToRecreate.length > 0) {
@@ -365,7 +365,7 @@ export default class Watcher extends EventEmitter {
 
       if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone && worthIt) {
 
-        await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl, this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
+        await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl[0], this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
           [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
           privateKey: (this.handler.config as any)._pk,
           gas: 600000,
@@ -439,7 +439,7 @@ function handleUnregister(ev, handler: RPCHandler) {
     if (!node)
       throw new Error('could not find the server in the list')
 
-    return tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, handler.config.registry, 'cancelUnregisteringServer(uint)', [node.index], {
+    return tx.callContract(handler.config.registryRPC || handler.config.rpcUrl[0], handler.config.registry, 'cancelUnregisteringServer(uint)', [node.index], {
       privateKey: (this.handler.config as any)._pk,
       gas: 400000,
       value: 0,

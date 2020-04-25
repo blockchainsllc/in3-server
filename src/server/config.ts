@@ -59,7 +59,7 @@ const config: IN3RPCConfig = {
   },
   chains: {
     '0x1': {
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: ['http://localhost:8545'],
       privateKey: '',
       minBlockHeight: getSafeMinBlockHeight('0x1'),
       registry: '',     // registry-contract
@@ -86,6 +86,9 @@ function parseDef(def: { properties: any, type: string }, targetPath = [], targe
         init: v => {
           const t = targetPath.reduce((t, pp) => t[pp] || (t[pp] = {}), targetOb)
 
+          if(p=='rpcUrl' && !Array.isArray(v))
+            return t[p] = new Array(v)
+
           switch (val.type) {
             case 'number':
             case 'integer':
@@ -102,7 +105,6 @@ function parseDef(def: { properties: any, type: string }, targetPath = [], targe
 }
 
 export function readCargs(): IN3RPCConfig {
-
   // take the config from config.json and overwrite it
   try {
     Object.assign(config, JSON.parse(fs.readFileSync('config.json', 'utf-8')))

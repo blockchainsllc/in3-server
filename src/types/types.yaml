@@ -467,8 +467,10 @@ definitions:
                 type: integer
                 description: number of milliseconds to wait before a request gets a timeout
             rpcUrl:
-                type: string
-                description: the url of the client
+                type: array
+                description: the urls of the client. User can specify more then one RPC
+                items:
+                    type: string
             clientKeys:
                 type: string
                 description: a comma sepearted list of client keys to use for simulating clients for the watchdog

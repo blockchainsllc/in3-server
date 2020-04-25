@@ -53,7 +53,7 @@ export async function initConfig() {
   if (!node) throw new Error('There is no configuration for in db for id=' + config.id)
 
   const handler: IN3RPCHandlerConfig = {
-    rpcUrl: 'http://localhost:8545',
+    rpcUrl: ['http://localhost:8545'],
     minBlockHeight: getSafeMinBlockHeight('0x1'),
     privateKey: '',
     registry: '' // registry-contract

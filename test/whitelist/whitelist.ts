@@ -79,7 +79,7 @@ describe('WhiteList Tests', () => {
             },
           },
           privateKey: pk as any,
-          rpcUrl: test.url,
+          rpcUrl: [test.url],
           registry: test.nodeList.contract
         }
       }
@@ -125,7 +125,7 @@ describe('WhiteList Tests', () => {
             },
           },
           privateKey: pk as any,
-          rpcUrl: test.url,
+          rpcUrl: [test.url],
           registry: test.nodeList.contract
         }
       }
@@ -182,7 +182,7 @@ describe('WhiteList Tests', () => {
             },
           },
           privateKey: pk as any,
-          rpcUrl: test.url,
+          rpcUrl: [test.url],
           registry: test.nodeList.contract
         }
       }
@@ -254,7 +254,7 @@ describe('WhiteList Tests', () => {
             },
           },
           privateKey: pk as any,
-          rpcUrl: test.url,
+          rpcUrl: [test.url],
           registry: test.nodeList.contract
         }
       }

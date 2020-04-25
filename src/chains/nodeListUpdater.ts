@@ -68,7 +68,7 @@ async function updateContractAdr(handler: RPCHandler, list: ServerList): Promise
   let contractVersion2: boolean = false
 
   // we try to read the registryData-contract. If there is none, this is an old contract and we use the registry, but if there is, we use the data contract.
-  list.contract = await handler.getFromServer(nodeRegistryData, nodeRegistryData, handler.config.registryRPC || handler.config.rpcUrl).then(_ => {
+  list.contract = await handler.getFromServer(nodeRegistryData, nodeRegistryData, handler.config.registryRPC || handler.config.rpcUrl[0]).then(_ => {
     const r = _.result as string
     if (r === '0x' || _.error) return handler.config.registry // the error occurs on parity because the method does not exist.
     contractVersion2 = true
@@ -325,7 +325,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   const latestBlockNum = await handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, handler.config.registryRPC).then(_ => parseInt(_.result as string))
   const finalityBlockNum = handler.config.minBlockHeight ? (latestBlockNum - handler.config.minBlockHeight) : latestBlockNum
   // number of registered servers
-  const [serverCount] = await tx.callContract(handler.config.registryRPC || handler.config.rpcUrl, list.contract, 'totalNodes():(uint)', [], undefined, undefined, finalityBlockNum)
+  const [serverCount] = await tx.callContract(handler.config.registryRPC || handler.config.rpcUrl[0], list.contract, 'totalNodes():(uint)', [], undefined, undefined, finalityBlockNum)
 
   list.lastBlockNumber = (finalityBlockNum ? finalityBlockNum : latestBlockNum)
   list.totalServers = serverCount.toNumber()

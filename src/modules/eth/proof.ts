@@ -315,17 +315,22 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
   return response
 }
 
+function doesNotSupport(r: any) {
+  if (r && r.error && ((r.error.code || 0) === -32601 || (r.error.code || 0) == -42405)) {
+    supportsProofRPC = 0
+    return true
+  }
+  return false
+}
 
 let supportsProofRPC: number = 1
 export async function handeGetTransaction(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   let response: any = null
   let resp: any = supportsProofRPC
     ? await handler.getFromServer({ ...request, method: 'proof_getTransactionByHash', params: [request.params[0], true] }, request).then(_ => {
-      if (_.error && ((_.error as any).code || 0) == -32601) {
-        supportsProofRPC = 0
-        return null
-      }
-      else if (_.error) throw new SentryError('invalid response ' + _.error)
+      if (doesNotSupport(_)) return null
+      else if (_.error)
+        throw new SentryError('invalid response ' + JSON.stringify(_.error))
       supportsProofRPC = 2
       return _.result
     }, err => {
@@ -417,10 +422,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
   let response: any = null
   let resp: any = supportsProofRPC
     ? await handler.getFromServer({ ...request, method: 'proof_getTransactionReceipt', params: [request.params[0], true] }, request).then(_ => {
-      if (_.error && ((_.error as any).code || 0) == 32601) {
-        supportsProofRPC = 0
-        return null
-      }
+      if (doesNotSupport(_)) return null
       else if (_.error) throw new SentryError('invalid response ' + _.error)
       supportsProofRPC = 2
       return _.result
@@ -521,10 +523,7 @@ async function handleLogsNethermind(handler: EthHandler, request: RPCRequest, lo
     receiptProof: string[],
     blockHeader: string
   }[] = results.map(_ => {
-    if (_.error && ((_.error as any).code || 0) == -32601) {
-      supportsProofRPC = 0
-      return null
-    }
+    if (doesNotSupport(_)) return null
     else if (_.error) throw new SentryError('Error fetching receipts for eth_getLogs ' + JSON.stringify(_.error))
     supportsProofRPC = 2
     return _.result
@@ -669,7 +668,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
         if (supportsProofRPC < 2) supportsProofRPC = 0
         throw err
       })
-    if (r && r.error && (r.error as any).code == -32601)
+    if (doesNotSupport(r))
       supportsProofRPC = 0
     else if (r.error) throw new SentryError('Error fetich call from nethermind ' + JSON.stringify(request) + JSON.stringify(r.error))
     else {

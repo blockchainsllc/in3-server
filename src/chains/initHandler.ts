@@ -154,7 +154,7 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
           deposit: deposit
         },
         chainId: handler.chainId,
-        registryRPC: handler.config.registryRPC || handler.config.rpcUrl,
+        registryRPC: handler.config.registryRPC || handler.config.rpcUrl[0],
         balance: balance,
       }
     })
@@ -169,7 +169,7 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
     props,
     deposit: deposit as any,
     timeout: 3600
-  }], handler.chainId, handler.config.registryRPC || handler.config.rpcUrl, undefined, false).catch(_ => {
+  }], handler.chainId, handler.config.registryRPC || handler.config.rpcUrl[0], undefined, false).catch(_ => {
     if (process.env.SENTRY_ENABLE === 'true') {
 
       handler.config.registry
