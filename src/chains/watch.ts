@@ -155,6 +155,7 @@ export default class Watcher extends EventEmitter {
 
     logger.debug('check ...' + this.block.number)
     this.running = true
+
     const next = err => {
       if (err && err instanceof Error) logger.error('Error trying to update within the watcher: ' + err.message + '\n' + err.stack)
       if (this.interval && this.running)
@@ -162,6 +163,17 @@ export default class Watcher extends EventEmitter {
       else
         this.running = false
     }
+
+    const timeoutPromise = actualPromise => {
+      let timeoutId; 
+
+      const timedPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => { reject(new Error('Promise Timeout'));}, 45000);
+      })
+
+      return { tPromise: Promise.race([actualPromise, timedPromise]),timeoutId }
+    }
+    
     if (!this._lastBlock || this.block.number < 0)
       this.handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['latest', false] }, undefined, this.handler.config.registryRPC)
         .then(_ => {
@@ -172,8 +184,14 @@ export default class Watcher extends EventEmitter {
         .catch(next)
         .then(next, next)
 
-    else
-      this.update().then(next, next)
+    else{
+      const { tPromise, timeoutId } =  timeoutPromise(this.update()); 
+      
+      tPromise.then(next, next)
+        .catch(next)
+        .finally(()=>{clearTimeout(timeoutId)})
+    }
+
   }
 
   async update(): Promise<any[]> {
