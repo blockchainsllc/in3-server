@@ -155,6 +155,7 @@ export default class Watcher extends EventEmitter {
 
     logger.debug('check ...' + this.block.number)
     this.running = true
+
     const next = err => {
       if (err && err instanceof Error) logger.error('Error trying to update within the watcher: ' + err.message + '\n' + err.stack)
       if (this.interval && this.running)
@@ -162,6 +163,7 @@ export default class Watcher extends EventEmitter {
       else
         this.running = false
     }
+
     if (!this._lastBlock || this.block.number < 0)
       this.handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['latest', false] }, undefined, this.handler.config.registryRPC)
         .then(_ => {
@@ -173,7 +175,8 @@ export default class Watcher extends EventEmitter {
         .then(next, next)
 
     else
-      this.update().then(next, next)
+      timeoutPromise(this.update()).then(next, next)
+
   }
 
   async update(): Promise<any[]> {
@@ -184,10 +187,10 @@ export default class Watcher extends EventEmitter {
         this._lastBlock = { number: last[0].last_block, hash: last[0].last_hash }
     }
     let res = null
-    const [nodeList, currentBlock] = await Promise.all([
+    const [nodeList, currentBlock] = await timeoutPromise(Promise.all([
       this.handler.getNodeList(false),
       this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, this.handler.config.registryRPC).then(_ => toNumber(_.result))
-    ])
+    ]), "checking for new Block...")
 
     if (this.block.number == currentBlock) return
     if (!currentBlock) throw new Error('The current Block was empty!')
@@ -195,7 +198,7 @@ export default class Watcher extends EventEmitter {
     this.emit('newBlock', currentBlock)
 
     const fromBlockNum: number = (this.block.number + 1) - this.handler.config.minBlockHeight
-    const [blockResponse, logResponse] = await this.handler.getAllFromServer([{
+    const [blockResponse, logResponse] = await timeoutPromise(this.handler.getAllFromServer([{
       method: 'eth_getBlockByNumber', params: [toMinHex(currentBlock), false]
     },
     ... (nodeList && nodeList.contract ? [{
@@ -206,7 +209,7 @@ export default class Watcher extends EventEmitter {
           address: this.handler.config.registry
         }]
     }] : [])
-    ], undefined, this.handler.config.registryRPC)
+    ], undefined, this.handler.config.registryRPC), "getting the new Block and logs")
 
     if (blockResponse.error) throw new Error('Error getting the block ' + currentBlock + ': ' + blockResponse.error)
     if (!blockResponse.result) throw new Error('No block found for currentBlock=´' + currentBlock + ' maybe this block is still too young, but this should no happen too often.')
@@ -454,3 +457,14 @@ function handleUnregister(ev, handler: RPCHandler) {
 
 
 
+
+
+function timeoutPromise<T>(promise: Promise<T>, message?: string, timeout = 45000): Promise<T> {
+  let timeoutId
+
+  return Promise.race([
+    promise.finally(() => clearTimeout(timeoutId)),
+    new Promise((_, reject) => {
+      timeoutId = setTimeout(() => { reject(new Error('Timeout ' + (message || 'of Promise'))) }, timeout)
+    })]) as Promise<T>
+}
