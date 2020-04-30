@@ -88,6 +88,8 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async getBlockHeader(hash: string, json: boolean = true, finality: number = 0, r: any) {
+
+    //TODO here we need the coinbase transaction and proof...
     if (json === undefined) json = true
     const block = await this.getFromServer({ method: "getblockheader", params: [hash, json] }, r).then(asResult)
     const proof: any = {}
