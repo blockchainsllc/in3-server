@@ -38,12 +38,12 @@ import { methodID } from 'ethereumjs-abi'
 import { toBuffer, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
 import { Transport, AxiosTransport, util, transport } from 'in3-common'
 import { RPCResponse } from '../types/types'
-import * as ETx from 'ethereumjs-tx'
 import { SentryError } from '../util/sentryError'
 import { AbiCoder } from '@ethersproject/abi'
 import { PK } from '../chains/signatures'
 import { toMinHex } from 'in3-common/js/src/util/util';
 const BN = require('bn.js')
+const ETx = require('ethereumjs-tx') as any
 
 const toHex = util.toHex
 
