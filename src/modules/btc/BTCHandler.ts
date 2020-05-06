@@ -101,6 +101,9 @@ export default class BTCHandler extends BaseHandler {
     // get merkle proof for coinbase transaction
     proof.cbtxmerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(proof.cbtx, 'hex')).toString('hex');
 
+    // get signature script of coinbase transaction
+    proof.sigscript = (await this.getFromServer({ method: "getrawtransaction", params: hash ? [proof.cbtx, true, hash] : [proof.cbtx, true] }, r).then(asResult)).vin[0].coinbase;
+
     return { result: blockheader, in3: { proof } }
   }
 
