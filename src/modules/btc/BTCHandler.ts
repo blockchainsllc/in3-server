@@ -88,13 +88,20 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async getBlockHeader(hash: string, json: boolean = true, finality: number = 0, r: any) {
+    if (json === undefined) json = true
+    const blockheader = await this.getFromServer({ method: "getblockheader", params: [hash, json] }, r).then(asResult)
+    const proof: any = {}
+    if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? blockheader : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
 
     //TODO here we need the coinbase transaction and proof...
-    if (json === undefined) json = true
-    const block = await this.getFromServer({ method: "getblockheader", params: [hash, json] }, r).then(asResult)
-    const proof: any = {}
-    if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
-    return { result: block, in3: { proof } }
+    // get coinbase transaction
+    const block = await this.getFromServer({method: "getblock", params: [hash] }, r).then(asResult);
+    proof.cbtx = block.tx[0];
+
+    // get merkle proof for coinbase transaction
+    proof.cbtxmerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(proof.cbtx, 'hex')).toString('hex');
+
+    return { result: blockheader, in3: { proof } }
   }
 
   async getTransaction(hash: string, json: boolean = true, blockhash: string = undefined, finality: number = 0, r: any) {
