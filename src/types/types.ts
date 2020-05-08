@@ -608,7 +608,11 @@ export interface IN3RPCHandlerConfig {
     /**
      * if set the watcher thread in server will report server as unhealthy if new block is not mined in this time duration milliseconds. By default this is 50 seconds
      */
-    watchBlockTimeout?:number
+    watchBlockTimeout?: number
+    /**
+     * if true server will exit in case if health is 1 out of 5 (watcher is unhealthy). The server health will keep on reducing from 5 to 1 if watcher RPC calls are not succeding, each time watcher will reset and will try again. Normally this flag should not be used without Rancher or any restart service monitoring.
+     */
+    unhealthyExit?: boolean
     
     autoRegistry?: {
         /**
@@ -1712,6 +1716,7 @@ export const validationDef = {
                             , cacheWhiteList: { type: 'boolean', description: 'cache whitelist address in watch' }
                             , registryRPC: { type: 'string', description: 'the url of the client in case the registry is not on the same chain.' }
                             , watchBlockTimeout: { type: 'number', description: 'if set the watcher thread in server will report server as unhealthy if new block is not mined in this time duration milliseconds. By default this is 2 min .' }
+                            , unhealthyExit: { type: 'boolean' , description: 'if true server will exit in case if health is 1 out of 5 (watcher is unhealthy). The server health will keep on reducing from 5 to 1 if watcher RPC calls are not succeding, each time watcher will reset and will try again. Normally this flag should not be used without Rancher or any restart service monitoring.' }
                             , autoRegistry: {
                                 type: 'object', required: ['url', 'deposit'], properties: {
                                     url: { type: 'string', description: 'the public url to reach this node' }
@@ -1754,6 +1759,7 @@ export const validationDef = {
                 , cacheWhiteList: { type: 'boolean', description: 'cache whitelist address in watch' }
                 , registryRPC: { type: 'string', description: 'the url of the client in case the registry is not on the same chain.' }
                 , watchBlockTimeout: { type: 'number', description: 'if set the watcher thread in server will report server as unhealthy if new block is not mined in this time duration milliseconds. By default this is 2 min .' }
+                , unhealthyExit: { type: 'boolean' , description: 'if true server will exit in case if health is 1 out of 5 (watcher is unhealthy). The server health will keep on reducing from 5 to 1 if watcher RPC calls are not succeding, each time watcher will reset and will try again. Normally this flag should not be used without Rancher or any restart service monitoring.' }
                 , autoRegistry: {
                     type: 'object', required: ['url', 'deposit'], properties: {
                         url: { type: 'string', description: 'the public url to reach this node' }
