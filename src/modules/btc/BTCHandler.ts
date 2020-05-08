@@ -64,6 +64,19 @@ export default class BTCHandler extends BaseHandler {
   async getFinalityBlocks(blockNumber: number, finality: number, r?: any): Promise<string> {
     if (!finality) return null
 
+    // if epoch changes within the finality headers, we are going to add more headers
+    const startEpoch = Math.floor(blockNumber / 2016) // integer division
+    const endEpoch = Math.floor((blockNumber + finality) / 2016) 
+    console.log(startEpoch)
+    console.log(endEpoch)
+
+    // epoch changed
+    if (startEpoch != endEpoch) {
+      finality += (2016 - (blockNumber % 2016)) // add amount of blocks to the next epoch to the finality
+    }
+
+    console.log(finality)
+
     // we need to determine, what are the blockhashes of the next blocks.
     const bn = []
     for (let n = blockNumber + 1; n <= blockNumber + finality; n++)
@@ -97,7 +110,6 @@ export default class BTCHandler extends BaseHandler {
     const block = await this.getFromServer({ method: "getblock", params: [hash] }, r).then(asResult);
     const cbtxhash = block.tx[0];
     proof.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: hash ? [cbtxhash, false, hash] : [cbtxhash, false] }, r).then(asResult);
-
     // merkle proof for coinbase transaction
     proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex');
 
@@ -106,10 +118,6 @@ export default class BTCHandler extends BaseHandler {
 
   async getTransaction(hash: string, json: boolean = true, blockhash: string = undefined, finality: number = 0, r: any) {
     if (json === undefined) json = true
-    console.log(hash)
-    console.log(json)
-    console.log(blockhash)
-    console.log(finality)
     const tx = await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [hash, true, blockhash] : [hash, true] }, r).then(asResult)
     console.log(tx)
     if (!tx) throw new Error("Transaction not found")
@@ -126,7 +134,6 @@ export default class BTCHandler extends BaseHandler {
     // coinbase transaction
     const cbtxhash = block.tx[0];
     proof.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [cbtxhash, false, blockhash] : [cbtxhash, false] }, r).then(asResult);
-
     // merkle proof for coinbase transaction
     proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex');
 
