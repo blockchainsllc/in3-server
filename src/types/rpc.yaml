@@ -466,3 +466,7 @@ definitions:
       - type: string
       - type: boolean
       - type: string
+
+  getdifficulty:
+    type: array
+    maxItems: 0
