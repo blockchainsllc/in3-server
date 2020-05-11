@@ -49,6 +49,13 @@ export default class BTCHandler extends BaseHandler {
       case 'gettransaction':
       case 'getrawtransaction':
         return toRes(await this.getTransaction(request.params[0], request.params[1], request.params[2], request.in3 && request.in3.finality, request))
+      case 'getblockcount':
+        return toRes(await this.getBlockCount(request.in3 && request.in3.finality, request))
+      case 'getbesthash':
+      case 'getbestblockhash':
+        return toRes(await this.getBestBlockHash(request.in3 && request.in3.finality, request))
+      case 'getdifficulty':
+        return toRes(await this.getDifficulty(request.in3 && request.in3.finality, request))
       case 'scantxoutset':
         // https://bitcoincore.org/en/doc/0.18.0/rpc/blockchain/scantxoutset/
         return this.getFromServer(request)
@@ -63,6 +70,15 @@ export default class BTCHandler extends BaseHandler {
 
   async getFinalityBlocks(blockNumber: number, finality: number, r?: any): Promise<string> {
     if (!finality) return null
+
+    // if epoch changes within the finality headers, we are going to add more headers
+    const startEpoch = Math.floor(blockNumber / 2016) // integer division
+    const endEpoch = Math.floor((blockNumber + finality) / 2016) 
+
+    // epoch changed
+    if (startEpoch != endEpoch) {
+      finality += (2016 - (blockNumber % 2016)) // add amount of blocks to the next epoch to the finality
+    }
 
     // we need to determine, what are the blockhashes of the next blocks.
     const bn = []
@@ -89,24 +105,117 @@ export default class BTCHandler extends BaseHandler {
 
   async getBlockHeader(hash: string, json: boolean = true, finality: number = 0, r: any) {
     if (json === undefined) json = true
-    const block = await this.getFromServer({ method: "getblockheader", params: [hash, json] }, r).then(asResult)
+    const blockheader = await this.getFromServer({ method: "getblockheader", params: [hash, json] }, r).then(asResult)
     const proof: any = {}
-    if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
-    return { result: block, in3: { proof } }
+    if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? blockheader : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
+
+    // get coinbase transaction
+    const block = await this.getFromServer({ method: "getblock", params: [hash] }, r).then(asResult);
+    const cbtxhash = block.tx[0];
+    proof.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: hash ? [cbtxhash, false, hash] : [cbtxhash, false] }, r).then(asResult);
+    // merkle proof for coinbase transaction
+    proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex');
+
+    return { result: blockheader, in3: { proof } }
   }
 
   async getTransaction(hash: string, json: boolean = true, blockhash: string = undefined, finality: number = 0, r: any) {
     if (json === undefined) json = true
     const tx = await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [hash, true, blockhash] : [hash, true] }, r).then(asResult)
+    console.log(tx)
     if (!tx) throw new Error("Transaction not found")
     if (blockhash && tx.blockhash != blockhash) throw new Error('invalid blockhash for tx')
     const [block, header] = await this.getAllFromServer([{ method: "getblock", params: [tx.blockhash, true] }, { method: "getblockheader", params: [tx.blockhash, false] }], r).then(a => a.map(asResult))
-    const proof: any = { block: '0x' + header, merkleProof: '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(tx.hash, 'hex')).toString('hex') }
+
+    const proof: any = {
+      block: '0x' + header,
+      txIndex: block.tx.indexOf(tx.txid),
+      merkleProof: '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(tx.txid, 'hex')).toString('hex')
+    }
     if (finality) proof.final = await this.getFinalityBlocks(parseInt(block.height), finality, r)
+
+    // coinbase transaction
+    const cbtxhash = block.tx[0];
+    proof.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [cbtxhash, false, blockhash] : [cbtxhash, false] }, r).then(asResult);
+    // merkle proof for coinbase transaction
+    proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex');
+
     return { result: json ? tx : tx.hex, in3: { proof } }
   }
 
+  async getBlockCount(finality: number = 0, r: any) {
+    if (!finality) return null
+
+    const blockNumber = await this.getFromServer( { method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
+    const blockhash = await this.getFromServer( { method: "getblockhash", params: [blockNumber] }, r).then(asResult) // get hash of blockNumber
+    const block = await this.getFromServer({ method: "getblock", params: [blockhash] }, r).then(asResult) // get block
+    const blockheader = await this.getFromServer({ method: "getblockheader", params: [blockhash, false] }, r).then(asResult)
+
+    const proof: any = {}
+
+    proof.block = '0x' + blockheader // add block header
+
+    proof.final = await this.getFinalityBlocks(blockNumber, finality, r) // add finality headers
+
+    const cbtxhash = block.tx[0]; // get coinbase tx 
+    proof.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [cbtxhash, false, blockhash] : [cbtxhash, false] }, r).then(asResult); // add coinbase tx
+
+    proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex'); // add merkle proof for coinbase tx
+
+    return { result : blockNumber, in3: { proof } }
+  }
+
+  async getBestBlockHash(finality: number = 0, r: any) {
+    if (!finality) return null
+
+    const blockNumber = await this.getFromServer( { method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
+    const blockhash = await this.getFromServer( { method: "getblockhash", params: [blockNumber] }, r).then(asResult) // get hash of blockNumber
+    const block = await this.getFromServer({ method: "getblock", params: [blockhash] }, r).then(asResult) // get block
+    const blockheader = await this.getFromServer({ method: "getblockheader", params: [blockhash, false] }, r).then(asResult)
+
+    const proof: any = {}
+
+    proof.block = '0x' + blockheader // add block header
+
+    proof.final = await this.getFinalityBlocks(blockNumber, finality, r) // add finality headers
+
+    const cbtxhash = block.tx[0]; // get coinbase tx 
+    proof.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [cbtxhash, false, blockhash] : [cbtxhash, false] }, r).then(asResult); // add coinbase tx
+
+    proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex'); // add merkle proof for coinbase tx
+
+    return { result : blockhash, in3: { proof } }
+  }
+
+  async getDifficulty(finality: number = 0, r: any) {
+    if (!finality) return null
+
+    const blockNumber = await this.getFromServer( { method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
+    const blockhash = await this.getFromServer( { method: "getblockhash", params: [blockNumber] }, r).then(asResult) // get hash of blockNumber
+    const block = await this.getFromServer({ method: "getblock", params: [blockhash] }, r).then(asResult) // get block
+    // need blockheader with verbosity true for difficulty and false for proof.block -> FUNCTION TO CONVERT?
+    const blockheaderObj = await this.getFromServer({ method: "getblockheader", params: [blockhash, true] }, r).then(asResult)
+    const blockheaderHex = await this.getFromServer({ method: "getblockheader", params: [blockhash, false] }, r).then(asResult)
+
+    const difficulty = blockheaderObj.difficulty
+    console.log(difficulty)
+    const proof: any = {}
+
+    proof.block = '0x' + blockheaderHex // add block header
+
+    proof.final = await this.getFinalityBlocks(blockNumber, finality, r) // add finality headers
+
+    const cbtxhash = block.tx[0]; // get coinbase tx 
+    proof.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [cbtxhash, false, blockhash] : [cbtxhash, false] }, r).then(asResult); // add coinbase tx
+
+    proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex'); // add merkle proof for coinbase tx
+
+    return { result : difficulty, in3: { proof } }
+  }
+
 }
+
+
 
 function asResult(res: RPCResponse): any {
   if (!res) throw new Error("No result")
