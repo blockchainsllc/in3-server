@@ -28,4 +28,4 @@ export const maxWhiteListCacheCap = 100
 
 //It is default value of timeout for that healthcheck will report server as unhealthy if new block is not detected by in3-server (during this time period)
 //this is configurable by using --watchBlockTimeout in command line params
-export const maxWatchBlockTimeout = 50000
+export const maxWatchBlockTimeout = 120000
