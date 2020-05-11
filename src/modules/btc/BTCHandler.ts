@@ -23,6 +23,15 @@ import axios from 'axios'
 import BaseHandler from '../../chains/BaseHandler'
 import { BTCBlock, serialize_blockheader } from './btc_serialize'
 import { createMerkleProof } from './btc_merkle'
+import { max } from 'bn.js'
+import { hash } from 'in3-common/js/src/modules/eth/serialize'
+
+interface DAP {
+  blockhash: string
+  blockheader: string
+  bits: string
+  target: bigint
+}
 
 
 /**
@@ -56,6 +65,8 @@ export default class BTCHandler extends BaseHandler {
         return toRes(await this.getBestBlockHash(request.in3 && request.in3.finality, request))
       case 'getdifficulty':
         return toRes(await this.getDifficulty(request.in3 && request.in3.finality, request))
+      case 'in3_proofTarget':
+        return toRes(await this.in3_proofTarget(request.params[0], request.params[1], request.params[2], request.params[3], request.in3 && request.in3.finality, request, request.params[4]))
       case 'scantxoutset':
         // https://bitcoincore.org/en/doc/0.18.0/rpc/blockchain/scantxoutset/
         return this.getFromServer(request)
@@ -149,7 +160,7 @@ export default class BTCHandler extends BaseHandler {
     const blockNumber = await this.getFromServer( { method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
     const blockhash = await this.getFromServer( { method: "getblockhash", params: [blockNumber] }, r).then(asResult) // get hash of blockNumber
     const block = await this.getFromServer({ method: "getblock", params: [blockhash] }, r).then(asResult) // get block
-    const blockheader = await this.getFromServer({ method: "getblockheader", params: [blockhash, false] }, r).then(asResult)
+    const blockheader = await this.getFromServer({ method: "getblockheader", params: [blockhash, false] }, r).then(asResult) // get block header
 
     const proof: any = {}
 
@@ -197,6 +208,8 @@ export default class BTCHandler extends BaseHandler {
     const blockheaderObj = await this.getFromServer({ method: "getblockheader", params: [blockhash, true] }, r).then(asResult)
     const blockheaderHex = await this.getFromServer({ method: "getblockheader", params: [blockhash, false] }, r).then(asResult)
 
+    // ToDo: can we remove one blockheader ? (convert from obj to hex or vice versa)
+
     const difficulty = blockheaderObj.difficulty
     console.log(difficulty)
     const proof: any = {}
@@ -213,9 +226,89 @@ export default class BTCHandler extends BaseHandler {
     return { result : difficulty, in3: { proof } }
   }
 
+  async in3_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, finality: number = 0, r: any, limit?: number) {
+    if (!finality) return null
+
+    //Limits einbauen
+
+    if (limit === undefined) limit = 40 // "no" limit (internal max_limit = 40)
+    if (limit === 0 || limit > 40) limit = 40 // prevent DoS
+
+    let past:boolean = false
+    if (targetDap < verifiedDap) {past = true }
+
+    const proof: any = {}
+
+    const bn = [] // array of block numbers
+    let daps: Map<number, string> = new Map<number, string>();
+
+
+    // fill map (daps) with dap_number (key) and bits (value)
+    if (past) {
+      // verified target is greater than target
+      for(var i = verifiedDap; i >= targetDap; i--) {
+        const n = i * 2016 // get block number of first block of the dap
+        bn.push({ method: 'getblockhash', params: [n] }) 
+      }
+    } else {
+      for(var i = verifiedDap; i <= targetDap; i++) {
+        const n = i * 2016 // get block number of first block of the dap
+        bn.push({ method: 'getblockhash', params: [n] }) 
+      }
+    }
+
+    let test = this.getDaps(bn, r)
+    //console.log(test)
+    
+
+    return { in3: { proof } } // in3 könnnen wir erstmal weglassen
+    // return { result: DAP Array Objekt }
+  }
+
+  async getDaps(bn: any, r: any): Promise<DAP[]> {
+    const hashes: string[] = await this.getAllFromServer(bn, r).then(_ => _.map(asResult))
+    console.log(hashes)
+    if (!hashes || hashes.findIndex(_=>!_)>=0) throw new Error("block not found")
+    const blocks: string[] = await this.getAllFromServer(hashes.map(_ => ({ method: 'getblockheader', params: [_, false] })), r).then(_ => _.map(asResult))
+    console.log(blocks)
+    if (!blocks || blocks.findIndex(_=>!_)>=0) throw new Error("block not found")
+  
+    let daps: Array<DAP> = []
+    for(var i = 0; i < hashes.length; i++) {
+      // bits to target
+      let bits = reverseCopy(blocks[i].substr(144,8)) // get bits
+      console.log(bits)
+      let length = parseInt(bits.substr(0,2), 16) // length = first 2 digits of bits-field parsed to integer
+      let coefficient = bits.substr(2,6) // coefficient = last 6 digits of bits-field
+      let target: bigint = BigInt('0x' + coefficient.padEnd(length * 2,'0')) // pads the coefficient with 0 to the given length and calculates bigint
+
+      console.log(typeof(hashes[i]))
+      console.log(typeof(blocks[i]))
+      console.log(typeof(bits))
+      console.log(typeof(target))
+      console.log(hashes[i])
+      console.log(blocks[i])
+      console.log(bits)
+      console.log(target)
+      
+
+      // add new DAP to daps
+      daps.push({blockhash: hashes[i], blockheader: blocks[i], bits: bits, target: target})
+    }
+    
+    return daps
+  }
 }
 
-
+function reverseCopy(val): string {
+  let i = val.length
+  let result = ''
+  while(i > 0) {
+    i-=2
+    result += val.substr(i,2)
+  }
+  return result
+}
 
 function asResult(res: RPCResponse): any {
   if (!res) throw new Error("No result")

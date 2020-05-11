@@ -470,3 +470,14 @@ definitions:
   getdifficulty:
     type: array
     maxItems: 0
+
+  in3_proofTarget:
+    type: array
+    maxItems: 5
+    minItems: 4
+    items:
+      - type: number
+      - type: number
+      - type: number
+      - type: number
+      - type: number
