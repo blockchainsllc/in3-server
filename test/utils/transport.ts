@@ -87,12 +87,18 @@ export class TestTransport implements Transport {
     url: string
   }[]
 
-  constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>) {
+  injectedResponsesMethods: {
+    method: string,
+    response: Partial<RPCResponse> | ResponseModifier
+  }[]
+
+  constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>, handlerType?: string) {
     this.chainId = '0x1'
     this.lastRandom = 0
     this.randomList = []
     this.handlers = {}
     this.injectedResponses = []
+    this.injectedResponsesMethods = []
     const nodes: IN3NodeConfig[] = []
     this.registryContract = registry
     this.nodeList = {
@@ -116,6 +122,7 @@ export class TestTransport implements Transport {
         port: 0,
         chains: {
           [this.chainId]: {
+            handler: (handlerType as any),
             watchInterval: -1,
             rpcUrl: [getTestClient()],
             privateKey: privateKey as any,
@@ -136,11 +143,32 @@ export class TestTransport implements Transport {
       request, response, url
     })
   }
+  injectResponseMethod(method: string, response: (Partial<RPCResponse> | ResponseModifier)) {
+    this.injectedResponsesMethods.push({
+      method, response
+    })
+  }
   isOnline(): Promise<boolean> {
     return Promise.resolve(true)
   }
   async mustFail(p: Promise<any>): Promise<any> {
     return p.then(_ => Promise.reject(new Error('Must have failed')), err => true)
+  }
+
+  defineGetFromServer(url: string, chain: string) {
+    (this.handlers[url].handlers[chain] as any).getFromServer = 
+    function(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse> {
+
+    for (const ir of this.injectedResponsesMethods) {
+      if ( ir.method !== request.method) continue
+      
+      logger.debug('Response (injected in local getfromserver) : ', { id: r.id, ...ir.response })
+      return Promise.resolve({
+        "id": r.id,
+        "jsonrpc": "2.0",
+        "result":  ir.response
+      })
+    }};  
   }
 
 
@@ -163,6 +191,7 @@ export class TestTransport implements Transport {
 
   clearInjectedResponsed() {
     this.injectedResponses.length = 0
+    this.injectedResponsesMethods.length = 0
   }
 
   async getFromServer(method: string, ...params: any[]) {
