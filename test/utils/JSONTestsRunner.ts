@@ -33,30 +33,53 @@
  *******************************************************************************/
 
 import { readFileSync } from 'fs'
+import { TestTransport } from './transport'
+import { RPCResponse } from 'in3-common/js/src/types/types'
 
-export async function runTests(files: string[]): Promise<{ descr: string, c: number, success: boolean, error: string }[]>  {
-  const allResults = []  
+import 'mocha'
+
+export async function runTests(files: string[]): Promise<{ descr: string, c: number, success: boolean, error: string }[]> {
+  const allResults = []
   let c = 0
-    for (const file of files) {
+  for (const file of files) {
 
-        for (const test of JSON.parse(readFileSync(file, 'utf8'))) {
-            c++
-            const result = await runTest(test, c)
-                allResults.push(result)
-                console.log(addSpace('' + result.c, 3) + ' : ' + addSpace(result.descr, 85, '.', result.success ? '' : '31') + ' ' + addSpace(result.success ? 'OK' : result.error, 0, ' ', result.success ? '32' : '31'))
-           
-        }
+    for (const test of JSON.parse(readFileSync(file, 'utf8'))) {
+      c++
+      const result = await runTest(test, c)
+      allResults.push(result)
+      console.log(addSpace('' + result.c, 3) + ' : ' + addSpace(result.descr, 85, '.', result.success ? '' : '31') + ' ' + addSpace(result.success ? 'OK' : result.error, 0, ' ', result.success ? '32' : '31'))
+
     }
-    return allResults
+  }
+  return allResults
 }
 
-async function runTest(test: any, c: number) {
-    let result = { descr: test.descr, c, success: true, error: undefined }
-     /**
-      * TO DO
-      */
-      return result
+async function runTest(testData: any, c: number) {
+  let result = { descr: testData.descr, c, success: false, error: undefined }
+  testData = JSON.parse(JSON.stringify(testData))
+
+  let testTrnsprt = new TestTransport(1, undefined, undefined, undefined, 'eth')
+
+  for (const method in testData.mock_responses) {
+    testTrnsprt.injectResponseMethod(method, testData.mock_responses[method])
   }
+
+  testTrnsprt.defineGetFromServer("#1", "0x1")
+
+  try {
+    const response = await testTrnsprt.handle("#1", testData.request) as RPCResponse
+    if(response.result == testData.expected_result)
+      result.success = true
+    else{
+      result.error =  response.error || 'Failed'
+    }
+  }
+  catch (err) {
+    result.error =  err
+  }
+
+  return result
+}
 
 function addSpace(s: string, l: number, filler = ' ', color = '') {
   while (s.length < l) s += filler
