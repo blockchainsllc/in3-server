@@ -37,10 +37,12 @@ import 'mocha'
 import { readdirSync } from 'fs'
 import { runTests } from '../utils/JSONTestsRunner'
 
-const testDir = 'test/JSONTest/bitcoinTests'
+const testDir = 'test/JSONTest/testsdata'
 describe('JSON-Tests', () => {
 
   for (const f of readdirSync(testDir)) {
+    if(f.toLowerCase().indexOf(".json")==-1)
+      continue
 
     it(f, async () => {
       const all = await runTests([testDir + '/' + f])
