@@ -87,6 +87,8 @@ export class TestTransport implements Transport {
     url: string
   }[]
 
+  bypassTopInjectedResponseCheck: boolean
+
   constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>, handlerType?: string) {
     this.chainId = '0x1'
     this.lastRandom = 0
@@ -95,6 +97,7 @@ export class TestTransport implements Transport {
     this.injectedResponses = []
     const nodes: IN3NodeConfig[] = []
     this.registryContract = registry
+    this.bypassTopInjectedResponseCheck = false
     this.nodeList = {
       nodes,
       contract: registry,
@@ -227,17 +230,18 @@ export class TestTransport implements Transport {
 
     const responseModifiers: ResponseModifier[] = []
 
-    for (const ir of this.injectedResponses) {
-      if (ir.url && ir.url !== url) continue
-      if (ir.request && ir.request.method !== r.method) continue
-      if (ir.request && ir.request.params && JSON.stringify(ir.request.params) != JSON.stringify(r.params)) continue
-      if (typeof ir.response === 'function')
-        responseModifiers.push(ir.response)
-      else {
-        logger.debug('Response (injected) : ', { id: r.id, ...ir.response })
-        return { jsonrpc: '2.0', id: r.id, ...ir.response }
+    if(!this.bypassTopInjectedResponseCheck)
+      for (const ir of this.injectedResponses) {
+        if (ir.url && ir.url !== url) continue
+        if (ir.request && ir.request.method !== r.method) continue
+        if (ir.request && ir.request.params && JSON.stringify(ir.request.params) != JSON.stringify(r.params)) continue
+        if (typeof ir.response === 'function')
+          responseModifiers.push(ir.response)
+        else {
+          logger.debug('Response (injected) : ', { id: r.id, ...ir.response })
+          return { jsonrpc: '2.0', id: r.id, ...ir.response }
+        }
       }
-    }
 
     // execute the request
     const [res] = await handler.handle([r])
