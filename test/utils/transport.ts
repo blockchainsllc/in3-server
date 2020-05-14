@@ -87,18 +87,12 @@ export class TestTransport implements Transport {
     url: string
   }[]
 
-  injectedResponsesMethods: {
-    method: string,
-    response: Partial<RPCResponse> | ResponseModifier
-  }[]
-
   constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>, handlerType?: string) {
     this.chainId = '0x1'
     this.lastRandom = 0
     this.randomList = []
     this.handlers = {}
     this.injectedResponses = []
-    this.injectedResponsesMethods = []
     const nodes: IN3NodeConfig[] = []
     this.registryContract = registry
     this.nodeList = {
@@ -143,11 +137,7 @@ export class TestTransport implements Transport {
       request, response, url
     })
   }
-  injectResponseMethod(method: string, response: (Partial<RPCResponse> | ResponseModifier)) {
-    this.injectedResponsesMethods.push({
-      method, response
-    })
-  }
+
   isOnline(): Promise<boolean> {
     return Promise.resolve(true)
   }
@@ -156,19 +146,35 @@ export class TestTransport implements Transport {
   }
 
   defineGetFromServer(url: string, chain: string) {
-    (this.handlers[url].handlers[chain] as any).getFromServer = 
-    function(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse> {
 
-    for (const ir of this.injectedResponsesMethods) {
-      if ( ir.method !== request.method) continue
-      
-      logger.debug('Response (injected in local getfromserver) : ', { id: r.id, ...ir.response })
-      return Promise.resolve({
-        "id": r.id,
-        "jsonrpc": "2.0",
-        "result":  ir.response
-      })
-    }};  
+    (this.handlers[url].handlers[chain] as any).getFromServer = 
+    (request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse> => {
+
+      //console.log(JSON.stringify(request))
+      for (const ir of this.injectedResponses) {
+        if ( ir.request.method !== request.method && ir.request.params !== request.params) continue
+        
+        logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
+        return Promise.resolve( ir.response as RPCResponse )
+      }
+  }; 
+
+    (this.handlers[url].handlers[chain] as any).getAllFromServer = 
+    (requests: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]> => {
+
+      //console.log(JSON.stringify(requests))
+      let res: RPCResponse[]
+      requests.forEach(request => {
+        for (const ir of this.injectedResponses) {
+          if ( ir.request.method !== request.method && ir.request.params !== request.params) continue
+          
+          logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
+          res.push( ir.response as RPCResponse )
+        }
+      });
+    return Promise.resolve(res)
+  }; 
+    
   }
 
 
@@ -191,7 +197,6 @@ export class TestTransport implements Transport {
 
   clearInjectedResponsed() {
     this.injectedResponses.length = 0
-    this.injectedResponsesMethods.length = 0
   }
 
   async getFromServer(method: string, ...params: any[]) {
