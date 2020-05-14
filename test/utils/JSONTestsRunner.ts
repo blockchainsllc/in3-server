@@ -58,17 +58,22 @@ async function runTest(testData: any, c: number) {
   let result = { descr: testData.descr, c, success: false, error: undefined }
   testData = JSON.parse(JSON.stringify(testData))
 
-  let testTrnsprt = new TestTransport(1, undefined, undefined, undefined, 'eth')
+  let testTrnsprt = new TestTransport(1,"0x6c095a05764a23156efd9d603eada144a9b1af33", undefined, undefined, testData.handler || 'eth')
 
   for (const method in testData.mock_responses) {
-    testTrnsprt.injectResponseMethod(method, testData.mock_responses[method])
+    testTrnsprt.injectResponse(testData.mock_responses[method][0], testData.mock_responses[method][1])
   }
 
   testTrnsprt.defineGetFromServer("#1", "0x1")
 
   try {
     const response = await testTrnsprt.handle("#1", testData.request) as RPCResponse
-    if(response.result == testData.expected_result)
+
+    const notRequired = ["version","currentBlock","lastValidatorChange","rpcCount","rpcTime","execTime","lastNodeList"]
+    notRequired.forEach(element => {
+      delete response[element];
+    });
+    if(JSON.stringify(response.result) == JSON.stringify(testData.expected_result.result))
       result.success = true
     else{
       result.error =  response.error || 'Failed'
