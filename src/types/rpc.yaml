@@ -109,6 +109,13 @@ definitions:
       - type: string
         pattern: "^0x(0|[a-fA-F1-9]+[a-fA-F0-9]*)$"
 
+  numberType:
+    description: params that can be hex-strings or numbers
+    oneOf:
+      - type: number
+      - type: string
+        pattern: "^0x[0-9a-fA-F]+"
+
   hash:
     description: the hash
     type: string
@@ -470,3 +477,19 @@ definitions:
   getdifficulty:
     type: array
     maxItems: 0
+
+  in3_proofTarget:
+    type: array
+    maxItems: 5
+    minItems: 4
+    items:
+      - $ref: "#/definitions/numberType"
+        description: target_dap
+      - $ref: "#/definitions/numberType"
+        description: verified_dap
+      - $ref: "#/definitions/numberType"
+        description: max_diff
+      - $ref: "#/definitions/numberType"
+        description: max_dapp
+      - $ref: "#/definitions/numberType"
+        description: limit
