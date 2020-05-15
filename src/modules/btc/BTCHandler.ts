@@ -26,6 +26,7 @@ import { createMerkleProof } from './btc_merkle'
 import { max } from 'bn.js'
 import { hash } from 'in3-common/js/src/modules/eth/serialize'
 import { toChecksumAddress } from 'ethereumjs-util'
+import { BTCCache }  from './btc_cache'
 
 interface DAP {
   dapnumber: number
@@ -35,24 +36,16 @@ interface DAP {
   target: string
 }
 
-interface BTCCache {
-  height?: number
-  hash?: Buffer
-  header?: Buffer
-  txids?: Buffer[]
-  cbtx?: Buffer
-}
-
 /**
  * handles BTC-Proofs
  */
 export default class BTCHandler extends BaseHandler {
 
-  blockCache: Map<string, BTCCache>
+  blockCache: BTCCache
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     super(config, transport, nodeList)
-    this.blockCache = new Map()
+    this.blockCache = new BTCCache(this)
   }
 
 
@@ -131,72 +124,24 @@ export default class BTCHandler extends BaseHandler {
 
   async getBlockHeader(hash: string, json: boolean = true, finality: number = 0, r: any) {
     if (json === undefined) json = true
-
-    console.log('test')
-
-    let blockheader, cbtx, cbtxhash: string
-    let block
-
-    // if blockCache has hash entry
-    if (this.blockCache.has(hash)) {
-      console.log('cache entry found')
-      // if json is true and blockCache has header entry
-      if (!json && this.blockCache.get(hash).header) {  
-        console.log('header found')
-        blockheader = (this.blockCache.get(hash).header).toString()
-      } else {
-        console.log('header set')
-        blockheader = await this.getFromServer({ method: "getblockheader", params: [hash, json] }, r).then(asResult)
-        if (!json) this.blockCache.get(hash).header = Buffer.from(blockheader,'hex')
-      }
-
-      if (this.blockCache.get(hash).cbtx) {
-        console.log('cbtx found')
-        cbtx = this.blockCache.get(hash).cbtx.toString() // cbtx is empty
-      } else {
-        console.log('no cbtx found, but txids found')
-        if (this.blockCache.get(hash).txids) {
-          cbtxhash = this.blockCache.get(hash).txids[0].toString()
-        } else {
-          console.log('no cbtx, no txids found')
-          block = await this.getFromServer({ method: "getblock", params: [hash] }, r).then(asResult);
-          cbtxhash = block.tx[0];
-        }
-        cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: hash ? [cbtxhash, false, hash] : [cbtxhash, false] }, r).then(asResult);
-        this.blockCache.get(hash).cbtx = Buffer.from(cbtx, 'hex')
-      }
-      
-    
-    } else {
-      console.log('no cache entry found')
-      // no cache entry found
-      blockheader = await this.getFromServer({ method: "getblockheader", params: [hash, json] }, r).then(asResult)
-      block = await this.getFromServer({ method: "getblock", params: [hash] }, r).then(asResult);
-      cbtxhash = block.tx[0];
-      cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: hash ? [cbtxhash, false, hash] : [cbtxhash, false] }, r).then(asResult);
-
-      // set cache
-      let cache: BTCCache = {}
-      if (!json) cache.header = Buffer.from(blockheader, 'hex')
-      if (json) cache.height = blockheader.height
-      cache.hash = Buffer.from(hash, 'hex')
-      let txids: Buffer[] = []
-      for (let tx of block.tx) {
-        txids.push(Buffer.from(tx, 'hex'))
-      }
-      cache.txids = txids
-      cache.cbtx = Buffer.from(cbtx, 'hex')
-
-      this.blockCache.set(hash, cache) // set cache entry
-    }
-
+    const blockheader = ((await this.blockCache.getBlockHeaderByHash([hash])).pop()).toString('hex')
+    const number = (await this.blockCache.getBlockNumberByHash([hash])).pop() // we can put this statement in getFinalityBlocks
     const proof: any = {}
-    if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? blockheader : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
-    proof.cbtx = cbtx
-    proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex');
+    if (finality) proof.final = await this.getFinalityBlocks(number, finality, r)
+
+    const cb: any[] = (await this.blockCache.getCoinbaseByHash([hash])).shift()
     
+
+    proof.cbtx = '0x' + cb[0].toString('hex')
+    proof.cbtxMerkleProof = '0x' + createMerkleProof(cb[1], (cb[1])[0]).toString('hex');
+
+    // get coinbase transaction
+   
+    // merkle proof for coinbase transaction
+
     return { result: blockheader, in3: { proof } }
   }
+
 
   async getTransaction(hash: string, json: boolean = true, blockhash: string = undefined, finality: number = 0, r: any) {
     if (json === undefined) json = true
