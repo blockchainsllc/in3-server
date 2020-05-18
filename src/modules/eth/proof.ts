@@ -708,24 +708,21 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     }
   }
 
-
-
   //    console.log('handle call', this.config)
   // read the response,blockheader and trace from server
-  const [response, blockResponse, trace] = await handler.getAllFromServer([
-    request,
+  const [blockResponse, trace] = await handler.getAllFromServer([
     { method: 'eth_getBlockByNumber', params: [request.params[1] || 'latest', false] },
     useTrace ? { method: 'trace_call', params: [request.params[0], ['vmTrace'], request.params[1] || 'latest'] } : undefined
   ], request)
 
   // error checking
-  if (response.error) return response
   if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
   if (trace && trace.error) {
     if ((trace.error as any).code === -32601) useTrace = false
     else throw new Error('Could not get the trace :' + trace.error)
   }
 
+  let response : RPCResponse = {jsonrpc: "2.0", id: request.id}
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as any
   let neededAccounts = []
@@ -773,6 +770,11 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   }
 
   async function getFromParity() {
+    if(trace.error)
+      response.error = trace.error
+    else 
+      response.result = trace.result.output
+    
     const neededProof = evm.analyse((trace.result as any).vmTrace, request.params[0].to)
     neededAccounts = Object.keys(neededProof.accounts)
     return await handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
