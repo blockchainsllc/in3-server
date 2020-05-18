@@ -47,6 +47,7 @@ import { SentryError } from '../../util/sentryError'
 import { toBuffer } from 'in3-common/js/src/util/util'
 import { TransactionReceipt } from 'in3'
 
+
 const histMerkleTreeTime = new promClient.Histogram({
   name: 'in3_merkle_tree_time',
   help: 'Time taken to generate merkle tree',
@@ -730,6 +731,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   async function getFromGeth(): Promise<any> {
     for (let i = 0; i < 10; i++) {
       const neededProof = await analyseCall(request.params[0], request.params[1] || 'latest', handler.getFromServer.bind(handler))
+      response.result = toHex(neededProof.result)
       neededAccounts = Object.keys(neededProof.accounts)
       const proof = await handler.getAllFromServer(neededAccounts.map(adr => (
         { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
