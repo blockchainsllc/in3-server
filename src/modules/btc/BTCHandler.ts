@@ -26,7 +26,7 @@ import { createMerkleProof } from './btc_merkle'
 import { max } from 'bn.js'
 import { hash } from 'in3-common/js/src/modules/eth/serialize'
 import { toChecksumAddress } from 'ethereumjs-util'
-import { BTCCache }  from './btc_cache'
+import { BTCCache, Coinbase }  from './btc_cache'
 
 interface DAP {
   dapnumber: number
@@ -98,75 +98,74 @@ export default class BTCHandler extends BaseHandler {
     }
 
     // we need to determine, what are the blockhashes of the next blocks.
-    const bn = []
+    const numbers: string[] = []
     for (let n = blockNumber + 1; n <= blockNumber + finality; n++)
-      bn.push({ method: 'getblockhash', params: [n] })
+      numbers.push(n.toString())
 
-    // get all the hashes from the node
-    const hashes = await this.getAllFromServer(bn, r).then(_ => _.map(asResult))
-
-    // now we get the headers for those blocks
-    const blocks = await this.getAllFromServer(hashes.map(_ => ({ method: 'getblockheader', params: [_, false] })), r).then(_ => _.map(asResult))
+    // get headers
+    const headers: string[] = (await this.blockCache.getBlockHeaderByNumber(numbers)).map(_ => _.toString('hex'))
 
     // now we simply concate all headers
-    return '0x' + blocks.join('')
+    return '0x' + headers.join('')
   }
 
-  
+  // die getblockheader anfrage können wir uns sparen, die height haben wir schon im block
   async getBlock(hash: string, json: boolean = true, finality: number = 0, r: any) {
     if (json === undefined) json = true
+    // can get the block out of the cache?
     const block = await this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult)
     const proof: any = {}
-    if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block : await this.getFromServer({ method: "getblockheader", params: [hash, true] }, r).then(asResult)).height), finality, r)
+    if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block : (await this.blockCache.getBlockHeaderByHash([hash], true)).pop().height)), finality, r)
     return { result: block, in3: { proof } }
   }
 
 
   async getBlockHeader(hash: string, json: boolean = true, finality: number = 0, r: any) {
     if (json === undefined) json = true
-    const blockheader = ((await this.blockCache.getBlockHeaderByHash([hash])).pop()).toString('hex')
-    const number = (await this.blockCache.getBlockNumberByHash([hash])).pop() // we can put this statement in getFinalityBlocks
+
+     // get coinbase first so that the block is in the cache
+     const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([hash])).shift()
+
+    let blockheader: any // can be json-object or hex-string (hex-string if always in the cache after fetching coinbase)
+    json ? blockheader = (await this.blockCache.getBlockHeaderByHash([hash], json)).pop() : blockheader = ((await this.blockCache.getBlockHeaderByHash([hash], json)).pop()).toString('hex')
+
+    // after fetching the coinbase the block number is ALWAYS in the cache
+    const number = this.blockCache.data.get(hash).height
+
     const proof: any = {}
     if (finality) proof.final = await this.getFinalityBlocks(number, finality, r)
 
-    const cb: any[] = (await this.blockCache.getCoinbaseByHash([hash])).shift()
-    
-
-    proof.cbtx = '0x' + cb[0].toString('hex')
-    proof.cbtxMerkleProof = '0x' + createMerkleProof(cb[1], (cb[1])[0]).toString('hex');
-
-    // get coinbase transaction
-   
-    // merkle proof for coinbase transaction
+    proof.cbtx = '0x' + cb.cbtx.toString('hex')
+    proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
 
     return { result: blockheader, in3: { proof } }
   }
 
-
   async getTransaction(hash: string, json: boolean = true, blockhash: string = undefined, finality: number = 0, r: any) {
     if (json === undefined) json = true
     const tx = await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [hash, true, blockhash] : [hash, true] }, r).then(asResult)
-    console.log(tx)
     if (!tx) throw new Error("Transaction not found")
     if (blockhash && tx.blockhash != blockhash) throw new Error('invalid blockhash for tx')
-    const [block, header] = await this.getAllFromServer([{ method: "getblock", params: [tx.blockhash, true] }, { method: "getblockheader", params: [tx.blockhash, false] }], r).then(a => a.map(asResult))
+    const proof: any = {}
 
-    const proof: any = {
-      block: '0x' + header,
-      txIndex: block.tx.indexOf(tx.txid),
-      merkleProof: '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(tx.txid, 'hex')).toString('hex')
-    }
-    if (finality) proof.final = await this.getFinalityBlocks(parseInt(block.height), finality, r)
+    // get coinbase first so that the block is in the cache
+    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockhash])).shift()
 
-    // coinbase transaction
-    const cbtxhash = block.tx[0];
-    proof.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [cbtxhash, false, blockhash] : [cbtxhash, false] }, r).then(asResult);
-    // merkle proof for coinbase transaction
-    proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex');
+    // after fetching the coinbase the block header and number are ALWAYS in the cache
+    const blockheader = this.blockCache.data.get(blockhash).header.toString('hex')
+    const number = this.blockCache.data.get(blockhash).height
+
+    proof.header = blockheader
+    
+    if (finality) proof.final = await this.getFinalityBlocks(number, finality, r)
+
+    proof.cbtx = '0x' + cb.cbtx.toString('hex')
+    proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
 
     return { result: json ? tx : tx.hex, in3: { proof } }
   }
 
+  // ToDo: add cache
   async getBlockCount(finality: number = 0, r: any) {
     if (!finality) return null
 
@@ -189,6 +188,7 @@ export default class BTCHandler extends BaseHandler {
     return { result : blockNumber, in3: { proof } }
   }
 
+  // ToDo: add cache
   async getBestBlockHash(finality: number = 0, r: any) {
     if (!finality) return null
 
@@ -210,7 +210,9 @@ export default class BTCHandler extends BaseHandler {
 
     return { result : blockhash, in3: { proof } }
   }
-
+  
+  // ToDo: add cache
+  // ToDo: add block number as parameter, allow 'latest' to get difficulty from latest block (getblockcount)
   async getDifficulty(finality: number = 0, r: any) {
     if (!finality) return null
 
@@ -237,6 +239,7 @@ export default class BTCHandler extends BaseHandler {
     return { result : difficulty, in3: { proof } }
   }
 
+  // ToDo: add cache
   async in3_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, limit?: number) {
 
     if (limit === 0 || limit > 40 || !limit) limit = 40 // prevent DoS (internal max_limit = 40)
@@ -386,6 +389,6 @@ function asResult(res: RPCResponse): any {
   if (res.error)
     throw new Error((res.error as any).message || res.error + '')
   if (res.result === undefined) throw new Error("No result")
+  if (res.result === null) throw new Error("No result")
   return res.result
-
 }

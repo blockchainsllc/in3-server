@@ -1,6 +1,7 @@
 import BaseHandler from "../../chains/BaseHandler"
-import { RPCResponse } from "in3"
+import { RPCResponse, header } from "in3"
 import { hash } from "in3-common/js/src/modules/eth/serialize"
+import { BTCBlock, BTCBlockHeader, serialize_blockheader } from "./btc_serialize"
 
 export interface BTCCacheValue {
     height?: number
@@ -8,6 +9,11 @@ export interface BTCCacheValue {
     header?: Buffer
     txids?: Buffer[]
     cbtx?: Buffer
+}
+
+export interface Coinbase {
+    cbtx: Buffer
+    txids: Buffer[]
 }
 
 export class BTCCache {
@@ -20,157 +26,117 @@ export class BTCCache {
         this.handler = handler
     }
 
-    async getBlockHeaderByHash(hashes: string[]): Promise<Buffer[]> {
-        let hashesToFetch: string[] = []
-        const result: Buffer[] = hashes.map(hash => {
-            const value: BTCCacheValue = this.data.get(hash)
-            if (value && value.header) {
-                console.log('cache entry found')
-                return value.header
-            } else {
-                console.log('no cache entry found')
-                hashesToFetch.push(hash)
-                return null
-            }
-        })
+    async getBlockHeaderByHash(hashes: string[], json: boolean): Promise<any> {
+        const results: BTCCacheValue[] = hashes.map(this.getOrCreate.bind(this))
+        const hashesIndexToFetch = hashes.map((_, index) => index).filter(index => !results[index].header || json) // if json === true, then have to fetch all hashes
 
         // we need to fetch at least 1 element
-        if (hashesToFetch.length > 0) {
-            const blockheaders: string[] = await this.handler.getAllFromServer(hashesToFetch.map(hash => ({
-                method: 'getblockheader', params: [hash, false]
+        if (hashesIndexToFetch.length > 0) {
+            const blockheaders: BTCBlockHeader[] = await this.handler.getAllFromServer(hashesIndexToFetch.map(index => ({
+                method: 'getblockheader', params: [hashes[index], true]
              }))).then(_ => _.map(asResult))
 
-             result.forEach((value, index) => {
-                 if (!value) {
-                    const blockheader = blockheaders.shift()
-                    if (blockheader.length != 160 ) throw new Error(`for hash ${hashes[index]} invalid blockerheader ${blockheader}`) // error check
-                    result[index] = Buffer.from(blockheader, 'hex')
-                    let cacheobject = this.data.get(hashes[index])
-                    if (!cacheobject) {
-                        cacheobject = {hash: Buffer.from(hashes[index], 'hex')}
-                        this.data.set(hashes[index], cacheobject)
-                    }
-                    cacheobject.header = result[index]
-                 } 
-             })
+             // fill the cache
+            hashesIndexToFetch.forEach((hashIndex, i) => {
+                const result = results[hashIndex]
+                // check if it's already there - already existing cache entries can still
+                // be part of hashesIndexToFetch due to json equal to true
+                if (!result.header) result.header = serialize_blockheader(blockheaders[i])
+                if (!result.hash) result.hash = Buffer.from(hashes[hashIndex], 'hex')
+                if (!result.height) result.height = blockheaders[i].height
+                
+                if (!(this.data.has((blockheaders[i].height).toString()))) {
+                    this.data.set((blockheaders[i].height).toString(), result) // register new key (block number)
+                }
+            })
+            if (json) return blockheaders // return array of BTCBlockHeader (json-object)
         }
-        return result
+        return results.map(_ => {return _.header})
     }
 
     async getBlockHeaderByNumber(numbers: string[]): Promise<Buffer[]> {
-        return null
-    }
-
-
-    async getBlockNumberByHash(hashes: string[]): Promise<number[]> {
-        let hashesToFetch: string[] = []
-        const result: number[] = hashes.map(hash => {
-            const value: BTCCacheValue = this.data.get(hash)
-            if (value && value.height) {
-                console.log('cache entry found')
-                return value.height
-            } else {
-                console.log('no cache entry found')
-                hashesToFetch.push(hash)
-                return null
-            }
-        })
+        const results: BTCCacheValue[] = numbers.map(this.getOrCreate.bind(this))
+        const numbersIndexToFetch = numbers.map((_, index) => index).filter(index => !results[index].header)
 
         // we need to fetch at least 1 element
-        if(hashesToFetch.length > 0) {
-            // get block headers
-            const blockheaders: any[] = await this.handler.getAllFromServer(hashesToFetch.map(hash => ({
+        if (numbersIndexToFetch.length > 0) {
+
+            const hashes = await this.handler.getAllFromServer(numbersIndexToFetch.map(index => ({
+                method: 'getblockhash', params: [parseInt(numbers[index])] // parseInt or numbers: number[] as parameter
+            }))).then(_ => _.map(asResult))
+
+            // get the block headers
+            const blockheaders: BTCBlockHeader[] = await this.handler.getAllFromServer(hashes.map(hash => ({
                 method: 'getblockheader', params: [hash, true]
-            }))).then(_ => _.map(asResult))
+             }))).then(_ => _.map(asResult))
 
-            // get number out of block header
-            const numbers: number[] = blockheaders.map(value => {
-                return value.height
-            })
+             // fill the cache
+             numbersIndexToFetch.forEach((numberIndex, i) => {
+                const result = results[numberIndex]
+                if (!result.header) result.header = serialize_blockheader(blockheaders[i])
+                if (!result.hash) result.hash = Buffer.from(hashes[i], 'hex')
+                if (!result.height) result.height = blockheaders[i].height
 
-            result.forEach((value, index) => {
-                if (!value) {
-                    const number = numbers.shift()
-                    result[index] = number
-                    let cacheobject = this.data.get(hashes[index])
-                    if (!cacheobject) {
-                        cacheobject = {hash: Buffer.from(hashes[index], 'hex')}
-                        this.data.set(hashes[index], cacheobject)
-                    }
-                    cacheobject.height = result[index]
+                if (!(this.data.has(hashes[i]))) {
+                    this.data.set(hashes[i], result) // register new key (block hash)
                 }
-            })
+             })
         }
-        return result
+        return results.map(_ => { return _.header})
     }
 
-    async getCoinbaseByHash(hashes: string[]): Promise<any[]> {
-        let hashesToFetch: string[] = []
-        const result: any[] = hashes.map(hash => {
-            const value: BTCCacheValue = this.data.get(hash)
-            if (value && value.cbtx && value.txids) {
-                console.log('cache entry found')
-                const _: any[] = [value.cbtx, value.txids]
-                return _
-            } else {
-                console.log('no cache entry found')
-                hashesToFetch.push(hash)
-                return null
-            }
-        })
-
+    async getCoinbaseByHash(hashes: string[]): Promise<Coinbase[]> {
+        const results: BTCCacheValue[] = hashes.map(this.getOrCreate.bind(this))
+        const hashesIndexToFetch = hashes.map((_, index) => index).filter(index => !results[index].cbtx || !results[index].txids)
+    
         // we need to fetch at least 1 element
-        if (hashesToFetch.length > 0) {
-            const blocks: any[] = await this.handler.getAllFromServer(hashesToFetch.map(hash => ({
-                method: 'getblock', params: [hash, true]
+        if (hashesIndexToFetch.length > 0) {
+    
+            // get the blocks based on hashes
+            const blocks: BTCBlock[] = await this.handler.getAllFromServer(hashesIndexToFetch.map(index => ({
+                method: 'getblock', params: [hashes[index], true]
             }))).then(_ => _.map(asResult))
-
-            const cbtxids: string[] = blocks.map(value => {
-                return value.tx[0]
-            })
-
-            // array of txids array
-            const txids: any[] = blocks.map(value => {
-                let txs: Buffer[] = []
-                for (let _ of value.tx) {
-                    txs.push(Buffer.from(_, 'hex'))
-                }
-                return txs
-            })
-
-            const params = []
-            for (let i = 0; i < blocks.length; i++) {
-                params.push([cbtxids[i], false, hashesToFetch[i]])
-            }
-
-            const cbtxs: string [] = await this.handler.getAllFromServer(params.map(param => ({
-                method: 'getrawtransaction', params: param
+    
+            // get the coinbase transactions
+            const cbtxs: string[] = await this.handler.getAllFromServer(blocks.map(b => ({
+                method: 'getrawtransaction', params: [b.tx[0], false, b.hash]
             }))).then(_ => _.map(asResult))
+    
+            // fill the cache
+            hashesIndexToFetch.forEach((hashIndex, i) => {
+                const result = results[hashIndex]
+                if (!result.cbtx) result.cbtx = Buffer.from(cbtxs[i], 'hex')
+                result.txids = blocks[i].tx.map(_ => Buffer.from(_, 'hex'))
+                result.height = blocks[i].height
+                result.header = serialize_blockheader(blocks[i])
 
-            result.forEach((value, index) => {
-                if (!value) {
-                    const cbtx = Buffer.from(cbtxs.shift(), 'hex')
-                    const txid = txids.shift()
-                    const _: any[] = [cbtx, txid]
-                    result[index] = _
-                    let cacheobject = this.data.get(hashes[index])
-                    if (!cacheobject) {
-                        cacheobject = {hash: Buffer.from(hashes[index])}
-                        this.data.set(hashes[index], cacheobject)
-                    }
-                    cacheobject.cbtx = cbtx
-                    cacheobject.txids = txid
+                if (!(this.data.has((blocks[i].height).toString()))) {
+                    this.data.set((blocks[i].height).toString(), result) // register new key (block number)
                 }
             })
-
         }
-        return result
+
+        return results.map(_ => {return {cbtx: _.cbtx, txids: _.txids}})
     }
 
-
-
+    getOrCreate(key:string):BTCCacheValue {
+        let value = this.data.get(key)
+        if (!value) {
+           console.log('no cache entry found')
+           value = {}
+           if (key.length === 64) // it's a hash
+             value.hash = Buffer.from(key,'hex')
+           else                   // must be a blockNumber
+             value.height = parseInt(key)
+           this.data.set(key,value)
+        }
+        return value
+      }
 }
-
+  
+// hier null abfangen - also wenn der client einen hash wissen will, den es gar nicht gibt
+// spezielle exception werfen die wir oben abfangen können - reponse läuft normal durch und returnt null
+// neue klasse von error ableiten, "notfounderror"
 function asResult(res: RPCResponse): any {
     if (!res) throw new Error("No result")
     if (res.error)
