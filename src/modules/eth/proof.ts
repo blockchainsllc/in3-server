@@ -178,7 +178,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
       handler
     ),
     ( createMerkleProof(
-      receipts !=undefined && !trie ? receipts.map(r => ({
+      receipts && !trie ? receipts.map(r => ({
             key: rlp.encode(toNumber(r.transactionIndex)),
             value: serialize.serialize(serialize.toReceipt(r))
           })) : undefined,
