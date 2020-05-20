@@ -471,7 +471,7 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
     // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
     if (tx && tx.blockNumber) {
       // get the block including all transactions from the server
-      const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }, request).then(_ => _ && _.result as BlockData)
+      const block = await handler.getFromServer({ method: 'eth_getBlockByHash', params: [tx.blockHash, true] }, request).then(_ => _ && _.result as BlockData)
       if (block) {
 
         const [signatures, receipts] = await Promise.all([
