@@ -253,107 +253,101 @@ export default class BTCHandler extends BaseHandler {
     return { result : difficulty, in3: { proof } }
   }
 
-  // ToDo: add cache
+
+  // ToDo: Test! There are some cases where this functions ends up in a endless loop.
+  // We need to figure out why and how to not get into a endless loop.
+  // Maybe by breaking out of the loop if Math.abs(compare[0].dapnumber - compare[1].dapnumber) = 1 or 0 -> then we could not find a dap that
+  // is within the limits even after decreasing the gap between to compared daps (down to 1 or 0)
   async in3_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, limit?: number) {
-
+    
     if (limit === 0 || limit > 40 || !limit) limit = 40 // prevent DoS (internal max_limit = 40)
-
-    const bn = [] // array of block numbers
-
-    // fill bn array with block numbers & dapNumbers array with dap number
-    if (targetDap < verifiedDap) {
-      // verified target is greater than target
-      for(let i = verifiedDap; i >= targetDap; i--) {
-        const n = i * 2016 // get block number of first block of the dap
-        bn.push({ method: 'getblockhash', params: [n] })
-      }
-    } else {
-      for(let i = verifiedDap; i <= targetDap; i++) {
-        const n = i * 2016 // get block number of first block of the dap
-        bn.push({ method: 'getblockhash', params: [n] })  
-      }
-    }
-
-    let allDaps : DAP[] = await this.getDaps(bn, r) // get array of all dap-objects
 
     let resultDaps: DAP[] = [] // array of daps that are in the path
     let compare: DAP[] = [] // array to save 2 dap numbers to compare
-    compare.push(allDaps[0]) // set first element to compare with (verifieddap)
-    
-    let boolLimit, added = false
-    let index: number
 
+    let boolLimit, added = false
+
+    let start, end
+    if (targetDap < verifiedDap) {
+      start = targetDap
+      end = verifiedDap
+    } else {
+      start = verifiedDap
+      end = targetDap
+    }
+
+    compare.push(await this.getDap(start)) // set first element to compare with (verifiedDap)
+
+    // add daps to resultDaps
     while(!boolLimit) {
       
-      index = allDaps.indexOf(compare[0]) + maxDap 
-      if (index >= allDaps.length) {
-        index = allDaps.length - 1 // if index is greater than length of array, then set index to index of last element
+      let nextdap: number = compare[0].dapnumber + maxDap // calculate dap to compare with
+      
+      if (nextdap >= end) {
+        nextdap = end  // set next dap to one dap lower the end
         boolLimit = true // last loop
       }
-      compare.push(allDaps[index])
+
+      compare.push(await this.getDap(nextdap)) // push dap to compare array
       added = false
 
+      // repeat as long as no dap was added to the result
       while (!added) {
         if(isWithinLimits(compare[0].target, compare[1].target, maxDiff)) {
-          if (index < allDaps.length - 1) {
-            resultDaps.push(compare[1]) // add element to result (if element is not targetdap)
-          }
+          if (nextdap < end) resultDaps.push(compare[1]) // add to result if it's not the last dap
           compare.shift()
           added = true
-          if (resultDaps.length === limit) boolLimit = true
+          if (resultDaps.length === limit) boolLimit = true // check maximum limit of daps in result
         }  
         else {
-          index --
-          compare.shift()
-          compare.push(allDaps[index])
+          // dap is not within limits -> try it with a different dap (nextdap--)
+          compare.pop()
+          nextdap-- 
+          compare.push(await this.getDap(nextdap))
         }
       }
     }
 
+    // result array has to be in a reversed order if targetDap is smaller than verifiedDap (so that the path is in the right way)
+    if (targetDap < verifiedDap) {
+      resultDaps.reverse()
+    }
 
+    // build result (with proof data)
     const resultArray = await Promise.all(resultDaps.map(async val => {
       
       let resultobj: any = {} // result object will contain: dap, block, final, cbtx, cbtxMerkleProof
 
-      let block = await this.getFromServer({ method: "getblock", params: [val.blockhash] }, r).then(asResult) // get block
-      let cbtxhash = block.tx[0]; // get coinbase tx 
-
+      const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([val.blockhash])).shift()
+      
       resultobj.dap = val.dapnumber
       resultobj.block = '0x' + val.blockheader
       if (finality > 0) resultobj.final = await this.getFinalityBlocks(val.dapnumber * 2016, finality, r) // add finality headers 
-      resultobj.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: val.blockhash ? [cbtxhash, false, val.blockhash] : [cbtxhash, false] }, r).then(asResult); // add coinbase tx
-      resultobj.cbtxMerkleProof =  '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex'); // add merkle proof for coinbase tx 
+      resultobj.cbtx = '0x' + cb.cbtx.toString('hex')
+      resultobj.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
 
       return resultobj
     }))
 
-
     return { resultArray }
   }
 
-  async getDaps(bn: any, r: any): Promise<DAP[]> {
-    const hashes: string[] = await this.getAllFromServer(bn, r).then(_ => _.map(asResult)) // get all hashes
-    if (!hashes || hashes.findIndex(_=>!_)>=0) throw new Error("block not found") // error handling
+  async getDap(_dapnumber: number): Promise<DAP> {
 
-    const blocks: string[] = await this.getAllFromServer(hashes.map(_ => ({ method: 'getblockheader', params: [_, false] })), r).then(_ => _.map(asResult)) // get all blocks
-    if (!blocks || blocks.findIndex(_=>!_)>=0) throw new Error("block not found") // error handling
-  
-    let daps: DAP[] = [] // initialize array
-    for(let i = 0; i < bn.length; i++) {
-  
-      let dapnumber = bn[i].params[0] / 2016; // get dap number
-      let bits = reverseCopy(blocks[i].substr(144,8)) // get bits
-      let length = parseInt(bits.substr(0,2), 16) // length = first 2 digits of bits-field parsed to integer
-      let coefficient = bits.substr(2,6) // coefficient = last 6 digits of bits-field
-      let target = (coefficient.padEnd(length * 2,'0')).padStart(64,'0') // pads the coefficient with 0 to the given length and calculates bigint
-      
-      // add new DAP to daps
-      daps.push({dapnumber: dapnumber, blockhash: hashes[i], blockheader: blocks[i], bits: bits, target: target})
-    }
-    console.log(daps)
-    return daps // return Array of DAPs
+    const blockheader: string = (await this.blockCache.getBlockHeaderByNumber([(_dapnumber * 2016).toString()], false)).pop().toString('hex')
+    // cache is now filled with hash, header and height for this block
+
+    const dapnumber = _dapnumber
+    const blockhash = this.blockCache.data.get((_dapnumber * 2016).toString()).hash.toString('hex') // we can also hash the block header to get the hash (what's better?)
+    const bits = reverseCopy(blockheader.substr(144,8)) // get bits
+    const length = parseInt(bits.substr(0,2), 16) // length = first 2 digits of bits-field parsed to integer
+    const coefficient = bits.substr(2,6) // coefficient = last 6 digits of bits-field
+    const target = (coefficient.padEnd(length * 2,'0')).padStart(64,'0') // pads the coefficient with 0 to the given length and calculates bigint
+
+    return {dapnumber: dapnumber, blockhash: blockhash, blockheader: blockheader, bits: bits, target: target}
   }
 }
+
 
 // check if start + (max_diff/100)*start > dst
 export function isWithinLimits(start: string, dst: string, max_diff: number): boolean {
@@ -386,7 +380,6 @@ export function isWithinLimits(start: string, dst: string, max_diff: number): bo
 
   return true
 }
-
 
 function reverseCopy(val): string {
   let i = val.length
