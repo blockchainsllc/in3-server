@@ -28,7 +28,7 @@ export class BTCCache {
 
     async getBlockHeaderByHash(hashes: string[], json: boolean): Promise<any> {
         const results: BTCCacheValue[] = hashes.map(this.getOrCreate.bind(this))
-        const hashesIndexToFetch = hashes.map((_, index) => index).filter(index => !results[index].header || json) // if json === true, then have to fetch all hashes
+        const hashesIndexToFetch = hashes.map((_, index) => index).filter(index => !results[index].header || json) // if json === true, then we have to fetch all hashes
 
         // we need to fetch at least 1 element
         if (hashesIndexToFetch.length > 0) {
@@ -54,9 +54,9 @@ export class BTCCache {
         return results.map(_ => {return _.header})
     }
 
-    async getBlockHeaderByNumber(numbers: string[]): Promise<Buffer[]> {
+    async getBlockHeaderByNumber(numbers: string[], json: boolean): Promise<any> {
         const results: BTCCacheValue[] = numbers.map(this.getOrCreate.bind(this))
-        const numbersIndexToFetch = numbers.map((_, index) => index).filter(index => !results[index].header)
+        const numbersIndexToFetch = numbers.map((_, index) => index).filter(index => !results[index].header || json)
 
         // we need to fetch at least 1 element
         if (numbersIndexToFetch.length > 0) {
@@ -81,6 +81,7 @@ export class BTCCache {
                     this.data.set(hashes[i], result) // register new key (block hash)
                 }
              })
+             if (json) return blockheaders // return array of BTCBlockHeader (json-object)
         }
         return results.map(_ => { return _.header})
     }
@@ -106,9 +107,9 @@ export class BTCCache {
             hashesIndexToFetch.forEach((hashIndex, i) => {
                 const result = results[hashIndex]
                 if (!result.cbtx) result.cbtx = Buffer.from(cbtxs[i], 'hex')
-                result.txids = blocks[i].tx.map(_ => Buffer.from(_, 'hex'))
-                result.height = blocks[i].height
-                result.header = serialize_blockheader(blocks[i])
+                if (!result.txids) result.txids = blocks[i].tx.map(_ => Buffer.from(_, 'hex'))
+                if (!result.height) result.height = blocks[i].height
+                if (!result.header) result.header = serialize_blockheader(blocks[i])
 
                 if (!(this.data.has((blocks[i].height).toString()))) {
                     this.data.set((blocks[i].height).toString(), result) // register new key (block number)

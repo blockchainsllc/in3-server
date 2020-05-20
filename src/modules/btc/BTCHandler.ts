@@ -21,7 +21,7 @@ import { Transport } from 'in3-common'
 import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../../types/types'
 import axios from 'axios'
 import BaseHandler from '../../chains/BaseHandler'
-import { BTCBlock, serialize_blockheader } from './btc_serialize'
+import { BTCBlock, serialize_blockheader, BTCBlockHeader } from './btc_serialize'
 import { createMerkleProof } from './btc_merkle'
 import { max } from 'bn.js'
 import { hash } from 'in3-common/js/src/modules/eth/serialize'
@@ -69,7 +69,7 @@ export default class BTCHandler extends BaseHandler {
       case 'getbestblockhash':
         return toRes(await this.getBestBlockHash(request.in3 && request.in3.finality, request))
       case 'getdifficulty':
-        return toRes(await this.getDifficulty(request.in3 && request.in3.finality, request))
+        return toRes(await this.getDifficulty(request.params[0], request.in3 && request.in3.finality, request))
       case 'in3_proofTarget':
         return toRes(await this.in3_proofTarget(parseInt(request.params[0]), parseInt(request.params[1]), parseInt(request.params[2]),
          parseInt(request.params[3]), request, request.in3 && request.in3.finality || 0, parseInt(request.params[4])))
@@ -103,7 +103,7 @@ export default class BTCHandler extends BaseHandler {
       numbers.push(n.toString())
 
     // get headers
-    const headers: string[] = (await this.blockCache.getBlockHeaderByNumber(numbers)).map(_ => _.toString('hex'))
+    const headers: string[] = (await this.blockCache.getBlockHeaderByNumber(numbers, false)).map(_ => _.toString('hex'))
 
     // now we simply concate all headers
     return '0x' + headers.join('')
@@ -123,8 +123,8 @@ export default class BTCHandler extends BaseHandler {
   async getBlockHeader(hash: string, json: boolean = true, finality: number = 0, r: any) {
     if (json === undefined) json = true
 
-     // get coinbase first so that the block is in the cache
-     const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([hash])).shift()
+    // get coinbase first so that the block is in the cache
+    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([hash])).shift()
 
     let blockheader: any // can be json-object or hex-string (hex-string if always in the cache after fetching coinbase)
     json ? blockheader = (await this.blockCache.getBlockHeaderByHash([hash], json)).pop() : blockheader = ((await this.blockCache.getBlockHeaderByHash([hash], json)).pop()).toString('hex')
@@ -165,76 +165,90 @@ export default class BTCHandler extends BaseHandler {
     return { result: json ? tx : tx.hex, in3: { proof } }
   }
 
-  // ToDo: add cache
   async getBlockCount(finality: number = 0, r: any) {
     if (!finality) return null
 
-    const blockNumber = await this.getFromServer( { method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
-    const blockhash = await this.getFromServer( { method: "getblockhash", params: [blockNumber] }, r).then(asResult) // get hash of blockNumber
-    const block = await this.getFromServer({ method: "getblock", params: [blockhash] }, r).then(asResult) // get block
-    const blockheader = await this.getFromServer({ method: "getblockheader", params: [blockhash, false] }, r).then(asResult) // get block header
+    // get latest block number
+    const blocknumber = await this.getFromServer( { method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
+
+    // check cache for number
+    let blockhash
+    if (this.blockCache.data.has(blocknumber.toString())) {
+      blockhash = this.blockCache.data.get(blocknumber.toString()).hash.toString('hex') // get hash out of cache 
+                                                                        // no need to call a function here because cache will be filled anyways by "getCoinbaseByHash" later on
+    } else {
+      blockhash = await this.getFromServer( { method: "getblockhash", params: [blocknumber] }, r).then(asResult) // get hash of blockNumber
+    }
+    
+    // after fetching coinbase, cache is filled with the BTCCacheValue-object we need
+    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockhash])).shift()
 
     const proof: any = {}
 
-    proof.block = '0x' + blockheader // add block header
+    // fill proof
+    proof.block = '0x' + this.blockCache.data.get(blockhash).header.toString('hex') // add block header
+    proof.final = await this.getFinalityBlocks(blocknumber, finality, r) // add finality headers
+    proof.cbtx = '0x' + cb.cbtx.toString('hex')
+    proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
 
-    proof.final = await this.getFinalityBlocks(blockNumber, finality, r) // add finality headers
-
-    const cbtxhash = block.tx[0]; // get coinbase tx 
-    proof.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [cbtxhash, false, blockhash] : [cbtxhash, false] }, r).then(asResult); // add coinbase tx
-
-    proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex'); // add merkle proof for coinbase tx
-
-    return { result : blockNumber, in3: { proof } }
+    return { result : blocknumber, in3: { proof } }
   }
 
-  // ToDo: add cache
   async getBestBlockHash(finality: number = 0, r: any) {
     if (!finality) return null
 
-    const blockNumber = await this.getFromServer( { method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
-    const blockhash = await this.getFromServer( { method: "getblockhash", params: [blockNumber] }, r).then(asResult) // get hash of blockNumber
-    const block = await this.getFromServer({ method: "getblock", params: [blockhash] }, r).then(asResult) // get block
-    const blockheader = await this.getFromServer({ method: "getblockheader", params: [blockhash, false] }, r).then(asResult)
+    // fetch latest block number and hash
+    const blocknumber = await this.getFromServer( { method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
+    console.log(blocknumber)
+
+    // check cache for number
+    let blockhash
+    if (this.blockCache.data.has(blocknumber.toString())) {
+      blockhash = this.blockCache.data.get(blocknumber.toString()).hash.toString('hex') // get hash out of cache 
+                                                                        // no need to call a function here because cache will be filled anyways by "getCoinbaseByHash" later on
+    } else {
+      blockhash = await this.getFromServer( { method: "getblockhash", params: [blocknumber] }, r).then(asResult) // get hash of blockNumber
+    }
+    console.log(blockhash)
+    
+    // after fetching coinbase, cache is filled with the BTCCacheValue-object we need
+    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockhash])).shift()
 
     const proof: any = {}
 
-    proof.block = '0x' + blockheader // add block header
-
-    proof.final = await this.getFinalityBlocks(blockNumber, finality, r) // add finality headers
-
-    const cbtxhash = block.tx[0]; // get coinbase tx 
-    proof.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [cbtxhash, false, blockhash] : [cbtxhash, false] }, r).then(asResult); // add coinbase tx
-
-    proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex'); // add merkle proof for coinbase tx
-
+    // fill proof
+    proof.block = '0x' + this.blockCache.data.get(blockhash).header.toString('hex') // add block header
+    proof.final = await this.getFinalityBlocks(blocknumber, finality, r) // add finality headers
+    proof.cbtx = '0x' + cb.cbtx.toString('hex')
+    proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
+    
     return { result : blockhash, in3: { proof } }
   }
   
-  // ToDo: add cache
-  // ToDo: add block number as parameter, allow 'latest' to get difficulty from latest block (getblockcount)
-  async getDifficulty(finality: number = 0, r: any) {
+  async getDifficulty(_blocknumber: string, finality: number = 0, r: any) {
     if (!finality) return null
 
-    const blockNumber = await this.getFromServer( { method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
-    const blockhash = await this.getFromServer( { method: "getblockhash", params: [blockNumber] }, r).then(asResult) // get hash of blockNumber
-    const block = await this.getFromServer({ method: "getblock", params: [blockhash] }, r).then(asResult) // get block
-    
-    const blockheaderObj = await this.getFromServer({ method: "getblockheader", params: [blockhash, true] }, r).then(asResult)
-    const blockheaderHex = await this.getFromServer({ method: "getblockheader", params: [blockhash, false] }, r).then(asResult)
+    let blocknumber: number
+    if (!_blocknumber || _blocknumber === 'latest' || _blocknumber === 'earliest' || _blocknumber === 'pending') {
+      blocknumber = await this.getFromServer( { method: "getblockcount", params: [] }, r).then(asResult) - finality; // get latest block - finality
+    } else {
+      blocknumber = parseInt(_blocknumber) 
+    }
+    console.log(blocknumber)
 
-    const difficulty = blockheaderObj.difficulty
+    const blockheader: BTCBlockHeader = (await this.blockCache.getBlockHeaderByNumber([blocknumber.toString()], true)).pop() // json-object
+    const difficulty: number = blockheader.difficulty
     console.log(difficulty)
+
     const proof: any = {}
 
-    proof.block = '0x' + blockheaderHex // add block header
+    proof.block = '0x' + serialize_blockheader(blockheader).toString('hex') // add block header
+    proof.final = await this.getFinalityBlocks(blocknumber, finality, r) // add finality headers
 
-    proof.final = await this.getFinalityBlocks(blockNumber, finality, r) // add finality headers
+    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockheader.hash])).shift()
 
-    const cbtxhash = block.tx[0]; // get coinbase tx 
-    proof.cbtx = '0x' + await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [cbtxhash, false, blockhash] : [cbtxhash, false] }, r).then(asResult); // add coinbase tx
-
-    proof.cbtxMerkleProof = '0x' + createMerkleProof(block.tx.map(_ => Buffer.from(_, 'hex')), Buffer.from(cbtxhash, 'hex')).toString('hex'); // add merkle proof for coinbase tx
+    proof.cbtx = '0x' + cb.cbtx.toString('hex')
+    proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
 
     return { result : difficulty, in3: { proof } }
   }
