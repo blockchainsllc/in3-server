@@ -74,7 +74,7 @@ export default abstract class BaseHandler implements RPCHandler {
   activeRPC: number
   healthCheck: HealthCheck
   resetRPCIndexTimer: any
-  switchBackRPCTime : number
+  switchBackRPCTime: number
 
   constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
     this.config = config || {} as IN3RPCHandlerConfig
@@ -163,13 +163,13 @@ export default abstract class BaseHandler implements RPCHandler {
       }
       histRequestTime.labels(request.method || "unknown", "error", "single").observe(Date.now() - startTime);
       //re attempt if request failed and if there are more then 1 RPC URLs are specified
-      if( ((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED")!=-1) && 
-        this.config.rpcUrl.length > 1 && this.activeRPC+1 < this.config.rpcUrl.length){
+      if (((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED") != -1) &&
+        this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length) {
 
-        logger.error('Request failed for RPC URL '+this.config.rpcUrl[this.activeRPC]+ 'Error ' + err.message + ' fetching request ' + JSON.stringify(request)+'Reattempting request on '+this.config.rpcUrl[this.activeRPC+1])
+        logger.error('Request failed for RPC URL ' + this.config.rpcUrl[this.activeRPC] + 'Error ' + err.message + ' fetching request ' + JSON.stringify(request) + 'Reattempting request on ' + this.config.rpcUrl[this.activeRPC + 1])
         this.activeRPC++
         this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
-        return this.getFromServer(request,r)
+        return this.getFromServer(request, r)
       }
       else
         throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
@@ -210,59 +210,60 @@ export default abstract class BaseHandler implements RPCHandler {
     return request.length
       ? axios.post(rpc || this.config.rpcUrl[this.activeRPC], request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers })
         .then(_ => _.data, err => {
-        logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
+          logger.error('   ... error ' + err.message + ' => ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
 
-        histRequestTime.labels("bulk", "error", "bulk").observe(Date.now() - startTime);
-        //re attempt if request failed and if there are more then 1 RPC URLs are specified
-        if( ((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED")!=-1) && 
-          this.config.rpcUrl.length > 1 && this.activeRPC+1 < this.config.rpcUrl.length){
-            logger.error('Request failed for RPC URL '+this.config.rpcUrl[this.activeRPC]+ 'Error ' + err.message + ' fetching request ' + JSON.stringify(request)+'Reattempting request on '+this.config.rpcUrl[this.activeRPC+1])
+          histRequestTime.labels("bulk", "error", "bulk").observe(Date.now() - startTime);
+          //re attempt if request failed and if there are more then 1 RPC URLs are specified
+          if (((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED") != -1) &&
+            this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length) {
+            logger.error('Request failed for RPC URL ' + this.config.rpcUrl[this.activeRPC] + 'Error ' + err.message + ' fetching request ' + JSON.stringify(request) + 'Reattempting request on ' + this.config.rpcUrl[this.activeRPC + 1])
             this.activeRPC++
             this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
-            return this.getAllFromServer(request,r)
-        }
-        else
-          throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
-      }).then(res => {
-        if (process.env.SENTRY_ENABLE === 'true') {
-          Sentry.configureScope((scope) => {
-            scope.setTag("BaseHanlder", "getAllFromServer");
-            scope.setTag("nodeList-contract", this.config.registry)
-            scope.setExtra("request", request)
-          });
-        }
-        logger.trace('   ... send ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
-        if (process.env.SENTRY_ENABLE === 'true') {
-          Sentry.addBreadcrumb({
-            category: "getAllFromServer response",
-            data: {
-              request: request,
-              response: res.result || res
-            }
-          })
-        }
-        if (r) {
-          // TODO : add prom hsitogram
+            return this.getAllFromServer(request, r)
+          }
+          else
+            throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
+        }).then(res => {
+          if (process.env.SENTRY_ENABLE === 'true') {
+            Sentry.configureScope((scope) => {
+              scope.setTag("BaseHanlder", "getAllFromServer");
+              scope.setTag("nodeList-contract", this.config.registry)
+              scope.setExtra("request", request)
+            });
+          }
+          logger.trace('   ... send ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
+          if (process.env.SENTRY_ENABLE === 'true') {
+            Sentry.addBreadcrumb({
+              category: "getAllFromServer response",
+              data: {
+                request: request,
+                response: res.result || res
+              }
+            })
+          }
+          if (r) {
+            // TODO : add prom hsitogram
 
-          r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
-          r.rpcCount = (r.rpcCount || 0) + 1
-        }
-        histRequestTime.labels("bulk", "ok", "bulk").observe(Date.now() - startTime);
-        if (Array.isArray(res))
-          request.forEach((req, i) => fixResponse(req, res[i]))
+            r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
+            r.rpcCount = (r.rpcCount || 0) + 1
+          }
+          histRequestTime.labels("bulk", "ok", "bulk").observe(Date.now() - startTime);
+          if (Array.isArray(res))
+            request.forEach((req, i) => fixResponse(req, res[i]))
 
-        return res
-      })
+          return res
+        })
       : Promise.resolve([])
   }
 
-  switchBackToMainRPCTimer(){
-    if(this.resetRPCIndexTimer == undefined){
-      this.resetRPCIndexTimer = setTimeout(function(){ 
+  switchBackToMainRPCTimer() {
+    if (this.resetRPCIndexTimer == undefined) {
+      this.resetRPCIndexTimer = setTimeout(function () {
         this.activeRPC = 0
         this.resetRPCIndexTimer = undefined
         logger.info("Switching back to first RPC URL " + this.config.rpcUrl[this.activeRPC])
-      }, this.switchBackRPCTime)}
+      }, this.switchBackRPCTime)
+    }
   }
 
   /** uses the updater to read the nodes from the contract */
@@ -341,7 +342,7 @@ function fixResponse(req: Partial<RPCRequest>, res: RPCResponse) {
   if (!res || typeof (res.result) !== 'object') return res
   if (req && req.method === 'eth_getProof') fixAccount(res.result)
   if (req && req.method === 'proof_call' && Array.isArray(res.result.accounts)) res.result.accounts.forEach(fixAccount)
-  if (res.result.transactions) res.result.transactions.forEach(fixTransaction)
+  if (res.result && res.result.transactions) res.result.transactions.forEach(fixTransaction)
   if (req && req.method.indexOf('eth_getTransactionBy') === 0) fixTransaction(res.result)
   return res
 }
