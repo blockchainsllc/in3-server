@@ -1,0 +1,219 @@
+[
+    {
+        "descr": "Bitcoin Test - getrawtransaction",
+        "handler": "btc",
+        "request": {
+            "id": 1,
+            "method": "getrawtransaction",
+            "params": [
+                "5e3a61cfa23c1772e6b1224f76c6af5ca616d6abdbfd0ad8fa8e56a14484d918",
+                false,
+                "000000000000000000103b2395f6cd94221b10d02eb9be5850303c0534307220"
+            ],
+            "in3": {
+                "verification": "proof"
+            }
+        },
+        "mock_responses": [
+            [
+                {
+                    "method": "getrawtransaction",
+                    "params": [
+                        "5e3a61cfa23c1772e6b1224f76c6af5ca616d6abdbfd0ad8fa8e56a14484d918",
+                        true,
+                        "000000000000000000103b2395f6cd94221b10d02eb9be5850303c0534307220"
+                    ],
+                    "id": 30,
+                    "jsonrpc": "2.0"
+                },
+                {
+                    "result": {
+                        "in_active_chain": true,
+                        "txid": "5e3a61cfa23c1772e6b1224f76c6af5ca616d6abdbfd0ad8fa8e56a14484d918",
+                        "hash": "0630d6d1290d2e749ed5ae161bf971105b9f805fd44366980f85fabc8879b6b0",
+                        "version": 1,
+                        "size": 360,
+                        "vsize": 333,
+                        "weight": 1332,
+                        "locktime": 4238515539,
+                        "vin": [
+                            {
+                                "coinbase": "033e890904e2888d5e2f706f6f6c696e2e636f6d2ffabe6d6d96439d07cae2a0d0d7b459d69d6e8fbe84a28f9be160edb3c33279ebfbc7af8d010000000000000066e1bb5b9e64b5779c4872da7ee8ba921008d1689900a204000000000000",
+                                "sequence": 4294967295
+                            }
+                        ],
+                        "vout": [
+                            {
+                                "value": 12.50550673,
+                                "n": 0,
+                                "scriptPubKey": {
+                                    "asm": "OP_HASH160 54705dd010ab50c03543a543cda327a60d9bf7af OP_EQUAL",
+                                    "hex": "a91454705dd010ab50c03543a543cda327a60d9bf7af87",
+                                    "reqSigs": 1,
+                                    "type": "scripthash",
+                                    "addresses": [
+                                        "39PVJ1sEVmFHJXjEG1D8kQa4Mk7f7jeMvA"
+                                    ]
+                                }
+                            },
+                            {
+                                "value": 0,
+                                "n": 1,
+                                "scriptPubKey": {
+                                    "asm": "OP_RETURN b9e11b6ddd3fec243f225bbee268c09f1a616a2c6e5196a1e8977d59b32daf8ae5276757",
+                                    "hex": "6a24b9e11b6ddd3fec243f225bbee268c09f1a616a2c6e5196a1e8977d59b32daf8ae5276757",
+                                    "type": "nulldata"
+                                }
+                            },
+                            {
+                                "value": 0,
+                                "n": 2,
+                                "scriptPubKey": {
+                                    "asm": "OP_RETURN aa21a9edb1979b2b4464d1ef79257852017413a72a9cd2fa9048fa86052d1121f59d536c",
+                                    "hex": "6a24aa21a9edb1979b2b4464d1ef79257852017413a72a9cd2fa9048fa86052d1121f59d536c",
+                                    "type": "nulldata"
+                                }
+                            },
+                            {
+                                "value": 0,
+                                "n": 3,
+                                "scriptPubKey": {
+                                    "asm": "OP_RETURN 52534b424c4f434b3aa7a3b7405613557aba7780a86227466b8fa451f82f0cdce821aafe2400222c99",
+                                    "hex": "6a2952534b424c4f434b3aa7a3b7405613557aba7780a86227466b8fa451f82f0cdce821aafe2400222c99",
+                                    "type": "nulldata"
+                                }
+                            }
+                        ],
+                        "hex": "010000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff5f033e890904e2888d5e2f706f6f6c696e2e636f6d2ffabe6d6d96439d07cae2a0d0d7b459d69d6e8fbe84a28f9be160edb3c33279ebfbc7af8d010000000000000066e1bb5b9e64b5779c4872da7ee8ba921008d1689900a204000000000000ffffffff0491e3894a0000000017a91454705dd010ab50c03543a543cda327a60d9bf7af870000000000000000266a24b9e11b6ddd3fec243f225bbee268c09f1a616a2c6e5196a1e8977d59b32daf8ae52767570000000000000000266a24aa21a9edb1979b2b4464d1ef79257852017413a72a9cd2fa9048fa86052d1121f59d536c00000000000000002b6a2952534b424c4f434b3aa7a3b7405613557aba7780a86227466b8fa451f82f0cdce821aafe2400222c9901200000000000000000000000000000000000000000000000000000000000000000539da2fc",
+                        "blockhash": "000000000000000000103b2395f6cd94221b10d02eb9be5850303c0534307220",
+                        "confirmations": 6948,
+                        "time": 1586333924,
+                        "blocktime": 1586333924
+                    },
+                    "error": null,
+                    "id": 30
+                }
+            ],
+            [
+                {
+                    "method": "getblock",
+                    "params": [
+                        "000000000000000000103b2395f6cd94221b10d02eb9be5850303c0534307220",
+                        true
+                    ]
+                },
+                {
+                    "result": {
+                        "hash": "000000000000000000103b2395f6cd94221b10d02eb9be5850303c0534307220",
+                        "confirmations": 6948,
+                        "strippedsize": 269815,
+                        "size": 386513,
+                        "weight": 1195958,
+                        "height": 624958,
+                        "version": 536928256,
+                        "versionHex": "2000e000",
+                        "merkleroot": "d786a334ea8c65f39272d5b9be505ac3170f3904842bd52525538a9377b359cb",
+                        "tx": [
+                            "5e3a61cfa23c1772e6b1224f76c6af5ca616d6abdbfd0ad8fa8e56a14484d918",
+                            "8d4e17750d958d67fda056c27b66649a27708736dd2d74d7716be74cbb77806a",
+                            "e5b669013877bc8ea306e43ded49f10a2643825715a77dc597a543f65318f2eb",
+                            "26fb38e7d37d6f5acf7e488eb02d660f4efc4a201f7a486ca4f0bbdb606c39d2",
+                            "c3865a871e487b611d8fb30559787054d2d04b0bd206cc04889409af3de2af8d",
+                            "fe7f7489f21883d10be06392916776781b36f2c8ae26be30e77ce6d2830625a6",
+                            "1dbe14f7cf4b1aefd75f164cfff04abc46b764efc462f1800a404349b04b8d34",
+                            "f3c06e17b04ef748ce6604ad68e5b9f68ca96914b57c2118a1bb9a09a194ddaf",
+                            "3a762a5c53876f5a50517bdc06d415baad14d6a8d570ebc00489e535c7de3c29",
+                            "c7d39a6dba941fc65f22e4aa7b098faed2957170e47c1d64fdd86e663d5c380b",
+                            "1994b3d6acbcc9b05bbabe66c0dad92caa8f88ade0dad21bf240b3bcd0aea75b",
+                            "792a761d2ddbd63a106ab034c23c730c96132b5cf09b0aae8800c7b8ff4e21a1",
+                            "7b623eed6faac8b1f1bd1fb771218c1e5eb1294e7c4f94231344a3c13413385f",
+                            "fc95d597f8d47b237bb37f330341639e9e4fbbf43b4d867d79969daabc0932e0",
+                            "5c426f810c72b35bb7a5f16fc8ec742132bfc470c4745e5e2104c34c7e74f29b",
+                            "3960b35d2da46d3ef2de366515d575a1288cad604e94eb6debfd9e98e7c1213a",
+                            "c0080c3d29094d1a82fefbb1a4502cdea331e1baa9a24bb994e69b8334deb985",
+                            "21a0515d3d666611d8b3128756101beb675905750133696bd400e066f784d26e",
+                            "901ef683dd73e8f34cb6f94e5704d7361cc97dbd0c101336b0e38e0709bd002d",
+                            "83c31d3a116c2e1ae079d963b18979578cfd137018396054faa06f7778d3c76b",
+                            "b8dc33bca6105d2952601c5f475d83682dadd1fc4428ecbbf94b8f0a6f399379",
+                            "05a777e17110895c51bf27ededfda563466d149a7b6322767da02ac28ff24912",
+                            "12a94952c408ed9abf9c95c520fe2ca3b26c805ae059e1226ac8f928f05a32f0",
+                            "09c369383d2923ddc83f13ab9c51e5bb4daf67c2653381295205e32db538df63",
+                            "f084018b2705ee6da86f398d68beca4e564efba5b63637bf808051ccc20d6f7e",
+                            "289ec42ee2a16f09d6a7a0174c9c318a6ad27e5a71d746f0b581fae8089511a7",
+                            "57ea6204d549485ab3f845179de7ed0b98ba3d7ebfd471b81fd5573778960af5",
+                            "5710a8894bdf0348bd0b2abdab80acb4dd587778625dbaf645ff7655053a44b3",
+                            "78dbd54cf17f605e73c5817570319b9cd240411e48d5e4221605f0e821ab9b98",
+                            "dd20e16194bf1d7bcfc64dfd7acd0dc348e867557d3e2770d9ee1c1b6ac3936e",
+                            "d2681e950dab5733c65301a1fec60999bca360b1360e24e6972e733078568b60",
+                            "88db118fb5092f40ad94d6a47e82d9860462412bfc543c8cdb6cd37834f44046",
+                            "33dd0c00362fa3e62a857e71b65bccd2825b75e7452f3d07a30ab06aa49b91b2"
+                        ],
+                        "time": 1586333924,
+                        "mediantime": 1586332639,
+                        "nonce": 1985217615,
+                        "bits": "17143b41",
+                        "difficulty": 13912524048945.91,
+                        "chainwork": "00000000000000000000000000000000000000000e4c88b66c5ee78deff0d494",
+                        "nTx": 33,
+                        "previousblockhash": "00000000000000000013cba040837778744ce66961cfcf2e7c34bb3d194c7f49",
+                        "nextblockhash": "0000000000000000000c799dc0e36302db7fbb471711f140dc308508ef19e343"
+                    },
+                    "error": null,
+                    "id": 31
+                }
+            ],
+            [
+                {
+                    "method": "getblockheader",
+                    "params": [
+                        "000000000000000000103b2395f6cd94221b10d02eb9be5850303c0534307220",
+                        false
+                    ]
+                },
+                {
+                    "result": "00e00020497f4c193dbb347c2ecfcf6169e64c7478778340a0cb13000000000000000000cb59b377938a532525d52b8404390f17c35a50beb9d57292f3658cea34a386d7e4888d5e413b14174f045476",
+                    "error": null,
+                    "id": 32
+                }
+            ],
+            [
+                {
+                    "method": "getrawtransaction",
+                    "params": [
+                        "5e3a61cfa23c1772e6b1224f76c6af5ca616d6abdbfd0ad8fa8e56a14484d918",
+                        false,
+                        "000000000000000000103b2395f6cd94221b10d02eb9be5850303c0534307220"
+                    ],
+                    "id": 33,
+                    "jsonrpc": "2.0"
+                },
+                {
+                    "result": "010000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff5f033e890904e2888d5e2f706f6f6c696e2e636f6d2ffabe6d6d96439d07cae2a0d0d7b459d69d6e8fbe84a28f9be160edb3c33279ebfbc7af8d010000000000000066e1bb5b9e64b5779c4872da7ee8ba921008d1689900a204000000000000ffffffff0491e3894a0000000017a91454705dd010ab50c03543a543cda327a60d9bf7af870000000000000000266a24b9e11b6ddd3fec243f225bbee268c09f1a616a2c6e5196a1e8977d59b32daf8ae52767570000000000000000266a24aa21a9edb1979b2b4464d1ef79257852017413a72a9cd2fa9048fa86052d1121f59d536c00000000000000002b6a2952534b424c4f434b3aa7a3b7405613557aba7780a86227466b8fa451f82f0cdce821aafe2400222c9901200000000000000000000000000000000000000000000000000000000000000000539da2fc",
+                    "error": null,
+                    "id": 33
+                }
+            ]
+        ],
+        "expected_result": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": "010000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff5f033e890904e2888d5e2f706f6f6c696e2e636f6d2ffabe6d6d96439d07cae2a0d0d7b459d69d6e8fbe84a28f9be160edb3c33279ebfbc7af8d010000000000000066e1bb5b9e64b5779c4872da7ee8ba921008d1689900a204000000000000ffffffff0491e3894a0000000017a91454705dd010ab50c03543a543cda327a60d9bf7af870000000000000000266a24b9e11b6ddd3fec243f225bbee268c09f1a616a2c6e5196a1e8977d59b32daf8ae52767570000000000000000266a24aa21a9edb1979b2b4464d1ef79257852017413a72a9cd2fa9048fa86052d1121f59d536c00000000000000002b6a2952534b424c4f434b3aa7a3b7405613557aba7780a86227466b8fa451f82f0cdce821aafe2400222c9901200000000000000000000000000000000000000000000000000000000000000000539da2fc",
+            "in3": {
+                "proof": {
+                    "block": "0x00e00020497f4c193dbb347c2ecfcf6169e64c7478778340a0cb13000000000000000000cb59b377938a532525d52b8404390f17c35a50beb9d57292f3658cea34a386d7e4888d5e413b14174f045476",
+                    "txIndex": 0,
+                    "merkleProof": "0x6a8077bb4ce76b71d7742ddd368770279a64667bc256a0fd678d950d75174e8de0a94faa2a3de99c4f73c817f40929638d6c23b2d8afc5b7e0d03fc9f055cad0f9c1b195eade387c32ff122592ad29dbb5450ec93870e96719df9d8db0b663b6781f0ac64e22b114d3ade17e09baaa7041c69b7df612779ffaea6f14f5e471bc45c256bfe6d80304443025b2aa439ab26ec1ba86d297c9c2d7a1d61193d7d00256bf1a607766f602f76f06f776aae8419e505ae93239ccda7e35e1559552e688",
+                    "cbtx": "0x010000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff5f033e890904e2888d5e2f706f6f6c696e2e636f6d2ffabe6d6d96439d07cae2a0d0d7b459d69d6e8fbe84a28f9be160edb3c33279ebfbc7af8d010000000000000066e1bb5b9e64b5779c4872da7ee8ba921008d1689900a204000000000000ffffffff0491e3894a0000000017a91454705dd010ab50c03543a543cda327a60d9bf7af870000000000000000266a24b9e11b6ddd3fec243f225bbee268c09f1a616a2c6e5196a1e8977d59b32daf8ae52767570000000000000000266a24aa21a9edb1979b2b4464d1ef79257852017413a72a9cd2fa9048fa86052d1121f59d536c00000000000000002b6a2952534b424c4f434b3aa7a3b7405613557aba7780a86227466b8fa451f82f0cdce821aafe2400222c9901200000000000000000000000000000000000000000000000000000000000000000539da2fc",
+                    "cbtxMerkleProof": "0x6a8077bb4ce76b71d7742ddd368770279a64667bc256a0fd678d950d75174e8de0a94faa2a3de99c4f73c817f40929638d6c23b2d8afc5b7e0d03fc9f055cad0f9c1b195eade387c32ff122592ad29dbb5450ec93870e96719df9d8db0b663b6781f0ac64e22b114d3ade17e09baaa7041c69b7df612779ffaea6f14f5e471bc45c256bfe6d80304443025b2aa439ab26ec1ba86d297c9c2d7a1d61193d7d00256bf1a607766f602f76f06f776aae8419e505ae93239ccda7e35e1559552e688"
+                },
+                "lastValidatorChange": 0,
+                "lastNodeList": 10148123,
+                "execTime": 498,
+                "rpcTime": 488,
+                "rpcCount": 3,
+                "currentBlock": -1,
+                "version": "2.1.0"
+            }
+        }
+    }
+]
