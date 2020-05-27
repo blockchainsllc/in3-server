@@ -148,6 +148,9 @@ export default abstract class BaseHandler implements RPCHandler {
       ip = r.ip;
     }
 
+    if(process.env.IN3VERBOSERPC)
+      logger.debug("Verbose. RPC: "+(rpc || this.config.rpcUrl[this.activeRPC])+" Request: "+JSON.stringify(request))
+    
     return axios.post(rpc || this.config.rpcUrl[this.activeRPC], this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
 
       if (err.response && err.response.data && typeof (err.response.data) === 'object' && err.response.data.error)
@@ -207,6 +210,10 @@ export default abstract class BaseHandler implements RPCHandler {
       ip = r.ip;
     }
     const startTime = Date.now()
+    
+    if(process.env.IN3VERBOSERPC)
+      logger.debug("Verbose. RPC: "+(rpc || this.config.rpcUrl[this.activeRPC])+" Request: "+JSON.stringify(request))
+  
     return request.length
       ? axios.post(rpc || this.config.rpcUrl[this.activeRPC], request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers })
         .then(_ => _.data, err => {
