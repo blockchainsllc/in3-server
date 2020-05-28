@@ -116,6 +116,13 @@ definitions:
       - type: string
         pattern: "^0x[0-9a-fA-F]+"
 
+  blockTypeBTC:
+    description: the blocknumber
+    oneOf:
+      - type: string
+        enum: ["latest", "earliest", "pending"]
+      - type: number 
+
   hash:
     description: the hash
     type: string
@@ -476,8 +483,10 @@ definitions:
 
   getdifficulty:
     type: array
-    maxItems: 0
-
+    maxItems: 1
+    minItems: 0
+    items:
+      - $ref: "#/definitions/blockTypeBTC"
   in3_proofTarget:
     type: array
     maxItems: 5
