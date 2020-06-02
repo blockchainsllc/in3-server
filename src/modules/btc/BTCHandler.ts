@@ -109,13 +109,12 @@ export default class BTCHandler extends BaseHandler {
     return '0x' + headers.join('')
   }
 
-  // die getblockheader anfrage können wir uns sparen, die height haben wir schon im block
   async getBlock(hash: string, json: boolean = true, finality: number = 0, r: any) {
     if (json === undefined) json = true
-    // can get the block out of the cache?
+    // can we get the block out of the cache?
     const block = await this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult)
     const proof: any = {}
-    if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block.height : (await this.blockCache.getBlockHeaderByHash([hash], true)).pop().height)), finality, r)
+    if (finality && block) proof.final = await this.getFinalityBlocks(parseInt((json ? block.height : (await this.blockCache.getBlockHeaderByHash([hash], true)).pop().height)), finality, r)
     return { result: block, in3: { proof } }
   }
 
