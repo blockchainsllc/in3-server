@@ -123,7 +123,6 @@ export class BTCCache {
     getOrCreate(key:string):BTCCacheValue {
         let value = this.data.get(key)
         if (!value) {
-           console.log('no cache entry found')
            value = {}
            if (key.length === 64) // it's a hash
              value.hash = Buffer.from(key,'hex')
@@ -135,9 +134,6 @@ export class BTCCache {
       }
 }
   
-// hier null abfangen - also wenn der client einen hash wissen will, den es gar nicht gibt
-// spezielle exception werfen die wir oben abfangen können - reponse läuft normal durch und returnt null
-// neue klasse von error ableiten, "notfounderror"
 function asResult(res: RPCResponse): any {
     if (!res) throw new Error("No result")
     if (res.error)

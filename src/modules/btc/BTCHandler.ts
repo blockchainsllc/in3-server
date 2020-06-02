@@ -109,13 +109,12 @@ export default class BTCHandler extends BaseHandler {
     return '0x' + headers.join('')
   }
 
-  // die getblockheader anfrage können wir uns sparen, die height haben wir schon im block
   async getBlock(hash: string, json: boolean = true, finality: number = 0, r: any) {
     if (json === undefined) json = true
-    // can get the block out of the cache?
+    // can we get the block out of the cache?
     const block = await this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult)
     const proof: any = {}
-    if (finality) proof.final = await this.getFinalityBlocks(parseInt((json ? block : (await this.blockCache.getBlockHeaderByHash([hash], true)).pop().height)), finality, r)
+    if (finality && block) proof.final = await this.getFinalityBlocks(parseInt((json ? block.height : (await this.blockCache.getBlockHeaderByHash([hash], true)).pop().height)), finality, r)
     return { result: block, in3: { proof } }
   }
 
@@ -159,6 +158,8 @@ export default class BTCHandler extends BaseHandler {
     
     if (finality) proof.final = await this.getFinalityBlocks(number, finality, r)
 
+    proof.merkleProof = '0x' + createMerkleProof(cb.txids, Buffer.from(hash, 'hex')).toString('hex');
+
     proof.cbtx = '0x' + cb.cbtx.toString('hex')
     proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
 
@@ -199,7 +200,6 @@ export default class BTCHandler extends BaseHandler {
 
     // fetch latest block number and hash
     const blocknumber = await this.getFromServer( { method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
-    console.log(blocknumber)
 
     // check cache for number
     let blockhash
@@ -209,7 +209,6 @@ export default class BTCHandler extends BaseHandler {
     } else {
       blockhash = await this.getFromServer( { method: "getblockhash", params: [blocknumber] }, r).then(asResult) // get hash of blockNumber
     }
-    console.log(blockhash)
     
     // after fetching coinbase, cache is filled with the BTCCacheValue-object we need
     const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockhash])).shift()
@@ -234,11 +233,10 @@ export default class BTCHandler extends BaseHandler {
     } else {
       blocknumber = parseInt(_blocknumber) 
     }
-    console.log(blocknumber)
+    // we have to check if _blocknumber + finality is already existing
 
     const blockheader: BTCBlockHeader = (await this.blockCache.getBlockHeaderByNumber([blocknumber.toString()], true)).pop() // json-object
     const difficulty: number = blockheader.difficulty
-    console.log(difficulty)
 
     const proof: any = {}
 
@@ -253,11 +251,6 @@ export default class BTCHandler extends BaseHandler {
     return { result : difficulty, in3: { proof } }
   }
 
-
-  // ToDo: Test! There are some cases where this functions ends up in a endless loop.
-  // We need to figure out why and how to not get into a endless loop.
-  // Maybe by breaking out of the loop if Math.abs(compare[0].dapnumber - compare[1].dapnumber) = 1 or 0 -> then we could not find a dap that
-  // is within the limits even after decreasing the gap between to compared daps (down to 1 or 0)
   async in3_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, limit?: number) {
     
     if (limit === 0 || limit > 40 || !limit) limit = 40 // prevent DoS (internal max_limit = 40)
@@ -304,6 +297,11 @@ export default class BTCHandler extends BaseHandler {
           compare.pop()
           nextdap-- 
           compare.push(await this.getDap(nextdap))
+          if (JSON.stringify(compare[0]) === JSON.stringify(compare[1])) {
+            // no dap found that is within the limits -> return result until now (prevent endless loop)
+            boolLimit = true
+            break
+          }
         }
       }
     }
@@ -348,12 +346,23 @@ export default class BTCHandler extends BaseHandler {
   }
 }
 
-
+// ToDo: Add test
 // check if start + (max_diff/100)*start > dst
 export function isWithinLimits(start: string, dst: string, max_diff: number): boolean {
-  const limit = Buffer.from(start, 'hex')
-  const value = Buffer.from(dst, 'hex')
 
+  let limit = Buffer.from(start, 'hex')
+  let value = Buffer.from(dst, 'hex')
+  /* 
+  The compare() method compares two buffer objects and returns a number defining their differences:
+    0 if they are equal
+    1 if buf1 is higher than buf2
+    -1 if buf1 is lower than buf2
+  */ 
+  if (Buffer.compare(limit, value) === -1) {
+    // swap
+    [limit, value] = [value, limit]
+  } 
+    
   // multiply
   let s = 28
   for (let i = 31; i >= 0; i--) {
@@ -369,17 +378,17 @@ export function isWithinLimits(start: string, dst: string, max_diff: number): bo
 
   for (let i = 0; i < 32; i++) {
       if (value[i] > limit[i]) {
-        console.log('is NOT within limits')
+
         return false
       }
       if (value[i] < limit[i]) {
-        console.log('is within limits')
         return true
       }
   }
 
   return true
 }
+
 
 function reverseCopy(val): string {
   let i = val.length
