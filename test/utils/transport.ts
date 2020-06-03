@@ -155,11 +155,13 @@ export class TestTransport implements Transport {
 
       //console.log(JSON.stringify(request))
       for (const ir of this.injectedResponses) {
-        if ( ir.request.method !== request.method && ir.request.params !== request.params) continue
+        if ( ir.request.method !== request.method 
+          || JSON.stringify(ir.request.params) != JSON.stringify(request.params)) continue
         
         logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
         return Promise.resolve( ir.response as RPCResponse )
       }
+      return undefined;
   }; 
 
     (this.handlers[url].handlers[chain] as any).getAllFromServer = 
@@ -169,7 +171,8 @@ export class TestTransport implements Transport {
       let res: RPCResponse[] = []
       requests.forEach(request => {
         for (const ir of this.injectedResponses) {
-          if ( ir.request.method !== request.method && ir.request.params !== request.params) continue
+          if ( ir.request.method !== request.method 
+            || JSON.stringify(ir.request.params) != JSON.stringify(request.params)) continue
           
           logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
           res.push( ir.response as RPCResponse )
