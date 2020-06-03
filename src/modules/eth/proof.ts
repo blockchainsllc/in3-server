@@ -47,6 +47,7 @@ import { SentryError } from '../../util/sentryError'
 import { toBuffer } from 'in3-common/js/src/util/util'
 import { TransactionReceipt } from 'in3'
 
+
 const histMerkleTreeTime = new promClient.Histogram({
   name: 'in3_merkle_tree_time',
   help: 'Time taken to generate merkle tree',
@@ -713,24 +714,21 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     }
   }
 
-
-
   //    console.log('handle call', this.config)
   // read the response,blockheader and trace from server
-  const [response, blockResponse, trace] = await handler.getAllFromServer([
-    request,
+  const [blockResponse, trace] = await handler.getAllFromServer([
     { method: 'eth_getBlockByNumber', params: [request.params[1] || 'latest', false] },
     useTrace ? { method: 'trace_call', params: [request.params[0], ['vmTrace'], request.params[1] || 'latest'] } : undefined
   ], request)
 
   // error checking
-  if (response.error) return response
   if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
   if (trace && trace.error) {
     if ((trace.error as any).code === -32601) useTrace = false
     else throw new Error('Could not get the trace :' + trace.error)
   }
 
+  let response : RPCResponse = {jsonrpc: "2.0", id: request.id}
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as any
   let neededAccounts = []
@@ -738,6 +736,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   async function getFromGeth(): Promise<any> {
     for (let i = 0; i < 10; i++) {
       const neededProof = await analyseCall(request.params[0], request.params[1] || 'latest', handler.getFromServer.bind(handler))
+      response.result = toHex(neededProof.result)
       neededAccounts = Object.keys(neededProof.accounts)
       const proof = await handler.getAllFromServer(neededAccounts.map(adr => (
         { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
@@ -778,6 +777,11 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   }
 
   async function getFromParity() {
+    if(trace.error)
+      response.error = trace.error
+    else 
+      response.result = trace.result.output
+    
     const neededProof = evm.analyse((trace.result as any).vmTrace, request.params[0].to)
     neededAccounts = Object.keys(neededProof.accounts)
     return await handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
