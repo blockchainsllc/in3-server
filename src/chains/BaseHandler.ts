@@ -148,9 +148,9 @@ export default abstract class BaseHandler implements RPCHandler {
       ip = r.ip;
     }
 
-    if(process.env.IN3VERBOSERPC)
-      logger.debug("Verbose. RPC: "+(rpc || this.config.rpcUrl[this.activeRPC])+" Request: "+JSON.stringify(request))
-    
+    if (process.env.IN3VERBOSERPC)
+      logger.debug("Verbose. RPC: " + (rpc || this.config.rpcUrl[this.activeRPC]) + " Request: " + JSON.stringify(request))
+
     return axios.post(rpc || this.config.rpcUrl[this.activeRPC], this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
 
       if (err.response && err.response.data && typeof (err.response.data) === 'object' && err.response.data.error)
@@ -167,7 +167,7 @@ export default abstract class BaseHandler implements RPCHandler {
       histRequestTime.labels(request.method || "unknown", "error", "single").observe(Date.now() - startTime);
       //re attempt if request failed and if there are more then 1 RPC URLs are specified
       if (((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED") != -1) &&
-        this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length) {
+        this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length && !rpc) {
 
         logger.error('Request failed for RPC URL ' + this.config.rpcUrl[this.activeRPC] + 'Error ' + err.message + ' fetching request ' + JSON.stringify(request) + 'Reattempting request on ' + this.config.rpcUrl[this.activeRPC + 1])
         this.activeRPC++
@@ -210,10 +210,10 @@ export default abstract class BaseHandler implements RPCHandler {
       ip = r.ip;
     }
     const startTime = Date.now()
-    
-    if(process.env.IN3VERBOSERPC)
-      logger.debug("Verbose. RPC: "+(rpc || this.config.rpcUrl[this.activeRPC])+" Request: "+JSON.stringify(request))
-  
+
+    if (process.env.IN3VERBOSERPC)
+      logger.debug("Verbose. RPC: " + (rpc || this.config.rpcUrl[this.activeRPC]) + " Request: " + JSON.stringify(request))
+
     return request.length
       ? axios.post(rpc || this.config.rpcUrl[this.activeRPC], request.filter(_ => _).map(_ => this.toCleanRequest({ id: this.counter++, jsonrpc: '2.0', ..._ })), { headers })
         .then(_ => _.data, err => {
@@ -287,7 +287,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
       if (nl.proof.block)
         blockNumber = in3Util.toNumber(serialize.blockFromHex(nl.proof.block).number)
-      nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes)
+      nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes, this.config.registryRPC)
     }
     return nl
   }
@@ -301,7 +301,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
       if (wl.proof.block)
         blockNumber = in3Util.toNumber(serialize.blockFromHex(wl.proof.block).number)
-      wl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes)
+      wl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes, this.config.registryRPC)
     }
     return wl
   }
