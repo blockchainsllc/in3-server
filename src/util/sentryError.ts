@@ -74,4 +74,17 @@ export class UserError extends Error {
         super(message);
         this.code = code
     }
+
+    toResponse(rpcId): any {
+        return {
+            id: rpcId || 1,
+            jsonrpc: '2.0',
+            error: {
+                code: this.code,
+                message: this.message
+            },
+            in3: {}
+        }
+    }
+
 }

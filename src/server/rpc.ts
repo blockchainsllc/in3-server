@@ -248,14 +248,7 @@ export class RPC {
           return _
         }, err => {
           if (err instanceof UserError)
-            return {
-              id: r.id,
-              jsonrpc: r.jsonrpc,
-              error: {
-                code: err.code,
-                message: err.message
-              }
-            } as any as RPCResponse
+            return err.toResponse(r.id)
           else throw err
         })
       ])
