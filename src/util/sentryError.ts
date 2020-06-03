@@ -56,3 +56,35 @@ export class SentryError extends Error {
         }
     }
 }
+
+/**
+ * creates a User-Error which will not be logged or send to sentry
+ */
+export class UserError extends Error {
+
+    public static INVALID_REQUEST = -32600
+    public static INVALID_METHOD = -32601
+    public static INVALID_PARAMS = -32602
+    public static INTERNAL_ERROR = -32603
+    public static BLOCK_TOO_YOUNG = -16001
+
+    code: number
+
+    constructor(message: string, code: number) {
+        super(message);
+        this.code = code
+    }
+
+    toResponse(rpcId): any {
+        return {
+            id: rpcId || 1,
+            jsonrpc: '2.0',
+            error: {
+                code: this.code,
+                message: this.message
+            },
+            in3: {}
+        }
+    }
+
+}
