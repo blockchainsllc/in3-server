@@ -37,7 +37,7 @@ const Sentry = require('@sentry/node');
 import * as promClient from 'prom-client';
 
 import * as logger from '../util/logger'
-import { SentryError } from '../util/sentryError'
+import { SentryError, UserError } from '../util/sentryError'
 import * as Koa from 'koa'
 import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'

@@ -154,10 +154,11 @@ export default class BTCHandler extends BaseHandler {
     const blockheader = this.blockCache.data.get(blockhash).header.toString('hex')
     const number = this.blockCache.data.get(blockhash).height
 
-    proof.header = blockheader
+    proof.block = blockheader
     
     if (finality) proof.final = await this.getFinalityBlocks(number, finality, r)
 
+    proof.txIndex = cb.txids.findIndex(_ => _.equals(Buffer.from(hash, 'hex'))) // get index of tx
     proof.merkleProof = '0x' + createMerkleProof(cb.txids, Buffer.from(hash, 'hex')).toString('hex');
 
     proof.cbtx = '0x' + cb.cbtx.toString('hex')
