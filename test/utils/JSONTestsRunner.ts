@@ -74,7 +74,8 @@ async function runTest(testData: any, c: number) {
     notRequired.forEach(element => {
       delete response[element];
     });
-    if(JSON.stringify(response.result) == JSON.stringify(testData.expected_result.result))
+    if(JSON.stringify(response.result) == JSON.stringify(testData.expected_result.result)
+     && JSON.stringify(response.in3.proof) == JSON.stringify(testData.expected_result.in3.proof) )
       result.success = true
     else{
       result.error =  response.error || 'Failed'
