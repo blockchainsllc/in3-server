@@ -102,7 +102,7 @@ export class TestTransport implements Transport {
       nodes,
       contract: registry,
       lastBlockNumber: 0,
-      registryId: '0x'
+      registryId: "0x23d5345c5c13180a8080bd5ddbe7cde64683755dcce6e734d95b7b573845facb" //'0x'
     } as any
     for (let i = 0; i < count; i++) {
       const privateKey = pks ? pks[i] : createPK('0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i)
@@ -155,21 +155,24 @@ export class TestTransport implements Transport {
 
       //console.log(JSON.stringify(request))
       for (const ir of this.injectedResponses) {
-        if ( ir.request.method !== request.method && ir.request.params !== request.params) continue
+        if ( ir.request.method !== request.method 
+          || JSON.stringify(ir.request.params) != JSON.stringify(request.params)) continue
         
         logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
         return Promise.resolve( ir.response as RPCResponse )
       }
+      return undefined;
   }; 
 
     (this.handlers[url].handlers[chain] as any).getAllFromServer = 
     (requests: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]> => {
 
       //console.log(JSON.stringify(requests))
-      let res: RPCResponse[]
+      let res: RPCResponse[] = []
       requests.forEach(request => {
         for (const ir of this.injectedResponses) {
-          if ( ir.request.method !== request.method && ir.request.params !== request.params) continue
+          if ( ir.request.method !== request.method 
+            || JSON.stringify(ir.request.params) != JSON.stringify(request.params)) continue
           
           logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
           res.push( ir.response as RPCResponse )
