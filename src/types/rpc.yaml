@@ -116,12 +116,22 @@ definitions:
       - type: string
         pattern: "^0x[0-9a-fA-F]+"
 
+  verboseType:
+    description: verbose-params that can be a boolean or a number
+    oneOf:
+      - type: boolean
+      - type: integer
+        minimum: 0
+        maximum: 2
+      - type: string
+        pattern: "^0x[012]+"
+
   blockTypeBTC:
     description: the blocknumber
     oneOf:
       - type: string
         enum: ["latest", "earliest", "pending"]
-      - type: number 
+      - type: number
 
   hash:
     description: the hash
@@ -438,7 +448,7 @@ definitions:
     minItems: 1
     items:
       - type: string
-      - type: boolean
+      - $ref: "#/definitions/verboseType"
 
   getblockheader:
     type: array
@@ -446,7 +456,7 @@ definitions:
     minItems: 1
     items:
       - type: string
-      - type: boolean
+      - $ref: "#/definitions/verboseType"
 
   getbestblockhash:
     type: array
@@ -469,7 +479,7 @@ definitions:
     minItems: 1
     items:
       - type: string
-      - type: boolean
+      - $ref: "#/definitions/verboseType"
       - type: string
 
   getrawtransaction:
@@ -478,7 +488,7 @@ definitions:
     minItems: 1
     items:
       - type: string
-      - type: boolean
+      - $ref: "#/definitions/verboseType"
       - type: string
 
   getdifficulty:
