@@ -378,7 +378,7 @@ definitions:
 
   in3_nodeList:
     type: array
-    maxItems: 3
+    maxItems: 4
     minItems: 0
     items:
       - oneOf:
@@ -389,6 +389,7 @@ definitions:
       - type: array
         items:
           - $ref: "#/definitions/address"
+      - type: boolean
 
   in3_whiteList:
     type: array

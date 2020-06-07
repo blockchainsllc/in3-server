@@ -165,7 +165,7 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
     }
 
     // clone result
-    const list: ServerList = { ...nodeList, proof: { ...nodeList.proof } }
+    const list: ServerList = { ...nodeList, nodes: [...nodeList.nodes.map(_ => ({ ..._ }))], proof: { ...nodeList.proof } }
     if (!includeProof) delete list.proof
     return list
 
