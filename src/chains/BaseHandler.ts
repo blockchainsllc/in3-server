@@ -279,7 +279,7 @@ export default abstract class BaseHandler implements RPCHandler {
   }
 
   /** get the current nodeList */
-  async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[]): Promise<ServerList> {
+  async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[], includePerformance?: boolean): Promise<ServerList> {
 
     const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
     if (nl.proof && signers && signers.length) {
@@ -289,6 +289,9 @@ export default abstract class BaseHandler implements RPCHandler {
         blockNumber = in3Util.toNumber(serialize.blockFromHex(nl.proof.block).number)
       nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes, this.config.registryRPC)
     }
+    if (!includePerformance && nl.nodes) nl.nodes.forEach(_ => {
+      delete _.performance
+    })
     return nl
   }
 
@@ -341,6 +344,10 @@ export default abstract class BaseHandler implements RPCHandler {
       result,
       jsonrpc: '2.0'
     }
+  }
+  health(): Promise<{ status: string, message?: string }> {
+    return this.getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })
+      .then(_ => ({ status: 'healthy' }), _ => ({ status: 'unhealthy', message: _.message }))
   }
 }
 

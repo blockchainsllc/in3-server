@@ -148,7 +148,8 @@ export class RPC {
           r.params[1],
           r.params[2] || [],
           in3Request.signers || in3Request.signatures,
-          in3Request.verifiedHashes
+          in3Request.verifiedHashes,
+          r.params[3]
         ),
         getValidatorHistory(handler)]).then(async ([result, validators]) => {
           const res = {
@@ -341,7 +342,7 @@ export interface RPCHandler {
   handleWithCache(request: RPCRequest): Promise<RPCResponse>
   getFromServer(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse>
   getAllFromServer(request: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]>
-  getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[]): Promise<ServerList>
+  getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[], includePerformance?: boolean): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
   checkRegistry(): Promise<any>
@@ -350,6 +351,7 @@ export interface RPCHandler {
   watcher?: Watcher
   whiteListMgr?: WhiteListManager
   healthCheck?: HealthCheck
+  health(): Promise<{ status: string, message?: string }>
 }
 
 /**

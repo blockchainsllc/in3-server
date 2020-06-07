@@ -410,15 +410,9 @@ async function checkHealth(ctx: Router.IRouterContext) {
     }
   }
   else {
-    await Promise.all(
-      Object.keys(rpc.handlers).map(c => rpc.handlers[c].getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })))
-      .then(_ => {
-        ctx.body = { status: 'healthy' }
-        ctx.status = 200
-      }, _ => {
-        ctx.body = { status: 'unhealthy', message: _.message }
-        ctx.status = 500
-      })
+    const status = await Promise.all(Object.keys(rpc.handlers).map(_ => rpc.handlers[_].health())).then(_ => _.reduce((p, c) => c.status === 'healthy' ? p : c, { status: 'healthy' }))
+    ctx.body = status
+    ctx.status = status.status === 'healthy' ? 200 : 500
   }
 
 }
