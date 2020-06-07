@@ -350,6 +350,7 @@ export interface RPCHandler {
   watcher?: Watcher
   whiteListMgr?: WhiteListManager
   healthCheck?: HealthCheck
+  health(): Promise<{ status: string, message?: string }>
 }
 
 /**

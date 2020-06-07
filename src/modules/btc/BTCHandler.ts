@@ -362,6 +362,12 @@ export default class BTCHandler extends BaseHandler {
 
     return { dapnumber: dapnumber, blockhash: blockhash, blockheader: blockheader, bits: bits, target: target }
   }
+
+  health(): Promise<{ status: string, message?: string }> {
+    return this.getFromServer({ id: 1, jsonrpc: '2.0', method: 'getblockcount', params: [] })
+      .then(_ => ({ status: 'healthy' }), _ => ({ status: 'unhealthy', message: _.message }))
+  }
+
 }
 
 // ToDo: Add test

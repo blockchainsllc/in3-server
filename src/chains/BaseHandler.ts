@@ -342,6 +342,10 @@ export default abstract class BaseHandler implements RPCHandler {
       jsonrpc: '2.0'
     }
   }
+  health(): Promise<{ status: string, message?: string }> {
+    return this.getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })
+      .then(_ => ({ status: 'healthy' }), _ => ({ status: 'unhealthy', message: _.message }))
+  }
 }
 
 
