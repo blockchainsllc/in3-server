@@ -30,8 +30,10 @@
     "lint:solium": "node node_modules/ethlint/bin/solium.js -d contracts/",
     "lint:solium:fix": "node node_modules/ethlint/bin/solium.js -d contracts/ --fix",
     "lint:solhint": "node node_modules/solhint/solhint.js \"contracts/**/*.sol\" -w 0",
-    "local-env": "export NODE_ENV=0 && npm run build && node --experimental-worker ./js/src/server/server.js  --chain=0x111 --rpcUrl=http://localhost:8545 --minBlockHeight=6 --registry=0x6dA43E64F8CC2427477178145C747E670733dEE7 --persistentFile=false --autoRegistry-url=http://127.0.0.1:8500 --autoRegistry-capabilities-proof=true --autoRegistry-capabilities-multiChain=true --autoRegistry-deposit=10"
-  },
+    "local-env": "export NODE_ENV=0 && npm run build && node --experimental-worker ./js/src/server/server.js  --chain=0x111 --rpcUrl=http://localhost:8545 --minBlockHeight=6 --registry=0x6dA43E64F8CC2427477178145C747E670733dEE7 --persistentFile=false --autoRegistry-url=http://127.0.0.1:8500 --autoRegistry-capabilities-proof=true --autoRegistry-capabilities-multiChain=true --autoRegistry-deposit=10",
+    "eth-node-local": "export NODE_ENV=0 && npm run build && node --experimental-worker ./js/src/server/server.js  --chain=0x1 --rpcUrl=https://rpc.slock.it/mainnet/parity-pruned --minBlockHeight=6 --registry=0x6c095a05764a23156efd9d603eada144a9b1af33 --persistentFile=false",
+    "btc-node-local": "export NODE_ENV=0 && npm run build && node --experimental-worker ./js/src/server/server.js  --chain=0x1 --handler=btc --registryRPC=https://rpc.slock.it/mainnet/parity-pruned --rpcUrl=https://slockit:slockit@rpc.slock.it/bitcoin --minBlockHeight=6 --registry=0x6c095a05764a23156efd9d603eada144a9b1af33 --persistentFile=false"
+    },
   "nyc": {
     "include": [
       "node_modules/in3/src/**/*.ts",
