@@ -58,7 +58,7 @@ async function runTest(testData: any, c: number) {
   let result = { descr: testData.descr, c, success: false, error: undefined }
   testData = JSON.parse(JSON.stringify(testData))
 
-  let testTrnsprt = new TestTransport(1,"0x6c095a05764a23156efd9d603eada144a9b1af33", undefined, undefined, testData.handler || 'eth')
+  let testTrnsprt = new TestTransport(1,"0x6c095a05764a23156efd9d603eada144a9b1af33", undefined, undefined, testData.handler || 'eth', "0x23d5345c5c13180a8080bd5ddbe7cde64683755dcce6e734d95b7b573845facb")
   testTrnsprt.bypassTopInjectedResponseCheck = true
   
   for (const method in testData.mock_responses) {
