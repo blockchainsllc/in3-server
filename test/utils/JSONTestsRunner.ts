@@ -74,8 +74,10 @@ async function runTest(testData: any, c: number) {
     notRequired.forEach(element => {
       delete response[element];
     });
+
+    const sortObject = o => Object.keys(o).sort().reduce((r, k) => (r[k] = o[k], r), {})
     if(JSON.stringify(response.result) == JSON.stringify(testData.expected_result.result)
-     && JSON.stringify(response.in3.proof) == JSON.stringify(testData.expected_result.in3.proof) )
+     && JSON.stringify(sortObject(response.in3.proof)) == JSON.stringify(sortObject(testData.expected_result.in3.proof)) )
       result.success = true
     else{
       result.error =  response.error || 'Failed'
