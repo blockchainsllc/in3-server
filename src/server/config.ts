@@ -129,7 +129,15 @@ export function readCargs(): IN3RPCConfig {
   const vals = cargs.options(options)
 
   //load the command line arguments
-  const processedArgs = vals.parse(process.argv, { mri: { string: options.map(_ => _.name) } })
+ 
+   const fArgs = process.argv.filter( a => {
+     if(a.indexOf('--')==-1)
+      return true
+
+    return ( a.indexOf('--') != -1 && a.indexOf('=') != -1)
+   })
+
+  const processedArgs = vals.parse(fArgs, { mri: { string:  options.map(_ => _.name) }})
 
   // fix chainIds to minHex and enable or disable cache
   Object.keys(config.chains).filter(_ => util.toMinHex(_) != _).forEach(c => {
