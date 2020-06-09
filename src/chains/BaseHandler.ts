@@ -102,8 +102,7 @@ export default abstract class BaseHandler implements RPCHandler {
     this.whiteListMgr = new WhiteListManager(this, config.maxWhiteListWatch, config.cacheWhiteList)
     this.watcher.on('newBlock', () => this.whiteListMgr.updateWhiteList())
 
-    // start the watcher in the background
-    if (interval > 0 && (this.config as any).useCache) {
+    if((this.config as any).useCache != false){ // explicitly checking if it is not false then dnt use cache, so if undfined or true use cache
       this.cache = new SimpleCache()
       this.watcher.on('newBlock', () => this.cache.clear())
     }
