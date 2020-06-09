@@ -134,7 +134,11 @@ export function readCargs(): IN3RPCConfig {
      if(a.indexOf('--')==-1)
       return true
 
-    return ( a.indexOf('--') != -1 && a.indexOf('=') != -1)
+    for(let e of options)
+      if(a.indexOf(e.name)!=-1)
+        return true
+
+    return false
    })
 
   const processedArgs = vals.parse(fArgs, { mri: { string:  options.map(_ => _.name) }})
