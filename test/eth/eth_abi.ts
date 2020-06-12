@@ -307,6 +307,17 @@ describe('ETH Standard JSON-RPC', () => {
     assert.equal(proof.type, 'receiptProof')
     assert.exists(proof.block)
 
+    //cache test
+    const res1 = await client.sendRPC('eth_getTransactionReceipt', [receipt.transactionHash], null, { keepIn3: true })
+    const result1 = res.result as any
+    assert.exists(res1.in3)
+    assert.exists(res1.in3.proof)
+    const proof1 = res1.in3.proof as any
+    assert.equal(proof1.type, 'receiptProof')
+    assert.exists(proof1.block)
+    //matching cached and non-cached responses
+    assert.deepEqual(res1.in3.proof, res.in3.proof)
+    assert.deepEqual(result, result1)
 
     const b = await client.sendRPC('eth_getBlockByNumber', [result.blockNumber, true], null, { keepIn3: true })
     logger.info('found Block:', b.result)

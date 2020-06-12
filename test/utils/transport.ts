@@ -89,7 +89,7 @@ export class TestTransport implements Transport {
 
   bypassTopInjectedResponseCheck: boolean
 
-  constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>, handlerType?: string) {
+  constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>, handlerType?: string, regId?: string) {
     this.chainId = '0x1'
     this.lastRandom = 0
     this.randomList = []
@@ -102,7 +102,7 @@ export class TestTransport implements Transport {
       nodes,
       contract: registry,
       lastBlockNumber: 0,
-      registryId: "0x23d5345c5c13180a8080bd5ddbe7cde64683755dcce6e734d95b7b573845facb" //'0x'
+      registryId: regId ? regId : '0x'
     } as any
     for (let i = 0; i < count; i++) {
       const privateKey = pks ? pks[i] : createPK('0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i)
