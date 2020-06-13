@@ -34,7 +34,9 @@
 
 const Sentry = require('@sentry/node');
 
+
 import * as Ajv from 'ajv'
+import { UserError } from '../util/sentryError'
 
 // the schema
 const schema = require('./rpc.json')
@@ -45,11 +47,11 @@ ajv.addSchema(schema)
 
 export function verifyRequest(req: any) {
     if (!ajv.validate('https://slock.it/rpc.json', req))
-        throw new Error(getErrorMessage(ajv.errors, null, { dataVar: 'rpc' }, req))
+        throw new UserError(getErrorMessage(ajv.errors, null, { dataVar: 'rpc' }, req), UserError.INVALID_PARAMS)
     if (!schema.definitions[req.method])
-        throw new Error('method ' + req.method + ' is not supported or unknown')
+        throw new UserError('method ' + req.method + ' is not supported or unknown', UserError.INVALID_METHOD)
     if (!ajv.validate('https://slock.it/rpc.json#/definitions/' + req.method, req.params))
-        throw new Error(req.method + ' : ' + getErrorMessage(ajv.errors, schema.definitions[req.method], null, req))
+        throw new UserError(req.method + ' : ' + getErrorMessage(ajv.errors, schema.definitions[req.method], null, req), UserError.INVALID_PARAMS)
 }
 function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any, data?: any) {
     const all = [...errs]
@@ -86,21 +88,6 @@ function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any, data?: any
     }
 
     const msg = ajv.errorsText(all, opt || { dataVar: 'params' })
-
-    // register with sentry
-    // if (process.env.SENTRY_ENABLE === 'true') {
-    //     Sentry.configureScope(function (scope) {
-    //         scope.setExtra("request", data);
-    //         scope.setExtra("message", msg);
-    //         scope.setExtra("errors", errs);
-    //     })
-    //     Sentry.addBreadcrumb({
-    //         request: data,
-    //         message: msg,
-    //         errs
-    //     })
-    //     Sentry.captureException(new Error('Invalid Userdata'))
-    // }
 
     return msg
 }

@@ -32,59 +32,26 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
+import { assert } from 'chai'
+import 'mocha'
+import { readdirSync } from 'fs'
+import { runTests } from '../utils/JSONTestsRunner'
+
+const testDir = 'test/JSONTest/testsdata'
+describe('JSON-Tests', () => {
+
+  for (const f of readdirSync(testDir)) {
+    if(f.toLowerCase().indexOf(".json")==-1)
+      continue
+
+    it(f, async () => {
+      const all = await runTests([testDir + '/' + f])
+      
+      for (const r of all)
+        assert.isTrue(r.success, r.c + ' : ' + r.descr + ' failed : ' + r.error)
+    })
+  }
 
 
-const Sentry = require('@sentry/node')
+})
 
-/**
- * creates a Error with the capability to report it to Sentry.
- * Whether the error is reported depends on the enviroment variable `SENTRY_ENABLE`.
- * 
- * For more details, see 
- * https://git.slock.it/documentation/developer-handbook/blob/master/docs/Error-handling-and-reporting-Sentry.md
- */
-export class SentryError extends Error {
-
-    constructor(message?: any, category_info?: string, breadcrumb_message?: string) {
-        super(message);
-        if (process.env.SENTRY_ENABLE === 'true') {
-            Sentry.addBreadcrumb({
-                category: category_info,
-                message: breadcrumb_message,
-            })
-            Sentry.captureException(this)
-        }
-    }
-}
-
-/**
- * creates a User-Error which will not be logged or send to sentry
- */
-export class UserError extends Error {
-
-    public static INVALID_REQUEST = -32600
-    public static INVALID_METHOD = -32601
-    public static INVALID_PARAMS = -32602
-    public static INTERNAL_ERROR = -32603
-    public static BLOCK_TOO_YOUNG = -16001
-
-    code: number
-
-    constructor(message: string, code: number) {
-        super(message);
-        this.code = code
-    }
-
-    toResponse(rpcId): any {
-        return {
-            id: rpcId || 1,
-            jsonrpc: '2.0',
-            error: {
-                code: this.code,
-                message: this.message
-            },
-            in3: {}
-        }
-    }
-
-}

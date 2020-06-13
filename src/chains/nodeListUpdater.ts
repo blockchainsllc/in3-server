@@ -41,11 +41,13 @@ import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
 import { setOpError } from '../server/server'
+import axios from 'axios'
 
 
 const toHex = util.toHex
 const toBuffer = util.toBuffer
 const bytes32 = serialize.bytes32
+
 
 async function updateContractAdr(handler: RPCHandler, list: ServerList): Promise<boolean> {
   const nodeRegistryData: RPCRequest = {
@@ -163,7 +165,7 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
     }
 
     // clone result
-    const list: ServerList = { ...nodeList, proof: { ...nodeList.proof } }
+    const list: ServerList = { ...nodeList, nodes: [...nodeList.nodes.map(_ => ({ ..._ }))], proof: { ...nodeList.proof } }
     if (!includeProof) delete list.proof
     return list
 
@@ -411,6 +413,40 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   //    isUpdating.forEach(_ => _.rej(x))
   //  throw x
   //}
+  updatePerformance(handler, list);
 
 }
 
+const healthInterval = 3600 * 1000
+let isUpdating: any = null
+let isChecking: boolean = false
+function updatePerformance(handler: RPCHandler, list: ServerList) {
+  const wasChecking = isChecking
+  if (isUpdating) {
+    clearTimeout(isUpdating)
+    isUpdating = null
+  }
+
+  const next = () => {
+    if (wasChecking) return
+    isChecking = false
+    isUpdating = setTimeout(updatePerformance, healthInterval, handler, list)
+  }
+
+  if (list.nodes && list.nodes.length && list.nodes.find(_ => !_.url.startsWith('#'))) {
+    isChecking = true
+    Promise.all(list.nodes.map(async n => {
+      const start = Date.now()
+      let healthy = await axios.get(n.url + '/health').then(_ => _.data && _.data.status === 'healthy', err => false)
+      const p = n.performance || (n.performance = { count: 0, total: 0, last_failed: 0 })
+      p.count++
+      p.total += Date.now() - start
+      p.last_failed = healthy ? 0 : start
+    })).then(next, next)
+  }
+
+
+
+
+
+}

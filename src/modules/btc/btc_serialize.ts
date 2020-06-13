@@ -20,17 +20,13 @@
 import { bytes, util } from 'in3-common'
 import * as crypto from 'crypto'
 
-export interface BTCBlock {
+export interface BTCBlockHeader {
     hash: string,
     confirmations: number,
-    strippedsize: number,
-    size: number,
-    weight: number,
     height: number,
     version: number,
     versionHex: string,
     merkleroot: string,
-    tx: string[],
     time: string,
     mediantime: string,
     nonce: number,
@@ -42,6 +38,15 @@ export interface BTCBlock {
     nextblockhash: string
 }
 
+export interface BTCBlock extends BTCBlockHeader {
+    strippedsize: number,
+    size: number,
+    weight: number,
+    tx: string[]
+}
+
+// kleine Vererbung: BTCBlockHeader daraus BTCBlock erben
+
 export function btcHash(data: Buffer) {
     return crypto.createHash('sha256').update(crypto.createHash('sha256').update(data).digest()).digest()
 }
@@ -50,13 +55,13 @@ export function copyReverse(dst: Buffer, src: Buffer, dstOffset: number = 0) {
     for (let i = 0; i < src.length; i++) dst[src.length - i - 1 + dstOffset] = src[i]
 }
 
-export function serialize_blockheader(block: BTCBlock): Buffer {
+export function serialize_blockheader(block: BTCBlockHeader): Buffer {
     const res: Buffer = Buffer.allocUnsafe(80)
-    Buffer.from(block.versionHex, 'hex').copy(res, 0, 0, 4)
+    copyReverse(res, Buffer.from(block.versionHex, 'hex'), 0)
     copyReverse(res, Buffer.from(block.previousblockhash, 'hex'), 4)
     copyReverse(res, Buffer.from(block.merkleroot, 'hex'), 36)
     copyReverse(res, util.toBuffer(block.time, 4), 68)
-    Buffer.from(block.bits, 'hex').copy(res, 72, 0, 4)
+    copyReverse(res, Buffer.from(block.bits, 'hex'), 72)
     copyReverse(res, util.toBuffer(block.nonce, 4), 76)
     return res
 }

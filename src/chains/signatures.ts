@@ -88,7 +88,7 @@ function checkBlockHash(hash: any, expected: any, s: any, adr: string) {
   return null
 }
 
-export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[]): Promise<Signature[]> {
+export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[], rpc?: string): Promise<Signature[]> {
   // DOS-Protection
   if (addresses && addresses.length > config.maxSignatures) throw new Error('Too many signatures requested!')
   if (requestedBlocks && requestedBlocks.length > config.maxBlocksSigned) throw new Error('Too many blocks to sign! Try to reduce the blockrange!')
@@ -98,7 +98,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
   // make sure the 
   let blocks = await Promise.all(requestedBlocks.map(async b => ({
     blockNumber: toNumber(b.blockNumber),
-    hash: toHex(b.hash || await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })
+    hash: toHex(b.hash || await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] }, undefined, rpc)
       .then(_ => _.result && _.result.hash), 32)
   }))).then(allBlocks => !verifiedHashes ? allBlocks : allBlocks.filter(_ => verifiedHashes.indexOf(_.hash) < 0))
 
@@ -145,45 +145,45 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
     let req: RPCRequest
 
     try {
-       req = { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest };
+      req = { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest };
 
       response = (blocksToRequest.length
         ? await handler.transport.handle(config.url, req)
         : { result: [] }) as RPCResponse
 
-      } catch (error) {
+    } catch (error) {
 
-        logger.error(error.toString())
-  
-        if(!error.toString().toLowerCase().includes("because the blockheight must be at least")){
-          Sentry.configureScope((scope) => {
-            scope.setTag("signatures", "collectSignatures");
-            scope.setTag("collectSignatures", "could not get signature");
-            scope.setExtra("addresses", addresses)
-            scope.setExtra("requestedBlocks", requestedBlocks)
-          });
-          Sentry.captureException(error);
-        }
+      logger.error(error.toString())
 
-        throw error
+      if (!error.toString().toLowerCase().includes("because the blockheight must be at least")) {
+        Sentry.configureScope((scope) => {
+          scope.setTag("signatures", "collectSignatures");
+          scope.setTag("collectSignatures", "could not get signature");
+          scope.setExtra("addresses", addresses)
+          scope.setExtra("requestedBlocks", requestedBlocks)
+        });
+        Sentry.captureException(error);
       }
 
-      if (response.error) {
-        if(!response.error.toString().toLowerCase().includes("because the blockheight must be at least")){
-          Sentry.configureScope((scope) => {
-            scope.setTag("signatures", "collectSignatures");
-            scope.setExtra("address", adr)
-            scope.setExtra("blocks", blocks)
-            scope.setExtra("response", response)
-          });
-          Sentry.captureMessage(response.error)
-        }
+      throw error
+    }
 
-        //sthrow new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
-        logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocksToRequest.map(_ => _.blockNumber).join() + ':' + response.error)
-        throw new Error('Could not get the signature from ' + adr + ' at ' + config.url + ' request: ' + JSON.stringify(req) + ' for block ' + blocksToRequest.map(_ => _.blockNumber).join() + ':' + response.error)
-        //        return null
+    if (response.error) {
+      if (!response.error.toString().toLowerCase().includes("because the blockheight must be at least")) {
+        Sentry.configureScope((scope) => {
+          scope.setTag("signatures", "collectSignatures");
+          scope.setExtra("address", adr)
+          scope.setExtra("blocks", blocks)
+          scope.setExtra("response", response)
+        });
+        Sentry.captureMessage(response.error)
       }
+
+      //sthrow new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
+      logger.error('Could not get the signature from ' + adr + ' for blocks ' + blocksToRequest.map(_ => _.blockNumber).join() + ':' + response.error)
+      throw new Error('Could not get the signature from ' + adr + ' at ' + config.url + ' request: ' + JSON.stringify(req) + ' for block ' + blocksToRequest.map(_ => _.blockNumber).join() + ':' + response.error)
+      //        return null
+    }
 
 
     const signatures = [...cachedSignatures, ...response.result] as Signature[]
@@ -294,51 +294,51 @@ export function sign(pk: PK, blocks: { blockNumber: number, hash: string, regist
   })
 }
 
-  export async function handleSign(handler: BaseHandler, request: RPCRequest): Promise<RPCResponse> {
-    if (!(handler.config as any)._pk) throw new Error('The server is not configured to sign blockhashes')
-    const blocks = request.params as { blockNumber: number, hash: string }[]
+export async function handleSign(handler: BaseHandler, request: RPCRequest): Promise<RPCResponse> {
+  if (!(handler.config as any)._pk) throw new Error('The server is not configured to sign blockhashes')
+  const blocks = request.params as { blockNumber: number, hash: string }[]
 
-    const result = await Promise.all(
-      handler.config.rpcUrl.map(async rpcUrl => {
+  const result = await Promise.all(
+    handler.config.rpcUrl.map(async rpcUrl => {
 
-        const blockData = await handler.getAllFromServer([
-          ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })),
-          { method: 'eth_blockNumber', params: [] },
-        ], request,rpcUrl).then(a => a.map(_ => _.result as BlockData))
+      const blockData = await handler.getAllFromServer([
+        ...blocks.map(b => ({ method: 'eth_getBlockByNumber', params: [toMinHex(b.blockNumber), false] })),
+        { method: 'eth_blockNumber', params: [] },
+      ], request, rpcUrl).then(a => a.map(_ => _.result as BlockData))
 
-        const blockNumber = blockData.pop() as any as string // the first arg is just the current blockNumber
-      
-        if (!blockNumber) throw new Error('no current blocknumber detectable ')
-        if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
-      
-        const blockHeight = handler.config.minBlockHeight === undefined ? getSafeMinBlockHeight(handler.chainId) : handler.config.minBlockHeight
-        const tooYoungBlock = blockData.find(block => toNumber(blockNumber) - toNumber(block.number) < blockHeight)
-        if (tooYoungBlock)
-          throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
-           
-        return {BlockData: blockData}
-        }))
-    
-    //if multiple RPCs are specified then for higher security check blocks are same on all RPC by comparing hashes, before signature calls
-    if(handler.config.rpcUrl.length > 1){
+      const blockNumber = blockData.pop() as any as string // the first arg is just the current blockNumber
 
-      let rpc1Results = result[0].BlockData.reduce(function(map, obj) {map[obj.hash] = obj.number; return map;}, {});
+      if (!blockNumber) throw new Error('no current blocknumber detectable ')
+      if (blockData.find(_ => !_)) throw new Error('requested block could not be found ')
 
-        for(let rpcIndex=1; rpcIndex < result.length; rpcIndex++){
-          if(result[0].BlockData.length != result[rpcIndex].BlockData.length)
-            throw new Error("Cannot sign, block numbers mismatch accross multiple RPCs."+JSON.stringify(request))
+      const blockHeight = handler.config.minBlockHeight === undefined ? getSafeMinBlockHeight(handler.chainId) : handler.config.minBlockHeight
+      const tooYoungBlock = blockData.find(block => toNumber(blockNumber) - toNumber(block.number) < blockHeight)
+      if (tooYoungBlock)
+        throw new Error(' cannot sign for block ' + tooYoungBlock.number + ', because the blockHeight must be at least ' + blockHeight)
 
-          for(let blockIndex=0; blockIndex < result[rpcIndex].BlockData.length; blockIndex++){
-            if(rpc1Results[result[rpcIndex].BlockData[blockIndex].hash] != result[rpcIndex].BlockData[blockIndex].number)
-              throw new Error("Cannot sign, block hashes mismatch accross multiple RPCs."+result[rpcIndex].BlockData[blockIndex].hash+" "+JSON.stringify(request))
-          }
-        }
+      return { BlockData: blockData }
+    }))
+
+  //if multiple RPCs are specified then for higher security check blocks are same on all RPC by comparing hashes, before signature calls
+  if (handler.config.rpcUrl.length > 1) {
+
+    let rpc1Results = result[0].BlockData.reduce(function (map, obj) { map[obj.hash] = obj.number; return map; }, {});
+
+    for (let rpcIndex = 1; rpcIndex < result.length; rpcIndex++) {
+      if (result[0].BlockData.length != result[rpcIndex].BlockData.length)
+        throw new Error("Cannot sign, block numbers mismatch accross multiple RPCs." + JSON.stringify(request))
+
+      for (let blockIndex = 0; blockIndex < result[rpcIndex].BlockData.length; blockIndex++) {
+        if (rpc1Results[result[rpcIndex].BlockData[blockIndex].hash] != result[rpcIndex].BlockData[blockIndex].number)
+          throw new Error("Cannot sign, block hashes mismatch accross multiple RPCs." + result[rpcIndex].BlockData[blockIndex].hash + " " + JSON.stringify(request))
+      }
     }
+  }
 
-    return {
-      id: request.id,
-      jsonrpc: request.jsonrpc,
-      result: sign((handler.config as any)._pk, result[0].BlockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
-    }
-  
+  return {
+    id: request.id,
+    jsonrpc: request.jsonrpc,
+    result: sign((handler.config as any)._pk, result[0].BlockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
+  }
+
 }

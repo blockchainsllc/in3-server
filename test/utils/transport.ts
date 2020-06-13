@@ -87,7 +87,9 @@ export class TestTransport implements Transport {
     url: string
   }[]
 
-  constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>) {
+  bypassTopInjectedResponseCheck: boolean
+
+  constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>, handlerType?: string, regId?: string) {
     this.chainId = '0x1'
     this.lastRandom = 0
     this.randomList = []
@@ -95,11 +97,12 @@ export class TestTransport implements Transport {
     this.injectedResponses = []
     const nodes: IN3NodeConfig[] = []
     this.registryContract = registry
+    this.bypassTopInjectedResponseCheck = false
     this.nodeList = {
       nodes,
       contract: registry,
       lastBlockNumber: 0,
-      registryId: '0x'
+      registryId: regId ? regId : '0x'
     } as any
     for (let i = 0; i < count; i++) {
       const privateKey = pks ? pks[i] : createPK('0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i)
@@ -116,6 +119,7 @@ export class TestTransport implements Transport {
         port: 0,
         chains: {
           [this.chainId]: {
+            handler: (handlerType as any),
             watchInterval: -1,
             rpcUrl: [getTestClient()],
             privateKey: privateKey as any,
@@ -136,11 +140,47 @@ export class TestTransport implements Transport {
       request, response, url
     })
   }
+
   isOnline(): Promise<boolean> {
     return Promise.resolve(true)
   }
   async mustFail(p: Promise<any>): Promise<any> {
     return p.then(_ => Promise.reject(new Error('Must have failed')), err => true)
+  }
+
+  defineGetFromServer(url: string, chain: string) {
+
+    (this.handlers[url].handlers[chain] as any).getFromServer = 
+    (request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse> => {
+
+      //console.log(JSON.stringify(request))
+      for (const ir of this.injectedResponses) {
+        if ( ir.request.method !== request.method 
+          || JSON.stringify(ir.request.params) != JSON.stringify(request.params)) continue
+        
+        logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
+        return Promise.resolve( ir.response as RPCResponse )
+      }
+      return undefined;
+  }; 
+
+    (this.handlers[url].handlers[chain] as any).getAllFromServer = 
+    (requests: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]> => {
+
+      //console.log(JSON.stringify(requests))
+      let res: RPCResponse[] = []
+      requests.forEach(request => {
+        for (const ir of this.injectedResponses) {
+          if ( ir.request.method !== request.method 
+            || JSON.stringify(ir.request.params) != JSON.stringify(request.params)) continue
+          
+          logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
+          res.push( ir.response as RPCResponse )
+        }
+      });
+    return Promise.resolve(res)
+  }; 
+    
   }
 
 
@@ -193,17 +233,18 @@ export class TestTransport implements Transport {
 
     const responseModifiers: ResponseModifier[] = []
 
-    for (const ir of this.injectedResponses) {
-      if (ir.url && ir.url !== url) continue
-      if (ir.request && ir.request.method !== r.method) continue
-      if (ir.request && ir.request.params && JSON.stringify(ir.request.params) != JSON.stringify(r.params)) continue
-      if (typeof ir.response === 'function')
-        responseModifiers.push(ir.response)
-      else {
-        logger.debug('Response (injected) : ', { id: r.id, ...ir.response })
-        return { jsonrpc: '2.0', id: r.id, ...ir.response }
+    if(!this.bypassTopInjectedResponseCheck)
+      for (const ir of this.injectedResponses) {
+        if (ir.url && ir.url !== url) continue
+        if (ir.request && ir.request.method !== r.method) continue
+        if (ir.request && ir.request.params && JSON.stringify(ir.request.params) != JSON.stringify(r.params)) continue
+        if (typeof ir.response === 'function')
+          responseModifiers.push(ir.response)
+        else {
+          logger.debug('Response (injected) : ', { id: r.id, ...ir.response })
+          return { jsonrpc: '2.0', id: r.id, ...ir.response }
+        }
       }
-    }
 
     // execute the request
     const [res] = await handler.handle([r])

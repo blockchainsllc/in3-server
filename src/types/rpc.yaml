@@ -109,6 +109,30 @@ definitions:
       - type: string
         pattern: "^0x(0|[a-fA-F1-9]+[a-fA-F0-9]*)$"
 
+  numberType:
+    description: params that can be hex-strings or numbers
+    oneOf:
+      - type: number
+      - type: string
+        pattern: "^0x[0-9a-fA-F]+"
+
+  verboseType:
+    description: verbose-params that can be a boolean or a number
+    oneOf:
+      - type: boolean
+      - type: integer
+        minimum: 0
+        maximum: 2
+      - type: string
+        pattern: "^0x[012]+"
+
+  blockTypeBTC:
+    description: the blocknumber
+    oneOf:
+      - type: string
+        enum: ["latest", "earliest", "pending"]
+      - type: number
+
   hash:
     description: the hash
     type: string
@@ -354,7 +378,7 @@ definitions:
 
   in3_nodeList:
     type: array
-    maxItems: 3
+    maxItems: 4
     minItems: 0
     items:
       - oneOf:
@@ -365,6 +389,7 @@ definitions:
       - type: array
         items:
           - $ref: "#/definitions/address"
+      - type: boolean
 
   in3_whiteList:
     type: array
@@ -424,7 +449,7 @@ definitions:
     minItems: 1
     items:
       - type: string
-      - type: boolean
+      - $ref: "#/definitions/verboseType"
 
   getblockheader:
     type: array
@@ -432,7 +457,7 @@ definitions:
     minItems: 1
     items:
       - type: string
-      - type: boolean
+      - $ref: "#/definitions/verboseType"
 
   getbestblockhash:
     type: array
@@ -455,7 +480,7 @@ definitions:
     minItems: 1
     items:
       - type: string
-      - type: boolean
+      - $ref: "#/definitions/verboseType"
       - type: string
 
   getrawtransaction:
@@ -464,5 +489,27 @@ definitions:
     minItems: 1
     items:
       - type: string
-      - type: boolean
+      - $ref: "#/definitions/verboseType"
       - type: string
+
+  getdifficulty:
+    type: array
+    maxItems: 1
+    minItems: 0
+    items:
+      - $ref: "#/definitions/blockTypeBTC"
+  in3_proofTarget:
+    type: array
+    maxItems: 5
+    minItems: 4
+    items:
+      - $ref: "#/definitions/numberType"
+        description: target_dap
+      - $ref: "#/definitions/numberType"
+        description: verified_dap
+      - $ref: "#/definitions/numberType"
+        description: max_diff
+      - $ref: "#/definitions/numberType"
+        description: max_dapp
+      - $ref: "#/definitions/numberType"
+        description: limit

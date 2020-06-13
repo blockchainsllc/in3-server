@@ -44,7 +44,7 @@ import BTCHandler from '../modules/btc/BTCHandler'
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
-import { SentryError } from '../util/sentryError'
+import { SentryError, UserError } from '../util/sentryError'
 import { in3ProtocolVersion } from '../types/constants'
 import { getSafeMinBlockHeight } from './config'
 import { verifyRequest } from '../types/verify'
@@ -106,7 +106,7 @@ export class RPC {
         verifyRequest(r)
       }
       catch (ex) {
-        return { id: r.id, error: { code: -32600, message: ex.message }, jsonrpc: '2.0' } as any
+        return { id: r.id, error: { code: ex.code || -32600, message: ex.message }, jsonrpc: '2.0' } as any
       }
 
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
@@ -115,7 +115,7 @@ export class RPC {
       const start = Date.now()
 
       if (!handler)
-        throw new Error("Unable to connect Ethereum and/or invalid chainId given.")
+        return { id: r.id, error: { code: -32600, message: "Unable to connect Ethereum and/or invalid chainId given." }, jsonrpc: '2.0' } as any
 
       //check if requested in3 protocol version is same as server is serving
       if (in3Request.version) {
@@ -148,7 +148,8 @@ export class RPC {
           r.params[1],
           r.params[2] || [],
           in3Request.signers || in3Request.signatures,
-          in3Request.verifiedHashes
+          in3Request.verifiedHashes,
+          r.params[3]
         ),
         getValidatorHistory(handler)]).then(async ([result, validators]) => {
           const res = {
@@ -246,6 +247,10 @@ export class RPC {
           if (r.in3 && r.in3.whiteList && handler.watcher && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) && handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList) != -1)
             (in3 as any).lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList)
           return _
+        }, err => {
+          if (err instanceof UserError)
+            return err.toResponse(r.id)
+          else throw err
         })
       ])
         .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })), r)
@@ -276,7 +281,7 @@ export class RPC {
         if (watcher && watcher.interval > 0) watcher.check()
 
         const healthMon = this.handlers[c].healthCheck
-        if(healthMon && !healthMon.running)
+        if (healthMon && !healthMon.running)
           healthMon.start()
       })
     ))
@@ -337,7 +342,7 @@ export interface RPCHandler {
   handleWithCache(request: RPCRequest): Promise<RPCResponse>
   getFromServer(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse>
   getAllFromServer(request: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]>
-  getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[]): Promise<ServerList>
+  getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[], includePerformance?: boolean): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
   checkRegistry(): Promise<any>
@@ -346,6 +351,7 @@ export interface RPCHandler {
   watcher?: Watcher
   whiteListMgr?: WhiteListManager
   healthCheck?: HealthCheck
+  health(): Promise<{ status: string, message?: string }>
 }
 
 /**

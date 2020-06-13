@@ -35,6 +35,7 @@
 import * as logger from '../util/logger'
 import { setOpError } from '../server/server'
 import Watcher from '../chains/watch'
+import { IN3RPCHandlerConfig } from '../types/types'
 
 export default class HealthCheck {
 
@@ -44,18 +45,20 @@ export default class HealthCheck {
     interval: number            // duration after which setInterval is invoked
     maxBlockTimeout: number     //max time out allowed until new block must be detectable 
     watcher: Watcher            //watcher reference
+    config: IN3RPCHandlerConfig //config object
 
     /**
      *constructor 
      *block timeout: max time supposed in which a block must be detected by server, it is configurable using watchBlockTimeout (ms) default is 120 sec
      *interval : after each interval duration a function (checkHealth()) will check that how much duration it took since last block
     */
-    constructor(blockTimeout: number, watcher: Watcher, interval = 45000) {
+    constructor(blockTimeout: number, watcher: Watcher, conf: IN3RPCHandlerConfig, interval = 45000) {
         this.maxBlockTimeout = blockTimeout
         this.interval = interval
         this._lastBlockTime = 0
         this._health = 5  //5 is max health
         this.watcher = watcher
+        this.config = conf
     }
 
     /**
@@ -100,11 +103,13 @@ export default class HealthCheck {
         let duration: number = new Date().getTime() - this._lastBlockTime
 
         if (this._lastBlockTime == 0 || duration >= this.maxBlockTimeout) {
-            this._health--
+            if (this._health > 0 ) 
+                this._health--
+            
             setOpError(new Error("Watcher error. No new block is detected in " + (duration / 1000) + " sec. Max allowed time is " + (this.maxBlockTimeout / 1000) + " sec [" + this._health + "]"))
         }
 
-        if (this._health == 0) {
+        if (this._health <= 0 && this.config.unhealthyExit == true) {
             setOpError(new Error("Watcher is unhealthy so exiting server. Last block detected " + (duration / 1000) + " sec ago. [" + this._health + "]"))
             process.exit(1)
         }
@@ -120,8 +125,10 @@ export default class HealthCheck {
 
                 } catch (err) {
                     setOpError(new Error("Unable to restart Watcher." + err.name + ":" + err.message))
-                    setOpError(new Error("Watcher is unhealthy so exiting server. Last block detected " + (duration / 1000) + " sec ago."))
-                    process.exit(1)
+                    if(this.config.unhealthyExit == true){
+                        setOpError(new Error("Watcher is unhealthy so exiting server. Last block detected " + (duration / 1000) + " sec ago."))
+                        process.exit(1)
+                    }
                 }
             }
         }

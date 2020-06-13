@@ -47,6 +47,7 @@ import { SentryError } from '../../util/sentryError'
 import { toBuffer } from 'in3-common/js/src/util/util'
 import { TransactionReceipt } from 'in3'
 
+
 const histMerkleTreeTime = new promClient.Histogram({
   name: 'in3_merkle_tree_time',
   help: 'Time taken to generate merkle tree',
@@ -160,6 +161,8 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
 export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler, useFull = false): Promise<Proof> {
   const startTime = Date.now();
 
+  let trie = (handler.cache && bytes32(block.receiptsRoot)) ? handler.cache.getTrie(toMinHex(bytes32(block.receiptsRoot))) : undefined
+
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
   if (txIndex < 0)
@@ -175,15 +178,15 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
       bytes32(block.transactionsRoot),
       handler
     ),
-    createMerkleProof(
-      receipts.map(r => ({
-        key: rlp.encode(toNumber(r.transactionIndex)),
-        value: serialize.serialize(serialize.toReceipt(r))
-      })),
-      rlp.encode(txIndex),
-      bytes32(block.receiptsRoot),
-      handler
-    ),
+    ( createMerkleProof(
+      receipts && !trie ? receipts.map(r => ({
+            key: rlp.encode(toNumber(r.transactionIndex)),
+            value: serialize.serialize(serialize.toReceipt(r))
+          })) : undefined,
+          rlp.encode(txIndex),
+          bytes32(block.receiptsRoot),
+          handler
+        )),
     // TOCDO performancewise this could be optimized, since we build the merkltree twice.
     useFull && txIndex > 0 && createMerkleProof(
       receipts.map(r => ({
@@ -471,16 +474,19 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
     // if we have a blocknumber, it is mined and we can provide a proof over the blockhash
     if (tx && tx.blockNumber) {
       // get the block including all transactions from the server
-      const block = await handler.getFromServer({ method: 'eth_getBlockByNumber', params: [toMinHex(tx.blockNumber), true] }, request).then(_ => _ && _.result as BlockData)
+      const block = await handler.getFromServer({ method: 'eth_getBlockByHash', params: [tx.blockHash, true] }, request).then(_ => _ && _.result as BlockData)
       if (block) {
+
+        //first check if receit proof is alreay in cache
+        let trie = (handler.cache && bytes32(block.receiptsRoot)) ? handler.cache.getTrie(toMinHex(bytes32(block.receiptsRoot))) : undefined
 
         const [signatures, receipts] = await Promise.all([
           // signatures for the block of the transaction
           collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes),
 
-          // get all receipts, because we need to build the MerkleTree
-          handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })), request)
-            .then(a => a.map(_ => _.result as ReceiptData)),
+          // get all receipts, because we need to build the MerkleTree if MerkleTree is not in cache
+          ( !trie ? handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })), request)
+            .then(a => a.map(_ => _.result as ReceiptData)) : undefined ),
 
           // get all txs to also proof the tx (in case of full proof)
           // request.in3.useFullProof && handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })))
@@ -708,24 +714,21 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     }
   }
 
-
-
   //    console.log('handle call', this.config)
   // read the response,blockheader and trace from server
-  const [response, blockResponse, trace] = await handler.getAllFromServer([
-    request,
+  const [blockResponse, trace] = await handler.getAllFromServer([
     { method: 'eth_getBlockByNumber', params: [request.params[1] || 'latest', false] },
     useTrace ? { method: 'trace_call', params: [request.params[0], ['vmTrace'], request.params[1] || 'latest'] } : undefined
   ], request)
 
   // error checking
-  if (response.error) return response
   if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
   if (trace && trace.error) {
     if ((trace.error as any).code === -32601) useTrace = false
     else throw new Error('Could not get the trace :' + trace.error)
   }
 
+  let response : RPCResponse = {jsonrpc: "2.0", id: request.id}
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as any
   let neededAccounts = []
@@ -733,6 +736,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   async function getFromGeth(): Promise<any> {
     for (let i = 0; i < 10; i++) {
       const neededProof = await analyseCall(request.params[0], request.params[1] || 'latest', handler.getFromServer.bind(handler))
+      response.result = toHex(neededProof.result)
       neededAccounts = Object.keys(neededProof.accounts)
       const proof = await handler.getAllFromServer(neededAccounts.map(adr => (
         { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
@@ -773,6 +777,11 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   }
 
   async function getFromParity() {
+    if(trace.error)
+      response.error = trace.error
+    else 
+      response.result = trace.result.output
+    
     const neededProof = evm.analyse((trace.result as any).vmTrace, request.params[0].to)
     neededAccounts = Object.keys(neededProof.accounts)
     return await handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
