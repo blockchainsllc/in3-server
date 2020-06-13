@@ -281,6 +281,12 @@ register-with-sentry-production:
     CHAIN_ID: "0x1"
     RPC_ENDPOINT: http://lb.parity-rpc/mainnet
 
+.chain-tmpl-ewc:
+  variables:
+    CHAIN: ewc
+    CHAIN_ID: "0xf6"
+    RPC_ENDPOINT: https://rpc.slock.it/ewc
+
 .chain-tmpl-volta:
   variables:
     CHAIN: tobalaba
@@ -332,6 +338,15 @@ deploy-production-mainnet:
   variables:
     BLOCKHEIGHT: "6"
     REGISTRY_CONTRACT_ADDR: "0x6c095a05764a23156efd9d603eada144a9b1af33"
+
+# Production deployments
+deploy-production-ewc:
+  extends:
+    - .deploy-tmpl-production
+    - .chain-tmpl-ewc
+  variables:
+    BLOCKHEIGHT: "2"
+    REGISTRY_CONTRACT_ADDR: "0x638428ebaa190c6c6331a3a02f3b8c5d8310986b"
 
 deploy-production-kovan:
   extends:
