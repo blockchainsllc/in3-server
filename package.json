@@ -14,7 +14,7 @@
     "test-local": "export CI=1 && mocha --exit --timeout 5000 -R in3-common/js/test/util/mochaReporter --require ts-node/register --require source-map-support/register    --full-trace --bail  test/*/*.ts",
     "test": "npm run updateYaml && NODE_ENV=test node --experimental-worker node_modules/mocha/bin/_mocha --exit --timeout 5000 -R in3-common/js/test/util/mochaReporter --require ts-node/register --require source-map-support/register    --full-trace  test/*/*.ts",
     "testCoverage": "npm run updateYaml && nyc node --experimental-worker node_modules/mocha/bin/_mocha -R in3-common/js/test/util/mochaReporter  --timeout 25000 --require ts-node/register --require source-map-support/register --exit  --full-trace --bail  test/*/*.ts && cp -r coverage test/report/",
-    "testReport": "npm run updateYaml && npm run jsonTests && nyc node --experimental-worker node_modules/mocha/bin/_mocha --R mocha-junit-reporter --reporter-options mochaFile=mocha.xml  --timeout 25000 --require ts-node/register --require source-map-support/register --exit  --full-trace --bail  test/*/*.ts --exclude test/JSONTest/JsonTests.ts && cp -r coverage test/report/",
+    "testReport": "npm run updateYaml && nyc node --experimental-worker node_modules/mocha/bin/_mocha -R mocha-junit-reporter --reporter-options mochaFile=mocha.xml  --timeout 25000 --require ts-node/register --require source-map-support/register --exit  --full-trace --bail  test/*/*.ts && cp -r coverage test/report/",
     "updateContracts": "docker run --rm -v $(pwd)/contracts:/contracts ethereum/solc:0.5.10 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata,srcmap-runtime /contracts/IN3WhiteList.sol > contracts/contracts.json; docker run --rm -v $(pwd)/test:/test ethereum/solc:0.4.25 --optimize --combined-json abi,bin,bin-runtime,compact-format,hashes,interface,metadata /test/contracts/TestContract.sol > test/contracts/contracts.json;",
     "start": "node --experimental-worker --inspect js/server/server",
     "parity": "docker run --rm -p 8180:8180 -p 8545:8545 -p 8546:8546 slockit/parity-time-maschine:v0.0.1",
@@ -34,7 +34,7 @@
     "local-env": "export NODE_ENV=0 && npm run build && node --experimental-worker ./js/src/server/server.js  --chain=0x111 --rpcUrl=http://localhost:8545 --minBlockHeight=6 --registry=0x6dA43E64F8CC2427477178145C747E670733dEE7 --persistentFile=false --autoRegistry-url=http://127.0.0.1:8500 --autoRegistry-capabilities-proof=true --autoRegistry-capabilities-multiChain=true --autoRegistry-deposit=10",
     "eth-node-local": "export NODE_ENV=0 && npm run build && node --experimental-worker ./js/src/server/server.js  --chain=0x1 --rpcUrl=https://rpc.slock.it/mainnet/parity-pruned --minBlockHeight=6 --registry=0x6c095a05764a23156efd9d603eada144a9b1af33 --persistentFile=false",
     "btc-node-local": "export NODE_ENV=0 && npm run build && node --experimental-worker ./js/src/server/server.js  --chain=0x1 --handler=btc --registryRPC=https://rpc.slock.it/mainnet/parity-pruned --rpcUrl=https://slockit:slockit@rpc.slock.it/bitcoin --minBlockHeight=6 --registry=0x6c095a05764a23156efd9d603eada144a9b1af33 --persistentFile=false"
-    },
+  },
   "nyc": {
     "include": [
       "node_modules/in3/src/**/*.ts",
@@ -111,7 +111,7 @@
     "ethjs-util": "0.1.4",
     "form-data": "^2.3.2",
     "in3-common": "^2.1.7",
-    "in3-contracts": "^2.1.3",
+    "in3-contracts": "^2.1.4",
     "in3-trie": "^0.1.2",
     "koa": "^2.7.0",
     "koa-bodyparser": "^4.2.0",

@@ -82,6 +82,7 @@ test-nethermind:
 
 test-geth:
   stage: test
+  coverage: '/Lines.*:\s+(\d+.\d+\%)\s*$/'
   tags:
     - short-jobs
   variables:
