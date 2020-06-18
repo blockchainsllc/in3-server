@@ -48,7 +48,9 @@ import { in3ProtocolVersion, maxWatchBlockTimeout } from '../types/constants'
 import WhiteListManager from './whiteListManager'
 import * as promClient from 'prom-client';
 import HealthCheck from '../util/healthCheck'
+import {writeFileSync} from 'fs'
 
+let firstTestRecord =true
 
 const histRequestTime = new promClient.Histogram({
   name: 'in3_upstream_request_time',
@@ -177,6 +179,11 @@ export default abstract class BaseHandler implements RPCHandler {
         throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
     }).then(res => {
       logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
+      if (process.env.IN3TEST && (!rpc || rpc===this.config.rpcUrl[0])) {
+        writeFileSync(process.env.IN3TEST,(firstTestRecord ? '':',')+JSON.stringify([request,fixResponse(request, res)]),{encoding:'utf8',flag:'a'})
+        firstTestRecord=false
+      }
+
 
       if (process.env.SENTRY_ENABLE === 'true') {
         Sentry.addBreadcrumb({
@@ -256,6 +263,14 @@ export default abstract class BaseHandler implements RPCHandler {
           histRequestTime.labels("bulk", "ok", "bulk").observe(Date.now() - startTime);
           if (Array.isArray(res))
             request.forEach((req, i) => fixResponse(req, res[i]))
+
+            if (process.env.IN3TEST && (!rpc || rpc===this.config.rpcUrl[0])) {
+              const json = JSON.stringify(request.map((r,i)=>[r,Array.isArray(res)?res[i]:res]))
+              writeFileSync(process.env.IN3TEST,(firstTestRecord ? '':',')
+              +json.substr(1,json.length-2),{encoding:'utf8',flag:'a'})
+              firstTestRecord=false
+            }
+      
 
           return res
         })

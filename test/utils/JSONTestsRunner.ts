@@ -61,10 +61,9 @@ async function runTest(testData: any, c: number) {
   let testTrnsprt = new TestTransport(1,"0x6c095a05764a23156efd9d603eada144a9b1af33", undefined, undefined, testData.handler || 'eth', "0x23d5345c5c13180a8080bd5ddbe7cde64683755dcce6e734d95b7b573845facb")
   testTrnsprt.bypassTopInjectedResponseCheck = true
   
-  for (const method in testData.mock_responses) {
-    testTrnsprt.injectResponse(testData.mock_responses[method][0], testData.mock_responses[method][1])
-  }
-
+  for (const r of testData.mock_responses) 
+    testTrnsprt.injectResponse(r[0], r[1])
+  
   testTrnsprt.defineGetFromServer("#1", "0x1")
 
   try {
@@ -77,7 +76,7 @@ async function runTest(testData: any, c: number) {
 
     const sortObject = o => Object.keys(o).sort().reduce((r, k) => (r[k] = o[k], r), {})
     if(JSON.stringify(response.result) == JSON.stringify(testData.expected_result.result)
-     && JSON.stringify(sortObject(response.in3.proof)) == JSON.stringify(sortObject(testData.expected_result.in3.proof)) )
+     && (!testData.expected_result.in3.proof || JSON.stringify(sortObject(response.in3.proof)) == JSON.stringify(sortObject(testData.expected_result.in3.proof))) )
       result.success = true
     else{
       result.error =  response.error || 'Failed'

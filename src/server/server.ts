@@ -51,6 +51,7 @@ import { encodeObject } from '../util/binjson'
 import { checkBudget } from './clients'
 import { in3ProtocolVersion } from '../types/constants'
 import axios from 'axios'
+import {writeFileSync} from 'fs'
 
 
 import requestTime from '../util/koa/requestTime'
@@ -181,6 +182,7 @@ router.post(/.*/, async ctx => {
   // find ip
   const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
   const ua = ctx.headers['User-Agent'] || ctx.header['user-agent'] || 'no-ua'
+  let responseData = null
 
   try {
     // check for valid req
@@ -198,19 +200,32 @@ router.post(/.*/, async ctx => {
       histRequestTime.labels("post", "dos_protect", ua, stats ? 'false' : 'true').observe(Date.now() - startTime);
       return
     }
+
+    if (process.env.IN3TEST) {
+      const json = JSON.stringify({
+        request:requests[0],
+        descr: process.env.IN3TEST,
+        handler: rpc.handlers[Object.keys(rpc.handlers)[0]].config.handler || 'eth',
+      })
+      writeFileSync(process.env.IN3TEST,'['+json.substr(0,json.length-1)+',"mock_responses":[','utf8')
+    }
+
+
     // assign ip
     requests.forEach(_ => (_ as any).ip = ip)
+
+
 
     const result = await rpc.handle(requests)
 
     const res = requests.length && requests[0].in3 && requests[0].in3.useRef ? cbor.createRefs(result) : result
-    let body = Array.isArray(ctx.request.body) ? res : res[0]
+    responseData = Array.isArray(ctx.request.body) ? res : res[0]
     if (requests.length && requests[0].in3 && requests[0].in3.useBinary) {
       ctx.set('content-type', 'application/in3')
-      ctx.body = encodeObject(body)
+      ctx.body = encodeObject(responseData)
     }
     else
-      ctx.body = body
+      ctx.body = responseData
 
     histRequestTime.labels("post", "ok", ua, stats ? 'false' : 'true').observe(Date.now() - startTime);
 
@@ -218,7 +233,7 @@ router.post(/.*/, async ctx => {
   } catch (err) {
     histRequestTime.labels("post", "error", ua, '').observe(Date.now() - startTime);
     ctx.status = err.status || 500
-    ctx.body = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
+    ctx.body = responseData = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
     Sentry.withScope(scope => {
       scope.addEventProcessor(event => Sentry.Handlers.parseRequest(event, ctx.request));
       Sentry.configureScope((scope) => {
@@ -229,7 +244,8 @@ router.post(/.*/, async ctx => {
     });
 
   }
-
+  if (process.env.IN3TEST) 
+    writeFileSync(process.env.IN3TEST,'],"expected_result":'+JSON.stringify(responseData)+'}]', {encoding: 'utf8',flag:'a'})
 })
 
 router.get(/.*/, async ctx => {
