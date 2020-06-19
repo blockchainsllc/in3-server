@@ -41,10 +41,13 @@ import * as clientRPC from '../utils/clientRPC'
 import { util } from 'in3-common'
 import { TestTransport, getTestClient, devPk } from '../utils/transport'
 import { createPK } from '../../src/chains/signatures'
-import { deployContract } from '../../src/util/registry';
+import { deployContract } from '../../src/util/registry'
+import { resetSupport} from '../../src/modules/eth/proof'
+
 const getAddress = util.getAddress
 
 describe('AbiCoder', () => {
+  beforeEach(resetSupport)
 
   it('encode', async () => {
 

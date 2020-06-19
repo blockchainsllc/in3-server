@@ -40,7 +40,7 @@ import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig, WhiteList }
 import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
-import { setOpError } from '../server/server'
+import { setOpError } from '../util/sentryError'
 import axios from 'axios'
 
 
@@ -280,6 +280,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   //  (handler as any).isUpdating = isUpdating = []
 
   //  try {
+  
 
   const contractVersion2 = await updateContractAdr(handler, list)
 

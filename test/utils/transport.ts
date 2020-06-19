@@ -161,7 +161,7 @@ export class TestTransport implements Transport {
         logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
         return Promise.resolve( ir.response as RPCResponse )
       }
-      return undefined;
+      throw new Error("The request "+request.method+'('+  request.params.map(JSON.stringify as any).join()+') can not be found in the mock data')
   }; 
 
     (this.handlers[url].handlers[chain] as any).getAllFromServer = 
@@ -170,6 +170,10 @@ export class TestTransport implements Transport {
       //console.log(JSON.stringify(requests))
       let res: RPCResponse[] = []
       requests.forEach(request => {
+        if (!request) {
+          res.push( undefined )
+          return
+        }
         for (const ir of this.injectedResponses) {
           if ( ir.request.method !== request.method 
             || JSON.stringify(ir.request.params) != JSON.stringify(request.params)) continue

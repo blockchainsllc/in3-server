@@ -46,6 +46,8 @@ import { registerNodes, deployNodeRegistry } from '../../src/util/registry'
 import { toBN, toBuffer } from 'in3-common/js/src/util/util';
 import { BigNumber } from 'ethers/utils';
 import { signatureCaches, createPK, PK } from '../../src/chains/signatures'
+import { resetSupport} from '../../src/modules/eth/proof'
+
 
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
@@ -68,6 +70,8 @@ const sign = (b: BlockData, registryId: string, pk: PK, blockHash?: string) => {
 }
 
 describe('Convict', () => {
+
+  beforeEach(resetSupport)
 
   it('verify and convict (block within 256 blocks)', async () => {
     const test = await TestTransport.createWithRegisteredNodes(2)

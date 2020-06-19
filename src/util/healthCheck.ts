@@ -33,7 +33,7 @@
  *******************************************************************************/
 
 import * as logger from '../util/logger'
-import { setOpError } from '../server/server'
+import { setOpError } from '../util/sentryError'
 import Watcher from '../chains/watch'
 import { IN3RPCHandlerConfig } from '../types/types'
 

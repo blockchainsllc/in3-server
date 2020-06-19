@@ -656,7 +656,10 @@ export async function handleLogs(handler: EthHandler, request: RPCRequest): Prom
   histProofTime.labels("logs").observe(Date.now() - startTime);
   return response
 }
-
+export function resetSupport() {
+  useTrace = true
+  supportsProofRPC = 1
+}
 
 let useTrace: boolean = true
 
@@ -725,7 +728,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
   if (trace && trace.error) {
     if ((trace.error as any).code === -32601) useTrace = false
-    else throw new Error('Could not get the trace :' + trace.error)
+    else throw new Error('Could not get the trace :' + JSON.stringify(trace.error))
   }
 
   let response : RPCResponse = {jsonrpc: "2.0", id: request.id}

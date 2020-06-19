@@ -35,6 +35,7 @@
 import { readFileSync } from 'fs'
 import { TestTransport } from './transport'
 import { RPCResponse } from 'in3-common/js/src/types/types'
+import { resetSupport} from '../../src/modules/eth/proof'
 
 import 'mocha'
 
@@ -55,6 +56,7 @@ export async function runTests(files: string[]): Promise<{ descr: string, c: num
 }
 
 async function runTest(testData: any, c: number) {
+  resetSupport()
   let result = { descr: testData.descr, c, success: false, error: undefined }
   testData = JSON.parse(JSON.stringify(testData))
 
