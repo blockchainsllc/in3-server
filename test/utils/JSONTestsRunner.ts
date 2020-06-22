@@ -38,6 +38,7 @@ import { RPCResponse } from 'in3-common/js/src/types/types'
 import { resetSupport} from '../../src/modules/eth/proof'
 
 import 'mocha'
+import { debug } from 'in3-common/js/test/util/memoryLogger'
 
 export async function runTests(files: string[]): Promise<{ descr: string, c: number, success: boolean, error: string }[]> {
   const allResults = []
@@ -81,10 +82,12 @@ async function runTest(testData: any, c: number) {
      && (!testData.expected_result.in3.proof || JSON.stringify(sortObject(response.in3.proof)) == JSON.stringify(sortObject(testData.expected_result.in3.proof))) )
       result.success = true
     else{
+      debugger
       result.error =  response.error || 'Failed'
     }
   }
   catch (err) {
+    debugger
     result.error =  err
   }
 
