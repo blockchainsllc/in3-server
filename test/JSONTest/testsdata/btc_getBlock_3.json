@@ -10,7 +10,7 @@
       ],
       "in3": { "finality": 0, "verification": "proof" }
     },
-    "descr": "test/JSONTest/testsdata/btc_getBlock_3.json",
+    "descr": "BTC-Tests - getBlock: get genesis block (block #0, verbosity=1)",
     "handler": "btc",
     "mock_responses": [
       [
@@ -107,8 +107,8 @@
     "expected_result": {
       "jsonrpc": "2.0",
       "error": {
-        "code": -32603,
-        "message": "Error: Error: The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved"
+        "code": -5,
+        "message": "The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved"
       }
     }
   }
