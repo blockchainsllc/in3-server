@@ -404,18 +404,19 @@ async function checkHealth(ctx: Router.IRouterContext) {
 
   const version = process.env.VERSION || 'Unknown'
   const running = Math.floor((Date.now() - startTime)/1000)
+  const name = (rpc.conf.profile && rpc.conf.profile.name) || 'Anonymous'
 
   //lies to the rancher that it is healthy to avoid restart loop
   if (INIT_ERROR && AUTO_REGISTER_FLAG) {
-    ctx.body = { status: 'healthy', version, running }
+    ctx.body = { status: 'healthy', version, running, name }
     ctx.status = 200
   }
   else if (OP_ERROR > Date.now() -1000 * 60 * 5 ) {  // we only keep an OP-Error for 5 min
-    ctx.body = { status: 'unhealthy', message: "server error during operation" , version , running}
+    ctx.body = { status: 'unhealthy', message: "server error during operation" , version , running, name}
     ctx.status = 500
   }
   else if (INIT_ERROR) {
-    ctx.body = { status: 'unhealthy', message: "server initialization error" , version, running }
+    ctx.body = { status: 'unhealthy', message: "server initialization error" , version, running, name }
     ctx.status = 500
     //  throw new SentryError("server initialization error", "server_status", "unhealthy")
     if (process.env.SENTRY_ENABLE === 'true') {
@@ -429,7 +430,7 @@ async function checkHealth(ctx: Router.IRouterContext) {
   }
   else {
     const status = await Promise.all(Object.keys(rpc.handlers).map(_ => rpc.handlers[_].health())).then(_ => _.reduce((p, c) => c.status === 'healthy' ? p : c, { status: 'healthy' }))
-    ctx.body = { version, running, ...status}
+    ctx.body = { version, running, name, ...status}
     ctx.status = status.status === 'healthy' ? 200 : 500
   }
 
