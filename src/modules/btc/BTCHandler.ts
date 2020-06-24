@@ -27,6 +27,7 @@ import { max } from 'bn.js'
 import { hash } from 'in3-common/js/src/modules/eth/serialize'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { BTCCache, Coinbase } from './btc_cache'
+import { UserError } from '../../util/sentryError'
 
 interface DAP {
   dapnumber: number
@@ -242,16 +243,22 @@ export default class BTCHandler extends BaseHandler {
     return { result: blockhash, in3: { proof } }
   }
 
-  async getDifficulty(_blocknumber: string, finality: number = 0, r: any) {
+  async getDifficulty(bn: string, finality: number = 0, r: any) {
     if (!finality) return null
 
+    // always fetch latest block number
+    const latestBlocknumber: number = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult)
+
     let blocknumber: number
-    if (!_blocknumber || _blocknumber === 'latest' || _blocknumber === 'earliest' || _blocknumber === 'pending') {
-      blocknumber = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult) - finality; // get latest block - finality
+    if (!bn || bn === 'latest' || bn === 'earliest' || bn === 'pending') {
+      blocknumber = latestBlocknumber - finality; // latest block - finality
     } else {
-      blocknumber = parseInt(_blocknumber)
+      blocknumber = parseInt(bn)
+      // we have to check if blocknumber + finality is already existing
+      if (blocknumber + finality > latestBlocknumber) {
+        throw new UserError("block is not final", -16001)
+      }
     }
-    // we have to check if _blocknumber + finality is already existing
 
     const blockheader: BTCBlockHeader = (await this.blockCache.getBlockHeaderByNumber([blocknumber.toString()], true)).pop() // json-object
     const difficulty: number = blockheader.difficulty
