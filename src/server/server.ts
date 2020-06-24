@@ -407,7 +407,7 @@ async function checkHealth(ctx: Router.IRouterContext) {
     ctx.body = { status: 'healthy' }
     ctx.status = 200
   }
-  else if (OP_ERROR) {
+  else if (OP_ERROR > Date.now() -1000 * 60 * 5 ) {  // we only keep an OP-Error for 5 min
     ctx.body = { status: 'unhealthy', message: "server error during operation" }
     ctx.status = 500
   }

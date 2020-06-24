@@ -90,12 +90,12 @@ export class UserError extends Error {
 
 }
 
-export let OP_ERROR = false; //operational error, if server encountered error during normal working
+export let OP_ERROR = 0; //operational error, if server encountered error during normal working
 
 export function setOpError(err: Error) {
   if (err) {
     //mark flag true so /health endpoint responds with error state
-    OP_ERROR = true;
+    OP_ERROR = Date.now();
 
     //logging error on console
     logger.error(" " + err.name + " " + err.message + " " + err.stack)
@@ -110,4 +110,5 @@ export function setOpError(err: Error) {
       Sentry.captureException(new Error("operation error " + err.name + " " + err.message + " " + err.stack));
     }
   }
+  
 }
