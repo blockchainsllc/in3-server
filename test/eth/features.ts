@@ -48,11 +48,14 @@ import { RPC } from '../../src/server/rpc';
 import * as clientRPC from '../utils/clientRPC'
 import { toHex } from 'in3-common/js/src/util/util'
 import EthHandler from '../../src/modules/eth/EthHandler'
+import { resetSupport} from '../../src/modules/eth/proof'
 
 const toNumber = util.toNumber
 const getAddress = util.getAddress
 
 describe('Features', () => {
+
+  beforeEach(resetSupport)
 
   it('check auto update nodelist', async () => {
 

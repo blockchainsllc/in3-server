@@ -35,6 +35,7 @@
 
 
 const Sentry = require('@sentry/node')
+import * as logger from './logger'
 
 /**
  * creates a Error with the capability to report it to Sentry.
@@ -87,4 +88,27 @@ export class UserError extends Error {
         }
     }
 
+}
+
+export let OP_ERROR = 0; //operational error, if server encountered error during normal working
+
+export function setOpError(err: Error) {
+  if (err) {
+    //mark flag true so /health endpoint responds with error state
+    OP_ERROR = Date.now();
+
+    //logging error on console
+    logger.error(" " + err.name + " " + err.message + " " + err.stack)
+
+    //sending error to sentry
+    if (process.env.SENTRY_ENABLE === 'true') {
+      Sentry.configureScope((scope) => {
+        scope.setTag("server", "checkHealth");
+        scope.setTag("unhealthy", "server operation error");
+        scope.setExtra("ctx", err.name + " " + err.message + " " + err.stack)
+      });
+      Sentry.captureException(new Error("operation error " + err.name + " " + err.message + " " + err.stack));
+    }
+  }
+  
 }

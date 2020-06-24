@@ -42,6 +42,7 @@ import { TestTransport, getTestClient } from '../utils/transport'
 import { deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
 import * as logger from 'in3-common/js/test/util/memoryLogger'
+import { resetSupport} from '../../src/modules/eth/proof'
 
 const toHex = util.toHex
 const getAddress = util.getAddress
@@ -52,6 +53,8 @@ const toNumber = util.toNumber
 const pk = '0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
 
 describe('ETH Standard JSON-RPC', () => {
+
+  beforeEach(resetSupport)
   it('eth_blockNumber', async () => {
     const test = new TestTransport(3) // create a network of 3 nodes
     const client = await test.createClient()

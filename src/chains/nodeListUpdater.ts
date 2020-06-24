@@ -40,7 +40,7 @@ import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig, WhiteList }
 import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
-import { setOpError } from '../server/server'
+import { setOpError } from '../util/sentryError'
 import axios from 'axios'
 
 
@@ -171,7 +171,10 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
 
   } catch (e) {
     //sending call to adapter
+    nodeList.nodes = null
+    delete nodeList.proof 
     setOpError(e);
+
   }
 }
 
@@ -280,6 +283,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   //  (handler as any).isUpdating = isUpdating = []
 
   //  try {
+  
 
   const contractVersion2 = await updateContractAdr(handler, list)
 
@@ -417,7 +421,7 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
 
 }
 
-const healthInterval = 3600 * 1000
+const healthInterval = 900 * 1000 // every 15 min
 let isUpdating: any = null
 let isChecking: boolean = false
 function updatePerformance(handler: RPCHandler, list: ServerList) {
@@ -435,7 +439,7 @@ function updatePerformance(handler: RPCHandler, list: ServerList) {
 
   if (list.nodes && list.nodes.length && list.nodes.find(_ => !_.url.startsWith('#'))) {
     isChecking = true
-    Promise.all(list.nodes.map(async n => {
+    Promise.all(list.nodes.filter(_=>_.url).map(async n => {
       const start = Date.now()
       let healthy = await axios.get(n.url + '/health').then(_ => _.data && _.data.status === 'healthy', err => false)
       const p = n.performance || (n.performance = { count: 0, total: 0, last_failed: 0 })

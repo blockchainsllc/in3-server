@@ -40,6 +40,7 @@ WORKDIR /app
 
 ARG NPM_REGISTRY_TOKEN
 ARG CI_COMMIT_SHA
+ARG VERSION
 ENV VERSION_SHA=$CI_COMMIT_SHA
 
 
@@ -51,6 +52,10 @@ RUN apt-get update && apt-get install -y build-essential python g++ cmake \
 
 FROM node:12
 WORKDIR /app
+ARG CI_COMMIT_SHA
+ARG VERSION
+ENV VERSION_SHA=$CI_COMMIT_SHA
+ENV VERSION=$VERSION
 COPY --from=build /app/js /app/js
 COPY --from=build /app/contracts /app/contracts
 COPY --from=build /app/node_modules/in3-contracts/contracts/* /app/contracts/

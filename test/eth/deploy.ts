@@ -41,8 +41,11 @@ import Client, { chainData } from 'in3'
 import { registerNodes } from '../../src/util/registry';
 import * as logger from '../../src/util/logger'
 import { LoggingAxiosTransport, getTestClient, TestTransport } from '../utils/transport'
+import { resetSupport} from '../../src/modules/eth/proof'
 
 describe('Deploying Contracts', () => {
+
+  beforeEach(resetSupport)
   it('deploy and register servers', async () => {
 
     const test = await TestTransport.createWithRegisteredNodes(1)

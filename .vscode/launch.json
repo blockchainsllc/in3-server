@@ -42,6 +42,28 @@
     },
     {
       "type": "node",
+      "request": "launch",
+      "name": "JSON Tests",
+      "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+      "args": [
+        "-u",
+        "tdd",
+        "--timeout",
+        "999999",
+        "--colors",
+        "${workspaceFolder}/js/test/JSONTest/JsonTests.js"
+      ],
+      "outFiles": [
+        "${workspaceRoot}/js/**/*.js"
+      ],
+      "sourceMaps": true,
+      "internalConsoleOptions": "openOnSessionStart",
+      "env": {
+        "CI": "true" 
+           }
+    },
+    {
+      "type": "node",
       "request": "attach",
       "name": "Attach",
       "port": 9229
@@ -55,8 +77,8 @@
         "--chain=0x1",
         "--rpcUrl=https://rpc.slock.it/mainnet/geth-pruned",
         "--registryRPC=https://rpc.slock.it/mainnet",
-        "--minBlockHeight=0",
-        "--registry=0x40f1929b349107a65e705cdbe13c496840e12d51",
+        "--minBlockHeight=6",
+        "--registry=0x6c095a05764a23156efd9d603eada144a9b1af33",
         "--persistentFile=false"
       ],
       "outFiles": [
@@ -73,13 +95,18 @@
         "--rpcUrl=https://slockit:slockit@rpc.slock.it/bitcoin",
         "--registryRPC=https://rpc.slock.it/goerli",
         "--minBlockHeight=0",
-        "--registry=0x635cccc1db6fc9e3b029814720595092affba12f",
+        "--registry=0x8fd5c32d3eb1588efedbb5a321c04991e3865e9d",
         "--persistentFile=false",
-        "--handler=btc"
+        "--handler=btc",
+        "--logging-level=debug"
       ],
       "outFiles": [
         "${workspaceFolder}/js/**/*.js"
-      ]
+      ],
+      "env": {
+        "IN3VERBOSERPC":"1"
+      },
+      
     },
     {
       "type": "node",

@@ -37,7 +37,7 @@ const Sentry = require('@sentry/node');
 import * as promClient from 'prom-client';
 
 import * as logger from '../util/logger'
-import { SentryError, UserError } from '../util/sentryError'
+import { SentryError, UserError,OP_ERROR, setOpError } from '../util/sentryError'
 import * as Koa from 'koa'
 import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
@@ -51,6 +51,7 @@ import { encodeObject } from '../util/binjson'
 import { checkBudget } from './clients'
 import { in3ProtocolVersion } from '../types/constants'
 import axios from 'axios'
+import {writeFileSync} from 'fs'
 
 
 import requestTime from '../util/koa/requestTime'
@@ -123,7 +124,6 @@ let AUTO_REGISTER_FLAG: boolean
 if (config.chains[Object.keys(config.chains)[0]].autoRegistry)
   AUTO_REGISTER_FLAG = true
 let INIT_ERROR = false;
-let OP_ERROR = false; //operational error, if server encountered error during normal working
 
 export const app = new Koa()
 const router = new Router()
@@ -181,6 +181,7 @@ router.post(/.*/, async ctx => {
   // find ip
   const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
   const ua = ctx.headers['User-Agent'] || ctx.header['user-agent'] || 'no-ua'
+  let responseData = null
 
   try {
     // check for valid req
@@ -198,19 +199,32 @@ router.post(/.*/, async ctx => {
       histRequestTime.labels("post", "dos_protect", ua, stats ? 'false' : 'true').observe(Date.now() - startTime);
       return
     }
+
+    if (process.env.IN3TEST) {
+      const json = JSON.stringify({
+        request:requests[0],
+        descr: process.env.IN3TEST,
+        handler: rpc.handlers[Object.keys(rpc.handlers)[0]].config.handler || 'eth',
+      })
+      writeFileSync(process.env.IN3TEST,'['+json.substr(0,json.length-1)+',"mock_responses":[','utf8')
+    }
+
+
     // assign ip
     requests.forEach(_ => (_ as any).ip = ip)
+
+
 
     const result = await rpc.handle(requests)
 
     const res = requests.length && requests[0].in3 && requests[0].in3.useRef ? cbor.createRefs(result) : result
-    let body = Array.isArray(ctx.request.body) ? res : res[0]
+    responseData = Array.isArray(ctx.request.body) ? res : res[0]
     if (requests.length && requests[0].in3 && requests[0].in3.useBinary) {
       ctx.set('content-type', 'application/in3')
-      ctx.body = encodeObject(body)
+      ctx.body = encodeObject(responseData)
     }
     else
-      ctx.body = body
+      ctx.body = responseData
 
     histRequestTime.labels("post", "ok", ua, stats ? 'false' : 'true').observe(Date.now() - startTime);
 
@@ -218,7 +232,7 @@ router.post(/.*/, async ctx => {
   } catch (err) {
     histRequestTime.labels("post", "error", ua, '').observe(Date.now() - startTime);
     ctx.status = err.status || 500
-    ctx.body = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
+    ctx.body = responseData = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
     Sentry.withScope(scope => {
       scope.addEventProcessor(event => Sentry.Handlers.parseRequest(event, ctx.request));
       Sentry.configureScope((scope) => {
@@ -229,7 +243,8 @@ router.post(/.*/, async ctx => {
     });
 
   }
-
+  if (process.env.IN3TEST) 
+    writeFileSync(process.env.IN3TEST,'],"expected_result":'+JSON.stringify(responseData)+'}]', {encoding: 'utf8',flag:'a'})
 })
 
 router.get(/.*/, async ctx => {
@@ -384,20 +399,24 @@ checkNodeSync(() =>
     process.exit(1)
   })
 )
-
+const startTime = Date.now()
 async function checkHealth(ctx: Router.IRouterContext) {
+
+  const version = process.env.VERSION || 'Unknown'
+  const running = Math.floor((Date.now() - startTime)/1000)
+  const name = (rpc.conf.profile && rpc.conf.profile.name) || 'Anonymous'
 
   //lies to the rancher that it is healthy to avoid restart loop
   if (INIT_ERROR && AUTO_REGISTER_FLAG) {
-    ctx.body = { status: 'healthy' }
+    ctx.body = { status: 'healthy', version, running, name }
     ctx.status = 200
   }
-  else if (OP_ERROR) {
-    ctx.body = { status: 'unhealthy', message: "server error during operation" }
+  else if (OP_ERROR > Date.now() -1000 * 60 * 5 ) {  // we only keep an OP-Error for 5 min
+    ctx.body = { status: 'unhealthy', message: "server error during operation" , version , running, name}
     ctx.status = 500
   }
   else if (INIT_ERROR) {
-    ctx.body = { status: 'unhealthy', message: "server initialization error" }
+    ctx.body = { status: 'unhealthy', message: "server initialization error" , version, running, name }
     ctx.status = 500
     //  throw new SentryError("server initialization error", "server_status", "unhealthy")
     if (process.env.SENTRY_ENABLE === 'true') {
@@ -411,7 +430,7 @@ async function checkHealth(ctx: Router.IRouterContext) {
   }
   else {
     const status = await Promise.all(Object.keys(rpc.handlers).map(_ => rpc.handlers[_].health())).then(_ => _.reduce((p, c) => c.status === 'healthy' ? p : c, { status: 'healthy' }))
-    ctx.body = status
+    ctx.body = { version, running, name, ...status}
     ctx.status = status.status === 'healthy' ? 200 : 500
   }
 
@@ -436,6 +455,10 @@ async function initError(ctx: Router.IRouterContext) {
 
 async function getVersion(ctx: Router.IRouterContext) {
 
+  if (process.env.VERSION) {
+    ctx.body = process.env.VERSION
+    ctx.status = 200
+  }
   if (process.env.VERSION_SHA) {
     ctx.body = process.env.VERSION_SHA
     ctx.status = 200
@@ -493,24 +516,4 @@ async function sendToNode(config: IN3RPCConfig, request: RPCRequest) {
       logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + url)
       throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + url)
     }).then(res => { return res })
-}
-
-export function setOpError(err: Error) {
-  if (err) {
-    //mark flag true so /health endpoint responds with error state
-    OP_ERROR = true;
-
-    //logging error on console
-    logger.error(" " + err.name + " " + err.message + " " + err.stack)
-
-    //sending error to sentry
-    if (process.env.SENTRY_ENABLE === 'true') {
-      Sentry.configureScope((scope) => {
-        scope.setTag("server", "checkHealth");
-        scope.setTag("unhealthy", "server operation error");
-        scope.setExtra("ctx", err.name + " " + err.message + " " + err.stack)
-      });
-      Sentry.captureException(new Error("operation error " + err.name + " " + err.message + " " + err.stack));
-    }
-  }
 }
