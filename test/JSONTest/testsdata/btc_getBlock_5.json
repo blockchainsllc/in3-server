@@ -10,7 +10,7 @@
       ],
       "in3": { "finality": 8, "verification": "proof" }
     },
-    "descr": "BTC-Tests - getBlock: get a block the end of a dap (block #403196)",
+    "descr": "BTC-Tests - getBlock: get a block the end of a dap (block #403196, dap 200)",
     "handler": "btc",
     "mock_responses": [
       [

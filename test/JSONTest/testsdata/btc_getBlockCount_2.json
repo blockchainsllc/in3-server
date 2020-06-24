@@ -1,0 +1,24 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getblockcount",
+      "params": [
+        "00000000000000000000140a7289f3aada855dfd23b0bb13bb5502b0ca60cdd9"
+      ],
+      "in3": { "finality": 8, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - getBlockCount: call with wrong amount of parameters",
+    "handler": "btc",
+    "mock_responses": [],
+    "expected_result": {
+      "id": 1,
+      "error": {
+        "code": -32602,
+        "message": "getblockcount : params should NOT have more than 0 items"
+      },
+      "jsonrpc": "2.0"
+    }
+  }
+]

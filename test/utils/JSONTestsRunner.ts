@@ -49,7 +49,7 @@ export async function runTests(files: string[]): Promise<{ descr: string, c: num
       c++
       const result = await runTest(test, c)
       allResults.push(result)
-      console.log(addSpace('' + result.c, 3) + ' : ' + addSpace(result.descr, 85, '.', result.success ? '' : '31') + ' ' + addSpace(result.success ? 'OK' : result.error, 0, ' ', result.success ? '32' : '31'))
+      console.log(addSpace('' + result.c, 3) + ' : ' + addSpace(result.descr, 110, '.', result.success ? '' : '31') + ' ' + addSpace(result.success ? 'OK' : result.error, 0, ' ', result.success ? '32' : '31'))
 
     }
   }
@@ -93,7 +93,7 @@ async function runTest(testData: any, c: number) {
   }
   catch (err) {
     // catch error case
-    if (err.message.substr(14) == testData.expected_result.error.message) {
+    if (err.message.indexOf(testData.expected_result.error.message) != -1) {
       result.success = true
     } else
     result.error = err
