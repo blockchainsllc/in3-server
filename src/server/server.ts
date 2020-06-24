@@ -399,20 +399,23 @@ checkNodeSync(() =>
     process.exit(1)
   })
 )
-
+const startTime = Date.now()
 async function checkHealth(ctx: Router.IRouterContext) {
+
+  const version = process.env.VERSION || 'Unknown'
+  const running = Math.floor((Date.now() - startTime)/1000)
 
   //lies to the rancher that it is healthy to avoid restart loop
   if (INIT_ERROR && AUTO_REGISTER_FLAG) {
-    ctx.body = { status: 'healthy' }
+    ctx.body = { status: 'healthy', version, running }
     ctx.status = 200
   }
   else if (OP_ERROR > Date.now() -1000 * 60 * 5 ) {  // we only keep an OP-Error for 5 min
-    ctx.body = { status: 'unhealthy', message: "server error during operation" }
+    ctx.body = { status: 'unhealthy', message: "server error during operation" , version , running}
     ctx.status = 500
   }
   else if (INIT_ERROR) {
-    ctx.body = { status: 'unhealthy', message: "server initialization error" }
+    ctx.body = { status: 'unhealthy', message: "server initialization error" , version, running }
     ctx.status = 500
     //  throw new SentryError("server initialization error", "server_status", "unhealthy")
     if (process.env.SENTRY_ENABLE === 'true') {
@@ -426,7 +429,7 @@ async function checkHealth(ctx: Router.IRouterContext) {
   }
   else {
     const status = await Promise.all(Object.keys(rpc.handlers).map(_ => rpc.handlers[_].health())).then(_ => _.reduce((p, c) => c.status === 'healthy' ? p : c, { status: 'healthy' }))
-    ctx.body = status
+    ctx.body = { version, running, ...status}
     ctx.status = status.status === 'healthy' ? 200 : 500
   }
 
@@ -451,6 +454,10 @@ async function initError(ctx: Router.IRouterContext) {
 
 async function getVersion(ctx: Router.IRouterContext) {
 
+  if (process.env.VERSION) {
+    ctx.body = process.env.VERSION
+    ctx.status = 200
+  }
   if (process.env.VERSION_SHA) {
     ctx.body = process.env.VERSION_SHA
     ctx.status = 200
