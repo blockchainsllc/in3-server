@@ -111,14 +111,15 @@ export default class BTCHandler extends BaseHandler {
 
   async getBlock(hash: string, json: number, finality: number = 0, r: any) {
     if (json === undefined) json = 1
-    // can we get the block out of the cache?
+  
     let [block, blockHeight] = await Promise.all([
       this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult),
       json ? undefined : this.blockCache.getBlockHeaderByHash([hash], true).then(_ => _.pop().height)
     ])
 
-    if (blockHeight === undefined && block) blockHeight = block.height
+    if (json) this.blockCache.setBlock(block) // save block in cache
 
+    if (blockHeight === undefined && block) blockHeight = block.height
 
     const proof: any = {}
     await Promise.all([
