@@ -1,0 +1,23 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "in3_proofTarget",
+      "params": [250, 250, 10, 5, 10],
+      "in3": { "finality": 8, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - proofTarget: target dap equal to verified dap",
+    "handler": "btc",
+    "mock_responses": [],
+    "expected_result": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "error": {
+        "code": -32602,
+        "message": "target dap needs to be different from verified dap"
+      },
+      "in3": { "lastNodeList": 2940599 }
+    }
+  }
+]

@@ -27,6 +27,7 @@ import { max } from 'bn.js'
 import { hash } from 'in3-common/js/src/modules/eth/serialize'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { BTCCache, Coinbase } from './btc_cache'
+import { UserError } from '../../util/sentryError'
 
 interface DAP {
   dapnumber: number
@@ -270,6 +271,12 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async in3_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, limit?: number) {
+
+    if (targetDap === verifiedDap) {
+      throw new UserError("target dap needs to be different from verified dap", -32602 )
+    }
+
+    if (maxDap === 0) maxDap = 1 // minimum distance between two daps
 
     if (limit === 0 || limit > 40 || !limit) limit = 40 // prevent DoS (internal max_limit = 40)
 
