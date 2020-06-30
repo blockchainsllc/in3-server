@@ -105,7 +105,7 @@ export default class BTCHandler extends BaseHandler {
 
     // get headers
     const headers: string[] = (await this.blockCache.getBlockHeaderByNumber(numbers, false)).map(_ => _.toString('hex'))
-
+    
     // now we simply concate all headers
     return '0x' + headers.join('')
   }
@@ -272,55 +272,49 @@ export default class BTCHandler extends BaseHandler {
 
   async in3_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, limit?: number) {
 
+    if (maxDap <= 0) throw new UserError("number of daps between two daps has to be greater than 0", -32602 )
+    
     if (targetDap === verifiedDap) {
-      throw new UserError("target dap needs to be different from verified dap", -32602 )
+      return { result: [] } // return an empty array
     }
 
-    if (maxDap === 0) maxDap = 1 // minimum distance between two daps
+    if (maxDiff <= 0) maxDap = 1 // all daps between verified and target have to be in the result
+                                 // to avoid many loop passes, maxDap is set to 1
 
-    if (limit === 0 || limit > 40 || !limit) limit = 40 // prevent DoS (internal max_limit = 40)
+    if (limit <= 0 || limit > 40 || !limit) limit = 40 // prevent DoS (internal max_limit = 40)
 
-    let resultDaps: DAP[] = [] // array of daps that are in the path
-    let compare: DAP[] = [] // array to save 2 dap numbers to compare
+    let path: DAP[] = [] // array of daps that are in the path
+    let compare: DAP[] = [] // array to save 2 daps to compare
 
     let boolLimit, added = false
+    let nextdap: number
 
-    let start, end
-    if (targetDap < verifiedDap) {
-      start = targetDap
-      end = verifiedDap
-    } else {
-      start = verifiedDap
-      end = targetDap
-    }
+    let past: boolean = targetDap < verifiedDap
 
-    compare.push(await this.getDap(start)) // set first element to compare with (verifiedDap)
+    compare.push(await this.getDap(verifiedDap))
 
-    // add daps to resultDaps
-    while (!boolLimit) {
+    while(!boolLimit) {
+      past ? nextdap = compare[0].dapnumber - maxDap : nextdap = compare[0].dapnumber + maxDap // calculate dap to compare with
 
-      let nextdap: number = compare[0].dapnumber + maxDap // calculate dap to compare with
+      if ((past && nextdap <= targetDap) || (!past && nextdap >= targetDap)) {
+        nextdap = targetDap
+        boolLimit = true
+      } 
 
-      if (nextdap >= end) {
-        nextdap = end  // set next dap to one dap lower the end
-        boolLimit = true // last loop
-      }
-
-      compare.push(await this.getDap(nextdap)) // push dap to compare array
+      compare.push(await this.getDap(nextdap))
       added = false
 
-      // repeat as long as no dap was added to the result
-      while (!added) {
+      while(!added) {
         if (isWithinLimits(compare[0].target, compare[1].target, maxDiff)) {
-          if (nextdap < end) resultDaps.push(compare[1]) // add to result if it's not the last dap
+          if ((past && nextdap > targetDap) || (!past && nextdap < targetDap)) 
+            path.push(compare[1]) // add to result (if it's not the target dap)
           compare.shift()
           added = true
-          if (resultDaps.length === limit) boolLimit = true // check maximum limit of daps in result
-        }
-        else {
-          // dap is not within limits -> try it with a different dap (nextdap--)
+          if (path.length === limit) boolLimit = true
+        } else {
+          // dap is not within limit - try with a different dap
           compare.pop()
-          nextdap--
+          past ? nextdap++ : nextdap --
           compare.push(await this.getDap(nextdap))
           if (JSON.stringify(compare[0]) === JSON.stringify(compare[1])) {
             // no dap found that is within the limits -> return result until now (prevent endless loop)
@@ -331,13 +325,8 @@ export default class BTCHandler extends BaseHandler {
       }
     }
 
-    // result array has to be in a reversed order if targetDap is smaller than verifiedDap (so that the path is in the right way)
-    if (targetDap < verifiedDap) {
-      resultDaps.reverse()
-    }
-
     // build result (with proof data)
-    const resultArray = await Promise.all(resultDaps.map(async val => {
+    const result = await Promise.all(path.map(async val => {
 
       let resultobj: any = {} // result object will contain: dap, block, final, cbtx, cbtxMerkleProof
 
@@ -352,7 +341,7 @@ export default class BTCHandler extends BaseHandler {
       return resultobj
     }))
 
-    return { resultArray }
+    return { result }
   }
 
   async getDap(_dapnumber: number): Promise<DAP> {
@@ -407,17 +396,9 @@ export function isWithinLimits(start: string, dst: string, max_diff: number): bo
   val += Math.floor((max_diff * val) / 100)
   value.writeUInt32BE(val, s)
 
-  for (let i = 0; i < 32; i++) {
-    if (value[i] > limit[i]) {
+  if (Buffer.compare(value, limit) <= 0 ) return true
 
-      return false
-    }
-    if (value[i] < limit[i]) {
-      return true
-    }
-  }
-
-  return true
+  return false
 }
 
 
