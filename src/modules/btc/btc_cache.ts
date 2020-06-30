@@ -120,6 +120,23 @@ export class BTCCache {
         return results.map(_ => {return {cbtx: _.cbtx, txids: _.txids}})
     }
 
+    async setBlock(block: BTCBlock) {
+
+        const blockinfo: BTCCacheValue = this.getOrCreate(block.hash)
+
+        if (!blockinfo.height) blockinfo.height = block.height
+        if (!blockinfo.header) blockinfo.header = serialize_blockheader(block)
+        if (!blockinfo.cbtx) {
+            const cbtx: string = await this.handler.getFromServer({method: 'getrawtransaction', params: [block.tx[0], false, block.hash] }).then(asResult)
+            blockinfo.cbtx = Buffer.from(cbtx, 'hex')
+        } 
+        if (!blockinfo.txids) blockinfo.txids = block.tx.map(_ => Buffer.from(_, 'hex'))
+
+        if (!(this.data.has((block.height).toString()))) {
+            this.data.set((block.height).toString(), blockinfo) // register new key (block number)
+        }
+    }
+
     getOrCreate(key:string):BTCCacheValue {
         let value = this.data.get(key)
         if (!value) {
