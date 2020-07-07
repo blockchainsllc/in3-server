@@ -272,16 +272,24 @@ export default class BTCHandler extends BaseHandler {
 
   async in3_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, limit?: number) {
 
-    if (maxDap <= 0) throw new UserError("number of daps between two daps has to be greater than 0", -32602 )
+    if (maxDap === 0) throw new UserError("number of daps between two daps has to be greater than 0", -32602 )
+
+    if (finality * limit > 1000 ) throw new UserError("maximum amount of finality headers per request is 1000", -32602)
+
+    const bn: number = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult)
+    const currentDap = Math.floor(bn / 2016)
+
+    if ((targetDap > currentDap) || (verifiedDap > currentDap)) throw new UserError("given dap isn't existing yet", -16001)
     
-    if (targetDap === verifiedDap) {
+    // if difference is only 1, we can return an empty array as well (array will be empty anyway - save computational power) DO IT OR NOT?
+    if ((targetDap === verifiedDap) || (Math.abs(verifiedDap - targetDap) === 1)) {
       return { result: [] } // return an empty array
     }
 
-    if (maxDiff <= 0) maxDap = 1 // all daps between verified and target have to be in the result
-                                 // to avoid many loop passes, maxDap is set to 1
+    if (maxDiff === 0) maxDap = 1 // all daps between verified and target have to be in the result
+                                  // to avoid many loop passes, maxDap is set to 1
 
-    if (limit <= 0 || limit > 40 || !limit) limit = 40 // prevent DoS (internal max_limit = 40)
+    if (limit === 0 || limit > 40 || !limit) limit = 40 // prevent DoS (internal max_limit = 40)
 
     let path: DAP[] = [] // array of daps that are in the path
     let compare: DAP[] = [] // array to save 2 daps to compare
@@ -305,8 +313,9 @@ export default class BTCHandler extends BaseHandler {
       added = false
 
       while(!added) {
-        if (isWithinLimits(compare[0].target, compare[1].target, maxDiff)) {
-          if ((past && nextdap > targetDap) || (!past && nextdap < targetDap)) 
+        // if target decreased it's always accepted - otherwise it has to be check with isWithinLimits
+        if ((compare[0].target > compare[1].target) || (isWithinLimits(compare[0].target, compare[1].target, maxDiff))) {
+          if ((past && nextdap > targetDap) || (!past && nextdap < targetDap)) // maybe just: if (nextdap != targetdap)
             path.push(compare[1]) // add to result (if it's not the target dap)
           compare.shift()
           added = true
@@ -314,7 +323,7 @@ export default class BTCHandler extends BaseHandler {
         } else {
           // dap is not within limit - try with a different dap
           compare.pop()
-          past ? nextdap++ : nextdap --
+          past ? nextdap++ : nextdap--
           compare.push(await this.getDap(nextdap))
           if (JSON.stringify(compare[0]) === JSON.stringify(compare[1])) {
             // no dap found that is within the limits -> return result until now (prevent endless loop)
@@ -354,7 +363,7 @@ export default class BTCHandler extends BaseHandler {
     const bits = reverseCopy(blockheader.substr(144, 8)) // get bits
     const length = parseInt(bits.substr(0, 2), 16) // length = first 2 digits of bits-field parsed to integer
     const coefficient = bits.substr(2, 6) // coefficient = last 6 digits of bits-field
-    const target = (coefficient.padEnd(length * 2, '0')).padStart(64, '0') // pads the coefficient with 0 to the given length and calculates bigint
+    const target = (coefficient.padEnd(length * 2, '0')).padStart(64, '0') // pads the coefficient with 0 to the given length
 
     return { dapnumber: dapnumber, blockhash: blockhash, blockheader: blockheader, bits: bits, target: target }
   }
@@ -369,6 +378,8 @@ export default class BTCHandler extends BaseHandler {
 // ToDo: Add test
 // check if start + (max_diff/100)*start > dst
 export function isWithinLimits(start: string, dst: string, max_diff: number): boolean {
+
+  console.log("entered isWithinLimits")
 
   let limit = Buffer.from(start, 'hex')
   let value = Buffer.from(dst, 'hex')
