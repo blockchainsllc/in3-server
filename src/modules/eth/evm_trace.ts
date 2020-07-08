@@ -216,7 +216,7 @@ export function analyse(trace, storageAccount: string, result?: any, level = '')
       else if (op === 'DELEGATECALL')
         getAccount(stack[stack.length - 2]).code = true
       else if (op === 'STATICCALL')
-        getAccount(stack[stack.length - 2]).code = true
+        getAccount(ac = stack[stack.length - 2]).code = true
       else
         throw new Error('invalid opcode for sub call ' + op)
 
