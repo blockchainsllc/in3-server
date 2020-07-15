@@ -313,20 +313,23 @@ export default class BTCHandler extends BaseHandler {
       added = false
 
       while(!added) {
-        // if target decreased it's always accepted - otherwise it has to be check with isWithinLimits
+        // always accept a decreased target - otherwise it has to be checked with isWithinLimits
         if ((compare[0].target > compare[1].target) || (isWithinLimits(compare[0].target, compare[1].target, maxDiff))) {
-          if ((past && nextdap > targetDap) || (!past && nextdap < targetDap)) // maybe just: if (nextdap != targetdap)
+          (compare[0].target > compare[1].target) ? console.log("target accepted (kleiner geworden)") : console.log("within limit(isWithinLimits returned true)")
+          if (nextdap != targetDap)
             path.push(compare[1]) // add to result (if it's not the target dap)
           compare.shift()
           added = true
           if (path.length === limit) boolLimit = true
         } else {
           // dap is not within limit - try with a different dap
+          console.log("not wihtin limits")
           compare.pop()
           past ? nextdap++ : nextdap--
           compare.push(await this.getDap(nextdap))
           if (JSON.stringify(compare[0]) === JSON.stringify(compare[1])) {
             // no dap found that is within the limits -> return result until now (prevent endless loop)
+            console.log("no dap found that is within the limits -> return result until now (prevent endless loop)")
             boolLimit = true
             break
           }
@@ -353,19 +356,18 @@ export default class BTCHandler extends BaseHandler {
     return { result }
   }
 
-  async getDap(_dapnumber: number): Promise<DAP> {
+  async getDap(dapnum: number): Promise<DAP> {
 
-    const blockheader: string = (await this.blockCache.getBlockHeaderByNumber([(_dapnumber * 2016).toString()], false)).pop().toString('hex')
+    const blockheader: string = (await this.blockCache.getBlockHeaderByNumber([(dapnum * 2016).toString()], false)).pop().toString('hex')
     // cache is now filled with hash, header and height for this block
 
-    const dapnumber = _dapnumber
-    const blockhash = this.blockCache.data.get((_dapnumber * 2016).toString()).hash.toString('hex') // we can also hash the block header to get the hash (what's better?)
+    const blockhash = this.blockCache.data.get((dapnum * 2016).toString()).hash.toString('hex') // we can also hash the block header to get the hash (what's better?)
     const bits = reverseCopy(blockheader.substr(144, 8)) // get bits
     const length = parseInt(bits.substr(0, 2), 16) // length = first 2 digits of bits-field parsed to integer
     const coefficient = bits.substr(2, 6) // coefficient = last 6 digits of bits-field
     const target = (coefficient.padEnd(length * 2, '0')).padStart(64, '0') // pads the coefficient with 0 to the given length
 
-    return { dapnumber: dapnumber, blockhash: blockhash, blockheader: blockheader, bits: bits, target: target }
+    return { dapnumber: dapnum, blockhash: blockhash, blockheader: blockheader, bits: bits, target: target }
   }
 
   health(): Promise<{ status: string, message?: string }> {
@@ -375,24 +377,13 @@ export default class BTCHandler extends BaseHandler {
 
 }
 
-// ToDo: Add test
-// check if start + (max_diff/100)*start > dst
 export function isWithinLimits(start: string, dst: string, max_diff: number): boolean {
 
-  console.log("entered isWithinLimits")
+  console.log(start)
+  console.log(dst)
 
-  let limit = Buffer.from(start, 'hex')
-  let value = Buffer.from(dst, 'hex')
-  /* 
-  The compare() method compares two buffer objects and returns a number defining their differences:
-    0 if they are equal
-    1 if buf1 is higher than buf2
-    -1 if buf1 is lower than buf2
-  */
-  if (Buffer.compare(limit, value) === -1) {
-    // swap
-    [limit, value] = [value, limit]
-  }
+  let value = Buffer.from(start, 'hex')
+  let limit = Buffer.from(dst, 'hex')
 
   // multiply
   let s = 28
@@ -404,10 +395,15 @@ export function isWithinLimits(start: string, dst: string, max_diff: number): bo
   }
 
   let val = value.readUInt32BE(s)
-  val += Math.floor((max_diff * val) / 100)
-  value.writeUInt32BE(val, s)
 
-  if (Buffer.compare(value, limit) <= 0 ) return true
+  val += Math.floor((max_diff * val) / 100)
+  value.writeUInt32BE(val, s) 
+ 
+  /* The compare() method compares two buffer objects and returns a number defining their differences:
+    0 if they are equal
+    1 if buf1 is higher than buf2
+    -1 if buf1 is lower than buf2 */
+  if (Buffer.compare(value, limit) >= 0 ) return true
 
   return false
 }
