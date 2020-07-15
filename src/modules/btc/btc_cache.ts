@@ -155,6 +155,6 @@ function asResult(res: RPCResponse): any {
     if (!res) throw new Error("No result")
     if (res.error)
       throw new Error((res.error as any).message || res.error + '')
-    if (res.result === undefined) throw new Error("No result")
+    if (res.result === undefined || res.result === null) throw new Error("No result")
     return res.result
 }
