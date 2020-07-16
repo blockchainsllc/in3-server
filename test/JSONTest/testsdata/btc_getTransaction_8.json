@@ -1,0 +1,22 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getrawtransaction",
+      "params": [],
+      "in3": { "finality": 8, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - getTransaction: call with wrong amount of parameters",
+    "handler": "btc",
+    "mock_responses": [],
+    "expected_result": {
+      "id": 1,
+      "error": {
+        "code": -32602,
+        "message": "getrawtransaction : params should NOT have fewer than 1 items"
+      },
+      "jsonrpc": "2.0"
+    }
+  }
+]

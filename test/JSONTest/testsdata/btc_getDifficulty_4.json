@@ -1,0 +1,24 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getdifficulty",
+      "params": [
+        "00000000000000000302d31278d91e240178fe8d8f88fb01281defc34f6ec762"
+      ],
+      "in3": { "finality": 8, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - getDifficulty: call with a wrong parameter",
+    "handler": "btc",
+    "mock_responses": [],
+    "expected_result": {
+      "id": 1,
+      "error": {
+        "code": -32602,
+        "message": "getdifficulty : params[0] (the blocknumber) must be one of 'latest','earliest','pending' or should be number"
+      },
+      "jsonrpc": "2.0"
+    }
+  }
+]
