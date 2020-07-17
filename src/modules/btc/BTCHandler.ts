@@ -274,22 +274,23 @@ export default class BTCHandler extends BaseHandler {
 
     if (maxDap === 0) throw new UserError("number of daps between two daps has to be greater than 0", -32602 )
 
+    if (limit === 0 || limit > 40 || !limit) limit = 40 // prevent DoS (internal max_limit = 40)
+
     if (finality * limit > 1000 ) throw new UserError("maximum amount of finality headers per request is 1000", -32602)
+
+    if (targetDap === 0 || verifiedDap === 0) throw new UserError("verified and target dap can't be genesis dap", -32602)
 
     const bn: number = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult)
     const currentDap = Math.floor(bn / 2016)
 
     if ((targetDap > currentDap) || (verifiedDap > currentDap)) throw new UserError("given dap isn't existing yet", -16001)
     
-    // if difference is only 1, we can return an empty array as well (array will be empty anyway - save computational power) DO IT OR NOT?
     if ((targetDap === verifiedDap) || (Math.abs(verifiedDap - targetDap) === 1)) {
       return { result: [] } // return an empty array
     }
 
     if (maxDiff === 0) maxDap = 1 // all daps between verified and target have to be in the result
                                   // to avoid many loop passes, maxDap is set to 1
-
-    if (limit === 0 || limit > 40 || !limit) limit = 40 // prevent DoS (internal max_limit = 40)
 
     let path: DAP[] = [] // array of daps that are in the path
     let compare: DAP[] = [] // array to save 2 daps to compare
@@ -313,26 +314,19 @@ export default class BTCHandler extends BaseHandler {
       added = false
 
       while(!added) {
-        // always accept a decreased target - otherwise it has to be checked with isWithinLimits
-        if ((compare[0].target > compare[1].target) || (isWithinLimits(compare[0].target, compare[1].target, maxDiff))) {
-          (compare[0].target > compare[1].target) ? console.log("target accepted (kleiner geworden)") : console.log("within limit(isWithinLimits returned true)")
+        // add dap to path when
+        // target decreased OR daps are next to each other OR they are within given limits
+        if ((compare[0].target > compare[1].target) || ((Math.abs(compare[0].dapnumber - compare[1].dapnumber) === 1)) || (isWithinLimits(compare[0].target, compare[1].target, maxDiff))) {
           if (nextdap != targetDap)
-            path.push(compare[1]) // add to result (if it's not the target dap)
+            path.push(compare[1]) // add to path (if it's not the target dap)
           compare.shift()
           added = true
           if (path.length === limit) boolLimit = true
         } else {
-          // dap is not within limit - try with a different dap
-          console.log("not wihtin limits")
+          // dap doesn't fulfill conditions from above - try with a different dap
           compare.pop()
           past ? nextdap++ : nextdap--
           compare.push(await this.getDap(nextdap))
-          if (JSON.stringify(compare[0]) === JSON.stringify(compare[1])) {
-            // no dap found that is within the limits -> return result until now (prevent endless loop)
-            console.log("no dap found that is within the limits -> return result until now (prevent endless loop)")
-            boolLimit = true
-            break
-          }
         }
       }
     }
@@ -378,9 +372,6 @@ export default class BTCHandler extends BaseHandler {
 }
 
 export function isWithinLimits(start: string, dst: string, max_diff: number): boolean {
-
-  console.log(start)
-  console.log(dst)
 
   let value = Buffer.from(start, 'hex')
   let limit = Buffer.from(dst, 'hex')
