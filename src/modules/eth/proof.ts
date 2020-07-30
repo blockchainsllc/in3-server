@@ -69,9 +69,9 @@ const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 
 function createBlock(block: BlockData, verifiedHashes: string[]) {
-  if (verifiedHashes && verifiedHashes.indexOf(block.hash) >= 0)
-    return '' + parseInt(block.number as any)
-  else
+//  if (verifiedHashes && verifiedHashes.indexOf(block.hash) >= 0)
+//    return '' + parseInt(block.number as any)
+//  else
     return serialize.blockToHex(block)
 }
 

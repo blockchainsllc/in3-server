@@ -112,14 +112,15 @@ export default class BTCHandler extends BaseHandler {
 
   async getBlock(hash: string, json: number, finality: number = 0, r: any) {
     if (json === undefined) json = 1
-    // can we get the block out of the cache?
+  
     let [block, blockHeight] = await Promise.all([
       this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult),
       json ? undefined : this.blockCache.getBlockHeaderByHash([hash], true).then(_ => _.pop().height)
     ])
 
-    if (blockHeight === undefined && block) blockHeight = block.height
+    if (json) this.blockCache.setBlock(block) // save block in cache
 
+    if (blockHeight === undefined && block) blockHeight = block.height
 
     const proof: any = {}
     await Promise.all([
@@ -243,16 +244,22 @@ export default class BTCHandler extends BaseHandler {
     return { result: blockhash, in3: { proof } }
   }
 
-  async getDifficulty(_blocknumber: string, finality: number = 0, r: any) {
+  async getDifficulty(bn: string, finality: number = 0, r: any) {
     if (!finality) return null
 
+    // always fetch latest block number
+    const latestBlocknumber: number = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult)
+
     let blocknumber: number
-    if (!_blocknumber || _blocknumber === 'latest' || _blocknumber === 'earliest' || _blocknumber === 'pending') {
-      blocknumber = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult) - finality; // get latest block - finality
+    if (!bn || bn === 'latest' || bn === 'earliest' || bn === 'pending') {
+      blocknumber = latestBlocknumber - finality; // latest block - finality
     } else {
-      blocknumber = parseInt(_blocknumber)
+      blocknumber = parseInt(bn)
+      // we have to check if blocknumber + finality is already existing
+      if (blocknumber + finality > latestBlocknumber) {
+        throw new UserError("block is not final", -16001)
+      }
     }
-    // we have to check if _blocknumber + finality is already existing
 
     const blockheader: BTCBlockHeader = (await this.blockCache.getBlockHeaderByNumber([blocknumber.toString()], true)).pop() // json-object
     const difficulty: number = blockheader.difficulty

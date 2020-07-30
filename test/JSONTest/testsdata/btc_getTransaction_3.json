@@ -1,0 +1,41 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getrawtransaction",
+      "params": [
+        "1b19bd9872b0d1faa3b5713eaa2b3541c18c0e592a0dfa46a9dedc6972271ffb",
+        true,
+        "0000000000000000000e09ec3f893ebb850a4d9d8b4ecd443729f5024ddf6621"
+      ],
+      "in3": { "finality": 8, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - getTransaction: use nonexisting tx hash",
+    "handler": "btc",
+    "mock_responses": [
+        [
+            {
+              "method": "getrawtransaction",
+              "params": [
+                "1b19bd9872b0d1faa3b5713eaa2b3541c18c0e592a0dfa46a9dedc6972271ffb",
+                true,
+                "0000000000000000000e09ec3f893ebb850a4d9d8b4ecd443729f5024ddf6621"
+              ]
+            },
+            {
+              "result": null,
+              "error": { "code": -5, "message": "Error: Error: Error No such transaction found in the provided block. Use gettransaction for wallet transactions. fetching request {\"method\":\"getrawtransaction\",\"params\":[\"1b19bd9872b0d1faa3b5713eaa2b3541c18c0e592a0dfa46a9dedc6972271ffb\",true,\"0000000000000000000e09ec3f893ebb850a4d9d8b4ecd443729f5024ddf6621\"],\"id\":17,\"jsonrpc\":\"2.0\"} from https://slockit:slockit@rpc.slock.it/bitcoin" },
+              "id": 27
+            }
+          ]
+    ],
+    "expected_result": {
+      "jsonrpc": "2.0",
+      "error": {
+        "code": -32603,
+        "message": "Error: Error: Error No such transaction found in the provided block. Use gettransaction for wallet transactions. fetching request {\"method\":\"getrawtransaction\",\"params\":[\"1b19bd9872b0d1faa3b5713eaa2b3541c18c0e592a0dfa46a9dedc6972271ffb\",true,\"0000000000000000000e09ec3f893ebb850a4d9d8b4ecd443729f5024ddf6621\"],\"id\":17,\"jsonrpc\":\"2.0\"} from https://slockit:slockit@rpc.slock.it/bitcoin"
+      }
+    }
+  }
+]
