@@ -1,0 +1,23 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "in3_proofTarget",
+      "params": [10, 0, 10, 5, 10],
+      "in3": { "finality": 8, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - proofTarget: verifieddap=0",
+    "handler": "btc",
+    "mock_responses": [],
+    "expected_result": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "error": {
+        "code": -32602,
+        "message": "verified and target dap can't be genesis dap"
+      },
+      "in3": { "lastNodeList": 3056733 }
+    }
+  }
+]
