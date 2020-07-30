@@ -1,0 +1,25 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "in3_proofTarget",
+      "params": [300, 320, 5, 5, 10],
+      "in3": { "finality": 8, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - proofTarget: use verifieddap which isn't existing yet",
+    "handler": "btc",
+    "mock_responses": [
+      [
+        { "method": "getblockcount", "params": [], "id": 14, "jsonrpc": "2.0" },
+        { "result": 637330, "error": null, "id": 14 }
+      ]
+    ],
+    "expected_result": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "error": { "code": -16001, "message": "given dap isn't existing yet" },
+      "in3": { "lastNodeList": 2975379 }
+    }
+  }
+]
