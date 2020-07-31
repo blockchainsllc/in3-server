@@ -54,7 +54,7 @@ export default class BTCHandler extends BaseHandler {
   async handle(request: RPCRequest): Promise<RPCResponse> {
     const toRes = (r: any) => ({ id: request.id, jsonrpc: '2.0', ...r }) as RPCResponse
 
-    // handle special jspn-rpc
+    // handle special json-rpc
     switch (request.method) {
 
       case 'getblock':
@@ -73,7 +73,7 @@ export default class BTCHandler extends BaseHandler {
         return toRes(await this.getDifficulty(request.params[0], request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
       case 'in3_proofTarget':
         return toRes(await this.in3_proofTarget(parseInt(request.params[0]), parseInt(request.params[1]), parseInt(request.params[2]),
-          parseInt(request.params[3]), request, request.in3 && request.in3.finality || 0, request.in3 && request.in3.verification || "never", parseInt(request.params[4])))
+          parseInt(request.params[3]), request, request.in3 && request.in3.finality || 0, parseInt(request.params[4])))
       case 'scantxoutset':
         // https://bitcoincore.org/en/doc/0.18.0/rpc/blockchain/scantxoutset/
         return this.getFromServer(request)
@@ -110,16 +110,13 @@ export default class BTCHandler extends BaseHandler {
     return '0x' + headers.join('')
   }
 
-  async getBlock(hash: string, json: number, finality: number = 0, verification: string, r: any) {
+  async getBlock(hash: string, json: number = 1, finality: number = 0, verification: string = "never", r: any) {
     if (json === undefined) json = 1
 
-  
     let [block, blockHeight] = await Promise.all([
       this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult),
       json ? undefined : this.blockCache.getBlockHeaderByHash([hash], true).then(_ => _.pop().height)
     ])
-
-    if (json) this.blockCache.setBlock(block) // save block in cache
 
     if (blockHeight === undefined && block) blockHeight = block.height
 
@@ -136,14 +133,16 @@ export default class BTCHandler extends BaseHandler {
       })
     ])
 
+    if (!!json) this.blockCache.setBlock(block) // save block in cache
+
     return { result: block, in3: { proof } }
   }
 
 
-  async getBlockHeader(hash: string, json: number = 1, finality: number = 0, verification: string, r: any) {
+  async getBlockHeader(hash: string, json: number = 1, finality: number = 0, verification: string = "never", r: any) {
     if (json === undefined) json = 1
 
-    let blockheader: any // can be json-object or hex-string (hex-string if always in the cache after fetching coinbase)
+    let blockheader: any // can be json-object or hex-string
     json ? blockheader = (await this.blockCache.getBlockHeaderByHash([hash], !!json)).pop() : blockheader = ((await this.blockCache.getBlockHeaderByHash([hash], !!json)).pop()).toString('hex')
 
     if (verification === "never") 
@@ -163,8 +162,8 @@ export default class BTCHandler extends BaseHandler {
     return { result: blockheader, in3: { proof } }
   }
 
-  async getTransaction(hash: string, json: number = 1, blockhash: string = undefined, finality: number = 0, verification: string, r: any) {
-    if (json === undefined) json = 1
+  async getTransaction(hash: string, json: number = 0, blockhash: string = undefined, finality: number = 0, verification: string = "never", r: any) {
+    if (json === undefined) json = 0
     // even for json==false we get it as json from server so we know the blockhash
     const tx = await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [hash, true, blockhash] : [hash, true] }, r).then(asResult)
     if (!tx) throw new Error("Transaction not found")
@@ -176,7 +175,6 @@ export default class BTCHandler extends BaseHandler {
 
     const proof: any = {}
 
-    // get coinbase first so that the block is in the cache
     const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockhash])).shift()
 
     // after fetching the coinbase the block header and number are ALWAYS in the cache
@@ -196,7 +194,7 @@ export default class BTCHandler extends BaseHandler {
     return { result: json ? tx : tx.hex, in3: { proof } }
   }
 
-  async getBlockCount(finality: number = 0, verification: string, r: any) {
+  async getBlockCount(finality: number = 0, verification: string = "never", r: any) {
     if (!finality) return null
 
     if (verification === "never")
@@ -230,7 +228,7 @@ export default class BTCHandler extends BaseHandler {
     return { result: blocknumber, in3: { proof } }
   }
 
-  async getBestBlockHash(finality: number = 0, verification: string, r: any) {
+  async getBestBlockHash(finality: number = 0, verification: string = "never", r: any) {
     if (!finality) return null
 
     let blocknumber =  await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult)
@@ -262,7 +260,7 @@ export default class BTCHandler extends BaseHandler {
     return { result: blockhash, in3: { proof } }
   }
 
-  async getDifficulty(bn: string, finality: number = 0, verification: string, r: any) {
+  async getDifficulty(bn: string, finality: number = 0, verification: string = "never", r: any) {
     if (!finality) return null
 
     // always fetch latest block number
@@ -297,7 +295,7 @@ export default class BTCHandler extends BaseHandler {
     return { result: blockheader.difficulty, in3: { proof } }
   }
 
-  async in3_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, verification?: string, limit?: number) {
+  async in3_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, limit?: number) {
 
     if (maxDap === 0) throw new UserError("number of daps between two daps has to be greater than 0", -32602 )
 

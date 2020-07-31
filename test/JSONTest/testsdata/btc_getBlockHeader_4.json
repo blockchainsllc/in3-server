@@ -15,7 +15,7 @@
     "mock_responses": [
       [
         {
-          "method": "getblock",
+          "method": "getblockheader",
           "params": [
             "00000000000000000000140a7289f3aada855dfd23b0bb13bb5502b0ca60cdd9",
             true
@@ -24,7 +24,7 @@
         {
           "result": null,
           "error": { "code": -5, "message": "Block not found" },
-          "id": 27
+          "id": 13
         }
       ]
     ],
