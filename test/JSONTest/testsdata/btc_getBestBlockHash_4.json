@@ -1,0 +1,45 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getbestblockhash",
+      "params": [],
+      "in3": { "finality": 8, "verification": "never" }
+    },
+    "descr": "BTC-Tests - getBestBlockHash: without proof",
+    "handler": "btc",
+    "mock_responses": [
+      [
+        { "method": "getblockcount", "params": [], "id": 14, "jsonrpc": "2.0" },
+        { "result": 641601, "error": null, "id": 14 }
+      ],
+      [
+        {
+          "method": "getblockhash",
+          "params": [641601],
+          "id": 15,
+          "jsonrpc": "2.0"
+        },
+        {
+          "result": "00000000000000000001a943d8757825eb748b605e29e6ed93ce34e08bc54712",
+          "error": null,
+          "id": 15
+        }
+      ]
+    ],
+    "expected_result": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": "00000000000000000001a943d8757825eb748b605e29e6ed93ce34e08bc54712",
+      "in3": {
+        "lastNodeList": 3142655,
+        "execTime": 415,
+        "rpcTime": 413,
+        "rpcCount": 2,
+        "currentBlock": 3142655,
+        "version": "2.1.0"
+      }
+    }
+  }
+]

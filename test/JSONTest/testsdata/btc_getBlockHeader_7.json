@@ -1,0 +1,77 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getblockheader",
+      "params": [
+        "0000000000000000000f13bafd1124beb50dacee3b10c6f377e113165d863c20",
+        1
+      ],
+      "in3": { "finality": 8, "verification": "never" }
+    },
+    "descr": "BTC-Tests - getBlockHeader: without proof (block #641593, verbosity=1)",
+    "handler": "btc",
+    "mock_responses": [
+      [
+        {
+          "method": "getblockheader",
+          "params": [
+            "0000000000000000000f13bafd1124beb50dacee3b10c6f377e113165d863c20",
+            true
+          ]
+        },
+        {
+          "result": {
+            "hash": "0000000000000000000f13bafd1124beb50dacee3b10c6f377e113165d863c20",
+            "confirmations": 6,
+            "height": 641593,
+            "version": 536870912,
+            "versionHex": "20000000",
+            "merkleroot": "01ae6b1c23fcf4a03773fa9f2958c852d6693169616583a11df3584072826096",
+            "time": 1596190869,
+            "mediantime": 1596187699,
+            "nonce": 2325959332,
+            "bits": "1710b4f8",
+            "difficulty": 16847561611550.27,
+            "chainwork": "000000000000000000000000000000000000000011e70b7e847e86a43c81fa5e",
+            "nTx": 2867,
+            "previousblockhash": "0000000000000000000a87a566f474c771ba89c76017aebb647a517fe4eee954",
+            "nextblockhash": "0000000000000000000bf5d70ac19c6e53887dce956c9b6d47976c785846b2ea"
+          },
+          "error": null,
+          "id": 26
+        }
+      ]
+    ],
+    "expected_result": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {
+        "hash": "0000000000000000000f13bafd1124beb50dacee3b10c6f377e113165d863c20",
+        "confirmations": 6,
+        "height": 641593,
+        "version": 536870912,
+        "versionHex": "20000000",
+        "merkleroot": "01ae6b1c23fcf4a03773fa9f2958c852d6693169616583a11df3584072826096",
+        "time": 1596190869,
+        "mediantime": 1596187699,
+        "nonce": 2325959332,
+        "bits": "1710b4f8",
+        "difficulty": 16847561611550.27,
+        "chainwork": "000000000000000000000000000000000000000011e70b7e847e86a43c81fa5e",
+        "nTx": 2867,
+        "previousblockhash": "0000000000000000000a87a566f474c771ba89c76017aebb647a517fe4eee954",
+        "nextblockhash": "0000000000000000000bf5d70ac19c6e53887dce956c9b6d47976c785846b2ea"
+      },
+      "in3": {
+        "lastNodeList": 3142601,
+        "execTime": 180,
+        "rpcTime": 0,
+        "rpcCount": 0,
+        "currentBlock": 3142604,
+        "version": "2.1.0"
+      }
+    }
+  }
+]
