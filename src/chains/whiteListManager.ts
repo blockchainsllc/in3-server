@@ -210,7 +210,7 @@ export default class WhiteListManager {
         }
 
         if (includeProof)
-            wl.proof = await createNodeListProof(handler, wl, ['0x'.padEnd(66, '0')], blockNum)
+            wl.proof = await createNodeListProof(handler, wl, ['0x'.padEnd(66, '0')], blockNum, handler?.context)
 
         return wl
     }

@@ -31,12 +31,10 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-const Sentry = require('@sentry/node');
-
 import { Transport, AxiosTransport, NoneRejectingAxiosTransport} from '../util/transport'
 import * as serialize from'../modules/eth/serialize'
 import * as in3Util  from '../util/util'
-import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
+import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, AppContext } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
 import Watcher from './watch'
@@ -79,8 +77,9 @@ export default abstract class BaseHandler implements RPCHandler {
   healthCheck: HealthCheck
   resetRPCIndexTimer: any
   switchBackRPCTime: number
+  context: AppContext
 
-  constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
+  constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList, context?: AppContext) {
     this.config = config || {} as IN3RPCHandlerConfig
     this.transport = transport || new NoneRejectingAxiosTransport()
     this.nodeList = nodeList || { nodes: undefined }
@@ -89,6 +88,7 @@ export default abstract class BaseHandler implements RPCHandler {
     this.activeRPC = 0
     this.switchBackRPCTime = 300000 // after 5 min default first RPC will be used for all requests
     this.resetRPCIndexTimer = undefined
+    this.context = context
 
     const interval = config.watchInterval || 5
 
@@ -96,11 +96,11 @@ export default abstract class BaseHandler implements RPCHandler {
     checkPrivateKey(this.config)
 
     // create watcher checking the registry-contract for events
-    this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock)
+    this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock, this.context)
 
     //create health monitoring service
     const maxBlockTimeout = config.watchBlockTimeout ? config.watchBlockTimeout : maxWatchBlockTimeout
-    this.healthCheck = new HealthCheck(maxBlockTimeout, this.watcher, this.config)
+    this.healthCheck = new HealthCheck(maxBlockTimeout, this.watcher, this.config, undefined, this.context)
     this.watcher.on('newBlock', () => this.healthCheck.updateBlock())
 
     this.whiteListMgr = new WhiteListManager(this, config.maxWhiteListWatch, config.cacheWhiteList)
@@ -117,7 +117,7 @@ export default abstract class BaseHandler implements RPCHandler {
     return this.cache
       ? this.cache.getFromCache(request,
         this.handle.bind(this),
-        (signers, blockNumbers, verifiedHashes) => collectSignatures(this, signers, blockNumbers.map(b => ({ blockNumber: b })), verifiedHashes))
+        (signers, blockNumbers, verifiedHashes) => collectSignatures(this, signers, blockNumbers.map(b => ({ blockNumber: b })), verifiedHashes, undefined, request))
       : this.handle(request)
   }
 
@@ -162,13 +162,12 @@ export default abstract class BaseHandler implements RPCHandler {
           err.message = err.response.data.error.message || err.response.data.error
 
         logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
-        if (process.env.SENTRY_ENABLE === 'true') {
-          Sentry.configureScope((scope) => {
-            scope.setTag("BaseHandler", "getFromServer");
-            scope.setTag("nodeList-contract", this.config.registry)
-            scope.setExtra("request", request)
-          });
-        }
+
+        let sentryTags = { BaseHandler: "getFromServer", "nodeList-contract": this.config.registry }
+        let sentryExtras = { request }
+
+        request?.context?.hub?.configureScope(sentryTags, sentryExtras)
+
         histRequestTime.labels(request.method || "unknown", "error", "single").observe(Date.now() - startTime);
         //re attempt if request failed and if there are more then 1 RPC URLs are specified
         if ((err?.response?.status !== 200 || err?.message.toString().indexOf("ECONNREFUSED") != -1 || this.isProxyError(err?.code)) &&
@@ -189,16 +188,13 @@ export default abstract class BaseHandler implements RPCHandler {
           firstTestRecord=false
         }
 
-
-        if (process.env.SENTRY_ENABLE === 'true') {
-          Sentry.addBreadcrumb({
-            category: "getFromServer",
-            data: {
-              request: request,
-              response: res.result || res
-            }
-          })
-        }
+        request?.context?.hub?.addBreadcrumb({
+          category: "getFromServer",
+          data: {
+            request: request,
+            response: res.result || res
+          }
+        })
 
         if (r) {
           // TODO : add prom hsitogram
@@ -241,23 +237,16 @@ export default abstract class BaseHandler implements RPCHandler {
           else
             throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
         }).then(res => {
-          if (process.env.SENTRY_ENABLE === 'true') {
-            Sentry.configureScope((scope) => {
-              scope.setTag("BaseHanlder", "getAllFromServer");
-              scope.setTag("nodeList-contract", this.config.registry)
-              scope.setExtra("request", request)
-            });
-          }
           logger.trace('   ... send ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
-          if (process.env.SENTRY_ENABLE === 'true') {
-            Sentry.addBreadcrumb({
-              category: "getAllFromServer response",
-              data: {
-                request: request,
-                response: res.result || res
-              }
-            })
-          }
+
+          request[0]?.context?.hub?.addBreadcrumb({
+            category: "getAllFromServer response",
+            data: {
+              request: request,
+              response: res.result || res
+            }
+          })
+
           if (r) {
             // TODO : add prom hsitogram
 
@@ -292,19 +281,19 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** uses the updater to read the nodes from the contract */
   async updateNodeList(blockNumber: number): Promise<void> {
-    await updateNodeList(this, this.nodeList, blockNumber)
+    await updateNodeList(this, this.nodeList, blockNumber, this.context)
   }
 
   /** get the current nodeList */
-  async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[], includePerformance?: boolean): Promise<ServerList> {
+  async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[], includePerformance?: boolean, sourceRequest?: RPCRequest): Promise<ServerList> {
 
-    const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
+    const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses, sourceRequest?.context || this.context)
     if (nl.proof && signers && signers.length) {
       let blockNumber = nl.lastBlockNumber
 
       if (nl.proof.block)
         blockNumber = in3Util.toNumber(serialize.blockFromHex(nl.proof.block).number)
-      nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes, this.config.registryRPC)
+      nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes, this.config.registryRPC, sourceRequest)
     }
     if (!includePerformance && nl.nodes) nl.nodes.forEach(_ => {
       delete _.performance
@@ -329,7 +318,6 @@ export default abstract class BaseHandler implements RPCHandler {
   getRequestFromPath(path: string[], in3: { chainId: string; }): RPCRequest {
     return null
   }
-
 
   toCleanRequest(request: Partial<RPCRequest>): RPCRequest {
     for (let i = 0; i < request.params.length; i++) {

@@ -194,6 +194,7 @@ dockerhub-deploy:
     - sentry-cli releases new -p in3-server in3-server@${CI_COMMIT_REF_NAME}
     - sentry-cli releases deploys in3-server@${CI_COMMIT_REF_NAME} new -e ${TARGET}
     - sentry-cli releases set-commits --auto in3-server@${CI_COMMIT_REF_NAME}
+    - sentry-cli releases files in3-server@${CI_COMMIT_REF_NAME} upload-sourcemaps js/src/
 
 register-with-sentry-production:
   extends: .register-with-sentry

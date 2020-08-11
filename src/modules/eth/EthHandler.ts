@@ -35,7 +35,7 @@
 import * as in3Util from '../../util/util'
 import { Transport} from '../../util/transport'
 import * as  serialize  from './serialize'
-import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, ChainSpec } from '../../types/types'
+import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, ChainSpec, AppContext } from '../../types/types'
 import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
 import BaseHandler from '../../chains/BaseHandler'
 import { handleSign } from '../../chains/signatures';
@@ -53,9 +53,9 @@ const toNumber = in3Util.toNumber
  */
 export default class EthHandler extends BaseHandler {
 
-  constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
+  constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList, globalContext?: AppContext) {
 
-    super(config, transport, nodeList)
+    super(config, transport, nodeList, globalContext)
 
   }
 
@@ -228,8 +228,6 @@ export default class EthHandler extends BaseHandler {
     return validatorStates[pos].validators.map(serialize.address)
   }
 
-
-
   getChainSpec(): ChainSpec {
     const chain = clientConf.servers[this.chainId]
     return chain && chain.chainSpec
@@ -256,7 +254,7 @@ function createCallParams(request: RPCRequest): any[] {
     const retTypes = method.split(':')[1].substr(1).replace(')', ' ').trim().split(', ');
     (request as any).convert = result => {
       if (result.result)
-        result.result = tx.decodeFunction(fullMethod, Buffer.from(result.result.substr(2), 'hex')).map((v, i) => {
+        result.result = tx.decodeFunction(fullMethod, Buffer.from(result.result.substr(2), 'hex'), request.context).map((v, i) => {
           if (Buffer.isBuffer(v)) return '0x' + v.toString('hex')
           if (v && v.ixor) return v.toString()
           if (retTypes[i] !== 'string' && typeof v === 'string' && v[1] !== 'x')
@@ -276,5 +274,5 @@ function createCallParams(request: RPCRequest): any[] {
   const values = params.slice(2, types.length + 2)
   if (values.length < types.length) throw new Error('invalid number of arguments. Must be at least ' + types.length)
 
-  return [{ to: contract, data: '0x' + tx.encodeFunction(method, values) }, params[types.length + 2] || 'latest']
+  return [{ to: contract, data: '0x' + tx.encodeFunction(method, values, request.context) }, params[types.length + 2] || 'latest']
 }

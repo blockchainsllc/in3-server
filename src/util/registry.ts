@@ -39,6 +39,7 @@ import { Transport} from './transport'
 import { readFileSync } from 'fs'
 import { padStart,toHex } from './util'
 import { PK } from '../chains/signatures';
+import { AppContext } from '../types/types'
 
 const bin = require('in3-contracts/contracts/contracts.json')
 
@@ -64,11 +65,11 @@ export function deployContract(name: string, pk: PK, url = 'http://localhost:854
 }
 
 
-export async function deployNodeRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
+export async function deployNodeRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport, context?: AppContext) {
 
-  const blockHashAddress = await deployBlockhashRegistry(pk, url, transport)
-  const erc20 = await deployERC20(pk, url, transport)
-  const regData = await deployRegistryData(pk, url, transport)
+  const blockHashAddress = await deployBlockhashRegistry(pk, url, transport, context)
+  const erc20 = await deployERC20(pk, url, transport, context)
+  const regData = await deployRegistryData(pk, url, transport, context)
   const registry = await tx.deployContract(url,
     '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/NodeRegistryLogic.sol:NodeRegistryLogic') >= 0)].bin
     + toHex(blockHashAddress, 32).substr(2)
@@ -86,28 +87,28 @@ export async function deployNodeRegistry(pk: PK, url = 'http://localhost:8545', 
   return registry
 }
 
-export function deployBlockhashRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
+function deployBlockhashRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport, context?: AppContext) {
   return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/BlockhashRegistry.sol:BlockhashRegistry') >= 0)].bin, {
     privateKey: pk,
     gas: 8000000,
     confirm: true
-  }, transport, 300000).then(_ => toChecksumAddress(_.contractAddress) as string)
+  }, transport, context, 300000).then(_ => toChecksumAddress(_.contractAddress) as string)
 }
 
-export function deployERC20(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
+function deployERC20(pk: PK, url = 'http://localhost:8545', transport?: Transport, context?: AppContext) {
   return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/ERC20Wrapper.sol:ERC20Wrapper') >= 0)].bin, {
     privateKey: pk,
     gas: 8000000,
     confirm: true
-  }, transport, 300000).then(_ => toChecksumAddress(_.contractAddress) as string)
+  }, transport, context, 300000).then(_ => toChecksumAddress(_.contractAddress) as string)
 }
 
-export function deployRegistryData(pk: PK, url = 'http://localhost:8545', transport?: Transport) {
+function deployRegistryData(pk: PK, url = 'http://localhost:8545', transport?: Transport, context?: AppContext) {
   return tx.deployContract(url, '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/NodeRegistryData.sol:NodeRegistryData') >= 0)].bin, {
     privateKey: pk,
     gas: 8000000,
     confirm: true
-  }, transport, 300000).then(_ => toChecksumAddress(_.contractAddress) as string)
+  }, transport, context, 300000).then(_ => toChecksumAddress(_.contractAddress) as string)
 }
 
 export async function registerNodes(pk: PK, registry: string, data: {
@@ -117,9 +118,9 @@ export async function registerNodes(pk: PK, registry: string, data: {
   deposit: any
   timeout: number
   weight?: number
-}[], chainId: string, url = 'http://localhost:8545', transport?: Transport, registerChain = true) {
+}[], chainId: string, url = 'http://localhost:8545', transport?: Transport, registerChain = true, context?: AppContext) {
   if (!registry)
-    registry = await deployNodeRegistry(pk, url, transport)
+    registry = await deployNodeRegistry(pk, url, transport, context)
 
   const regData = await tx.callContract(url, registry, "nodeRegistryData():(address)", []).then(_ => _[0])
   const erc20 = await tx.callContract(url, regData, "supportedToken():(address)", []).then(_ => _[0])

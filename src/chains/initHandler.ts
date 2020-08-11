@@ -31,11 +31,9 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-const Sentry = require('@sentry/node');
-
 import BaseHandler from './BaseHandler'
 import * as util  from '../util/util'
-import { IN3RPCHandlerConfig } from '../types/types'
+import { IN3RPCHandlerConfig, AppContext } from '../types/types'
 import * as fs from 'fs'
 import * as scryptsy from 'scrypt.js'
 import * as cryp from 'crypto'
@@ -47,7 +45,7 @@ import { PK, createPK } from './signatures'
 export function checkPrivateKey(config: IN3RPCHandlerConfig) {
   if ((config as any)._pk) return
   if (!config.privateKey) return
-  //    throw new Error('No private key set, which is needed in order to sign blockhashes')
+
   const key = config.privateKey
   delete config.privateKey
 
@@ -55,9 +53,6 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
     (config as any)._pk = key
     return
   }
-
-
-
 
   if (key.startsWith('0x')) {
     if (key.length != 66) throw new Error('The private key needs to have a length of 32 bytes!')
@@ -101,9 +96,9 @@ export function checkPrivateKey(config: IN3RPCHandlerConfig) {
 
 }
 
-export async function checkRegistry(handler: BaseHandler): Promise<any> {
+export async function checkRegistry(handler: BaseHandler, context?: AppContext): Promise<any> {
   checkPrivateKey(handler.config)
-  
+
   //first checking if server is registered in registry or not
   const nl = await handler.getNodeList(false);
   const pk: PK = (handler.config as any)._pk
@@ -143,22 +138,19 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
 
   const registrationCost = txGasPrice * 1000000
 
-  if (process.env.SENTRY_ENABLE === 'true') {
-
-    Sentry.addBreadcrumb({
-      category: "autoregister",
-      data: {
-        request: {
-          url: autoReg.url,
-          props: props,
-          deposit: deposit
-        },
-        chainId: handler.chainId,
-        registryRPC: handler.config.registryRPC || handler.config.rpcUrl[0],
-        balance: balance,
-      }
-    })
-  }
+  context?.hub.addBreadcrumb({
+    category: "autoregister",
+    data: {
+      request: {
+        url: autoReg.url,
+        props: props,
+        deposit: deposit
+      },
+      chainId: handler.chainId,
+      registryRPC: handler.config.registryRPC || handler.config.rpcUrl[0],
+      balance: balance,
+    }
+  })
 
   if (balance < (autoReg.deposit + registrationCost))
     throw new Error("Insufficient funds to register a server, need: " + autoReg.deposit + " ether, have: " + balance + " wei")
@@ -169,17 +161,7 @@ export async function checkRegistry(handler: BaseHandler): Promise<any> {
     props,
     deposit: deposit as any,
     timeout: 3600
-  }], handler.chainId, handler.config.registryRPC || handler.config.rpcUrl[0], undefined, false).catch(_ => {
-    if (process.env.SENTRY_ENABLE === 'true') {
-
-      handler.config.registry
-      Sentry.configureScope((scope) => {
-        scope.setTag("InitHanlder", "registerNodes");
-        scope.setTag("nodeList-contract", handler.config.registry)
-        scope.setExtra("nodeList", nl)
-      });
-    }
-
+  }], handler.chainId, handler.config.registryRPC || handler.config.rpcUrl[0], undefined, false, context).catch(_ => {
     throw new Error("Error trying to register node")
   })
 }

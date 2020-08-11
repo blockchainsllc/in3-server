@@ -31,8 +31,6 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-const Sentry = require('@sentry/node');
-
 import * as fs from 'fs'
 import { EventEmitter } from 'events'
 import * as  util from '../util/util'
@@ -48,6 +46,7 @@ import { useDB, exec } from '../util/db'
 import config from '../server/config'
 import { updateValidatorHistory } from '../server/poa';
 import { SentryError } from '../util/sentryError'
+import { AppContext } from '../types/types'
 
 const toNumber = util.toNumber
 const toHex = util.toHex
@@ -69,6 +68,7 @@ export default class Watcher extends EventEmitter {
   persistFile: string
   running: boolean
   blockhashRegistry: string
+  context: AppContext
 
   _convictInformation: {
     starttime: number,
@@ -93,10 +93,11 @@ export default class Watcher extends EventEmitter {
 
   futureConvicts: any[]
 
-  constructor(handler: RPCHandler, interval = 5, persistFile = 'false', startBlock?: number) {
+  constructor(handler: RPCHandler, interval = 5, persistFile = 'false', startBlock?: number, context?: AppContext) {
     super()
     this.handler = handler
     this.interval = interval
+    this.context = context
     this.persistFile = persistFile === 'false' ? '' : persistFile
     if (startBlock)
       this._lastBlock = { number: startBlock, hash: toHex(0, 32) }
@@ -106,8 +107,6 @@ export default class Watcher extends EventEmitter {
     this.on('LogNodeUnregisterRequested', handleUnregister)
 
   }
-
-
 
   get block(): {
     number: number,
@@ -167,7 +166,7 @@ export default class Watcher extends EventEmitter {
     }
 
     if (!this._lastBlock || this.block.number < 0)
-      this.handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['latest', false] }, undefined, this.handler.config.registryRPC)
+      this.handler.getFromServer({ method: 'eth_getBlockByNumber', params: ['latest', false], context: this.context }, undefined, this.handler.config.registryRPC)
         .then(_ => {
           if (_.error) throw new Error((_.error as any).message || _.error)
           if (!_.result || !_.result.hash) throw new Error('Missing hash when fetching inital block')
@@ -191,7 +190,7 @@ export default class Watcher extends EventEmitter {
     let res = null
     const [nodeList, currentBlock] = await timeoutPromise(Promise.all([
       this.handler.getNodeList(false),
-      this.handler.getFromServer({ method: 'eth_blockNumber', params: [] }, undefined, this.handler.config.registryRPC).then(_ => toNumber(_.result))
+      this.handler.getFromServer({ method: 'eth_blockNumber', params: [], context: this.context }, undefined, this.handler.config.registryRPC).then(_ => toNumber(_.result))
     ]), "checking for new Block...")
 
     if (this.block.number == currentBlock) return
@@ -224,7 +223,7 @@ export default class Watcher extends EventEmitter {
 
         // always update the list
         await this.handler.updateNodeList(Math.max(...logs.map(_ => parseInt(_.blockNumber))) || currentBlock)
-        res = logs.map(decodeEvent)
+        res = logs.map(this.decodeEvent.bind(this))
 
         // trigger events
         res.forEach(ev => this.emit(ev.event, ev, this.handler))
@@ -259,7 +258,10 @@ export default class Watcher extends EventEmitter {
           privateKey: (this.handler.config as any)._pk,
           value: 0,
           confirm: true
-        })
+        },
+        undefined,
+        undefined,
+        this.context)
 
         ci.convictBlockNumber = this.block.number
 
@@ -268,7 +270,7 @@ export default class Watcher extends EventEmitter {
       if (ci.diffBlocks) {
         if (!ci.blocksToRecreate) {
           ci.blocksToRecreate = []
-          let latestSS = toNumber((await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [ci.wrongBlockNumber, ci.diffBlocks]))[0])
+          let latestSS = toNumber((await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [ci.wrongBlockNumber, ci.diffBlocks], undefined, undefined, undefined, this.context))[0])
 
           if (latestSS === 0) latestSS == this.block.number
           ci.latestBlock = latestSS
@@ -277,12 +279,14 @@ export default class Watcher extends EventEmitter {
           if (latestSS === this.block.number && worthIt) {
 
             await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'saveBlockNumber(uint):()', [this.block.number], {
-              privateKey: (this.handler.config as any)._pk,
-              value: 0,
-              confirm: false
-            }).catch(_ => {
-              new SentryError(_, "saveBlocknumber")
-            })
+                privateKey: (this.handler.config as any)._pk,
+                value: 0,
+                confirm: false
+              },
+              undefined,
+              undefined,
+              this.context
+            ).catch(_ => { new SentryError(_, this.context, "saveBlocknumber") })
           }
 
           let currentRecreateBlock = latestSS
@@ -303,7 +307,7 @@ export default class Watcher extends EventEmitter {
 
           if (blocksToRecreate.firstSeen && worthIt) {
 
-            const blockHashInContract = (await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'blockhashMapping(uint):(bytes32)', [blocksToRecreate.number]))[0]
+            const blockHashInContract = (await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'blockhashMapping(uint):(bytes32)', [blocksToRecreate.number], undefined, undefined, undefined, this.context))[0]
 
             if (blockHashInContract === "0x0000000000000000000000000000000000000000000000000000000000000000") {
               blocksToRecreate.currentBnr++
@@ -333,15 +337,20 @@ export default class Watcher extends EventEmitter {
                   serialzedBlocks.push(new serialize.Block(bresponse.result as any).serializeHeader());
                 }
 
-                await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks], {
-                  privateKey: (this.handler.config as any)._pk,
-                  value: 0,
-                  confirm: true
-                }).catch(_ => {
-                  new SentryError(_, "recreateBlockheaders")
+                await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'recreateBlockheaders(uint,bytes[])', [blockNumbers[0], serialzedBlocks],
+                  {
+                    privateKey: (this.handler.config as any)._pk,
+                    value: 0,
+                    confirm: true
+                  },
+                  undefined,
+                  undefined,
+                  this.context
+                ).catch(_ => {
+                  new SentryError(_, this.context, "recreateBlockheaders")
                 })
 
-                ci.latestBlock = toNumber((await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [blocksToRecreate.number - 10, 20]))[0])
+                ci.latestBlock = toNumber((await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [blocksToRecreate.number - 10, 20], undefined, undefined, undefined, this.context))[0])
                 ci.blocksToRecreate = ci.blocksToRecreate.length > 1 ? ci.blocksToRecreate.slice(1) : ci.blocksToRecreate = []
 
                 if (ci.blocksToRecreate.length > 0) {
@@ -371,23 +380,18 @@ export default class Watcher extends EventEmitter {
       if (ci.convictBlockNumber + 3 < currentBlock && ci.recreationDone && worthIt) {
 
         await tx.callContract(this.handler.config.registryRPC || this.handler.config.rpcUrl[0], this.handler.config.registry, 'revealConvict(address,bytes32,uint,uint8,bytes32,bytes32)',
-          [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s], {
-          privateKey: (this.handler.config as any)._pk,
-          gas: 600000,
-          value: 0,
-          confirm: true
-        }).catch(_ => {
-          if (process.env.SENTRY_ENABLE === 'true') {
-
-            Sentry.configureScope((scope) => {
-              scope.setTag("watch", "convictError");
-              scope.setTag("nodeList-contract", this.handler.config.registry)
-              scope.setExtra("txData:", [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s])
-              scope.setExtra("internalException:", _.stack)
-            });
-          }
-
-          Sentry.captureException(new Error('Error sending revealConvict :' + _.message), _)
+          [ci.signer, ci.wrongBlockHash, ci.wrongBlockNumber, ci.v, ci.r, ci.s],
+          {
+            privateKey: (this.handler.config as any)._pk,
+            gas: 600000,
+            value: 0,
+            confirm: true
+          },
+          undefined,
+          undefined,
+          this.context
+        ).catch(_ => {
+          this.context?.hub?.captureException(new Error('Error sending revealConvict :' + _.message), _)
           logger.error('Error sending revealConvict ', _)
         })
         this.futureConvicts.pop()
@@ -395,18 +399,25 @@ export default class Watcher extends EventEmitter {
     }
   }
 
+  decodeEvent(log: LogData) {
+    const ev = abi.find(_ => _.hash === log.topics[0])
+    if (!ev) throw new Error('unknown log hash : ' + JSON.stringify(log, null, 2))
 
-}
+    return {
+      ...this.decodeData(log.data, ev.inputs.filter(_ => !_.indexed)),
+      ...this.decodeData('0x' + log.topics.slice(1).map(_ => _.substr(2)).join(''), ev.inputs.filter(_ => !!_.indexed)),
+      log,
+      event: ev.name
+    }
+  }
 
-function decodeEvent(log: LogData) {
-  const ev = abi.find(_ => _.hash === log.topics[0])
-  if (!ev) throw new Error('unknown log hash : ' + JSON.stringify(log, null, 2))
+  decodeData(data: any, inputs: { type: string, name: string }[]) {
+    const vals: any[] = tx.decodeFunction(inputs.map(_ => _.type), toBuffer(data), this.context)
 
-  return {
-    ...decodeData(log.data, ev.inputs.filter(_ => !_.indexed)),
-    ...decodeData('0x' + log.topics.slice(1).map(_ => _.substr(2)).join(''), ev.inputs.filter(_ => !!_.indexed)),
-    log,
-    event: ev.name
+    return inputs.reduce((p, c, i) => {
+      p[c.name] = fixType(c.type, vals[i])
+      return p
+    }, {})
   }
 }
 
@@ -416,15 +427,6 @@ function fixType(type: string, val: any) {
   if (type.startsWith('byte')) return toHex(val.startsWith('0x') ? val : '0x' + val)
   return val
 
-}
-
-function decodeData(data: any, inputs: { type: string, name: string }[]) {
-  const vals: any[] = tx.decodeFunction(inputs.map(_ => _.type), toBuffer(data))
-
-  return inputs.reduce((p, c, i) => {
-    p[c.name] = fixType(c.type, vals[i])
-    return p
-  }, {})
 }
 
 const abi = [...getABI('NodeRegistryLogic'), ...getABI('NodeRegistryData'), ...getABI('IERC20')].filter(_ => _.type === 'event') as {
@@ -444,22 +446,22 @@ function handleUnregister(ev, handler: RPCHandler) {
     if (!node)
       throw new Error('could not find the server in the list')
 
-    return tx.callContract(handler.config.registryRPC || handler.config.rpcUrl[0], handler.config.registry, 'cancelUnregisteringServer(uint)', [node.index], {
-      privateKey: (this.handler.config as any)._pk,
-      gas: 400000,
-      value: 0,
-      confirm: true
-    })
-      .then(_ => logger.info('called successfully cancelUnregisteringServer! '))
+    return tx.callContract(handler.config.registryRPC || handler.config.rpcUrl[0], handler.config.registry, 'cancelUnregisteringServer(uint)', [node.index],
+      {
+        privateKey: (this.handler.config as any)._pk,
+        gas: 400000,
+        value: 0,
+        confirm: true
+      },
+      undefined,
+      undefined,
+      this.context
+    ).then(_ => logger.info('called successfully cancelUnregisteringServer! '))
 
 
   }).catch(err => logger.error('Error handling LogServerUnregisterRequested : ', err))
 
 }
-
-
-
-
 
 function timeoutPromise<T>(promise: Promise<T>, message?: string, timeout = 45000): Promise<T> {
   let timeoutId
