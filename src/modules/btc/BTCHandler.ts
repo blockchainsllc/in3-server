@@ -54,23 +54,23 @@ export default class BTCHandler extends BaseHandler {
   async handle(request: RPCRequest): Promise<RPCResponse> {
     const toRes = (r: any) => ({ id: request.id, jsonrpc: '2.0', ...r }) as RPCResponse
 
-    // handle special jspn-rpc
+    // handle special json-rpc
     switch (request.method) {
 
       case 'getblock':
-        return toRes(await this.getBlock(request.params[0], verboseParam(request.params[1]), request.in3 && request.in3.finality, request))
+        return toRes(await this.getBlock(request.params[0], verboseParam(request.params[1]), request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
       case 'getblockheader':
-        return toRes(await this.getBlockHeader(request.params[0], verboseParam(request.params[1]), request.in3 && request.in3.finality, request))
+        return toRes(await this.getBlockHeader(request.params[0], verboseParam(request.params[1]), request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
       case 'gettransaction':
       case 'getrawtransaction':
-        return toRes(await this.getTransaction(request.params[0], verboseParam(request.params[1]), request.params[2], request.in3 && request.in3.finality, request))
+        return toRes(await this.getTransaction(request.params[0], verboseParam(request.params[1]), request.params[2], request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
       case 'getblockcount':
-        return toRes(await this.getBlockCount(request.in3 && request.in3.finality, request))
+        return toRes(await this.getBlockCount(request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
       case 'getbesthash':
       case 'getbestblockhash':
-        return toRes(await this.getBestBlockHash(request.in3 && request.in3.finality, request))
+        return toRes(await this.getBestBlockHash(request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
       case 'getdifficulty':
-        return toRes(await this.getDifficulty(request.params[0], request.in3 && request.in3.finality, request))
+        return toRes(await this.getDifficulty(request.params[0], request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
       case 'in3_proofTarget':
         return toRes(await this.in3_proofTarget(parseInt(request.params[0]), parseInt(request.params[1]), parseInt(request.params[2]),
           parseInt(request.params[3]), request, request.in3 && request.in3.finality || 0, parseInt(request.params[4])))
@@ -110,17 +110,18 @@ export default class BTCHandler extends BaseHandler {
     return '0x' + headers.join('')
   }
 
-  async getBlock(hash: string, json: number, finality: number = 0, r: any) {
+  async getBlock(hash: string, json: number = 1, finality: number = 0, verification: string = "never", r: any) {
     if (json === undefined) json = 1
-  
+
     let [block, blockHeight] = await Promise.all([
       this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult),
       json ? undefined : this.blockCache.getBlockHeaderByHash([hash], true).then(_ => _.pop().height)
     ])
 
-    if (json) this.blockCache.setBlock(block) // save block in cache
-
     if (blockHeight === undefined && block) blockHeight = block.height
+
+    if (verification === "never") 
+      return { result: block } // return result without a proof 
 
     const proof: any = {}
     await Promise.all([
@@ -132,18 +133,22 @@ export default class BTCHandler extends BaseHandler {
       })
     ])
 
+    if (!!json) this.blockCache.setBlock(block) // save block in cache
+
     return { result: block, in3: { proof } }
   }
 
 
-  async getBlockHeader(hash: string, json: number = 1, finality: number = 0, r: any) {
+  async getBlockHeader(hash: string, json: number = 1, finality: number = 0, verification: string = "never", r: any) {
     if (json === undefined) json = 1
 
-    // get coinbase first so that the block is in the cache
-    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([hash])).shift()
-
-    let blockheader: any // can be json-object or hex-string (hex-string if always in the cache after fetching coinbase)
+    let blockheader: any // can be json-object or hex-string
     json ? blockheader = (await this.blockCache.getBlockHeaderByHash([hash], !!json)).pop() : blockheader = ((await this.blockCache.getBlockHeaderByHash([hash], !!json)).pop()).toString('hex')
+
+    if (verification === "never") 
+      return { result: blockheader } // return result without a proof 
+
+    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([hash])).shift()
 
     // after fetching the coinbase the block number is ALWAYS in the cache
     const number = this.blockCache.data.get(hash).height
@@ -157,16 +162,19 @@ export default class BTCHandler extends BaseHandler {
     return { result: blockheader, in3: { proof } }
   }
 
-  async getTransaction(hash: string, json: number = 1, blockhash: string = undefined, finality: number = 0, r: any) {
-    if (json === undefined) json = 1
+  async getTransaction(hash: string, json: number = 0, blockhash: string = undefined, finality: number = 0, verification: string = "never", r: any) {
+    if (json === undefined) json = 0
     // even for json==false we get it as json from server so we know the blockhash
     const tx = await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [hash, true, blockhash] : [hash, true] }, r).then(asResult)
     if (!tx) throw new Error("Transaction not found")
     if (!blockhash) blockhash = tx.blockhash
     if (blockhash && tx.blockhash != blockhash) throw new Error('invalid blockhash for tx')
+
+    if (verification === "never")
+      return { result: json ? tx : tx.hex } // return result without a proof 
+
     const proof: any = {}
 
-    // get coinbase first so that the block is in the cache
     const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockhash])).shift()
 
     // after fetching the coinbase the block header and number are ALWAYS in the cache
@@ -186,11 +194,18 @@ export default class BTCHandler extends BaseHandler {
     return { result: json ? tx : tx.hex, in3: { proof } }
   }
 
-  async getBlockCount(finality: number = 0, r: any) {
+  async getBlockCount(finality: number = 0, verification: string = "never", r: any) {
     if (!finality) return null
 
-    // get latest block number
-    const blocknumber = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
+    if (verification === "never")
+      // return latest block number without a proof (finality is not subtracted since there will no proof anyway)
+      return { result: await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult) } 
+    
+
+    // get latest block number (latest always means actual latest number minus finality)
+    const blocknumber = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult) - finality; // subtract finality
+
+    const proof: any = {}
 
     // check cache for number
     let blockhash
@@ -201,10 +216,8 @@ export default class BTCHandler extends BaseHandler {
       blockhash = await this.getFromServer({ method: "getblockhash", params: [blocknumber] }, r).then(asResult) // get hash of blockNumber
     }
 
-    // after fetching coinbase, cache is filled with the BTCCacheValue-object we need
-    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockhash])).shift()
-
-    const proof: any = {}
+     // after fetching coinbase, cache is filled with the BTCCacheValue-object we need
+     const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockhash])).shift()
 
     // fill proof
     proof.block = '0x' + this.blockCache.data.get(blockhash).header.toString('hex') // add block header
@@ -215,11 +228,11 @@ export default class BTCHandler extends BaseHandler {
     return { result: blocknumber, in3: { proof } }
   }
 
-  async getBestBlockHash(finality: number = 0, r: any) {
+  async getBestBlockHash(finality: number = 0, verification: string = "never", r: any) {
     if (!finality) return null
 
-    // fetch latest block number and hash
-    const blocknumber = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult) - finality; // substruct finality
+    let blocknumber =  await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult)
+    if (verification === "proof") blocknumber -= finality // subtract finality
 
     // check cache for number
     let blockhash
@@ -230,10 +243,13 @@ export default class BTCHandler extends BaseHandler {
       blockhash = await this.getFromServer({ method: "getblockhash", params: [blocknumber] }, r).then(asResult) // get hash of blockNumber
     }
 
-    // after fetching coinbase, cache is filled with the BTCCacheValue-object we need
-    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockhash])).shift()
+    if (verification === "never")
+      return { result: blockhash } // return result without a proof 
 
     const proof: any = {}
+
+    // after fetching coinbase, cache is filled with the BTCCacheValue-object we need
+    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockhash])).shift()
 
     // fill proof
     proof.block = '0x' + this.blockCache.data.get(blockhash).header.toString('hex') // add block header
@@ -244,7 +260,7 @@ export default class BTCHandler extends BaseHandler {
     return { result: blockhash, in3: { proof } }
   }
 
-  async getDifficulty(bn: string, finality: number = 0, r: any) {
+  async getDifficulty(bn: string, finality: number = 0, verification: string = "never", r: any) {
     if (!finality) return null
 
     // always fetch latest block number
@@ -262,7 +278,9 @@ export default class BTCHandler extends BaseHandler {
     }
 
     const blockheader: BTCBlockHeader = (await this.blockCache.getBlockHeaderByNumber([blocknumber.toString()], true)).pop() // json-object
-    const difficulty: number = blockheader.difficulty
+
+    if (verification === "never")
+      return { result: blockheader.difficulty } // return result without a proof
 
     const proof: any = {}
 
@@ -274,7 +292,7 @@ export default class BTCHandler extends BaseHandler {
     proof.cbtx = '0x' + cb.cbtx.toString('hex')
     proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
 
-    return { result: difficulty, in3: { proof } }
+    return { result: blockheader.difficulty, in3: { proof } }
   }
 
   async in3_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, limit?: number) {
