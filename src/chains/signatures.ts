@@ -205,8 +205,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         if (!singingNode) return null // if we don't know the node, we can not convict anybody.
 
         const expectedBlock = blocks.find(_ => toNumber(_.blockNumber) === toNumber(s.block))
-        if (!expectedBlock) {
-          // hm... handler node signed a different block, then we expected, but the signature is valid.
+        if (!expectedBlock || typeof expectedBlock.hash !== "string") {
+          // handler node signed a different block, then we expected, but the signature is valid or we dont have the correct blockhash to assert if its the case.
           // TODO so at least we should check if the blockhash is incorrect, so we can convict him anyway
           return null
         }
