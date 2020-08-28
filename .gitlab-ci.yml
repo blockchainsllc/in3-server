@@ -244,8 +244,8 @@ stages:
   extends: .deploy-tmpl
 #  only:
 #    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
-  except:
-    - branches
+#  except:
+#    - branches
   environment:
     name: production-${CHAIN}
   variables:
