@@ -94,20 +94,9 @@ class ThreadPool {
         }
     }
     private async waitForThreads() {
-        let checkThreads;
-        try {
-            checkThreads = new Promise(async (resolve) => {
-                setInterval(async function () {
-                    if (workers.length > 0) {
-                        await clearInterval(checkThreads)
-                        resolve
-                    }
-                }, 200)
-            })
-            return await checkThreads
-        } catch (error) {
-            throw new Error(error)
-        }
+        return new Promise(resolve => {
+            return this.hasWorkers() ? setInterval(() => resolve(this.waitForThreads()), 200) : resolve()
+        })
     }
 
     private hasWorkers() {
