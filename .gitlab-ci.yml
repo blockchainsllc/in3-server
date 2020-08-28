@@ -263,12 +263,6 @@ register-with-sentry-production:
     CHAIN_ID: "0xf6"
     RPC_ENDPOINT: https://rpc.slock.it/ewc
 
-.chain-tmpl-volta:
-  variables:
-    CHAIN: tobalaba
-    CHAIN_ID: "0x44d"
-    RPC_ENDPOINT: http://lb.parity-rpc/volta
-
 .chain-tmpl-ipfs:
   variables:
     CHAIN: ipfs
@@ -314,12 +308,6 @@ deploy-production-goerli:
   variables:
     REGISTRY_CONTRACT_ADDR: "0x635cccc1db6fc9e3b029814720595092affba12f"
 
-deploy-production-volta:
-  extends:
-    - .deploy-tmpl-production
-    - .chain-tmpl-volta
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0x8d8Fd38311d57163524478404C75008fBEaACccB"
 
 deploy-production-ipfs:
   extends:
