@@ -275,6 +275,13 @@ register-with-sentry-production:
     CHAIN_ID: "0x7d0"
     RPC_ENDPOINT: http://lb.parity-rpc/mainnet/archive
 
+deploy-production-btc:
+  extends:
+    - .deploy-tmpl-production
+    - .chain-tmpl-btc
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0xc3845e55756db9990ea06de9ea73dc99769f6c7f"
+
 # Production deployments
 deploy-production-mainnet:
   extends:
