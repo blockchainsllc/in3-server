@@ -1,217 +1,208 @@
 image: docker.slock.it/build-images/node:11-alpine
 variables:
-  COMMIT_IMAGE_TAG: docker.slock.it/in3/ts/in3-server:v2.2.2
-  RELEASE_IMAGE_TAG: docker.slock.it/in3/ts/in3-server:latest
+  COMMIT_IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+  RELEASE_IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
 stages:
-#  - build
-#  - test
-#  - package
-#  - analysis
+  - build
+  - test
+  - package
+  - analysis
   - deploy
 
-#build-server:
-#  stage: build
-#  tags:
-#    - short-jobs
-#  script:
-#    - sh /prepare.sh
-#    - npm install
-#    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@git.slock.it/in3/ts/in3.git
-#    - cd in3
-#    - npm install
-#    - npm run build
-#    - cp -r js/* ../node_modules/in3/js/
-#    - cd ..
-#    - npm run build
-#  artifacts:
-#    paths:
-#      - js/
+build-server:
+  stage: build
+  tags:
+    - short-jobs
+  script:
+    - sh /prepare.sh
+    - npm install
+    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@git.slock.it/in3/ts/in3.git
+    - cd in3
+    - npm install
+    - npm run build
+    - cp -r js/* ../node_modules/in3/js/
+    - cd ..
+    - npm run build
+  artifacts:
+    paths:
+      - js/
 
-#test-parity:
-#  stage: test
-#  tags:
-#    - short-jobs
-#  variables:
-#    RPCURL: http://parity:8545
-#    IPFS_URL: http://ipfs:5001
-#  services:
-#    - name: jbenet/go-ipfs:latest
-#      command:
-#        - daemon
-#        - --offline
-#      alias: ipfs
-#    - name: slockit/parity-time-maschine:v0.0.1
-#      alias: parity
-#  script:
-#    - sh /prepare.sh
-#    - npm install
-#    - npm run testReport
-#  artifacts:
-#    name: "test-reports-$CI_JOB_NAME"
-#    paths:
-#      - test/report
-#    reports:
-#      junit: mocha.xml
+test-parity:
+  stage: test
+  tags:
+    - short-jobs
+  variables:
+    RPCURL: http://parity:8545
+    IPFS_URL: http://ipfs:5001
+  services:
+    - name: jbenet/go-ipfs:latest
+      command:
+        - daemon
+        - --offline
+      alias: ipfs
+    - name: slockit/parity-time-maschine:v0.0.1
+      alias: parity
+  script:
+    - sh /prepare.sh
+    - npm install
+    - npm run testReport
+  artifacts:
+    name: "test-reports-$CI_JOB_NAME"
+    paths:
+      - test/report
+    reports:
+      junit: mocha.xml
 
-#test-nethermind:
-#  stage: test
-#  allow_failure: true
-#  tags:
-#    - short-jobs
-#  variables:
-#    RPCURL: http://nethermind:8545
-#    IPFS_URL: http://ipfs:5001
-#  services:
-#    - name: jbenet/go-ipfs:latest
-#      command:
-#        - daemon
-#        - --offline
-#      alias: ipfs
-#    - name: docker.slock.it/build-images/nethermind
-#      alias: nethermind
-#  script:
-#    - sh /prepare.sh
-#    - npm install
-#    - npm run testReport
-#  artifacts:
-#    name: "test-reports-$CI_JOB_NAME"
-#    paths:
-#      - test/report
-#    reports:
-#      junit: mocha.xml
+test-nethermind:
+  stage: test
+  allow_failure: true
+  tags:
+    - short-jobs
+  variables:
+    RPCURL: http://nethermind:8545
+    IPFS_URL: http://ipfs:5001
+  services:
+    - name: jbenet/go-ipfs:latest
+      command:
+        - daemon
+        - --offline
+      alias: ipfs
+    - name: docker.slock.it/build-images/nethermind
+      alias: nethermind
+  script:
+    - sh /prepare.sh
+    - npm install
+    - npm run testReport
+  artifacts:
+    name: "test-reports-$CI_JOB_NAME"
+    paths:
+      - test/report
+    reports:
+      junit: mocha.xml
 
-#test-geth:
-#  stage: test
-#  coverage: '/Lines.*:\s+(\d+.\d+\%)/'
-#  tags:
-#    - short-jobs
-#  variables:
-#    RPCURL: http://geth:8545
-#    IPFS_URL: http://ipfs:5001
-#  services:
-#    - name: jbenet/go-ipfs:latest
-#      command:
-#        - daemon
-#        - --offline
-#      alias: ipfs
-#    - name: docker.slock.it/core-technology/geth-timemachine:master
-#      alias: geth
-#  script:
-#    - sh /prepare.sh
-#    - npm install
-#    - npm run testReport
-#  artifacts:
-#    name: "test-reports-$CI_JOB_NAME"
-#    paths:
-#      - test/report
-#    reports:
-#      junit: mocha.xml
+test-geth:
+  stage: test
+  coverage: '/Lines.*:\s+(\d+.\d+\%)/'
+  tags:
+    - short-jobs
+  variables:
+    RPCURL: http://geth:8545
+    IPFS_URL: http://ipfs:5001
+  services:
+    - name: jbenet/go-ipfs:latest
+      command:
+        - daemon
+        - --offline
+      alias: ipfs
+    - name: docker.slock.it/core-technology/geth-timemachine:master
+      alias: geth
+  script:
+    - sh /prepare.sh
+    - npm install
+    - npm run testReport
+  artifacts:
+    name: "test-reports-$CI_JOB_NAME"
+    paths:
+      - test/report
+    reports:
+      junit: mocha.xml
 
-#package-docker:
-#  stage: package
-#  tags:
-#    - short-jobs
-#  services:
-#    - docker:dind
-#  image: docker.slock.it/build-images/deployment
-#  script:
-#    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
-#    - docker build --build-arg NPM_REGISTRY_TOKEN=${NPM_REGISTRY_TOKEN} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} --build-arg VERSION=${COMMIT_IMAGE_TAG} -t $COMMIT_IMAGE_TAG .
-#    - docker tag $COMMIT_IMAGE_TAG $RELEASE_IMAGE_TAG
-#    - docker push $RELEASE_IMAGE_TAG
-#    - docker push $COMMIT_IMAGE_TAG
+package-docker:
+  stage: package
+  tags:
+    - short-jobs
+  services:
+    - docker:dind
+  image: docker.slock.it/build-images/deployment
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build --build-arg NPM_REGISTRY_TOKEN=${NPM_REGISTRY_TOKEN} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} --build-arg VERSION=${COMMIT_IMAGE_TAG} -t $COMMIT_IMAGE_TAG .
+    - docker tag $COMMIT_IMAGE_TAG $RELEASE_IMAGE_TAG
+    - docker push $RELEASE_IMAGE_TAG
+    - docker push $COMMIT_IMAGE_TAG
 
 ##### analyse #####
-#vulnerability-analysis:
-#  stage: analysis
-#  tags:
-#    - short-jobs
-#  dependencies:
-#    - package-docker
-#  image: docker.slock.it/build-images/vulnerability-testing-tools
-#  script:
-#    - cat deployment/vulnerability-analysis-message.txt
-#    - export TRIVY_AUTH_URL=$CI_REGISTRY
-#    - export TRIVY_USERNAME=gitlab-ci-token
-#    - export TRIVY_PASSWORD=$CI_JOB_TOKEN
-#    - trivy -f json -o vulnerability_analysis.json $COMMIT_IMAGE_TAG
-#  artifacts:
-#    paths:
-#      - vulnerability_analysis.json
+vulnerability-analysis:
+  stage: analysis
+  tags:
+    - short-jobs
+  dependencies:
+    - package-docker
+  image: docker.slock.it/build-images/vulnerability-testing-tools
+  script:
+    - cat deployment/vulnerability-analysis-message.txt
+    - export TRIVY_AUTH_URL=$CI_REGISTRY
+    - export TRIVY_USERNAME=gitlab-ci-token
+    - export TRIVY_PASSWORD=$CI_JOB_TOKEN
+    - trivy -f json -o vulnerability_analysis.json $COMMIT_IMAGE_TAG
+  artifacts:
+    paths:
+      - vulnerability_analysis.json
 
 # Deployment Section
-#pages:
-#  stage: deploy
-#  tags:
-#    - short-jobs
-#  environment:
-#    name: test-results
-#    url: http://in3.git-pages.slock.it/in3-server
-#  only:
-#    refs:
-#      - develop
-#  dependencies:
-#    - test-parity
-#    - test-geth
-#    - vulnerability-analysis
-#  script:
-#    - mkdir -p public/
-#    - cp -r test/report public/coverage
-#    - cp vulnerability_analysis.json public/
-#    - echo "<html><body><h1>Incubed report for last develop CI pipeline</h1><ul><li><a href='vulnerability_analysis.json'>Vulnerability Analysis</a></li><li><a href='coverage/index.html'>Code coverage</a></li></ul></body></html>" > public/index.html
-#  artifacts:
-#    paths:
-#      - public
+pages:
+  stage: deploy
+  tags:
+    - short-jobs
+  environment:
+    name: test-results
+    url: http://in3.git-pages.slock.it/in3-server
+  only:
+    refs:
+      - develop
+  dependencies:
+    - test-parity
+    - test-geth
+    - vulnerability-analysis
+  script:
+    - mkdir -p public/
+    - cp -r test/report public/coverage
+    - cp vulnerability_analysis.json public/
+    - echo "<html><body><h1>Incubed report for last develop CI pipeline</h1><ul><li><a href='vulnerability_analysis.json'>Vulnerability Analysis</a></li><li><a href='coverage/index.html'>Code coverage</a></li></ul></body></html>" > public/index.html
+  artifacts:
+    paths:
+      - public
 
-#dockerhub-deploy:
-#  stage: deploy
-#  when: manual
-#  only:
-#    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
-#  except:
-#    - branches
-#  tags:
-#    - short-jobs
-#  services:
-#    - docker:dind
-#  image: docker.slock.it/build-images/deployment
-#  variables:
-#    IMAGE_TAG: slockit/in3-node:$CI_COMMIT_TAG
-#  before_script:
-#    - docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} ${DOCKERHUB_REGISTRY}
-#  script:
-#    - docker build --build-arg NPM_REGISTRY_TOKEN=${NPM_REGISTRY_TOKEN} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} -t $IMAGE_TAG .
-#    - docker push $IMAGE_TAG
-#    - docker tag $IMAGE_TAG slockit/in3-node:latest
-#    - docker push slockit/in3-node:latest
+dockerhub-deploy:
+  stage: deploy
+  when: manual
+  only:
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
+  except:
+    - branches
+  tags:
+    - short-jobs
+  services:
+    - docker:dind
+  image: docker.slock.it/build-images/deployment
+  variables:
+    IMAGE_TAG: slockit/in3-node:$CI_COMMIT_TAG
+  before_script:
+    - docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} ${DOCKERHUB_REGISTRY}
+  script:
+    - docker build --build-arg NPM_REGISTRY_TOKEN=${NPM_REGISTRY_TOKEN} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} -t $IMAGE_TAG .
+    - docker push $IMAGE_TAG
+    - docker tag $IMAGE_TAG slockit/in3-node:latest
+    - docker push slockit/in3-node:latest
 
-#.register-with-sentry:
-#  stage: deploy
-#  tags:
-#    - short-jobs
-#  image: docker.slock.it/build-images/deployment
-#  script:
-#    - sentry-cli releases new -p in3-server in3-server@${CI_COMMIT_REF_NAME}
-#    - sentry-cli releases deploys in3-server@${CI_COMMIT_REF_NAME} new -e ${TARGET}
-#    - sentry-cli releases set-commits --auto in3-server@${CI_COMMIT_REF_NAME}
+.register-with-sentry:
+  stage: deploy
+  tags:
+    - short-jobs
+  image: docker.slock.it/build-images/deployment
+  script:
+    - sentry-cli releases new -p in3-server in3-server@${CI_COMMIT_REF_NAME}
+    - sentry-cli releases deploys in3-server@${CI_COMMIT_REF_NAME} new -e ${TARGET}
+    - sentry-cli releases set-commits --auto in3-server@${CI_COMMIT_REF_NAME}
 
-#register-with-sentry-stage:
-#  extends: .register-with-sentry
-#  only:
-#    - /^v[0-9]+.[0-9]+.[0-9]+-(alpha|beta|rc)\.[0-9]+$/
-#  except:
-#    - branches
-#  variables:
-#    TARGET: stage
-
-#register-with-sentry-production:
-#  extends: .register-with-sentry
-#  only:
-#    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
-#  except:
-#    - branches
-#  variables:
-#    TARGET: production
+register-with-sentry-production:
+  extends: .register-with-sentry
+  only:
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
+  except:
+    - branches
+  variables:
+    TARGET: production
 
 .deploy-tmpl:
   stage: deploy
@@ -225,27 +216,12 @@ stages:
     - rancher -w up -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
 
 ## Environments
-#.deploy-tmpl-stage:
-#  extends: .deploy-tmpl
-#  only:
-#    - /^v[0-9]+.[0-9]+.[0-9]+-(alpha|beta|rc)\.[0-9]+$/
-#  except:
-#    - branches
-#  environment:
-#    name: stage-${CHAIN}
-#  when: manual
-#  variables:
-#    TARGET: stage
-#    STACKNAME: server
-#    BLOCKHEIGHT: "0"
-#    REGISTRY_CONTRACT_ADDR: "0xa412D519199C3c0ebaea3A9f73f1f89A935F9F14"
-
 .deploy-tmpl-production:
   extends: .deploy-tmpl
-#  only:
-#    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
-#  except:
-#    - branches
+  only:
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
+  except:
+    - branches
   environment:
     name: production-${CHAIN}
   variables:
@@ -299,69 +275,30 @@ stages:
     CHAIN_ID: "0x7d0"
     RPC_ENDPOINT: http://lb.parity-rpc/mainnet/archive
 
-# Stage deployments
-#deploy-stage-kovan:
-#  extends:
-#    - .deploy-tmpl-stage
-#    - .chain-tmpl-kovan
-#  variables:
-#    REGISTRY_CONTRACT_ADDR: "0x0604014f2a5fdfafce3f2ec10c77c31d8e15ce6f"
-#
-#deploy-stage-goerli:
-#  extends:
-#    - .deploy-tmpl-stage
-#    - .chain-tmpl-goerli
-#  variables:
-#    REGISTRY_CONTRACT_ADDR: "0x0bfe6c538877aed3a0e0c6db78d07234c9100853"
-#
-#deploy-stage-btc:
-#  extends:
-#    - .deploy-tmpl-stage
-#    - .chain-tmpl-btc
-#  script:
-#    - cd deployment
-#    - rancher -w up -f docker-compose.btc.yml -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
-#  variables:
-#    REGISTRY_CONTRACT_ADDR: "0x8fd5c32d3eb1588efedbb5a321c04991e3865e9d"
-#
-#deploy-production-btc:
-#  extends:
-#    - .deploy-tmpl-production
-#    - .chain-tmpl-btc
-#  variables:
-#    REGISTRY_CONTRACT_ADDR: "0xc3845e55756db9990ea06de9ea73dc99769f6c7f"
-
-
-# disable until v2 stage contract is deployed to mainnet
-#deploy-stage-mainnet:
-#  extends:
-#    - .deploy-tmpl-stage
-#    - .chain-tmpl-mainnet
+# Production deployments
+deploy-production-mainnet:
+  extends:
+    - .deploy-tmpl-production
+    - .chain-tmpl-mainnet
+  variables:
+    BLOCKHEIGHT: "6"
+    REGISTRY_CONTRACT_ADDR: "0x6c095a05764a23156efd9d603eada144a9b1af33"
 
 # Production deployments
-#deploy-production-mainnet:
-#  extends:
-#    - .deploy-tmpl-production
-#    - .chain-tmpl-mainnet
-#  variables:
-#    BLOCKHEIGHT: "6"
-#    REGISTRY_CONTRACT_ADDR: "0x6c095a05764a23156efd9d603eada144a9b1af33"
+deploy-production-ewc:
+  extends:
+    - .deploy-tmpl-production
+    - .chain-tmpl-ewc
+  variables:
+    BLOCKHEIGHT: "2"
+    REGISTRY_CONTRACT_ADDR: "0x638428ebaa190c6c6331a3a02f3b8c5d8310986b"
 
-# Production deployments
-#deploy-production-ewc:
-#  extends:
-#    - .deploy-tmpl-production
-#    - .chain-tmpl-ewc
-#  variables:
-#    BLOCKHEIGHT: "2"
-#    REGISTRY_CONTRACT_ADDR: "0x638428ebaa190c6c6331a3a02f3b8c5d8310986b"
-#
-#deploy-production-kovan:
-#  extends:
-#    - .deploy-tmpl-production
-#    - .chain-tmpl-kovan
-#  variables:
-#    REGISTRY_CONTRACT_ADDR: "0xf14d54e349ac971ab6280d6d99f7152c9a06b0b3"
+deploy-production-kovan:
+  extends:
+    - .deploy-tmpl-production
+    - .chain-tmpl-kovan
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0xf14d54e349ac971ab6280d6d99f7152c9a06b0b3"
 
 deploy-production-goerli:
   extends:
@@ -370,19 +307,19 @@ deploy-production-goerli:
   variables:
     REGISTRY_CONTRACT_ADDR: "0x635cccc1db6fc9e3b029814720595092affba12f"
 
-#deploy-production-volta:
-#  extends:
-#    - .deploy-tmpl-production
-#    - .chain-tmpl-volta
-#  variables:
-#    REGISTRY_CONTRACT_ADDR: "0x8d8Fd38311d57163524478404C75008fBEaACccB"
+deploy-production-volta:
+  extends:
+    - .deploy-tmpl-production
+    - .chain-tmpl-volta
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0x8d8Fd38311d57163524478404C75008fBEaACccB"
 
-#deploy-production-ipfs:
-#  extends:
-#    - .deploy-tmpl-production
-#    - .chain-tmpl-ipfs
-#  script:
-#    - cd deployment
-#    - rancher -w up -f docker-compose.ipfs.yml -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
-#  variables:
-#    REGISTRY_CONTRACT_ADDR: "0xcB61736dE539aCFA0eE97bC6BbF9108EF906c88C"
+deploy-production-ipfs:
+  extends:
+    - .deploy-tmpl-production
+    - .chain-tmpl-ipfs
+  script:
+    - cd deployment
+    - rancher -w up -f docker-compose.ipfs.yml -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
+  variables:
+    REGISTRY_CONTRACT_ADDR: "0xcB61736dE539aCFA0eE97bC6BbF9108EF906c88C"
