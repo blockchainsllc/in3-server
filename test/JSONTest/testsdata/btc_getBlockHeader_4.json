@@ -1,0 +1,36 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getblockheader",
+      "params": [
+        "00000000000000000000140a7289f3aada855dfd23b0bb13bb5502b0ca60cdd9",
+        true
+      ],
+      "in3": { "finality": 8, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - getBlockHeader: use nonexisting hash",
+    "handler": "btc",
+    "mock_responses": [
+      [
+        {
+          "method": "getblockheader",
+          "params": [
+            "00000000000000000000140a7289f3aada855dfd23b0bb13bb5502b0ca60cdd9",
+            true
+          ]
+        },
+        {
+          "result": null,
+          "error": { "code": -5, "message": "Block not found" },
+          "id": 13
+        }
+      ]
+    ],
+    "expected_result": {
+      "jsonrpc": "2.0",
+      "error": { "code": -32603, "message": "Error: Error: Block not found" }
+    }
+  }
+]

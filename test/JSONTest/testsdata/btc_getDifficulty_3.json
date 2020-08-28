@@ -1,0 +1,30 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getdifficulty",
+      "params": [636121],
+      "in3": { "finality": 8, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - getDifficulty: ask for finality headers that aren't existing yet",
+    "handler": "btc",
+    "mock_responses": [
+      [
+        {
+          "method": "getblockcount",
+          "params": [],
+          "id": 142,
+          "jsonrpc": "2.0"
+        },
+        { "result": 636124, "error": null, "id": 142 }
+      ]
+    ],
+    "expected_result": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "error": { "code": -16001, "message": "block is not final" },
+      "in3": { "lastNodeList": 2929360 }
+    }
+  }
+]

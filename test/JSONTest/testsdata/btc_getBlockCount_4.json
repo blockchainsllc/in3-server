@@ -1,0 +1,32 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getblockcount",
+      "params": [],
+      "in3": { "finality": 8, "verification": "never" }
+    },
+    "descr": "BTC-Tests - getBlockCount: without proof",
+    "handler": "btc",
+    "mock_responses": [
+      [
+        { "method": "getblockcount", "params": [], "id": 14, "jsonrpc": "2.0" },
+        { "result": 641601, "error": null, "id": 14 }
+      ]
+    ],
+    "expected_result": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": 641601,
+      "in3": {
+        "lastNodeList": 3142650,
+        "execTime": 2354,
+        "rpcTime": 2353,
+        "rpcCount": 1,
+        "currentBlock": 3142650,
+        "version": "2.1.0"
+      }
+    }
+  }
+]

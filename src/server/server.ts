@@ -487,7 +487,8 @@ function checkNodeSync(_callback) {
 
   const checkSync = () => sendToNode(config, rpcReq).then(
     r => {
-      if (r.error == undefined && JSON.stringify(r.result) === "false")
+      if (r.error == undefined && 
+        (JSON.stringify(r.result) === "false" || parseInt(r.result.highestBlock||1000)-parseInt(r.result.currentBlock||0)<10  ))
         _callback()
       else {
         if (r.error) {

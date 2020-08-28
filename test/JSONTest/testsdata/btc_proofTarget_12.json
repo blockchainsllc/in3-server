@@ -1,0 +1,23 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "in3_proofTarget",
+      "params": [300, 10, 10, 8, 0],
+      "in3": { "finality": 100, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - proofTarget: high amount of finality (maximum is set to 1000)",
+    "handler": "btc",
+    "mock_responses": [],
+    "expected_result": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "error": {
+        "code": -32602,
+        "message": "maximum amount of finality headers per request is 1000"
+      },
+      "in3": { "lastNodeList": 3056682 }
+    }
+  }
+]

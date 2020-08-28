@@ -1,0 +1,32 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "in3_proofTarget",
+      "params": [300, 300, 5, 5, 10],
+      "in3": { "finality": 8, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - proofTarget: target dap equal to verified dap",
+    "handler": "btc",
+    "mock_responses": [
+      [
+        { "method": "getblockcount", "params": [], "id": 13, "jsonrpc": "2.0" },
+        { "result": 637330, "error": null, "id": 13 }
+      ]
+    ],
+    "expected_result": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": [],
+      "in3": {
+        "lastNodeList": 2975406,
+        "execTime": 272,
+        "rpcTime": 269,
+        "rpcCount": 1,
+        "currentBlock": 2975406,
+        "version": "2.1.0"
+      }
+    }
+  }
+]

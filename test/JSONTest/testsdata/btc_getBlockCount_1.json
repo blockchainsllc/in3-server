@@ -1,0 +1,26 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getblockcount",
+      "params": [],
+      "in3": { "finality": 0, "verification": "proof" }
+    },
+    "descr": "BTC-Tests - getBlockCount: call with no finality (finality=0)",
+    "handler": "btc",
+    "mock_responses": [],
+    "expected_result": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "in3": {
+        "lastNodeList": 2928837,
+        "execTime": 1,
+        "rpcTime": 0,
+        "rpcCount": 0,
+        "currentBlock": 2928837,
+        "version": "2.1.0"
+      }
+    }
+  }
+]
