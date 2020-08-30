@@ -34,11 +34,10 @@
 
 import { readFileSync } from 'fs'
 import { TestTransport } from './transport'
-import { RPCResponse } from 'in3-common/js/src/types/types'
+import { RPCResponse } from '../../src/types/types'
 import { resetSupport} from '../../src/modules/eth/proof'
 
 import 'mocha'
-import { debug } from 'in3-common/js/test/util/memoryLogger'
 
 export async function runTests(files: string[]): Promise<{ descr: string, c: number, success: boolean, error: string }[]> {
   const allResults = []

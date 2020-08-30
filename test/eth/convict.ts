@@ -36,16 +36,14 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util, BlockData, serialize } from 'in3-common'
+import * as util from '../../src/util/util'
+import { BlockData } from '../../src/modules/eth/serialize'
+import * as serialize from '../../src/modules/eth/serialize'
 import { Signature, RPCRequest, RPCResponse } from '../../src/types/types'
 import * as tx from '../../src/util/tx'
 import * as ethUtil from 'ethereumjs-util'
-import { TestTransport, LoggingAxiosTransport } from '../utils/transport'
-import Watcher from '../../src/chains/watch'
-import { registerNodes, deployNodeRegistry } from '../../src/util/registry'
-import { toBN, toBuffer } from 'in3-common/js/src/util/util';
-import { BigNumber } from 'ethers/utils';
-import { signatureCaches, createPK, PK } from '../../src/chains/signatures'
+import { TestTransport} from '../utils/transport'
+import { signatureCaches, PK } from '../../src/chains/signatures'
 import { resetSupport} from '../../src/modules/eth/proof'
 
 

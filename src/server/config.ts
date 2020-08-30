@@ -33,7 +33,7 @@
  *******************************************************************************/
 
 import * as fs from 'fs'
-import { util } from 'in3-common'
+import * as util from '../util/util'
 import { IN3RPCConfig, IN3RPCHandlerConfig, validationDef as typeDefs } from '../types/types'
 import * as cargs from 'args'
 

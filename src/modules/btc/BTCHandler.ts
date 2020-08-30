@@ -17,14 +17,14 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { Transport } from 'in3-common'
+import { Transport } from '../../util/transport'
 import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../../types/types'
 import axios from 'axios'
 import BaseHandler from '../../chains/BaseHandler'
 import { BTCBlock, serialize_blockheader, BTCBlockHeader } from './btc_serialize'
 import { createMerkleProof } from './btc_merkle'
 import { max } from 'bn.js'
-import { hash } from 'in3-common/js/src/modules/eth/serialize'
+import { hash } from '../eth/serialize'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { BTCCache, Coinbase } from './btc_cache'
 import { UserError } from '../../util/sentryError'

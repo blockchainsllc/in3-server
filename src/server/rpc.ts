@@ -34,7 +34,8 @@
 const Sentry = require('@sentry/node');
 
 
-import { Transport, AxiosTransport, util } from 'in3-common'
+import { Transport, AxiosTransport } from '../util/transport'
+import * as util  from '../util/util'
 import { WhiteList, RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';

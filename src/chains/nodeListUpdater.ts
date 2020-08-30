@@ -34,10 +34,12 @@
 const Sentry = require('@sentry/node');
 
 import { RPCHandler, HandlerTransport } from '../server/rpc'
-import * as tx from '../util/tx'
-import { createRandomIndexes, Transport, BlockData, util, storage, serialize } from 'in3-common'
+import * as tx from '../util/tx' 
+import  * as util from '../util/util'
+import * as serialize from '../modules/eth/serialize'
+import {BlockData} from '../modules/eth/serialize'
+import * as storage from '../modules/eth/storage'
 import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig, WhiteList } from '../types/types'
-import { toChecksumAddress, keccak256 } from 'ethereumjs-util'
 import * as logger from '../util/logger'
 import * as abi from 'ethereumjs-abi'
 import { setOpError } from '../util/sentryError'
@@ -138,7 +140,7 @@ export async function getNodeList(handler: RPCHandler, nodeList: ServerList, inc
       const result = addresses.map(adr => nodes.findIndex(_ => _.address === adr))
       if (result.indexOf(-1) >= 0)// throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist', "getNodeList")
         throw new Error('The given addresses ' + addresses.join() + ' are not registered in the serverlist')
-      createRandomIndexes(nodes.length, limit, bytes32(seed), result)
+      util.createRandomIndexes(nodes.length, limit, bytes32(seed), result)
 
       const nl: ServerList = {
         totalServers: nodeList.totalServers,

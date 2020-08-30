@@ -1,6 +1,6 @@
 /*******************************************************************************
  * This file is part of the Incubed project.
- * Sources: https://github.com/slockit/in3-server
+ * Sources: https://github.com/slockit/in3-common
  * 
  * Copyright (C) 2018-2019 slock.it GmbH, Blockchains LLC
  * 
@@ -32,51 +32,26 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
+const messages: { level: string, message: string, data?: any[] }[] = []
 
-
-// Setup logger
-import * as winston from 'winston'
-import * as memoryLogger from '../../test/utils/memoryLogger'
-import config from '../server/config'
-
-
-const nodeEnv: string = process.env.NODE_ENV || 'production'
-const logLevel = config.logging && config.logging.level
-const winstonLogger = winston.createLogger({
-  levels: winston.config.syslog.levels,
-  format: nodeEnv === 'production'
-    ? winston.format.json()
-    : winston.format.combine(winston.format.colorize(), winston.format.simple()),
-  transports: [
-    new winston.transports.Console({ level: logLevel || (nodeEnv === 'production' ? 'info' : 'debug') })
-  ],
-  exceptionHandlers: [
-    new winston.transports.Console({ handleExceptions: true })
-  ],
-  exitOnError: false, // <--- set this to false
-})
-
-
-
-let impl = winstonLogger
-
-export function setLogger(val: 'winston' | 'memory') {
-  impl = ((val === 'winston') ? winstonLogger : memoryLogger) as any
+export function getLogsAndClear() {
+  const copy = [...messages]
+  messages.length = 0
+  return copy
 }
-
 export function log(level: string, message: string, ...data: any[]) {
-  impl.log(level, message, ...data)
+  messages.push({ level, message, data })
 }
-export function info(message: string, ...data: any[]): void {
+
+export function info(message: string, ...data: any[]) {
   log('info', message, ...data)
 }
-
 export function debug(message: string, ...data: any[]) {
   log('debug', message, ...data)
 }
-export function trace(message: string, ...data: any[]) {
-  log('debug', message, ...data)
-}
+
 export function error(message: string, ...data: any[]) {
   log('error', message, ...data)
 }
+
+

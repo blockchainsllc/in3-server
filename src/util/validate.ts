@@ -32,51 +32,42 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
+import * as Ajv from 'ajv'
+import * as util from './util'
 
 
-// Setup logger
-import * as winston from 'winston'
-import * as memoryLogger from '../../test/utils/memoryLogger'
-import config from '../server/config'
+/**
+ * the ajv instance with custom formatters and keywords
+ */
+export const ajv = new Ajv()
+ajv.addFormat('address', /^0x[0-9a-fA-F]{40}$/)
+ajv.addFormat('bytes32', /^0x[0-9a-fA-F]{64}$/)
+ajv.addFormat('bytes64', /^0x[0-9a-fA-F]{128}$/)
+ajv.addFormat('hex', /^0x[0-9a-fA-F]{2,}$/)
+ajv.addFormat('hexWithout', /^[0-9a-fA-F]{2,}$/)
+ajv.addFormat('path', /^[\/a-zA-Z_\-0-9]+$/)
 
-
-const nodeEnv: string = process.env.NODE_ENV || 'production'
-const logLevel = config.logging && config.logging.level
-const winstonLogger = winston.createLogger({
-  levels: winston.config.syslog.levels,
-  format: nodeEnv === 'production'
-    ? winston.format.json()
-    : winston.format.combine(winston.format.colorize(), winston.format.simple()),
-  transports: [
-    new winston.transports.Console({ level: logLevel || (nodeEnv === 'production' ? 'info' : 'debug') })
-  ],
-  exceptionHandlers: [
-    new winston.transports.Console({ handleExceptions: true })
-  ],
-  exitOnError: false, // <--- set this to false
+ajv.addKeyword('timestamp', {
+  type: 'number',
+  validate: (sch, data) => sch === 'current'
+    ? !!(data > Date.now() / 1000 - 60 || data < Date.now() / 1000 + 60)
+    : !!(data === 0 || Date.now() / 1000 - 3600 * 24 * 365 || data < Date.now() / 1000 + 3600 * 24 * 365)
 })
 
-
-
-let impl = winstonLogger
-
-export function setLogger(val: 'winston' | 'memory') {
-  impl = ((val === 'winston') ? winstonLogger : memoryLogger) as any
+/**
+ * validates the data and throws an error in case they are not valid.
+ * 
+ * @export
+ * @param {Ajv.ValidateFunction} fn 
+ * @param {any} ob 
+ */
+export function validateAndThrow(fn: Ajv.ValidateFunction, ob) {
+  if (!fn(ob))
+    throw new Error('ERRKEY: invalid_data : ' + (fn).errors.map(_ =>
+      _.dataPath + '(' + JSON.stringify(_.data || _.params) + '):' + _.message).join(', ') + ':' + JSON.stringify(ob, null, 2))
 }
 
-export function log(level: string, message: string, ...data: any[]) {
-  impl.log(level, message, ...data)
-}
-export function info(message: string, ...data: any[]): void {
-  log('info', message, ...data)
+export function validate(ob: any, def: any) {
+  validateAndThrow(ajv.compile(def), ob)
 }
 
-export function debug(message: string, ...data: any[]) {
-  log('debug', message, ...data)
-}
-export function trace(message: string, ...data: any[]) {
-  log('debug', message, ...data)
-}
-export function error(message: string, ...data: any[]) {
-  log('error', message, ...data)
-}

@@ -36,7 +36,8 @@ import VM from 'ethereumjs-vm'
 import * as Account from 'ethereumjs-account'
 import * as Block from 'ethereumjs-block'
 import * as Trie from 'merkle-patricia-tree'
-import { util, serialize } from 'in3-common'
+import * as util from '../../util/util'
+import * as serialize  from './serialize'
 import { RPCRequest, RPCResponse } from '../../types/types'
 
 // cache structure holding the accounts and storage

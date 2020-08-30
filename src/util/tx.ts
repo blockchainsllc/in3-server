@@ -35,17 +35,17 @@
 const Sentry = require('@sentry/node');
 
 import { methodID } from 'ethereumjs-abi'
-import { toBuffer, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
-import { Transport, AxiosTransport, util, transport } from 'in3-common'
+import { toBuffer } from 'ethereumjs-util'
+import { Transport, AxiosTransport } from './transport'
+import * as  util  from './util'
 import { RPCResponse } from '../types/types'
 import { SentryError } from '../util/sentryError'
 import { AbiCoder } from '@ethersproject/abi'
 import { PK } from '../chains/signatures'
-import { toMinHex } from 'in3-common/js/src/util/util';
+import { toMinHex,toHex } from './util';
 const BN = require('bn.js')
 const ETx = require('ethereumjs-tx') as any
 
-const toHex = util.toHex
 
 let idCount = 1
 export async function deployContract(url: string, bin: string, txargs?: {

@@ -35,7 +35,9 @@ const Sentry = require('@sentry/node');
 
 import * as fs from 'fs'
 import { EventEmitter } from 'events'
-import { util, LogData, serialize } from 'in3-common'
+import * as  util from '../util/util'
+import { LogData }  from '../modules/eth/serialize'
+import * as serialize  from '../modules/eth/serialize'
 import { keccak, toChecksumAddress } from 'ethereumjs-util'
 
 import { RPCHandler } from '../server/rpc';

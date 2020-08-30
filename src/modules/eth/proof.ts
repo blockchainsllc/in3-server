@@ -32,7 +32,10 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import { LogData, BlockData, ReceiptData, serialize, util, TransactionData, getSigner } from 'in3-common'
+import { LogData, BlockData, ReceiptData, TransactionData } from './serialize'
+import * as serialize from './serialize'
+import * as  util from '../../util/util'
+import {  getSigner, toBuffer } from '../../util/util'
 import { LogProof, RPCRequest, RPCResponse, Signature, Proof } from '../../types/types'
 import { rlp, toChecksumAddress, keccak } from 'ethereumjs-util'
 import * as Trie from 'merkle-patricia-tree'
@@ -42,10 +45,8 @@ import { collectSignatures } from '../../chains/signatures'
 import * as evm from './evm_trace'
 import { in3ProtocolVersion } from '../../types/constants'
 import { analyseCall, getFromCache, CacheAccount } from './evm_run'
-import * as promClient from 'prom-client';
+import * as promClient from 'prom-client'
 import { SentryError } from '../../util/sentryError'
-import { toBuffer } from 'in3-common/js/src/util/util'
-import { TransactionReceipt } from 'in3'
 
 
 const histMerkleTreeTime = new promClient.Histogram({
@@ -524,7 +525,7 @@ async function handleLogsNethermind(handler: EthHandler, request: RPCRequest, lo
     throw err
   })
   const receipts: {
-    receipt: TransactionReceipt,
+    receipt: ReceiptData,
     txProof: string[],
     receiptProof: string[],
     blockHeader: string

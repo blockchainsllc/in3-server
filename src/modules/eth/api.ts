@@ -36,7 +36,7 @@
 const Sentry = require('@sentry/node')
 import { methodID } from 'ethereumjs-abi'
 import { toChecksumAddress, privateToAddress, keccak, ecsign } from 'ethereumjs-util'
-import { util } from 'in3-common'
+import * as util from '../../util/util'
 import BN = require('bn.js')
 import { AbiCoder, Interface, Fragment } from '@ethersproject/abi'
 import { RPCResponse } from '../../types/types';

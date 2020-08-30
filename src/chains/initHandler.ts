@@ -34,7 +34,7 @@
 const Sentry = require('@sentry/node');
 
 import BaseHandler from './BaseHandler'
-import { util } from 'in3-common'
+import * as util  from '../util/util'
 import { IN3RPCHandlerConfig } from '../types/types'
 import * as fs from 'fs'
 import * as scryptsy from 'scrypt.js'

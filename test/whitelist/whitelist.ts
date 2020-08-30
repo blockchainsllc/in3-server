@@ -34,7 +34,7 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util } from 'in3-common'
+import * as util  from '../../src/util/util'
 import * as tx from '../../src/util/tx'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployWhiteList } from '../../src/util/registry'
