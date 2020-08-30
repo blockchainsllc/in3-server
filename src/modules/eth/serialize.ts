@@ -198,8 +198,8 @@ export const toTransaction = (tx: TransactionData) => [
   uint(tx.value),
   bytes(tx.input || tx.data),
   uint(tx.v),
-  bytes32(tx.r),
-  bytes32(tx.s)
+  uint(tx.r),
+  uint(tx.s)
 ] as Transaction
 
 
