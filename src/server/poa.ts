@@ -45,7 +45,7 @@ import { publicToAddress, rlp } from 'ethereumjs-util'
 import { handleLogs } from '../modules/eth/proof'
 import * as logger from '../util/logger'
 import { decodeFunction } from '../util/tx';
-const chains = require('./modules/eth/defaultConfig.json').servers
+const chains = require('../modules/eth/defaultConfig.json').servers
 /**
  * a Object holding proofs for validator logs. The key is the blockNumber as hex
  */
