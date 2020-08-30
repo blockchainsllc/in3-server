@@ -159,9 +159,13 @@ export function toBuffer(val, len = -1) {
 
   if (!val) val = Buffer.allocUnsafe(0)
 
+  // remove leading zeros
+  while (len==0 && val[0]===0) val=val.slice(1)
+
   // since rlp encodes an empty array for a 0 -value we create one if the required len===0
   if (len == 0 && val.length == 1 && val[0] === 0)
     return Buffer.allocUnsafe(0)
+
 
 
   // if we have a defined length, we should padLeft 00 or cut the left content to ensure length
