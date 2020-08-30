@@ -44,7 +44,7 @@ import * as Router from 'koa-router'
 import { readCargs } from './config'
 const config = readCargs()
 import { RPC, submitRequestTime } from './rpc'
-import { cbor, chainAliases } from 'in3-common'
+import { aliases as chainAliases } from '../util/util'
 import { RPCRequest, IN3RPCConfig } from '../types/types'
 import { initConfig } from '../util/db'
 import { encodeObject } from '../util/binjson'
@@ -216,8 +216,7 @@ router.post(/.*/, async ctx => {
 
 
     const result = await rpc.handle(requests)
-
-    const res = requests.length && requests[0].in3 && requests[0].in3.useRef ? cbor.createRefs(result) : result
+    const res = result // requests.length && requests[0].in3 && requests[0].in3.useRef ? cbor.createRefs(result) : result
     responseData = Array.isArray(ctx.request.body) ? res : res[0]
     if (requests.length && requests[0].in3 && requests[0].in3.useBinary) {
       ctx.set('content-type', 'application/in3')
@@ -487,7 +486,8 @@ function checkNodeSync(_callback) {
 
   const checkSync = () => sendToNode(config, rpcReq).then(
     r => {
-      if (r.error == undefined && JSON.stringify(r.result) === "false")
+      if (r.error == undefined && 
+        (JSON.stringify(r.result) === "false" || parseInt(r.result.highestBlock||1000)-parseInt(r.result.currentBlock||0)<10  ))
         _callback()
       else {
         if (r.error) {

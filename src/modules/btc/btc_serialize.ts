@@ -17,7 +17,8 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { bytes, util } from 'in3-common'
+import { bytes } from '../eth/serialize'
+import * as  util  from '../../util/util'
 import * as crypto from 'crypto'
 
 export interface BTCBlockHeader {

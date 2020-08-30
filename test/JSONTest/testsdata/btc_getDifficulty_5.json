@@ -1,0 +1,70 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getdifficulty",
+      "params": [631910],
+      "in3": { "finality": 8, "verification": "never" }
+    },
+    "descr": "BTC-Tests - getDifficulty: without proof (block #641601)",
+    "handler": "btc",
+    "mock_responses": [
+      [
+        { "method": "getblockcount", "params": [], "id": 13, "jsonrpc": "2.0" },
+        { "result": 641601, "error": null, "id": 13 }
+      ],
+      [
+        { "method": "getblockhash", "params": [631910] },
+        {
+          "result": "0000000000000000000a5945ba8d3750ebf4ecccfe11c1f693ce9b6bf813dbdf",
+          "error": null,
+          "id": 14
+        }
+      ],
+      [
+        {
+          "method": "getblockheader",
+          "params": [
+            "0000000000000000000a5945ba8d3750ebf4ecccfe11c1f693ce9b6bf813dbdf",
+            true
+          ]
+        },
+        {
+          "result": {
+            "hash": "0000000000000000000a5945ba8d3750ebf4ecccfe11c1f693ce9b6bf813dbdf",
+            "confirmations": 9692,
+            "height": 631910,
+            "version": 536870912,
+            "versionHex": "20000000",
+            "merkleroot": "89e960710e208405588145b04acdfbe7639f8998c6f77867eb08b5bab23814f1",
+            "time": 1590589294,
+            "mediantime": 1590586521,
+            "nonce": 1571942075,
+            "bits": "171297f6",
+            "difficulty": 15138043247082.88,
+            "chainwork": "00000000000000000000000000000000000000000fcc31f919a0a3a20a1111b4",
+            "nTx": 2723,
+            "previousblockhash": "00000000000000000007cec007a2e35502c4cf7994fb923c6f53149edf3175aa",
+            "nextblockhash": "0000000000000000000fd9ede878b0b494ae08bc1f044b88c56f714e5ded7e08"
+          },
+          "error": null,
+          "id": 15
+        }
+      ]
+    ],
+    "expected_result": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": 15138043247082.88,
+      "in3": {
+        "lastNodeList": 3142662,
+        "execTime": 563,
+        "rpcTime": 195,
+        "rpcCount": 1,
+        "currentBlock": 3142662,
+        "version": "2.1.0"
+      }
+    }
+  }
+]

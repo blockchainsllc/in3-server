@@ -34,14 +34,16 @@
 const Sentry = require('@sentry/node');
 
 import BaseHandler from './BaseHandler'
-import { BlockData, util, serialize } from 'in3-common'
+import { BlockData } from '../modules/eth/serialize'
+import * as serialize from '../modules/eth/serialize'
+import * as  util from '../util/util'
 import { RPCRequest, RPCResponse, Signature, ServerList, IN3NodeConfig } from '../types/types'
 import { keccak, pubToAddress, ecrecover, ecsign, ECDSASignature, privateToAddress, toChecksumAddress, } from 'ethereumjs-util'
 import { callContract } from '../util/tx'
 import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
 import config, { getSafeMinBlockHeight } from '../server/config'
-import { toBuffer } from 'in3-common/js/src/util/util';
+import { toBuffer } from '../util/util';
 import { SentryError } from '../util/sentryError'
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 

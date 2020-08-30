@@ -32,7 +32,7 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import { Transport } from 'in3-common'
+import { Transport } from '../../util/transport'
 import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../../types/types'
 import axios from 'axios'
 import BaseHandler from '../../chains/BaseHandler'

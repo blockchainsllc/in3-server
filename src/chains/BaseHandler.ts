@@ -33,7 +33,9 @@
  *******************************************************************************/
 const Sentry = require('@sentry/node');
 
-import { Transport, AxiosTransport, NoneRejectingAxiosTransport, serialize, util as in3Util } from 'in3-common'
+import { Transport, AxiosTransport, NoneRejectingAxiosTransport} from '../util/transport'
+import * as serialize from'../modules/eth/serialize'
+import * as in3Util  from '../util/util'
 import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
@@ -43,7 +45,7 @@ import { collectSignatures, handleSign, PK } from './signatures'
 import { RPCHandler } from '../server/rpc'
 import { SimpleCache } from '../util/cache'
 import * as logger from '../util/logger'
-import { toMinHex } from 'in3-common/js/src/util/util'
+import { toMinHex } from '../util/util'
 import { in3ProtocolVersion, maxWatchBlockTimeout } from '../types/constants'
 import WhiteListManager from './whiteListManager'
 import * as promClient from 'prom-client';

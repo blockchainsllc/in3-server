@@ -36,16 +36,17 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { serialize, BlockData, util, LogData, } from 'in3-common'
+import * as serialize from '../../src/modules/eth/serialize'
+import {  BlockData,  LogData,} from '../../src/modules/eth/serialize'
+import * as  util from '../../src/util/util'
 import { RPCResponse, Proof, IN3Config, RPCRequest } from '../../src/types/types'
 import { TestTransport, getTestClient } from '../utils/transport'
 import { deployContract } from '../../src/util/registry';
 import * as tx from '../../src/util/tx'
-import * as logger from 'in3-common/js/test/util/memoryLogger'
+import * as logger from '../utils/memoryLogger'
 import { resetSupport} from '../../src/modules/eth/proof'
 
 const toHex = util.toHex
-const getAddress = util.getAddress
 const toMinHex = util.toMinHex
 const toNumber = util.toNumber
 

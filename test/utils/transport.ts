@@ -34,7 +34,8 @@
 
 
 
-import { Transport, AxiosTransport, util } from 'in3-common'
+import { Transport, AxiosTransport } from '../../src/util/transport'
+import * as util  from '../../src/util/util'
 import Client from 'in3'
 import { RPCRequest, RPCResponse, IN3NodeConfig, IN3Config, ServerList, IN3RPCHandlerConfig } from '../../src/types/types'
 
@@ -44,10 +45,8 @@ import { sendTransaction, callContract } from '../../src/util/tx'
 import axios from 'axios'
 import { registerNodes } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
-import { in3ProtocolVersion } from '../../src/types/constants';
 import { createPK, PK } from '../../src/chains/signatures'
-import { toBN, toUtf8, toMinHex } from 'in3-common/js/src/util/util';
-import { BigNumber } from 'ethers/utils';
+import { toBN, toUtf8, toMinHex } from '../../src/util/util'
 logger.setLogger('memory')
 
 let testClient = (process && process.env && process.env.RPCURL) || 'http://localhost:8545'

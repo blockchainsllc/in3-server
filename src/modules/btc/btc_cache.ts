@@ -1,6 +1,6 @@
 import BaseHandler from "../../chains/BaseHandler"
 import { RPCResponse, header } from "in3"
-import { hash } from "in3-common/js/src/modules/eth/serialize"
+import { hash } from "../eth/serialize"
 import { BTCBlock, BTCBlockHeader, serialize_blockheader } from "./btc_serialize"
 
 export interface BTCCacheValue {
@@ -155,6 +155,6 @@ function asResult(res: RPCResponse): any {
     if (!res) throw new Error("No result")
     if (res.error)
       throw new Error((res.error as any).message || res.error + '')
-    if (res.result === undefined) throw new Error("No result")
+    if (res.result === undefined || res.result === null) throw new Error("No result")
     return res.result
 }

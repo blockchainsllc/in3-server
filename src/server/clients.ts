@@ -32,7 +32,8 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import { Transport, AxiosTransport, util } from 'in3-common'
+import { Transport, AxiosTransport } from '../util/transport'
+import * as util  from '../util/util'
 import { RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
 
 const MAX_BLOCKS = 1000

@@ -35,12 +35,10 @@
 
 import * as tx from './tx'
 import { toChecksumAddress } from 'ethereumjs-util'
-import { Transport, util } from 'in3-common'
+import { Transport} from './transport'
 import { readFileSync } from 'fs'
-import { padStart } from 'in3-common/js/src/util/util';
+import { padStart,toHex } from './util'
 import { PK } from '../chains/signatures';
-import { padEnd } from 'in3-common/js/src/util/util';
-const toHex = util.toHex
 
 const bin = require('in3-contracts/contracts/contracts.json')
 

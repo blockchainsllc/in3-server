@@ -36,10 +36,9 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util } from 'in3-common'
-import Client, { chainData } from 'in3'
+import * as util  from '../../src/util/util'
+import Client from 'in3'
 import { registerNodes } from '../../src/util/registry';
-import * as logger from '../../src/util/logger'
 import { LoggingAxiosTransport, getTestClient, TestTransport } from '../utils/transport'
 import { resetSupport} from '../../src/modules/eth/proof'
 

@@ -35,23 +35,21 @@
 
 import { assert } from 'chai'
 import 'mocha'
-import { util, serialize } from 'in3-common'
+import * as util from '../../src/util/util'
+import { toHex } from '../../src/util/util'
 import { ServerList } from '../../src/types/types'
 import { RPCResponse } from '../../src/types/types'
 import EthChainContext from 'in3/js/src/modules/eth/EthChainContext'
-import { registerNodes, deployContract } from '../../src/util/registry';
-import { TestTransport, getTestClient } from '../utils/transport';
+import { registerNodes, deployContract } from '../../src/util/registry'
+import { TestTransport, getTestClient } from '../utils/transport'
 import Watcher from '../../src/chains/watch'
-import EventWatcher from '../utils/EventWatcher';
+import EventWatcher from '../utils/EventWatcher'
 import * as tx from '../../src/util/tx'
-import { RPC } from '../../src/server/rpc';
 import * as clientRPC from '../utils/clientRPC'
-import { toHex } from 'in3-common/js/src/util/util'
 import EthHandler from '../../src/modules/eth/EthHandler'
 import { resetSupport} from '../../src/modules/eth/proof'
 
 const toNumber = util.toNumber
-const getAddress = util.getAddress
 
 describe('Features', () => {
 

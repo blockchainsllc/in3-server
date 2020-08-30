@@ -33,7 +33,10 @@
  *******************************************************************************/
 
 
-import { getSigner as utilSigner, serialize, BlockData, LogData, util } from 'in3-common'
+import { getSigner as utilSigner } from '../util/util'
+import * as  serialize from '../modules/eth/serialize'
+import { BlockData, LogData} from '../modules/eth/serialize'
+import * as util from '../util/util'
 import { RPCRequest, Proof } from '../types/types'
 import { RPCHandler } from './rpc'
 import EthHandler from '../modules/eth/EthHandler'
@@ -42,7 +45,7 @@ import { publicToAddress, rlp } from 'ethereumjs-util'
 import { handleLogs } from '../modules/eth/proof'
 import * as logger from '../util/logger'
 import { decodeFunction } from '../util/tx';
-const chains = require('in3-common/js/defaultConfig.json').servers
+const chains = require('../modules/eth/defaultConfig.json').servers
 /**
  * a Object holding proofs for validator logs. The key is the blockNumber as hex
  */

@@ -32,7 +32,9 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import { Transport, util as in3Util, serialize } from 'in3-common'
+import * as in3Util from '../../util/util'
+import { Transport} from '../../util/transport'
+import * as  serialize  from './serialize'
 import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, ChainSpec } from '../../types/types'
 import { handeGetTransaction, handeGetTransactionFromBlock, handeGetTransactionReceipt, handleAccount, handleBlock, handleCall, handleLogs } from './proof'
 import BaseHandler from '../../chains/BaseHandler'
@@ -42,7 +44,7 @@ import { TxRequest, LogFilter } from './api';
 import * as tx from '../../../src/util/tx'
 import * as logger from '../../util/logger'
 
-const clientConf = require('in3-common/js/defaultConfig.json')
+const clientConf = require('./defaultConfig.json')
 const toHex = in3Util.toHex
 const toNumber = in3Util.toNumber
 

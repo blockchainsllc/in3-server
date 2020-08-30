@@ -195,15 +195,6 @@ dockerhub-deploy:
     - sentry-cli releases deploys in3-server@${CI_COMMIT_REF_NAME} new -e ${TARGET}
     - sentry-cli releases set-commits --auto in3-server@${CI_COMMIT_REF_NAME}
 
-register-with-sentry-stage:
-  extends: .register-with-sentry
-  only:
-    - /^v[0-9]+.[0-9]+.[0-9]+-(alpha|beta|rc)\.[0-9]+$/
-  except:
-    - branches
-  variables:
-    TARGET: stage
-
 register-with-sentry-production:
   extends: .register-with-sentry
   only:
@@ -216,7 +207,7 @@ register-with-sentry-production:
 .deploy-tmpl:
   stage: deploy
   tags:
-    - short-jobs
+    - internal-deploy
   image: docker.slock.it/build-images/deployment
   services:
     - docker:dind
@@ -225,21 +216,6 @@ register-with-sentry-production:
     - rancher -w up -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
 
 ## Environments
-.deploy-tmpl-stage:
-  extends: .deploy-tmpl
-  only:
-    - /^v[0-9]+.[0-9]+.[0-9]+-(alpha|beta|rc)\.[0-9]+$/
-  except:
-    - branches
-  environment:
-    name: stage-${CHAIN}
-  when: manual
-  variables:
-    TARGET: stage
-    STACKNAME: server
-    BLOCKHEIGHT: "0"
-    REGISTRY_CONTRACT_ADDR: "0xa412D519199C3c0ebaea3A9f73f1f89A935F9F14"
-
 .deploy-tmpl-production:
   extends: .deploy-tmpl
   only:
@@ -266,7 +242,7 @@ register-with-sentry-production:
   variables:
     CHAIN: btc
     CHAIN_ID: "0x99"
-    RPC_ENDPOINT: "https://slockit:slockit@rpc.slock.it/bitcoin"
+    RPC_ENDPOINT: "http://slockit:slockit@lb.parity-rpc/bitcoin"
     REGISTRY_RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
 
 .chain-tmpl-kovan:
@@ -287,42 +263,11 @@ register-with-sentry-production:
     CHAIN_ID: "0xf6"
     RPC_ENDPOINT: https://rpc.slock.it/ewc
 
-.chain-tmpl-volta:
-  variables:
-    CHAIN: tobalaba
-    CHAIN_ID: "0x44d"
-    RPC_ENDPOINT: http://lb.parity-rpc/volta
-
 .chain-tmpl-ipfs:
   variables:
     CHAIN: ipfs
     CHAIN_ID: "0x7d0"
     RPC_ENDPOINT: http://lb.parity-rpc/mainnet/archive
-
-# Stage deployments
-deploy-stage-kovan:
-  extends:
-    - .deploy-tmpl-stage
-    - .chain-tmpl-kovan
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0x0604014f2a5fdfafce3f2ec10c77c31d8e15ce6f"
-
-deploy-stage-goerli:
-  extends:
-    - .deploy-tmpl-stage
-    - .chain-tmpl-goerli
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0x0bfe6c538877aed3a0e0c6db78d07234c9100853"
-
-deploy-stage-btc:
-  extends:
-    - .deploy-tmpl-stage
-    - .chain-tmpl-btc
-  script:
-    - cd deployment
-    - rancher -w up -f docker-compose.btc.yml -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0x8fd5c32d3eb1588efedbb5a321c04991e3865e9d"
 
 deploy-production-btc:
   extends:
@@ -330,13 +275,6 @@ deploy-production-btc:
     - .chain-tmpl-btc
   variables:
     REGISTRY_CONTRACT_ADDR: "0xc3845e55756db9990ea06de9ea73dc99769f6c7f"
-
-
-# disable until v2 stage contract is deployed to mainnet
-#deploy-stage-mainnet:
-#  extends:
-#    - .deploy-tmpl-stage
-#    - .chain-tmpl-mainnet
 
 # Production deployments
 deploy-production-mainnet:
@@ -370,12 +308,6 @@ deploy-production-goerli:
   variables:
     REGISTRY_CONTRACT_ADDR: "0x635cccc1db6fc9e3b029814720595092affba12f"
 
-deploy-production-volta:
-  extends:
-    - .deploy-tmpl-production
-    - .chain-tmpl-volta
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0x8d8Fd38311d57163524478404C75008fBEaACccB"
 
 deploy-production-ipfs:
   extends:

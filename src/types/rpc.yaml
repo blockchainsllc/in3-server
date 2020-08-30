@@ -113,6 +113,7 @@ definitions:
     description: params that can be hex-strings or numbers
     oneOf:
       - type: number
+        minimum: 0
       - type: string
         pattern: "^0x[0-9a-fA-F]+"
 
@@ -510,6 +511,6 @@ definitions:
       - $ref: "#/definitions/numberType"
         description: max_diff
       - $ref: "#/definitions/numberType"
-        description: max_dapp
+        description: max_dap
       - $ref: "#/definitions/numberType"
         description: limit
