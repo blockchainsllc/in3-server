@@ -154,58 +154,61 @@ export default abstract class BaseHandler implements RPCHandler {
     if (process.env.IN3VERBOSERPC)
       logger.debug("Verbose. RPC: " + (rpc || this.config.rpcUrl[this.activeRPC]) + " Request: " + JSON.stringify(request))
 
-    return axios.post(rpc || this.config.rpcUrl[this.activeRPC], this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
+    return axios.post(rpc || this.config.rpcUrl[this.activeRPC], this.toCleanRequest(request), { headers })
+      .then(rsp => this.handleFauxSuccess(rsp))
+      .then(_ => _.data, err => {
 
-      if (err.response && err.response.data && typeof (err.response.data) === 'object' && err.response.data.error)
-        err.message = err.response.data.error.message || err.response.data.error
+        if (typeof (err?.response?.data) === 'object' && err.response.data.error)
+          err.message = err.response.data.error.message || err.response.data.error
 
-      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
-      if (process.env.SENTRY_ENABLE === 'true') {
-        Sentry.configureScope((scope) => {
-          scope.setTag("BaseHandler", "getFromServer");
-          scope.setTag("nodeList-contract", this.config.registry)
-          scope.setExtra("request", request)
-        });
-      }
-      histRequestTime.labels(request.method || "unknown", "error", "single").observe(Date.now() - startTime);
-      //re attempt if request failed and if there are more then 1 RPC URLs are specified
-      if (((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED") != -1) &&
-        this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length && !rpc) {
+        logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
+        if (process.env.SENTRY_ENABLE === 'true') {
+          Sentry.configureScope((scope) => {
+            scope.setTag("BaseHandler", "getFromServer");
+            scope.setTag("nodeList-contract", this.config.registry)
+            scope.setExtra("request", request)
+          });
+        }
+        histRequestTime.labels(request.method || "unknown", "error", "single").observe(Date.now() - startTime);
+        //re attempt if request failed and if there are more then 1 RPC URLs are specified
+        if ((err?.response?.status !== 200 || err?.message.toString().indexOf("ECONNREFUSED") != -1 || this.isProxyError(err?.code)) &&
+          this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length && !rpc) {
 
-        logger.error('Request failed for RPC URL ' + this.config.rpcUrl[this.activeRPC] + 'Error ' + err.message + ' fetching request ' + JSON.stringify(request) + 'Reattempting request on ' + this.config.rpcUrl[this.activeRPC + 1])
-        this.activeRPC++
-        this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
-        return this.getFromServer(request, r)
-      }
-      else
-        throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
-    }).then(res => {
-      logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
-      if (process.env.IN3TEST && (!rpc || rpc===this.config.rpcUrl[0])) {
-        writeFileSync(process.env.IN3TEST,(firstTestRecord ? '':',')+JSON.stringify([request,fixResponse(request, res)]),{encoding:'utf8',flag:'a'})
-        firstTestRecord=false
-      }
+          logger.error('Request failed for RPC URL ' + this.config.rpcUrl[this.activeRPC] + ' Error ' + err.message + ' fetching request ' + JSON.stringify(request) + 'Reattempting request on ' + this.config.rpcUrl[this.activeRPC + 1])
+          this.activeRPC++
+          this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
+          return this.getFromServer(request, r)
+        }
+        else
+          throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
+      })
+      .then(res => {
+        logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
+        if (process.env.IN3TEST && (!rpc || rpc===this.config.rpcUrl[0])) {
+          writeFileSync(process.env.IN3TEST,(firstTestRecord ? '':',')+JSON.stringify([request,fixResponse(request, res)]),{encoding:'utf8',flag:'a'})
+          firstTestRecord=false
+        }
 
 
-      if (process.env.SENTRY_ENABLE === 'true') {
-        Sentry.addBreadcrumb({
-          category: "getFromServer",
-          data: {
-            request: request,
-            response: res.result || res
-          }
-        })
-      }
+        if (process.env.SENTRY_ENABLE === 'true') {
+          Sentry.addBreadcrumb({
+            category: "getFromServer",
+            data: {
+              request: request,
+              response: res.result || res
+            }
+          })
+        }
 
-      if (r) {
-        // TODO : add prom hsitogram
+        if (r) {
+          // TODO : add prom hsitogram
 
-        r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
-        r.rpcCount = (r.rpcCount || 0) + 1
-      }
-      histRequestTime.labels(request.method || "unknown", "ok", "single").observe(Date.now() - startTime);
-      return fixResponse(request, res)
-    })
+          r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
+          r.rpcCount = (r.rpcCount || 0) + 1
+        }
+        histRequestTime.labels(request.method || "unknown", "ok", "single").observe(Date.now() - startTime);
+        return fixResponse(request, res)
+      })
   }
 
   /** returns a array of requests from the server */
@@ -229,8 +232,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
           histRequestTime.labels("bulk", "error", "bulk").observe(Date.now() - startTime);
           //re attempt if request failed and if there are more then 1 RPC URLs are specified
-          if (((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED") != -1) &&
-            this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length) {
+          if (this.isConnectionError(err) && this.hasFailoverRpc()) {
             logger.error('Request failed for RPC URL ' + this.config.rpcUrl[this.activeRPC] + 'Error ' + err.message + ' fetching request ' + JSON.stringify(request) + 'Reattempting request on ' + this.config.rpcUrl[this.activeRPC + 1])
             this.activeRPC++
             this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
@@ -272,7 +274,6 @@ export default abstract class BaseHandler implements RPCHandler {
               +json.substr(1,json.length-2),{encoding:'utf8',flag:'a'})
               firstTestRecord=false
             }
-      
 
           return res
         })
@@ -331,7 +332,6 @@ export default abstract class BaseHandler implements RPCHandler {
 
 
   toCleanRequest(request: Partial<RPCRequest>): RPCRequest {
-
     for (let i = 0; i < request.params.length; i++) {
       if (typeof request.params[i] === 'string' && request.params[i].startsWith("0x0")) {
         if (request.params[i].substr(2).length % 32 != 0 && request.params[i].substr(2).length % 20 != 0) {
@@ -364,6 +364,24 @@ export default abstract class BaseHandler implements RPCHandler {
   health(): Promise<{ status: string, message?: string }> {
     return this.getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })
       .then(_ => ({ status: 'healthy' }), _ => ({ status: 'unhealthy', message: _.message }))
+  }
+
+  hasFailoverRpc(): boolean {
+    return this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length
+  }
+
+  isConnectionError(err: any): boolean {
+    return err?.response?.status !== 200 || err?.message?.toString().indexOf("ECONNREFUSED") != -1 || this.isProxyError(err?.data?.error?.code)
+  }
+
+  handleFauxSuccess(rsp: any): any {
+    // If it has the error code, we can assume it has this structure, it has to match the one on the reject handler to not blow on the logger.
+    return this.isProxyError(rsp?.data?.error?.code) ? Promise.reject(rsp.data.error) : Promise.resolve(rsp)
+  }
+
+  isProxyError(errCode: number) {
+    const PROXY_ERROR_CODE = [-42004] // For now neither -42003, -42002 make sense to expect
+    return PROXY_ERROR_CODE.includes(errCode)
   }
 }
 
