@@ -71,8 +71,8 @@ export default class BTCHandler extends BaseHandler {
         return toRes(await this.getBestBlockHash(request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
       case 'getdifficulty':
         return toRes(await this.getDifficulty(request.params[0], request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
-      case 'in3_proofTarget':
-        return toRes(await this.in3_proofTarget(parseInt(request.params[0]), parseInt(request.params[1]), parseInt(request.params[2]),
+      case 'btc_proofTarget':
+        return toRes(await this.btc_proofTarget(parseInt(request.params[0]), parseInt(request.params[1]), parseInt(request.params[2]),
           parseInt(request.params[3]), request, request.in3 && request.in3.finality || 0, parseInt(request.params[4])))
       case 'scantxoutset':
         // https://bitcoincore.org/en/doc/0.18.0/rpc/blockchain/scantxoutset/
@@ -295,7 +295,7 @@ export default class BTCHandler extends BaseHandler {
     return { result: blockheader.difficulty, in3: { proof } }
   }
 
-  async in3_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, limit?: number) {
+  async btc_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, limit?: number) {
 
     if (maxDap === 0) throw new UserError("number of daps between two daps has to be greater than 0", -32602 )
 

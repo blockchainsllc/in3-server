@@ -499,7 +499,7 @@ definitions:
     minItems: 0
     items:
       - $ref: "#/definitions/blockTypeBTC"
-  in3_proofTarget:
+  btc_proofTarget:
     type: array
     maxItems: 5
     minItems: 4
