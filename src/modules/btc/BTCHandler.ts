@@ -58,22 +58,22 @@ export default class BTCHandler extends BaseHandler {
     switch (request.method) {
 
       case 'getblock':
-        return toRes(await this.getBlock(request.params[0], verboseParam(request.params[1]), request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
+        return toRes(await this.getBlock(request.params[0], verboseParam(request.params[1]), request.in3 && request.in3.finality, request.in3 && request.in3.verification, request.in3 && request.in3.preBIP34, request))
       case 'getblockheader':
-        return toRes(await this.getBlockHeader(request.params[0], verboseParam(request.params[1]), request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
+        return toRes(await this.getBlockHeader(request.params[0], verboseParam(request.params[1]), request.in3 && request.in3.finality, request.in3 && request.in3.verification, request.in3 && request.in3.preBIP34, request))
       case 'gettransaction':
       case 'getrawtransaction':
-        return toRes(await this.getTransaction(request.params[0], verboseParam(request.params[1]), request.params[2], request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
+        return toRes(await this.getTransaction(request.params[0], verboseParam(request.params[1]), request.params[2], request.in3 && request.in3.finality, request.in3 && request.in3.verification, request.in3 && request.in3.preBIP34, request))
       case 'getblockcount':
         return toRes(await this.getBlockCount(request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
       case 'getbesthash':
       case 'getbestblockhash':
         return toRes(await this.getBestBlockHash(request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
       case 'getdifficulty':
-        return toRes(await this.getDifficulty(request.params[0], request.in3 && request.in3.finality, request.in3 && request.in3.verification, request))
+        return toRes(await this.getDifficulty(request.params[0], request.in3 && request.in3.finality, request.in3 && request.in3.verification, request.in3 && request.in3.preBIP34, request))
       case 'btc_proofTarget':
         return toRes(await this.btc_proofTarget(parseInt(request.params[0]), parseInt(request.params[1]), parseInt(request.params[2]),
-          parseInt(request.params[3]), request, request.in3 && request.in3.finality || 0, parseInt(request.params[4])))
+          parseInt(request.params[3]), request.in3 && request.in3.preBIP34, request, request.in3 && request.in3.finality || 0, parseInt(request.params[4])))
       case 'scantxoutset':
         // https://bitcoincore.org/en/doc/0.18.0/rpc/blockchain/scantxoutset/
         return this.getFromServer(request)
@@ -86,8 +86,8 @@ export default class BTCHandler extends BaseHandler {
     }
   }
 
-  async getFinalityBlocks(blockNumber: number, finality: number, r?: any): Promise<string> {
-    if (!finality) return null
+  async getFinalityBlocks(blockNumber: number, finality: number, preBIP34?: boolean, r?: any): Promise<string> {
+    if (!finality) return ""
 
     // if epoch changes within the finality headers, we are going to add more headers
     const startEpoch = Math.floor(blockNumber / 2016) // integer division
@@ -98,11 +98,22 @@ export default class BTCHandler extends BaseHandler {
       finality += (2016 - (blockNumber % 2016)) // add amount of blocks to the next epoch to the finality
     }
 
-    // we need to determine, what are the blockhashes of the next blocks.
     const numbers: string[] = []
-    for (let n = blockNumber + 1; n <= blockNumber + finality; n++)
-      numbers.push(n.toString())
-
+    // BIP-34:  After block number 227,835 all blocks must include the block height in their coinbase transaction.
+    if ((blockNumber < 227836) && preBIP34) {
+      // we need to determine the numbers of the blocks up to the next checkpoint
+      // next checkpoint is the next multiple of 200 after blockNumber
+      let checkpoint = blockNumber + (200 - (blockNumber % 200)) 
+      for (let n = blockNumber + 1; n <= checkpoint; n++) {
+        numbers.push(n.toString())
+      }
+    } else {
+      // we need to determine the numbers of the next blocks.
+      for (let n = blockNumber + 1; n <= blockNumber + finality; n++) {
+        numbers.push(n.toString())
+      }
+    }
+    
     // get headers
     const headers: string[] = (await this.blockCache.getBlockHeaderByNumber(numbers, false)).map(_ => _.toString('hex'))
     
@@ -110,8 +121,9 @@ export default class BTCHandler extends BaseHandler {
     return '0x' + headers.join('')
   }
 
-  async getBlock(hash: string, json: number = 1, finality: number = 0, verification: string = "never", r: any) {
+  async getBlock(hash: string, json: number = 1, finality: number = 0, verification: string = "never", preBIP34: boolean = false, r: any) {
     if (json === undefined) json = 1
+    if (preBIP34 === undefined) preBIP34 = false
 
     let [block, blockHeight] = await Promise.all([
       this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult),
@@ -125,7 +137,7 @@ export default class BTCHandler extends BaseHandler {
 
     const proof: any = {}
     await Promise.all([
-      (finality && block) ? this.getFinalityBlocks(parseInt(blockHeight), finality, r).then(_ => proof.final = _) : undefined,
+      (finality && block) ? this.getFinalityBlocks(parseInt(blockHeight), finality, preBIP34, r).then(_ => proof.final = _) : undefined,
       this.blockCache.getCoinbaseByHash([hash]).then(_ => {
         const cb: Coinbase = _.shift()
         proof.cbtx = '0x' + cb.cbtx.toString('hex')
@@ -139,8 +151,9 @@ export default class BTCHandler extends BaseHandler {
   }
 
 
-  async getBlockHeader(hash: string, json: number = 1, finality: number = 0, verification: string = "never", r: any) {
+  async getBlockHeader(hash: string, json: number = 1, finality: number = 0, verification: string = "never", preBIP34: boolean = false, r: any) {
     if (json === undefined) json = 1
+    if (preBIP34 === undefined) preBIP34 = false
 
     let blockheader: any // can be json-object or hex-string
     json ? blockheader = (await this.blockCache.getBlockHeaderByHash([hash], !!json)).pop() : blockheader = ((await this.blockCache.getBlockHeaderByHash([hash], !!json)).pop()).toString('hex')
@@ -154,16 +167,17 @@ export default class BTCHandler extends BaseHandler {
     const number = this.blockCache.data.get(hash).height
 
     const proof: any = {}
-    if (finality) proof.final = await this.getFinalityBlocks(number, finality, r)
-
+    if (finality) proof.final = await this.getFinalityBlocks(number, finality, preBIP34, r)
     proof.cbtx = '0x' + cb.cbtx.toString('hex')
     proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
 
     return { result: blockheader, in3: { proof } }
   }
 
-  async getTransaction(hash: string, json: number = 0, blockhash: string = undefined, finality: number = 0, verification: string = "never", r: any) {
+  async getTransaction(hash: string, json: number = 0, blockhash: string = undefined, finality: number = 0, verification: string = "never", preBIP34: boolean = false, r: any) {
     if (json === undefined) json = 0
+    if (preBIP34 === undefined) preBIP34 = false
+
     // even for json==false we get it as json from server so we know the blockhash
     const tx = await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [hash, true, blockhash] : [hash, true] }, r).then(asResult)
     if (!tx) throw new Error("Transaction not found")
@@ -183,7 +197,7 @@ export default class BTCHandler extends BaseHandler {
 
     proof.block = blockheader
 
-    if (finality) proof.final = await this.getFinalityBlocks(number, finality, r)
+    if (finality) proof.final = await this.getFinalityBlocks(number, finality, preBIP34, r)
 
     proof.txIndex = cb.txids.findIndex(_ => _.equals(Buffer.from(hash, 'hex'))) // get index of tx
     proof.merkleProof = '0x' + createMerkleProof(cb.txids, Buffer.from(hash, 'hex')).toString('hex');
@@ -195,7 +209,6 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async getBlockCount(finality: number = 0, verification: string = "never", r: any) {
-    if (!finality) return null
 
     if (verification === "never")
       // return latest block number without a proof (finality is not subtracted since there will no proof anyway)
@@ -229,7 +242,6 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async getBestBlockHash(finality: number = 0, verification: string = "never", r: any) {
-    if (!finality) return null
 
     let blocknumber =  await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult)
     if (verification === "proof") blocknumber -= finality // subtract finality
@@ -260,8 +272,8 @@ export default class BTCHandler extends BaseHandler {
     return { result: blockhash, in3: { proof } }
   }
 
-  async getDifficulty(bn: string, finality: number = 0, verification: string = "never", r: any) {
-    if (!finality) return null
+  async getDifficulty(bn: string, finality: number = 0, verification: string = "never", preBIP34: boolean = false, r: any) {
+    if (preBIP34 === undefined) preBIP34 = false
 
     // always fetch latest block number
     const latestBlocknumber: number = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult)
@@ -285,7 +297,7 @@ export default class BTCHandler extends BaseHandler {
     const proof: any = {}
 
     proof.block = '0x' + serialize_blockheader(blockheader).toString('hex') // add block header
-    proof.final = await this.getFinalityBlocks(blocknumber, finality, r) // add finality headers
+    proof.final = await this.getFinalityBlocks(blocknumber, finality, preBIP34, r) // add finality headers
 
     const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockheader.hash])).shift()
 
@@ -295,7 +307,7 @@ export default class BTCHandler extends BaseHandler {
     return { result: blockheader.difficulty, in3: { proof } }
   }
 
-  async btc_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, r: any, finality?: number, limit?: number) {
+  async btc_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, preBIP34: boolean = false, r: any, finality?: number, limit?: number) {
 
     if (maxDap === 0) throw new UserError("number of daps between two daps has to be greater than 0", -32602 )
 
@@ -365,7 +377,7 @@ export default class BTCHandler extends BaseHandler {
 
       resultobj.dap = val.dapnumber
       resultobj.block = '0x' + val.blockheader
-      if (finality > 0) resultobj.final = await this.getFinalityBlocks(val.dapnumber * 2016, finality, r) // add finality headers 
+      if (finality > 0) resultobj.final = await this.getFinalityBlocks(val.dapnumber * 2016, finality, preBIP34, r) // add finality headers 
       resultobj.cbtx = '0x' + cb.cbtx.toString('hex')
       resultobj.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
 

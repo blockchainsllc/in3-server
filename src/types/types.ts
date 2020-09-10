@@ -107,6 +107,11 @@ export interface IN3RPCRequestConfig {
      */
     verification?: 'never' | 'proof' | 'proofWithSignature'
     /**
+     * if true (and if the block number is < 227836) the server will deliver the blockheaders up to a checkpoint (hard-coded in the client, every 200th block hash) 
+     * else the server will deliver the amount of blockheaders defined in finality
+     */
+    preBIP34?: boolean
+    /**
      * the signature of the client
      */
     clientSignature?: any
