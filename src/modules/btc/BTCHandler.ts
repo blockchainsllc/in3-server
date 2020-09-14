@@ -134,17 +134,19 @@ export default class BTCHandler extends BaseHandler {
       return { result: block } // return result without a proof 
 
     const proof: any = {}
-    await Promise.all([
-      (block) ? this.getFinalityBlocks(parseInt(blockHeight), finality, preBIP34, r).then(_ => proof.final = _) : undefined,
-      (blockHeight < 227836) ? proof.height = blockHeight : this.blockCache.getCoinbaseByHash([hash]).then(_ => {
-        const cb: Coinbase = _.shift()
-        proof.cbtx = '0x' + cb.cbtx.toString('hex')
-        proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex')
-      })
-    ])
 
-    if (!!json) this.blockCache.setBlock(block) // save block in cache
+    proof.final = await this.getFinalityBlocks(parseInt(blockHeight), finality, preBIP34, r)
 
+    if (blockHeight < 227836) {
+      proof.height = blockHeight
+    } else {
+      const cb = (await this.blockCache.getCoinbaseByHash([hash])).shift()
+      proof.cbtx = '0x' + cb.cbtx.toString('hex')
+      proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex')
+    }
+
+    if ((!!json) && (blockHeight != 0)) this.blockCache.setBlock(block)// save block in cache (does not work for genesis block, previousblockhash is not existing)
+      
     return { result: block, in3: { proof } }
   }
 

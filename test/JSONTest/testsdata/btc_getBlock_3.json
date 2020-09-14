@@ -10,7 +10,7 @@
       ],
       "in3": { "finality": 0, "verification": "proof" }
     },
-    "descr": "BTC-Tests - getBlock: get genesis block (block #0, verbosity=1)",
+    "descr": "BTC-Tests - getBlock: get genesis block (block #0, verbosity=1, finality=0)",
     "handler": "btc",
     "mock_responses": [
       [
@@ -20,13 +20,13 @@
             "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
             1
           ],
-          "id": 18,
+          "id": 14,
           "jsonrpc": "2.0"
         },
         {
           "result": {
             "hash": "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
-            "confirmations": 635855,
+            "confirmations": 648240,
             "strippedsize": 285,
             "size": 285,
             "weight": 1140,
@@ -47,68 +47,43 @@
             "nextblockhash": "00000000839a8e6886ab5951d76f411475428afc90947ee320161bbf18eb6048"
           },
           "error": null,
-          "id": 18
-        }
-      ],
-      [
-        {
-          "method": "getblock",
-          "params": [
-            "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
-            true
-          ]
-        },
-        {
-          "result": {
-            "hash": "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
-            "confirmations": 635855,
-            "strippedsize": 285,
-            "size": 285,
-            "weight": 1140,
-            "height": 0,
-            "version": 1,
-            "versionHex": "00000001",
-            "merkleroot": "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
-            "tx": [
-              "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"
-            ],
-            "time": 1231006505,
-            "mediantime": 1231006505,
-            "nonce": 2083236893,
-            "bits": "1d00ffff",
-            "difficulty": 1,
-            "chainwork": "0000000000000000000000000000000000000000000000000000000100010001",
-            "nTx": 1,
-            "nextblockhash": "00000000839a8e6886ab5951d76f411475428afc90947ee320161bbf18eb6048"
-          },
-          "error": null,
-          "id": 19
-        }
-      ],
-      [
-        {
-          "method": "getrawtransaction",
-          "params": [
-            "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
-            false,
-            "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
-          ]
-        },
-        {
-          "result": null,
-          "error": {
-            "code": -5,
-            "message": "The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved"
-          },
-          "id": 20
+          "id": 14
         }
       ]
     ],
     "expected_result": {
+      "id": 1,
       "jsonrpc": "2.0",
-      "error": {
-        "code": -5,
-        "message": "The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved"
+      "result": {
+        "hash": "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
+        "confirmations": 648240,
+        "strippedsize": 285,
+        "size": 285,
+        "weight": 1140,
+        "height": 0,
+        "version": 1,
+        "versionHex": "00000001",
+        "merkleroot": "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
+        "tx": [
+          "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"
+        ],
+        "time": 1231006505,
+        "mediantime": 1231006505,
+        "nonce": 2083236893,
+        "bits": "1d00ffff",
+        "difficulty": 1,
+        "chainwork": "0000000000000000000000000000000000000000000000000000000100010001",
+        "nTx": 1,
+        "nextblockhash": "00000000839a8e6886ab5951d76f411475428afc90947ee320161bbf18eb6048"
+      },
+      "in3": {
+        "proof": { "final": "0x", "height": 0 },
+        "lastNodeList": 3400742,
+        "execTime": 149,
+        "rpcTime": 148,
+        "rpcCount": 1,
+        "currentBlock": 3400742,
+        "version": "2.1.0"
       }
     }
   }

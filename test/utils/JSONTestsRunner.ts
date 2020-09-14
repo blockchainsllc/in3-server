@@ -76,17 +76,14 @@ async function runTest(testData: any, c: number) {
       delete response[element];
     });
 
-    const sortObject = o => Object.keys(o).sort().reduce((r, k) => (r[k] = o[k], r), {})
-
-    if (JSON.stringify(response.error) == JSON.stringify(testData.expected_result.error)) { // catch error case
-      result.success = true 
-    } 
-    else if (JSON.stringify(response.result) == JSON.stringify(testData.expected_result.result)
-     && (!testData.expected_result.in3.proof || JSON.stringify(sortObject(response.in3.proof)) == JSON.stringify(sortObject(testData.expected_result.in3.proof))) ) {
-       result.success = true
-     }
-    else {
-      result.error =  response.error || 'Failed'
+    if (!testData.expected_result.error) {
+      if (JSON.stringify(response.result) == JSON.stringify(testData.expected_result.result) && compareProof(response, testData.expected_result)) {
+        result.success = true
+      } 
+    } else if (JSON.stringify(response.error) == JSON.stringify(testData.expected_result.error)) {
+      result.success = true
+    } else {
+      result.error = response.error || 'Failed'
     }
 
   }
@@ -99,6 +96,11 @@ async function runTest(testData: any, c: number) {
   }
 
   return result
+}
+
+function compareProof(response: RPCResponse, expected_result:any) {
+  const sortObject = o => Object.keys(o).sort().reduce((r, k) => (r[k] = o[k], r), {})
+  return !expected_result.in3.proof || JSON.stringify(sortObject(response.in3.proof)) == JSON.stringify(sortObject(expected_result.in3.proof))
 }
 
 function addSpace(s: string, l: number, filler = ' ', color = '') {

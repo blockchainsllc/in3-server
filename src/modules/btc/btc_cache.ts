@@ -126,7 +126,7 @@ export class BTCCache {
 
         if (!blockinfo.height) blockinfo.height = block.height
         if (!blockinfo.header) blockinfo.header = serialize_blockheader(block)
-        if (!blockinfo.cbtx) {
+        if (!blockinfo.cbtx && block.height > 227835) { // fetch coinbase for version 2 block only
             const cbtx: string = await this.handler.getFromServer({method: 'getrawtransaction', params: [block.tx[0], false, block.hash] }).then(asResult)
             blockinfo.cbtx = Buffer.from(cbtx, 'hex')
         } 
