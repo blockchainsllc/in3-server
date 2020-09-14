@@ -87,7 +87,7 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async getFinalityBlocks(blockNumber: number, finality: number, preBIP34?: boolean, r?: any): Promise<string> {
-    if (!finality) return ""
+    if (!finality) return "0x"
 
     // if epoch changes within the finality headers, we are going to add more headers
     const startEpoch = Math.floor(blockNumber / 2016) // integer division
@@ -122,8 +122,6 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async getBlock(hash: string, json: number = 1, finality: number = 0, verification: string = "never", preBIP34: boolean = false, r: any) {
-    if (json === undefined) json = 1
-    if (preBIP34 === undefined) preBIP34 = false
 
     let [block, blockHeight] = await Promise.all([
       this.getFromServer({ method: "getblock", params: [hash, json] }, r).then(asResult),
@@ -137,8 +135,8 @@ export default class BTCHandler extends BaseHandler {
 
     const proof: any = {}
     await Promise.all([
-      (finality && block) ? this.getFinalityBlocks(parseInt(blockHeight), finality, preBIP34, r).then(_ => proof.final = _) : undefined,
-      this.blockCache.getCoinbaseByHash([hash]).then(_ => {
+      (block) ? this.getFinalityBlocks(parseInt(blockHeight), finality, preBIP34, r).then(_ => proof.final = _) : undefined,
+      (blockHeight < 227836) ? proof.height = blockHeight : this.blockCache.getCoinbaseByHash([hash]).then(_ => {
         const cb: Coinbase = _.shift()
         proof.cbtx = '0x' + cb.cbtx.toString('hex')
         proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex')
@@ -152,31 +150,31 @@ export default class BTCHandler extends BaseHandler {
 
 
   async getBlockHeader(hash: string, json: number = 1, finality: number = 0, verification: string = "never", preBIP34: boolean = false, r: any) {
-    if (json === undefined) json = 1
-    if (preBIP34 === undefined) preBIP34 = false
-
+  
     let blockheader: any // can be json-object or hex-string
     json ? blockheader = (await this.blockCache.getBlockHeaderByHash([hash], !!json)).pop() : blockheader = ((await this.blockCache.getBlockHeaderByHash([hash], !!json)).pop()).toString('hex')
 
     if (verification === "never") 
       return { result: blockheader } // return result without a proof 
 
-    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([hash])).shift()
-
-    // after fetching the coinbase the block number is ALWAYS in the cache
     const number = this.blockCache.data.get(hash).height
-
     const proof: any = {}
-    if (finality) proof.final = await this.getFinalityBlocks(number, finality, preBIP34, r)
-    proof.cbtx = '0x' + cb.cbtx.toString('hex')
-    proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
+
+    proof.final = await this.getFinalityBlocks(number, finality, preBIP34, r)
+
+    // check for bip34
+    if (number < 227836) {
+      proof.height = number
+    } else {
+      const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([hash])).shift()
+      proof.cbtx = '0x' + cb.cbtx.toString('hex')
+      proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
+    }
 
     return { result: blockheader, in3: { proof } }
   }
 
   async getTransaction(hash: string, json: number = 0, blockhash: string = undefined, finality: number = 0, verification: string = "never", preBIP34: boolean = false, r: any) {
-    if (json === undefined) json = 0
-    if (preBIP34 === undefined) preBIP34 = false
 
     // even for json==false we get it as json from server so we know the blockhash
     const tx = await this.getFromServer({ method: "getrawtransaction", params: blockhash ? [hash, true, blockhash] : [hash, true] }, r).then(asResult)
@@ -192,18 +190,22 @@ export default class BTCHandler extends BaseHandler {
     const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockhash])).shift()
 
     // after fetching the coinbase the block header and number are ALWAYS in the cache
-    const blockheader = '0x' + this.blockCache.data.get(blockhash).header.toString('hex')
     const number = this.blockCache.data.get(blockhash).height
 
-    proof.block = blockheader
+    proof.block = '0x' + this.blockCache.data.get(blockhash).header.toString('hex')
 
-    if (finality) proof.final = await this.getFinalityBlocks(number, finality, preBIP34, r)
+    proof.final = await this.getFinalityBlocks(number, finality, preBIP34, r)
 
     proof.txIndex = cb.txids.findIndex(_ => _.equals(Buffer.from(hash, 'hex'))) // get index of tx
     proof.merkleProof = '0x' + createMerkleProof(cb.txids, Buffer.from(hash, 'hex')).toString('hex');
 
-    proof.cbtx = '0x' + cb.cbtx.toString('hex')
-    proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
+    // check for bip34
+    if (number < 227836) {
+      proof.height = number
+    } else {
+      proof.cbtx = '0x' + cb.cbtx.toString('hex')
+      proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
+    }
 
     return { result: json ? tx : tx.hex, in3: { proof } }
   }
@@ -273,7 +275,6 @@ export default class BTCHandler extends BaseHandler {
   }
 
   async getDifficulty(bn: string, finality: number = 0, verification: string = "never", preBIP34: boolean = false, r: any) {
-    if (preBIP34 === undefined) preBIP34 = false
 
     // always fetch latest block number
     const latestBlocknumber: number = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult)
@@ -299,10 +300,14 @@ export default class BTCHandler extends BaseHandler {
     proof.block = '0x' + serialize_blockheader(blockheader).toString('hex') // add block header
     proof.final = await this.getFinalityBlocks(blocknumber, finality, preBIP34, r) // add finality headers
 
-    const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockheader.hash])).shift()
-
-    proof.cbtx = '0x' + cb.cbtx.toString('hex')
-    proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
+    // check for bip34
+    if (blockheader.height < 227836) {
+      proof.height = blockheader.height
+    } else {
+      const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockheader.hash])).shift()
+      proof.cbtx = '0x' + cb.cbtx.toString('hex')
+      proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
+    }
 
     return { result: blockheader.difficulty, in3: { proof } }
   }
@@ -373,14 +378,18 @@ export default class BTCHandler extends BaseHandler {
 
       let resultobj: any = {} // result object will contain: dap, block, final, cbtx, cbtxMerkleProof
 
-      const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([val.blockhash])).shift()
-
       resultobj.dap = val.dapnumber
       resultobj.block = '0x' + val.blockheader
-      if (finality > 0) resultobj.final = await this.getFinalityBlocks(val.dapnumber * 2016, finality, preBIP34, r) // add finality headers 
-      resultobj.cbtx = '0x' + cb.cbtx.toString('hex')
-      resultobj.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
+      resultobj.final = await this.getFinalityBlocks(val.dapnumber * 2016, finality, preBIP34, r)
 
+      if ((val.dapnumber * 2016) < 227836) {
+        resultobj.height = val.dapnumber * 2016
+      } else {
+        const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([val.blockhash])).shift()
+        resultobj.cbtx = '0x' + cb.cbtx.toString('hex')
+        resultobj.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
+      }
+      
       return resultobj
     }))
 
