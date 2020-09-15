@@ -138,7 +138,7 @@ export default class BTCHandler extends BaseHandler {
     proof.final = await this.getFinalityBlocks(parseInt(blockHeight), finality, preBIP34, r)
 
     if (blockHeight < 227836) {
-      proof.height = blockHeight
+      if (preBIP34) proof.height = blockHeight
     } else {
       const cb = (await this.blockCache.getCoinbaseByHash([hash])).shift()
       proof.cbtx = '0x' + cb.cbtx.toString('hex')
@@ -166,7 +166,7 @@ export default class BTCHandler extends BaseHandler {
 
     // check for bip34
     if (number < 227836) {
-      proof.height = number
+      if (preBIP34) proof.height = number
     } else {
       const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([hash])).shift()
       proof.cbtx = '0x' + cb.cbtx.toString('hex')
@@ -203,7 +203,7 @@ export default class BTCHandler extends BaseHandler {
 
     // check for bip34
     if (number < 227836) {
-      proof.height = number
+      if (preBIP34) proof.height = number
     } else {
       proof.cbtx = '0x' + cb.cbtx.toString('hex')
       proof.cbtxMerkleProof = '0x' + createMerkleProof(cb.txids, cb.txids[0]).toString('hex');
@@ -304,7 +304,7 @@ export default class BTCHandler extends BaseHandler {
 
     // check for bip34
     if (blockheader.height < 227836) {
-      proof.height = blockheader.height
+      if (preBIP34) proof.height = blockheader.height
     } else {
       const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([blockheader.hash])).shift()
       proof.cbtx = '0x' + cb.cbtx.toString('hex')
@@ -385,7 +385,7 @@ export default class BTCHandler extends BaseHandler {
       resultobj.final = await this.getFinalityBlocks(val.dapnumber * 2016, finality, preBIP34, r)
 
       if ((val.dapnumber * 2016) < 227836) {
-        resultobj.height = val.dapnumber * 2016
+        if (preBIP34) resultobj.height = val.dapnumber * 2016
       } else {
         const cb: Coinbase = (await this.blockCache.getCoinbaseByHash([val.blockhash])).shift()
         resultobj.cbtx = '0x' + cb.cbtx.toString('hex')

@@ -48,7 +48,7 @@ export async function runTests(files: string[]): Promise<{ descr: string, c: num
       c++
       const result = await runTest(test, c)
       allResults.push(result)
-      console.log(addSpace('' + result.c, 3) + ' : ' + addSpace(result.descr, 110, '.', result.success ? '' : '31') + ' ' + addSpace(result.success ? 'OK' : result.error, 0, ' ', result.success ? '32' : '31'))
+      console.log(addSpace('' + result.c, 3) + ' : ' + addSpace(result.descr, 130, '.', result.success ? '' : '31') + ' ' + addSpace(result.success ? 'OK' : result.error, 0, ' ', result.success ? '32' : '31'))
 
     }
   }

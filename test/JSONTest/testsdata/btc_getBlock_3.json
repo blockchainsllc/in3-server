@@ -77,7 +77,7 @@
         "nextblockhash": "00000000839a8e6886ab5951d76f411475428afc90947ee320161bbf18eb6048"
       },
       "in3": {
-        "proof": { "final": "0x", "height": 0 },
+        "proof": { "final": "0x" },
         "lastNodeList": 3400742,
         "execTime": 149,
         "rpcTime": 148,
