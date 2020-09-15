@@ -87,15 +87,13 @@ class ThreadPool {
                 return await workers.shift()
             } else {
                 await this.waitForThreads()
-
                 return await workers.shift()
             }
-
         }
     }
-    private async waitForThreads() {
+    private waitForThreads() {
         return new Promise(resolve => {
-            return this.hasWorkers() ? setInterval(() => resolve(this.waitForThreads()), 200) : resolve()
+            return this.hasWorkers() ? setTimeout(() => this.waitForThreads().then(() => resolve()), 200) : resolve()
         })
     }
 
