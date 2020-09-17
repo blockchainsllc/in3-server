@@ -103,6 +103,7 @@ export default class BTCHandler extends BaseHandler {
     if ((blockNumber < 227836) && preBIP34) {
       // we need to determine the numbers of the blocks up to the next checkpoint
       // next checkpoint is the next multiple of 200 after blockNumber
+      if (blockNumber % 200 === 0) return "0x" // edge-case: requested block is a ceckpoint (return no further headers)
       let checkpoint = blockNumber + (200 - (blockNumber % 200)) 
       for (let n = blockNumber + 1; n <= checkpoint; n++) {
         numbers.push(n.toString())
