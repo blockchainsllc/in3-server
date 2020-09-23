@@ -77,10 +77,10 @@ async function runTest(testData: any, c: number) {
     });
 
     if (!testData.expected_result.error) {
-      if (JSON.stringify(response.result) == JSON.stringify(testData.expected_result.result) && compareProof(response, testData.expected_result)) {
+      if (JSON.stringify(response.result) === JSON.stringify(testData.expected_result.result) && compareProof(response, testData.expected_result)) {
         result.success = true
       } 
-    } else if (JSON.stringify(response.error) == JSON.stringify(testData.expected_result.error)) {
+    } else if (JSON.stringify(response.error) === JSON.stringify(testData.expected_result.error)) {
       result.success = true
     } else {
       result.error = response.error || 'Failed'
@@ -100,7 +100,7 @@ async function runTest(testData: any, c: number) {
 
 function compareProof(response: RPCResponse, expected_result:any) {
   const sortObject = o => Object.keys(o).sort().reduce((r, k) => (r[k] = o[k], r), {})
-  return !expected_result.in3.proof || JSON.stringify(sortObject(response.in3.proof)) == JSON.stringify(sortObject(expected_result.in3.proof))
+  return !expected_result.in3.proof || JSON.stringify(sortObject(response.in3.proof)) === JSON.stringify(sortObject(expected_result.in3.proof))
 }
 
 function addSpace(s: string, l: number, filler = ' ', color = '') {
