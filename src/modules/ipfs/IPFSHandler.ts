@@ -33,7 +33,7 @@
  *******************************************************************************/
 
 import { Transport } from '../../util/transport'
-import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../../types/types'
+import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, AppContext } from '../../types/types'
 import axios from 'axios'
 import BaseHandler from '../../chains/BaseHandler'
 import * as FormData from 'form-data'
@@ -48,8 +48,8 @@ export default class IPFSHandler extends BaseHandler {
   maxCacheSize: number
   maxCacheBufferLength: number
 
-  constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
-    super(config, transport, nodeList)
+  constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList, globalContext?: AppContext) {
+    super(config, transport, nodeList, globalContext)
     this.ipfsCache = new Map()
     this.maxCacheBufferLength = 5000
     this.maxCacheSize = 100

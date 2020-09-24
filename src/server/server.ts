@@ -32,12 +32,10 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 // tslint:disable-next-line:missing-jsdoc
-const Sentry = require('@sentry/node');
-
 import * as promClient from 'prom-client';
 
 import * as logger from '../util/logger'
-import { SentryError, UserError,OP_ERROR, setOpError } from '../util/sentryError'
+import { SentryError } from '../util/sentryError'
 import * as Koa from 'koa'
 import * as bodyParser from 'koa-bodyparser'
 import * as Router from 'koa-router'
@@ -45,29 +43,24 @@ import { readCargs } from './config'
 const config = readCargs()
 import { RPC, submitRequestTime } from './rpc'
 import { aliases as chainAliases } from '../util/util'
-import { RPCRequest, IN3RPCConfig } from '../types/types'
+import { RPCRequest, IN3RPCConfig, KoaContext } from '../types/types'
 import { initConfig } from '../util/db'
 import { encodeObject } from '../util/binjson'
 import { checkBudget } from './clients'
 import { in3ProtocolVersion } from '../types/constants'
 import axios from 'axios'
 import {writeFileSync} from 'fs'
+import HealthCheck from '../util/healthCheck'
 
 
 import requestTime from '../util/koa/requestTime'
 import { sign, PK } from '../chains/signatures';
+import { initSentry, hookSentryKoa, HubWrapper } from '../util/sentryWrapper'
 
-// Hook up Sentry error reporting
-if (process.env.SENTRY_ENABLE === 'true') {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    release: process.env.SENTRY_RELEASE || "v0.0.0",
-    environment: process.env.SENTRY_ENVIRONMENT || "local"
-  });
-}
+//Hook up Sentry
+initSentry()
 
 // Hook up prometheus instrumentation
-
 promClient.collectDefaultMetrics({ prefix: "in3_" });
 
 // register top-level metrics
@@ -90,9 +83,6 @@ const statsMetadata = new promClient.Gauge({
   labelNames: ['address', 'name', 'comment', 'icon', 'version', 'deposit', 'props', 'registertime']
 });
 
-
-
-
 // Hook to nodeJs events
 function handleExit(signal) {
   logger.info("Stopping in3-server gracefully...");
@@ -105,18 +95,11 @@ process.on('SIGTERM', handleExit);
 process.on("uncaughtException", (err) => {
   ctError.labels('uncaughtException').inc();
   logger.error("Unhandled error: " + err, { error: err });
-  if (process.env.SENTRY_ENABLE === 'true') {
-    Sentry.captureException(err);
-  }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   ctError.labels('unhandledRejection').inc();
-
   logger.error("Unhandled promise rejection at " + promise, { reason: reason, promise: promise });
-  if (process.env.SENTRY_ENABLE === 'true') {
-    Sentry.captureException(new Error("Unhandled promise rejection at " + promise));
-  }
 });
 
 let AUTO_REGISTER_FLAG: boolean
@@ -126,25 +109,15 @@ if (config.chains[Object.keys(config.chains)[0]].autoRegistry)
 let INIT_ERROR = false;
 
 export const app = new Koa()
-const router = new Router()
+const router = new Router<Koa.DefaultState, KoaContext>()
 let rpc: RPC = null
 
 // Add 'x-Request-Time' to the header
 app.use(requestTime(submitRequestTime))
 
 // Hook up sentry if enabled
-if (process.env.SENTRY_ENABLE === 'true') {
-  app.on('error', (err, ctx) => {
-    Sentry.withScope(scope => {
-      scope.addEventProcessor(event => Sentry.Handlers.parseRequest(event, ctx.request));
-      Sentry.configureScope((scope) => {
-        scope.setExtra("body", err.body)
-        scope.setExtra("stack", err.stack)
-      });
-      Sentry.captureException(err);
-    });
-  });
-}
+hookSentryKoa(app)
+
 // handle cbor-encoding
 app.use(async (ctx, next) => {
 
@@ -171,8 +144,7 @@ router.get(config.basePath + '/metrics', async ctx => {
 });
 //}
 
-router.post(/.*/, async ctx => {
-
+router.post(/.*/, async (ctx: KoaContext) => {
   if (INIT_ERROR) return initError(ctx)
   const start = Date.now()
   const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
@@ -189,7 +161,6 @@ router.post(/.*/, async ctx => {
       throw new Error('Request must contain header "Content-Type:application/json"')
 
     const stats = requests && requests.length && requests[0].in3 ? ((requests[0].in3 as any).stats === false ? false : ((requests[0].in3 as any).noStats ? false : true)) : true
-
 
     // DOS protection
     if (!checkBudget(ip, requests, config.maxPointsPerMinute, false)) {
@@ -209,11 +180,11 @@ router.post(/.*/, async ctx => {
       writeFileSync(process.env.IN3TEST,'['+json.substr(0,json.length-1)+',"mock_responses":[','utf8')
     }
 
-
     // assign ip
-    requests.forEach(_ => (_ as any).ip = ip)
-
-
+    requests.forEach((request: any) => {
+      request.ip = ip
+      request.context = { hub: ctx.hub }
+    })
 
     const result = await rpc.handle(requests)
     const res = result // requests.length && requests[0].in3 && requests[0].in3.useRef ? cbor.createRefs(result) : result
@@ -232,15 +203,7 @@ router.post(/.*/, async ctx => {
     histRequestTime.labels("post", "error", ua, '').observe(Date.now() - startTime);
     ctx.status = err.status || 500
     ctx.body = responseData = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
-    Sentry.withScope(scope => {
-      scope.addEventProcessor(event => Sentry.Handlers.parseRequest(event, ctx.request));
-      Sentry.configureScope((scope) => {
-        scope.setExtra("body", err.body)
-        scope.setExtra("stack", err.stack)
-      });
-      Sentry.captureException(err);
-    });
-
+    ctx.hub?.captureError(err)
   }
   if (process.env.IN3TEST) 
     writeFileSync(process.env.IN3TEST,'],"expected_result":'+JSON.stringify(responseData)+'}]', {encoding: 'utf8',flag:'a'})
@@ -264,11 +227,11 @@ router.get(/.*/, async ctx => {
   const startTime = Date.now();
 
   try {
-    if (path.length < 2) throw new SentryError('invalid path', 'input_error', "the path entered returned error:" + ctx.path)
+    if (path.length < 2) throw new SentryError('invalid path', ctx, 'input_error', "the path entered returned error:" + ctx.path)
     let start = path.indexOf('api')
     if (start < 0)
       start = path.findIndex(_ => chainAliases[_] || _.startsWith('0x'))
-    if (start < 0 || start > path.length - 2) throw new SentryError('invalid path', 'input_error', "the path entered returned error:" + ctx.path)
+    if (start < 0 || start > path.length - 2) throw new SentryError('invalid path', ctx, 'input_error', "the path entered returned error:" + ctx.path)
     const [chain, method] = path.slice(start)
     const req = rpc.getRequestFromPath(path.slice(start + 1), { chainId: chainAliases[chain] || chain, ...ctx.query }) || {
       id: 1,
@@ -293,32 +256,19 @@ router.get(/.*/, async ctx => {
     ctx.status = err.status || 500
     ctx.body = err.message
     logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
-    throw new SentryError(err, "request_status", ctx.request.body)
-
+    throw new SentryError(err, ctx, "request_status", ctx.request.body)
   }
-
 })
 
 checkNodeSync(() =>
   initConfig().then(() => {
-    rpc = new RPC(config);
+    let hub = new HubWrapper()
+    rpc = new RPC(config, undefined, undefined, { hub }); // inject the hub
     (chainAliases as any).api = Object.keys(config.chains)[0]
-
-
 
     const doInit = (retryCount: number) => {
       if (retryCount <= 0) {
         logger.error('Error initializing the server : Maxed out retries')
-        if (process.env.SENTRY_ENABLE === 'true') {
-          Sentry.configureScope((scope) => {
-            scope.setTag("server", "initConfig");
-            scope.setTag("server_status", "Error initializing the server");
-
-            scope.setExtra("config", config)
-
-          });
-          Sentry.captureException(new Error("Maxed out retries"));
-        }
         INIT_ERROR = true
         return;
       }
@@ -354,20 +304,6 @@ checkNodeSync(() =>
           logger.error('Error initializing the server : ' + err.message, { errStack: err.stack });
 
           setTimeout(() => { doInit(retryCount - 1) }, 20000)
-          if (process.env.SENTRY_ENABLE === 'true') {
-            Sentry.configureScope((scope) => {
-              scope.setTag("server", "initConfig");
-              scope.setTag("server_status", "Error initializing the server");
-
-              if ((config as any).privateKey) {
-                const tempConfig = config
-                delete (tempConfig as any).privateKey
-              } else {
-                scope.setExtra("config", config)
-              }
-            });
-            Sentry.captureException(err);
-          }
         });
 
     }
@@ -386,20 +322,11 @@ checkNodeSync(() =>
     //console.error('Error starting the server : ' + err.message, config)
     logger.error('Error starting the server ' + err.message, { in3Config: config, errStack: err.stack })
     // throw new SentryError(err, "server_status", "Error starting the server")
-    if (process.env.SENTRY_ENABLE === 'true') {
-      Sentry.configureScope((scope) => {
-        scope.setTag("server", "initConfig");
-        scope.setTag("server_status", "Error starting the server");
-        scope.setExtra("config", config)
-      });
-      Sentry.captureException(err);
-    }
-
     process.exit(1)
   })
 )
 const startTime = Date.now()
-async function checkHealth(ctx: Router.IRouterContext) {
+async function checkHealth(ctx: KoaContext) {
 
   const version = process.env.VERSION || 'Unknown'
   const running = Math.floor((Date.now() - startTime)/1000)
@@ -410,22 +337,14 @@ async function checkHealth(ctx: Router.IRouterContext) {
     ctx.body = { status: 'healthy', version, running, name }
     ctx.status = 200
   }
-  else if (OP_ERROR > Date.now() -1000 * 60 * 5 ) {  // we only keep an OP-Error for 5 min
+  else if (HealthCheck.OP_ERROR > Date.now() -1000 * 60 * 5 ) {  // we only keep an OP-Error for 5 min
     ctx.body = { status: 'unhealthy', message: "server error during operation" , version , running, name}
     ctx.status = 500
   }
   else if (INIT_ERROR) {
     ctx.body = { status: 'unhealthy', message: "server initialization error" , version, running, name }
     ctx.status = 500
-    //  throw new SentryError("server initialization error", "server_status", "unhealthy")
-    if (process.env.SENTRY_ENABLE === 'true') {
-      Sentry.configureScope((scope) => {
-        scope.setTag("server", "checkHealth");
-        scope.setTag("unhealthy", "server initialization error");
-        scope.setExtra("ctx", ctx)
-      });
-      Sentry.captureException(new Error("init error"));
-    }
+    throw new SentryError("server initialization error", ctx, "server_status", "unhealthy")
   }
   else {
     const status = await Promise.all(Object.keys(rpc.handlers).map(_ => rpc.handlers[_].health())).then(_ => _.reduce((p, c) => c.status === 'healthy' ? p : c, { status: 'healthy' }))
@@ -435,20 +354,12 @@ async function checkHealth(ctx: Router.IRouterContext) {
 
 }
 
-async function initError(ctx: Router.IRouterContext) {
+async function initError(ctx: KoaContext) {
   //lies to the rancher that it is healthy to avoid restart loop
   ctx.body = "Server uninitialized"
   ctx.status = 200
   ctError.labels('initError').inc();
-  // throw new SentryError("server initialization error", "server_status", "unhealthy")
-  if (process.env.SENTRY_ENABLE === 'true') {
-    Sentry.configureScope((scope) => {
-      scope.setTag("server", "initError");
-      scope.setTag("server_status", "Server uninitialized");
-      scope.setExtra("ctx", ctx)
-    });
-    Sentry.captureException(new Error("Server uninitialized"));
-  }
+  throw new SentryError("server initialization error", ctx, "server_status", "unhealthy")
 
 }
 
@@ -465,15 +376,6 @@ async function getVersion(ctx: Router.IRouterContext) {
   else {
     ctx.body = "Unknown Version"
     ctx.status = 500
-
-    if (process.env.SENTRY_ENABLE === 'true') {
-      Sentry.configureScope((scope) => {
-        scope.setTag("server", "getVersion");
-        scope.setTag("server_status", "unknown version");
-        scope.setExtra("ctx", ctx)
-      });
-      Sentry.captureException(new Error("server unknown version"));
-    }
   }
 }
 

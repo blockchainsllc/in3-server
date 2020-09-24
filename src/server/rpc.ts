@@ -31,12 +31,9 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-const Sentry = require('@sentry/node');
-
-
 import { Transport, AxiosTransport } from '../util/transport'
 import * as util  from '../util/util'
-import { WhiteList, RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig } from '../types/types'
+import { WhiteList, RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig, AppContext } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
 import { getStats, currentHour, schedulePrometheus } from './stats'
@@ -53,14 +50,17 @@ import * as logger from '../util/logger'
 import WhiteListManager from '../chains/whiteListManager';
 import HealthCheck from '../util/healthCheck'
 export { submitRequestTime } from './stats'
+import { captureException } from '../util/sentryWrapper'
 
 const in3ProtocolVersionA = in3ProtocolVersion.split('.').map(_ => parseInt(_))
 
 export class RPC {
   conf: IN3RPCConfig
   handlers: { [chain: string]: RPCHandler }
+  context: AppContext
 
-  constructor(conf: IN3RPCConfig, transport?: Transport, nodeList?: ServerList) {
+  constructor(conf: IN3RPCConfig, transport?: Transport, nodeList?: ServerList, context?: AppContext) {
+    this.context = context
     this.handlers = {}
 
     // register Handlers
@@ -78,17 +78,17 @@ export class RPC {
       const rpcConf = conf.chains[c]
       switch (rpcConf.handler || 'eth') {
         case 'eth':
-          h = new EthHandler({ ...rpcConf }, transport, nodeList)
+          h = new EthHandler({ ...rpcConf }, transport, nodeList, this.context)
           break
         case 'ipfs':
-          h = new IPFSHandler({ ...rpcConf }, transport, nodeList)
+          h = new IPFSHandler({ ...rpcConf }, transport, nodeList, this.context)
           break
         case 'btc':
-          h = new BTCHandler({ ...rpcConf }, transport, nodeList)
+          h = new BTCHandler({ ...rpcConf }, transport, nodeList, this.context)
           break
         // TODO implement other handlers later
         default:
-          h = new EthHandler({ ...rpcConf }, transport, nodeList)
+          h = new EthHandler({ ...rpcConf }, transport, nodeList, this.context)
           break
       }
       this.handlers[h.chainId = util.toMinHex(c)] = h
@@ -150,7 +150,8 @@ export class RPC {
           r.params[2] || [],
           in3Request.signers || in3Request.signatures,
           in3Request.verifiedHashes,
-          r.params[3]
+          r.params[3],
+          r
         ),
         getValidatorHistory(handler)]).then(async ([result, validators]) => {
           const res = {
@@ -236,7 +237,7 @@ export class RPC {
       }
 
       return manageRequest(handler, Promise.all([
-        handler.getNodeList(false).then(_ => in3.lastNodeList = _.lastBlockNumber),
+        handler.getNodeList(false, undefined, undefined, undefined, undefined, undefined, undefined, r).then(_ => in3.lastNodeList = _.lastBlockNumber),
         getValidatorHistory(handler).then(_ => in3.lastValidatorChange = _.lastValidatorChange),
         handler.handle(r).then(_ => {
           (in3 as any).execTime = Date.now() - start;
@@ -256,11 +257,7 @@ export class RPC {
       ])
         .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })), r)
     })).catch(e => {
-      Sentry.configureScope((scope) => {
-        scope.setExtra("request", request)
-      })
       throw new Error(e)
-
     })
   }
 
@@ -306,14 +303,11 @@ function manageRequest<T>(handler: RPCHandler, p: Promise<T>, req?: RPCRequest):
   }, err => {
     handler.openRequests--
     if (req) updateStats(req, null)
-    if (process.env.SENTRY_ENABLE === 'true')
-      Sentry.configureScope(function (scope) {
-        scope.setExtra("user_req", req);
-        scope.setExtra("err_stack", err && err.stack);
-        scope.setExtra("openRequests", handler.openRequests);
-      })
 
-    throw new SentryError(err, "manageRequest", "error handling request")
+    let context = req?.context || handler.context
+    let sentryExtras = { user_req: req, err_stack: err?.stack, openRequests: handler.openRequests }
+    context?.hub?.configureScope({}, sentryExtras)
+    throw new SentryError(err, context, "manageRequest", "error handling request")
   })
 }
 
@@ -339,11 +333,12 @@ function updateStats(r: RPCRequest, resp?: RPCResponse) {
 export interface RPCHandler {
   openRequests: number
   chainId: string
+  context: AppContext
   handle(request: RPCRequest): Promise<RPCResponse>
   handleWithCache(request: RPCRequest): Promise<RPCResponse>
   getFromServer(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse>
   getAllFromServer(request: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]>
-  getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[], includePerformance?: boolean): Promise<ServerList>
+  getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[], includePerformance?: boolean, sourceRequest?: RPCRequest): Promise<ServerList>
   updateNodeList(blockNumber: number): Promise<void>
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest
   checkRegistry(): Promise<any>
@@ -380,24 +375,17 @@ export class HandlerTransport extends AxiosTransport {
       const res = await axios.post(url, requests, conf)
 
       // throw if the status is an error
-      if (res.status > 200) throw new SentryError('Invalid status', 'status_error', res.status.toString())
+      if (res.status > 200) throw new SentryError('Invalid status', data[0]?.context, 'status_error', res.status.toString())
 
       // if this was not given as array, we need to convert it back to a single object
       return Array.isArray(data) ? res.data : res.data[0]
     } catch (err) {
-
-      if (process.env.SENTRY_ENABLE === 'true') {
-        Sentry.configureScope((scope) => {
-          scope.setTag("rpc", "handle");
-          scope.setTag("status_error", "invalid response");
-          scope.setExtra("url", url)
-          scope.setExtra("data", data)
-        });
-        Sentry.captureException(err);
-      }
-      throw new SentryError(err, 'status_error', 'Invalid response')
+      let sentryTags = { rpc: "handle", status_error: "invalid response" }
+      let sentryExtras = { url, data }
+      let context = requests.length ? data[0]?.context : null
+      context?.hub?.configureScope(sentryTags, sentryExtras)
+      context?.hub?.captureException(err)
+      throw new SentryError(err, context, 'status_error', 'Invalid response')
     }
   }
-
-
 }

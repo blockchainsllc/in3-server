@@ -8,7 +8,9 @@
     "sourceMap": true,
     "removeComments": false,
     "experimentalDecorators": false,
-    "diagnostics": false
+    "diagnostics": false,
+    "inlineSources": true,
+    "sourceRoot": "/"
   },
   "include": [
     "src/**/*.ts",

@@ -18,7 +18,7 @@
 ***********************************************************/
 
 import { Transport } from '../../util/transport'
-import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../../types/types'
+import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, AppContext } from '../../types/types'
 import axios from 'axios'
 import BaseHandler from '../../chains/BaseHandler'
 import { BTCBlock, serialize_blockheader, BTCBlockHeader } from './btc_serialize'
@@ -44,8 +44,8 @@ export default class BTCHandler extends BaseHandler {
 
   blockCache: BTCCache
 
-  constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
-    super(config, transport, nodeList)
+  constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList, globalContext?: AppContext) {
+    super(config, transport, nodeList, globalContext)
     this.blockCache = new BTCCache(this)
   }
 
