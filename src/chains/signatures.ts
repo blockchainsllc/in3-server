@@ -31,8 +31,6 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-const Sentry = require('@sentry/node');
-
 import BaseHandler from './BaseHandler'
 import { BlockData } from '../modules/eth/serialize'
 import * as serialize from '../modules/eth/serialize'
@@ -44,7 +42,6 @@ import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
 import config, { getSafeMinBlockHeight } from '../server/config'
 import { toBuffer } from '../util/util';
-import { SentryError } from '../util/sentryError'
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
 const toHex = util.toHex
@@ -90,7 +87,7 @@ function checkBlockHash(hash: any, expected: any, s: any, adr: string) {
   return null
 }
 
-export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[], rpc?: string): Promise<Signature[]> {
+export async function collectSignatures(handler: BaseHandler, addresses: string[], requestedBlocks: { blockNumber: number, hash?: string }[], verifiedHashes: string[], rpc?: string, request?: RPCRequest): Promise<Signature[]> {
   // DOS-Protection
   if (addresses && addresses.length > config.maxSignatures) throw new Error('Too many signatures requested!')
   if (requestedBlocks && requestedBlocks.length > config.maxBlocksSigned) throw new Error('Too many blocks to sign! Try to reduce the blockrange!')
@@ -104,11 +101,18 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       .then(_ => _.result && _.result.hash), 32)
   }))).then(allBlocks => !verifiedHashes ? allBlocks : allBlocks.filter(_ => verifiedHashes.indexOf(_.hash) < 0))
 
+  request?.context?.hub?.addBreadcrumb({
+    category: "collectSignatures",
+    data: {
+      request: request,
+      response: 2
+    }
+  })
 
   if (!blocks.length) return []
 
   // get our own nodeList
-  const nodes = await handler.getNodeList(false)
+  const nodes = await handler.getNodeList(false, undefined, undefined, undefined, undefined, undefined, undefined, request)
 
   // checking for all the nodes that return a wrong block already and remove them from the nodeRegistry
   for (const convictInfo of handler.watcher.futureConvicts) {
@@ -158,13 +162,10 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       logger.error(error.toString())
 
       if (!error.toString().toLowerCase().includes("because the blockheight must be at least")) {
-        Sentry.configureScope((scope) => {
-          scope.setTag("signatures", "collectSignatures");
-          scope.setTag("collectSignatures", "could not get signature");
-          scope.setExtra("addresses", addresses)
-          scope.setExtra("requestedBlocks", requestedBlocks)
-        });
-        Sentry.captureException(error);
+        let sentryTags = { signatures: "collectSignatures", collectSignatures: "could not get signature" }
+        let sentryExtras = { addresses: addresses, requestedBlocks }
+        request?.context?.hub?.configureScope(sentryTags, sentryExtras)
+        request?.context?.hub?.captureException(error)
       }
 
       throw error
@@ -172,13 +173,10 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
     if (response.error) {
       if (!response.error.toString().toLowerCase().includes("because the blockheight must be at least")) {
-        Sentry.configureScope((scope) => {
-          scope.setTag("signatures", "collectSignatures");
-          scope.setExtra("address", adr)
-          scope.setExtra("blocks", blocks)
-          scope.setExtra("response", response)
-        });
-        Sentry.captureMessage(response.error)
+        let sentryTags = { signatures: "collectSignatures" }
+        let sentryExtras = { address: adr, blocks, response }
+        request?.context?.hub?.configureScope(sentryTags, sentryExtras)
+        request?.context?.hub?.captureMessage(response.error)
       }
 
       //sthrow new Error('Could not get the signature from ' + adr + ' for blocks ' + blocks.map(_ => _.blockNumber).join() + ':' + response.error)
@@ -186,7 +184,6 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       throw new Error('Could not get the signature from ' + adr + ' at ' + config.url + ' request: ' + JSON.stringify(req) + ' for block ' + blocksToRequest.map(_ => _.blockNumber).join() + ':' + response.error)
       //        return null
     }
-
 
     const signatures = [...cachedSignatures, ...response.result] as Signature[]
     // if there are signature, we only return the valid ones
@@ -207,8 +204,8 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         if (!singingNode) return null // if we don't know the node, we can not convict anybody.
 
         const expectedBlock = blocks.find(_ => toNumber(_.blockNumber) === toNumber(s.block))
-        if (!expectedBlock) {
-          // hm... handler node signed a different block, then we expected, but the signature is valid.
+        if (!expectedBlock || typeof expectedBlock.hash !== "string") {
+          // handler node signed a different block, then we expected, but the signature is valid or we dont have the correct blockhash to assert if its the case.
           // TODO so at least we should check if the blockhash is incorrect, so we can convict him anyway
           return null
         }
@@ -226,21 +223,18 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         // ok still wrong, so we start convicting the node...
         logger.info("Trying to convict node(" + singingNode.address + ") " + singingNode.url + ' because it signed wrong blockhash  with ' + JSON.stringify(s) + ' but the correct hash should be ' + expectedBlock.hash)
 
-        if (process.env.SENTRY_ENABLE === 'true') {
+        request?.context?.hub?.addBreadcrumb({
+          category: "convict",
+          data: {
+            singingNode: singingNode,
+            signature: s,
+            expected: expectedBlock,
+            chainId: handler.chainId,
+            registryRPC: handler.config.registryRPC || handler.config.rpcUrl[0],
+          }
+        })
 
-          Sentry.addBreadcrumb({
-            category: "convict",
-            data: {
-              singingNode: singingNode,
-              signature: s,
-              expected: expectedBlock,
-              chainId: handler.chainId,
-              registryRPC: handler.config.registryRPC || handler.config.rpcUrl[0],
-            }
-          })
-        }
-
-        Sentry.captureMessage(`detected wrong blockResponse`)
+        request?.context?.hub?.captureMessage(`detected wrong blockResponse`)
 
         const latestBlockNumber = handler.watcher.block.number
         const diffBlocks = toNumber(latestBlockNumber) - s.block
@@ -269,7 +263,6 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
           signingNode: singingNode,
           signature: convictSignature
         })
-
       }))
 
     return signatures
@@ -342,5 +335,4 @@ export async function handleSign(handler: BaseHandler, request: RPCRequest): Pro
     jsonrpc: request.jsonrpc,
     result: sign((handler.config as any)._pk, result[0].BlockData.map(b => ({ blockNumber: toNumber(b.number), hash: b.hash, registryId: (handler.nodeList as any).registryId })))
   }
-
 }

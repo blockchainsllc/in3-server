@@ -33,32 +33,34 @@
  *******************************************************************************/
 
 import * as logger from '../util/logger'
-import { setOpError } from '../util/sentryError'
 import Watcher from '../chains/watch'
-import { IN3RPCHandlerConfig } from '../types/types'
+import { IN3RPCHandlerConfig, AppContext } from '../types/types'
 
 export default class HealthCheck {
-
-    _health: number             // health meter of server (0 to 5) where 5 is highest
-    _lastBlockTime: number      // clock tick when last block was detected
-    _interval: any              // reference of setInterval
-    interval: number            // duration after which setInterval is invoked
-    maxBlockTimeout: number     //max time out allowed until new block must be detectable 
-    watcher: Watcher            //watcher reference
-    config: IN3RPCHandlerConfig //config object
+    static OP_ERROR: number = 0; //operational error, if server encountered error during normal working
+    _health: number              // health meter of server (0 to 5) where 5 is highest
+    _lastBlockTime: number       // clock tick when last block was detected
+    _interval: any               // reference of setInterval
+    interval: number             // duration after which setInterval is invoked
+    maxBlockTimeout: number      // max time out allowed until new block must be detectable
+    watcher: Watcher             // watcher reference
+    config: IN3RPCHandlerConfig  // config object
+    context: AppContext          // application context that hold injected components
 
     /**
-     *constructor 
-     *block timeout: max time supposed in which a block must be detected by server, it is configurable using watchBlockTimeout (ms) default is 120 sec
-     *interval : after each interval duration a function (checkHealth()) will check that how much duration it took since last block
+     * constructor 
+     * block timeout: max time supposed in which a block must be detected by server, it is configurable using watchBlockTimeout (ms) default is 120 sec
+     * interval: after each interval duration a function (checkHealth()) will check that how much duration it took since last block
+     * context: application context with different components
     */
-    constructor(blockTimeout: number, watcher: Watcher, conf: IN3RPCHandlerConfig, interval = 45000) {
+    constructor(blockTimeout: number, watcher: Watcher, conf: IN3RPCHandlerConfig, interval = 45000, context?: AppContext) {
         this.maxBlockTimeout = blockTimeout
         this.interval = interval
         this._lastBlockTime = 0
         this._health = 5  //5 is max health
         this.watcher = watcher
         this.config = conf
+        this.context = context
     }
 
     /**
@@ -88,7 +90,7 @@ export default class HealthCheck {
                 this._interval = setInterval(() => this.checkHealth(), this.interval)
                 this._lastBlockTime = new Date().getTime() //assuming every thing is good at start
             } catch (err) {
-                setOpError(err)
+                this.setOpError(err)
                 this.stop()
             }
         }
@@ -103,14 +105,13 @@ export default class HealthCheck {
         let duration: number = new Date().getTime() - this._lastBlockTime
 
         if (this._lastBlockTime == 0 || duration >= this.maxBlockTimeout) {
-            if (this._health > 0 ) 
-                this._health--
-            
-            setOpError(new Error("Watcher error. No new block is detected in " + (duration / 1000) + " sec. Max allowed time is " + (this.maxBlockTimeout / 1000) + " sec [" + this._health + "]"))
+            if (this._health > 0 ) this._health--
+
+            this.setOpError(new Error("Watcher error. No new block is detected in " + (duration / 1000) + " sec. Max allowed time is " + (this.maxBlockTimeout / 1000) + " sec [" + this._health + "]"))
         }
 
         if (this._health <= 0 && this.config.unhealthyExit == true) {
-            setOpError(new Error("Watcher is unhealthy so exiting server. Last block detected " + (duration / 1000) + " sec ago. [" + this._health + "]"))
+            this.setOpError(new Error("Watcher is unhealthy so exiting server. Last block detected " + (duration / 1000) + " sec ago. [" + this._health + "]"))
             process.exit(1)
         }
 
@@ -124,9 +125,9 @@ export default class HealthCheck {
                     logger.info("Watcher restarted")
 
                 } catch (err) {
-                    setOpError(new Error("Unable to restart Watcher." + err.name + ":" + err.message))
+                    this.setOpError(new Error("Unable to restart Watcher." + err.name + ":" + err.message))
                     if(this.config.unhealthyExit == true){
-                        setOpError(new Error("Watcher is unhealthy so exiting server. Last block detected " + (duration / 1000) + " sec ago."))
+                        this.setOpError(new Error("Watcher is unhealthy so exiting server. Last block detected " + (duration / 1000) + " sec ago."))
                         process.exit(1)
                     }
                 }
@@ -140,5 +141,21 @@ export default class HealthCheck {
     updateBlock() {
         logger.debug("New block detected in health check")
         this._lastBlockTime = new Date().getTime()
+    }
+
+    /*
+    * Set OP_ERROR for healthCheck purposes
+    */
+    setOpError(err: Error) {
+        if (err) {
+            //mark flag true so /health endpoint responds with error state
+            HealthCheck.OP_ERROR = Date.now();
+            logger.error(" " + err.name + " " + err.message + " " + err.stack)
+
+            let sentryTags = { server: "checkHealth", unhealthy: "server operation error" }
+            let sentryExtras = { ctx: `${err.name} ${err.message} ${err.stack}` }
+            this.context?.hub?.configureScope(sentryTags, sentryExtras)
+            this.context?.hub?.captureException(new Error("operation error " + err.name + " " + err.message + " " + err.stack));
+        }
     }
 }

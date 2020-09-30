@@ -32,9 +32,6 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-const Sentry = require('@sentry/node');
-
-
 import * as Ajv from 'ajv'
 import { UserError } from '../util/sentryError'
 

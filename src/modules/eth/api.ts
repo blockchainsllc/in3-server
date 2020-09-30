@@ -33,13 +33,11 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-const Sentry = require('@sentry/node')
-import { methodID } from 'ethereumjs-abi'
-import { toChecksumAddress, privateToAddress, keccak, ecsign } from 'ethereumjs-util'
+import { toChecksumAddress, keccak } from 'ethereumjs-util'
 import * as util from '../../util/util'
 import BN = require('bn.js')
-import { AbiCoder, Interface, Fragment } from '@ethersproject/abi'
-import { RPCResponse } from '../../types/types';
+import { AbiCoder } from '@ethersproject/abi'
+import { RPCResponse } from '../../types/types'
 
 export type BlockType = number | 'latest' | 'earliest' | 'pending'
 export type Hex = string
@@ -307,49 +305,7 @@ function decodeResult(types: string[], result: Buffer): any {
     try {
         return abiCoder.decode(types, result).map((v, i) => convertToType(types[i], v))
     } catch (e) {
-        if (process.env.SENTRY_ENABLE === 'true') {
-
-            Sentry.configureScope((scope) => {
-                scope.setTag("ABIError", "decode");
-                scope.setExtra("tyoes", types)
-                scope.setExtra("result", result)
-            });
-        }
         throw new Error("ABI-encoding error")
-    }
-}
-
-function createCallParams(method: string, values: any[]): { txdata: string, convert: (a: any) => any } {
-    if (!method) throw new Error('method needs to be a valid contract method signature')
-    if (method.indexOf('(') < 0) method += '()'
-    const methodRegex = /^\w+\((.*)\)$/gm
-    let convert = null
-
-    if (method.indexOf(':') > 0) {
-        const srcFullMethod = method;
-        const retTypes = method.split(':')[1].substr(1).replace(')', ' ').trim().split(',');
-        convert = result => {
-            if (result) result = decodeResult(retTypes, Buffer.from(result.substr(2), 'hex'))
-            if (Array.isArray(result) && (!srcFullMethod.endsWith(')') || result.length == 1))
-                result = result[0]
-            return result
-        }
-        method = method.substr(0, method.indexOf(':'))
-    }
-
-    const m = methodRegex.exec(method)
-    if (!m) throw new Error('No valid method signature for ' + method)
-    const types = m[1].split(',').filter(_ => _)
-    if (values.length < types.length) throw new Error('invalid number of arguments. Must be at least ' + types.length)
-    values.forEach((v, i) => {
-        if (types[i] === 'bytes') values[i] = util.toBuffer(v)
-    })
-
-    return {
-        txdata: '0x' + (values.length
-            ? encodeFunction(method, values)
-            : methodID(method.substr(0, method.indexOf('(')), []).toString('hex'))
-        , convert
     }
 }
 
@@ -366,22 +322,7 @@ export function createSignature(fields: ABIField[]): string {
         return baseType + (t < 0 ? '' : f.type.substr(t))
     }).join(',') + ')'
 }
-function parseABIString(def: string): ABI {
-    const [name, args] = def.split(/[\(\)]/)
-    return {
-        name, type: 'event', inputs: args.split(',').filter(_ => _).map(_ => _.split(' ').filter(z => z)).map(_ => ({
-            type: _[0],
-            name: _[_.length - 1],
-            indexed: _[1] == 'indexed'
-        }))
-    }
-}
 
-function decodeEventData(log: Log, def: string | { _eventHashes: any }): any {
-    let d: ABI = (typeof def === 'object') ? def._eventHashes[log.topics[0]] : parseABIString(def)
-    if (!d) return null//throw new Error('Could not find the ABI')
-    return decodeEvent(log, d)
-}
 export function decodeEvent(log: Log, d: ABI): any {
     const indexed = d.inputs.filter(_ => _.indexed), unindexed = d.inputs.filter(_ => !_.indexed), r: any = { event: d && d.name }
     if (indexed.length)
@@ -410,57 +351,4 @@ export function soliditySha3(...args: any[]): string {
                 return BN.isBN(_) ? 'uint256' : 'bytes'
         }
     }), args.map(encodeEtheresBN))))
-}
-
-function toHexBlock(b: any): string {
-    return typeof b === 'string' ? b : util.toMinHex(b)
-}
-
-export function encodeFunction(signature: string, args: any[]): string {
-    const inputParams = signature.split(':')[0]
-
-    const abiCoder = new AbiCoder()
-
-    const typeTemp = inputParams.substring(inputParams.indexOf('(') + 1, (inputParams.indexOf(')')))
-
-    const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
-    const methodHash = (methodID(signature.substr(0, signature.indexOf('(')), typeArray)).toString('hex')
-
-    try {
-        return methodHash + abiCoder.encode(typeArray, args.map(encodeEtheresBN)).substr(2)
-    } catch (e) {
-        if (process.env.SENTRY_ENABLE === 'true') {
-
-            Sentry.configureScope((scope) => {
-                scope.setTag("ABIError", "encode");
-                scope.setExtra("signature", signature)
-                scope.setExtra("args", args)
-            });
-        }
-        throw new Error("ABI-encoding error")
-    }
-}
-
-export function decodeFunction(signature: string, args: Buffer | RPCResponse): any {
-    const outputParams = signature.split(':')[1]
-
-    const abiCoder = new AbiCoder()
-
-    const typeTemp = outputParams.substring(outputParams.indexOf('(') + 1, (outputParams.indexOf(')')))
-
-    const typeArray = typeTemp.length > 0 ? typeTemp.split(",") : []
-
-    try {
-        return abiCoder.decode(typeArray, util.toBuffer(args))
-    } catch (e) {
-        if (process.env.SENTRY_ENABLE === 'true') {
-
-            Sentry.configureScope((scope) => {
-                scope.setTag("ABIError", "decode");
-                scope.setExtra("signature", signature)
-                scope.setExtra("args", args)
-            });
-        }
-        throw new Error("ABI-encoding error")
-    }
 }

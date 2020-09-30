@@ -31,7 +31,13 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
+import { IRouterContext } from 'koa-router'
 
+export type KoaContext = IRouterContext & AppContext
+
+export interface AppContext {
+    hub: any
+}
 
 /**
 * a JSONRPC-Request with N3-Extension
@@ -60,6 +66,10 @@ export interface RPCRequest {
      * the IN3-Config
      */
     in3?: IN3RPCRequestConfig
+    /**
+     * the IN3-Config
+     */
+    context?: AppContext
 }
 
 /**

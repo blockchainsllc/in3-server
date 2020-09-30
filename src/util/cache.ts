@@ -46,7 +46,6 @@ export class SimpleCache {
     this.data = new Map()
     this.trieData = new Map()
   }
-  //  nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber: nl.lastBlockNumber }], verifiedHashes)
 
   put(key: string, response: RPCResponse): RPCResponse {
     this.data.set(key, response)

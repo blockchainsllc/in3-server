@@ -382,7 +382,7 @@ async function updateAuraHistory(validatorContract: string, handler: RPCHandler,
     })
 
     for (const log of logs.result) {
-        const validatorList = decodeFunction(['address[]'], util.toBuffer(log.data))[0]
+        const validatorList = decodeFunction(['address[]'], util.toBuffer(log.data), handler.context)[0]
         const receipts = logs.in3.proof.logProof[toHex(log.blockNumber)].receipts
 
         const block = serialize.blockFromHex(logs.in3.proof.logProof[toHex(log.blockNumber)].block)

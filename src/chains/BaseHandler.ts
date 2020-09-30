@@ -31,12 +31,10 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-const Sentry = require('@sentry/node');
-
 import { Transport, AxiosTransport, NoneRejectingAxiosTransport} from '../util/transport'
 import * as serialize from'../modules/eth/serialize'
 import * as in3Util  from '../util/util'
-import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig } from '../types/types'
+import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, AppContext } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
 import Watcher from './watch'
@@ -79,8 +77,9 @@ export default abstract class BaseHandler implements RPCHandler {
   healthCheck: HealthCheck
   resetRPCIndexTimer: any
   switchBackRPCTime: number
+  context: AppContext
 
-  constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList) {
+  constructor(config: IN3RPCHandlerConfig, transport?: Transport, nodeList?: ServerList, context?: AppContext) {
     this.config = config || {} as IN3RPCHandlerConfig
     this.transport = transport || new NoneRejectingAxiosTransport()
     this.nodeList = nodeList || { nodes: undefined }
@@ -89,6 +88,7 @@ export default abstract class BaseHandler implements RPCHandler {
     this.activeRPC = 0
     this.switchBackRPCTime = 300000 // after 5 min default first RPC will be used for all requests
     this.resetRPCIndexTimer = undefined
+    this.context = context
 
     const interval = config.watchInterval || 5
 
@@ -96,11 +96,11 @@ export default abstract class BaseHandler implements RPCHandler {
     checkPrivateKey(this.config)
 
     // create watcher checking the registry-contract for events
-    this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock)
+    this.watcher = new Watcher(this, interval, config.persistentFile || 'false', config.startBlock, this.context)
 
     //create health monitoring service
     const maxBlockTimeout = config.watchBlockTimeout ? config.watchBlockTimeout : maxWatchBlockTimeout
-    this.healthCheck = new HealthCheck(maxBlockTimeout, this.watcher, this.config)
+    this.healthCheck = new HealthCheck(maxBlockTimeout, this.watcher, this.config, undefined, this.context)
     this.watcher.on('newBlock', () => this.healthCheck.updateBlock())
 
     this.whiteListMgr = new WhiteListManager(this, config.maxWhiteListWatch, config.cacheWhiteList)
@@ -117,7 +117,7 @@ export default abstract class BaseHandler implements RPCHandler {
     return this.cache
       ? this.cache.getFromCache(request,
         this.handle.bind(this),
-        (signers, blockNumbers, verifiedHashes) => collectSignatures(this, signers, blockNumbers.map(b => ({ blockNumber: b })), verifiedHashes))
+        (signers, blockNumbers, verifiedHashes) => collectSignatures(this, signers, blockNumbers.map(b => ({ blockNumber: b })), verifiedHashes, undefined, request))
       : this.handle(request)
   }
 
@@ -154,58 +154,57 @@ export default abstract class BaseHandler implements RPCHandler {
     if (process.env.IN3VERBOSERPC)
       logger.debug("Verbose. RPC: " + (rpc || this.config.rpcUrl[this.activeRPC]) + " Request: " + JSON.stringify(request))
 
-    return axios.post(rpc || this.config.rpcUrl[this.activeRPC], this.toCleanRequest(request), { headers }).then(_ => _.data, err => {
+    return axios.post(rpc || this.config.rpcUrl[this.activeRPC], this.toCleanRequest(request), { headers })
+      .then(rsp => this.handleFauxSuccess(rsp))
+      .then(_ => _.data, err => {
 
-      if (err.response && err.response.data && typeof (err.response.data) === 'object' && err.response.data.error)
-        err.message = err.response.data.error.message || err.response.data.error
+        if (typeof (err?.response?.data) === 'object' && err.response.data.error)
+          err.message = err.response.data.error.message || err.response.data.error
 
-      logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
-      if (process.env.SENTRY_ENABLE === 'true') {
-        Sentry.configureScope((scope) => {
-          scope.setTag("BaseHandler", "getFromServer");
-          scope.setTag("nodeList-contract", this.config.registry)
-          scope.setExtra("request", request)
-        });
-      }
-      histRequestTime.labels(request.method || "unknown", "error", "single").observe(Date.now() - startTime);
-      //re attempt if request failed and if there are more then 1 RPC URLs are specified
-      if (((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED") != -1) &&
-        this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length && !rpc) {
+        logger.error('   ... error ' + err.message + ' send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
 
-        logger.error('Request failed for RPC URL ' + this.config.rpcUrl[this.activeRPC] + 'Error ' + err.message + ' fetching request ' + JSON.stringify(request) + 'Reattempting request on ' + this.config.rpcUrl[this.activeRPC + 1])
-        this.activeRPC++
-        this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
-        return this.getFromServer(request, r)
-      }
-      else
-        throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
-    }).then(res => {
-      logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
-      if (process.env.IN3TEST && (!rpc || rpc===this.config.rpcUrl[0])) {
-        writeFileSync(process.env.IN3TEST,(firstTestRecord ? '':',')+JSON.stringify([request,fixResponse(request, res)]),{encoding:'utf8',flag:'a'})
-        firstTestRecord=false
-      }
+        let sentryTags = { BaseHandler: "getFromServer", "nodeList-contract": this.config.registry }
+        let sentryExtras = { request }
 
+        request?.context?.hub?.configureScope(sentryTags, sentryExtras)
 
-      if (process.env.SENTRY_ENABLE === 'true') {
-        Sentry.addBreadcrumb({
+        histRequestTime.labels(request.method || "unknown", "error", "single").observe(Date.now() - startTime);
+        //re attempt if request failed and if there are more then 1 RPC URLs are specified
+        if ((err?.response?.status !== 200 || err?.message.toString().indexOf("ECONNREFUSED") != -1 || this.isProxyError(err?.code)) &&
+          this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length && !rpc) {
+
+          logger.error('Request failed for RPC URL ' + this.config.rpcUrl[this.activeRPC] + ' Error ' + err.message + ' fetching request ' + JSON.stringify(request) + 'Reattempting request on ' + this.config.rpcUrl[this.activeRPC + 1])
+          this.activeRPC++
+          this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
+          return this.getFromServer(request, r)
+        }
+        else
+          throw new Error('Error ' + err.message + ' fetching request ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
+      })
+      .then(res => {
+        logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
+        if (process.env.IN3TEST && (!rpc || rpc===this.config.rpcUrl[0])) {
+          writeFileSync(process.env.IN3TEST,(firstTestRecord ? '':',')+JSON.stringify([request,fixResponse(request, res)]),{encoding:'utf8',flag:'a'})
+          firstTestRecord=false
+        }
+
+        request?.context?.hub?.addBreadcrumb({
           category: "getFromServer",
           data: {
             request: request,
             response: res.result || res
           }
         })
-      }
 
-      if (r) {
-        // TODO : add prom hsitogram
+        if (r) {
+          // TODO : add prom hsitogram
 
-        r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
-        r.rpcCount = (r.rpcCount || 0) + 1
-      }
-      histRequestTime.labels(request.method || "unknown", "ok", "single").observe(Date.now() - startTime);
-      return fixResponse(request, res)
-    })
+          r.rpcTime = (r.rpcTime || 0) + (Date.now() - startTime)
+          r.rpcCount = (r.rpcCount || 0) + 1
+        }
+        histRequestTime.labels(request.method || "unknown", "ok", "single").observe(Date.now() - startTime);
+        return fixResponse(request, res)
+      })
   }
 
   /** returns a array of requests from the server */
@@ -229,8 +228,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
           histRequestTime.labels("bulk", "error", "bulk").observe(Date.now() - startTime);
           //re attempt if request failed and if there are more then 1 RPC URLs are specified
-          if (((err.response && err.response.status !== 200) || err.message.toString().indexOf("ECONNREFUSED") != -1) &&
-            this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length) {
+          if (this.isConnectionError(err) && this.hasFailoverRpc()) {
             logger.error('Request failed for RPC URL ' + this.config.rpcUrl[this.activeRPC] + 'Error ' + err.message + ' fetching request ' + JSON.stringify(request) + 'Reattempting request on ' + this.config.rpcUrl[this.activeRPC + 1])
             this.activeRPC++
             this.switchBackToMainRPCTimer() //switch back to main RPC after 5 min
@@ -239,23 +237,16 @@ export default abstract class BaseHandler implements RPCHandler {
           else
             throw new Error('Error ' + err.message + ' fetching requests ' + JSON.stringify(request) + ' from ' + this.config.rpcUrl[this.activeRPC])
         }).then(res => {
-          if (process.env.SENTRY_ENABLE === 'true') {
-            Sentry.configureScope((scope) => {
-              scope.setTag("BaseHanlder", "getAllFromServer");
-              scope.setTag("nodeList-contract", this.config.registry)
-              scope.setExtra("request", request)
-            });
-          }
           logger.trace('   ... send ' + request.filter(_ => _).map(rq => rq.method + '(' + (rq.params || []).map(JSON.stringify as any).join() + ')').join('\n') + '  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
-          if (process.env.SENTRY_ENABLE === 'true') {
-            Sentry.addBreadcrumb({
-              category: "getAllFromServer response",
-              data: {
-                request: request,
-                response: res.result || res
-              }
-            })
-          }
+
+          request[0]?.context?.hub?.addBreadcrumb({
+            category: "getAllFromServer response",
+            data: {
+              request: request,
+              response: res.result || res
+            }
+          })
+
           if (r) {
             // TODO : add prom hsitogram
 
@@ -272,7 +263,6 @@ export default abstract class BaseHandler implements RPCHandler {
               +json.substr(1,json.length-2),{encoding:'utf8',flag:'a'})
               firstTestRecord=false
             }
-      
 
           return res
         })
@@ -291,19 +281,19 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** uses the updater to read the nodes from the contract */
   async updateNodeList(blockNumber: number): Promise<void> {
-    await updateNodeList(this, this.nodeList, blockNumber)
+    await updateNodeList(this, this.nodeList, blockNumber, this.context)
   }
 
   /** get the current nodeList */
-  async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[], includePerformance?: boolean): Promise<ServerList> {
+  async getNodeList(includeProof: boolean, limit = 0, seed?: string, addresses: string[] = [], signers?: string[], verifiedHashes?: string[], includePerformance?: boolean, sourceRequest?: RPCRequest): Promise<ServerList> {
 
-    const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses)
+    const nl = await getNodeList(this, this.nodeList, includeProof, limit, seed, addresses, sourceRequest?.context || this.context)
     if (nl.proof && signers && signers.length) {
       let blockNumber = nl.lastBlockNumber
 
       if (nl.proof.block)
         blockNumber = in3Util.toNumber(serialize.blockFromHex(nl.proof.block).number)
-      nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes, this.config.registryRPC)
+      nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes, this.config.registryRPC, sourceRequest)
     }
     if (!includePerformance && nl.nodes) nl.nodes.forEach(_ => {
       delete _.performance
@@ -329,9 +319,7 @@ export default abstract class BaseHandler implements RPCHandler {
     return null
   }
 
-
   toCleanRequest(request: Partial<RPCRequest>): RPCRequest {
-
     for (let i = 0; i < request.params.length; i++) {
       if (typeof request.params[i] === 'string' && request.params[i].startsWith("0x0")) {
         if (request.params[i].substr(2).length % 32 != 0 && request.params[i].substr(2).length % 20 != 0) {
@@ -364,6 +352,24 @@ export default abstract class BaseHandler implements RPCHandler {
   health(): Promise<{ status: string, message?: string }> {
     return this.getFromServer({ id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] })
       .then(_ => ({ status: 'healthy' }), _ => ({ status: 'unhealthy', message: _.message }))
+  }
+
+  hasFailoverRpc(): boolean {
+    return this.config.rpcUrl.length > 1 && this.activeRPC + 1 < this.config.rpcUrl.length
+  }
+
+  isConnectionError(err: any): boolean {
+    return err?.response?.status !== 200 || err?.message?.toString().indexOf("ECONNREFUSED") != -1 || this.isProxyError(err?.data?.error?.code)
+  }
+
+  handleFauxSuccess(rsp: any): any {
+    // If it has the error code, we can assume it has this structure, it has to match the one on the reject handler to not blow on the logger.
+    return this.isProxyError(rsp?.data?.error?.code) ? Promise.reject(rsp.data.error) : Promise.resolve(rsp)
+  }
+
+  isProxyError(errCode: number) {
+    const PROXY_ERROR_CODE = [-42004] // For now neither -42003, -42002 make sense to expect
+    return PROXY_ERROR_CODE.includes(errCode)
   }
 }
 

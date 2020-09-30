@@ -3,7 +3,7 @@
     "request": {
       "jsonrpc": "2.0",
       "id": 1,
-      "method": "in3_proofTarget",
+      "method": "btc_proofTarget",
       "params": [300, 300, 5, 5, 10],
       "in3": { "finality": 8, "verification": "proof" }
     },

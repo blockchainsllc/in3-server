@@ -166,6 +166,10 @@ definitions:
     type: array
     maxItems: 0
 
+  eth_chainId:
+    type: array
+    maxItems: 0
+
   web3_sha3:
     type: array
     maxItems: 1
@@ -499,7 +503,7 @@ definitions:
     minItems: 0
     items:
       - $ref: "#/definitions/blockTypeBTC"
-  in3_proofTarget:
+  btc_proofTarget:
     type: array
     maxItems: 5
     minItems: 4

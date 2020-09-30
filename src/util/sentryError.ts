@@ -35,7 +35,9 @@
 
 
 const Sentry = require('@sentry/node')
+import { AppContext } from '../types/types'
 import * as logger from './logger'
+import { addBreadcrumb, captureException } from './sentryWrapper'
 
 /**
  * creates a Error with the capability to report it to Sentry.
@@ -45,16 +47,15 @@ import * as logger from './logger'
  * https://git.slock.it/documentation/developer-handbook/blob/master/docs/Error-handling-and-reporting-Sentry.md
  */
 export class SentryError extends Error {
-
-    constructor(message?: any, category_info?: string, breadcrumb_message?: string) {
+    constructor(message?: any, context?: AppContext, category_info?: string, breadcrumb_message?: string) {
         super(message);
-        if (process.env.SENTRY_ENABLE === 'true') {
-            Sentry.addBreadcrumb({
-                category: category_info,
-                message: breadcrumb_message,
-            })
-            Sentry.captureException(this)
-        }
+
+        context?.hub?.addBreadcrumb({
+            category: category_info,
+            message: breadcrumb_message,
+        })
+
+        context?.hub?.captureException(this)
     }
 }
 
@@ -87,28 +88,4 @@ export class UserError extends Error {
             in3: {}
         }
     }
-
-}
-
-export let OP_ERROR = 0; //operational error, if server encountered error during normal working
-
-export function setOpError(err: Error) {
-  if (err) {
-    //mark flag true so /health endpoint responds with error state
-    OP_ERROR = Date.now();
-
-    //logging error on console
-    logger.error(" " + err.name + " " + err.message + " " + err.stack)
-
-    //sending error to sentry
-    if (process.env.SENTRY_ENABLE === 'true') {
-      Sentry.configureScope((scope) => {
-        scope.setTag("server", "checkHealth");
-        scope.setTag("unhealthy", "server operation error");
-        scope.setExtra("ctx", err.name + " " + err.message + " " + err.stack)
-      });
-      Sentry.captureException(new Error("operation error " + err.name + " " + err.message + " " + err.stack));
-    }
-  }
-  
 }
