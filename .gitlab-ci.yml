@@ -244,7 +244,7 @@ register-with-sentry-production:
     CHAIN: btc
     CHAIN_ID: "0x99"
     RPC_ENDPOINT: "http://slockit:slockit@lb.parity-rpc/bitcoin"
-    REGISTRY_RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
+    REGISTRY_RPC_ENDPOINT: http://slockit:slockit@lb.parity-rpc/goerli
 
 .chain-tmpl-kovan:
   variables:
