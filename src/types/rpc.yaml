@@ -56,6 +56,9 @@ properties:
         type: string
         enum: [never, proof, proofWithSignature]
         example: "proof"
+      preBIP34:
+        description: if true the client wants proof data for blocks before bip34 (before block 227835), else no proof data for such (old) blocks
+        type: boolean
       clientSignature:
         description: the signature of the client
       signers:
