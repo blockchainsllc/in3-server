@@ -13,9 +13,9 @@ services:
         command: 
         - --privateKey=/secure/MYKEYFILE.json                                 # internal path to the key 
         - --privateKeyPassphrase=PASSWD                                       # passphrase to unlock the key 
-        - --chain=0x2a                                                        # chain 
+        - --chain=0x5                                                        # chain
         - --rpcUrl=http://172.15.0.3:8545                                     # URL of the eth client 
-        - --registry=0x33f55122c21cc87b539e7003f7ab16229bc3af69               #Incubed Registry contract address 
+        - --registry=0x635cccc1db6fc9e3b029814720595092affba12f               #Incubed Registry contract address
         - --logging-level=Error
         - --minBlockHeight=6
         networks: 
@@ -28,7 +28,7 @@ services:
         - --auto-update=none                                                  # do not automatically update the client 
         - --pruning=auto 
         - --pruning-memory=30000                                              # limit storage 
-        - --chain=kovan 
+        - --chain=goerli
         - --jsonrpc-interface=172.15.0.3 
         - --jsonrpc-port=8545 
         - --ws-interface=172.15.0.3 
