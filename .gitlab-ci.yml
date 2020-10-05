@@ -246,12 +246,6 @@ register-with-sentry-production:
     RPC_ENDPOINT: "http://slockit:slockit@lb.parity-rpc/bitcoin"
     REGISTRY_RPC_ENDPOINT: http://slockit:slockit@lb.parity-rpc/goerli
 
-.chain-tmpl-kovan:
-  variables:
-    CHAIN: kovan
-    CHAIN_ID: "0x2a"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan/archive
-
 .chain-tmpl-mainnet:
   variables:
     CHAIN: mainnet
@@ -294,13 +288,6 @@ deploy-production-ewc:
   variables:
     BLOCKHEIGHT: "2"
     REGISTRY_CONTRACT_ADDR: "0x638428ebaa190c6c6331a3a02f3b8c5d8310986b"
-
-deploy-production-kovan:
-  extends:
-    - .deploy-tmpl-production
-    - .chain-tmpl-kovan
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0xf14d54e349ac971ab6280d6d99f7152c9a06b0b3"
 
 deploy-production-goerli:
   extends:
