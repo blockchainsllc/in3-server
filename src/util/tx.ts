@@ -149,7 +149,7 @@ export async function sendTransaction(url: string, txargs: {
       context: context
     }).then((_: RPCResponse) => {
       if (_.error) {
-        throw new Error(_.error)
+        throw new Error(_.error.message)
       }
       return parseInt(_.result as any)
     })
@@ -164,7 +164,7 @@ export async function sendTransaction(url: string, txargs: {
       context: context
     }).then((_: RPCResponse) => {
       if (_.error) {
-        throw new Error(_.error)
+        throw new Error(_.error.message)
       }
       return parseInt(_.result as any)
     })
@@ -183,7 +183,7 @@ export async function sendTransaction(url: string, txargs: {
       context: context
     }).then((_: RPCResponse) => {
       if (_.error) {
-        throw new Error('Error estimaing gas for tx to ' + txargs.to + ' with data ' + txargs.data + ' : ' + (_.error as any).message || _.error)
+        throw new Error('Error estimaing gas for tx to ' + txargs.to + ' with data ' + txargs.data + ' : ' + _.error.message)
       }
       return Math.floor(parseInt(_.result as any) * 1.1)
     })

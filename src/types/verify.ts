@@ -33,7 +33,7 @@
  *******************************************************************************/
 
 import * as Ajv from 'ajv'
-import { UserError } from '../util/sentryError'
+import { IncubedError, RPCException } from '../util/sentryError'
 
 // the schema
 const schema = require('./rpc.json')
@@ -44,11 +44,11 @@ ajv.addSchema(schema)
 
 export function verifyRequest(req: any) {
     if (!ajv.validate('https://slock.it/rpc.json', req))
-        throw new UserError(getErrorMessage(ajv.errors, null, { dataVar: 'rpc' }, req), UserError.INVALID_PARAMS)
+        throw new IncubedError(getErrorMessage(ajv.errors, null, { dataVar: 'rpc' }, req), RPCException.INVALID_PARAMS)
     if (!schema.definitions[req.method])
-        throw new UserError('method ' + req.method + ' is not supported or unknown', UserError.INVALID_METHOD)
+        throw new IncubedError('method ' + req.method + ' is not supported or unknown', RPCException.INVALID_METHOD)
     if (!ajv.validate('https://slock.it/rpc.json#/definitions/' + req.method, req.params))
-        throw new UserError(req.method + ' : ' + getErrorMessage(ajv.errors, schema.definitions[req.method], null, req), UserError.INVALID_PARAMS)
+        throw new IncubedError(req.method + ' : ' + getErrorMessage(ajv.errors, schema.definitions[req.method], null, req), RPCException.INVALID_PARAMS)
 }
 function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any, data?: any) {
     const all = [...errs]

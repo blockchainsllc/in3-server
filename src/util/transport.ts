@@ -34,6 +34,7 @@
 
 import { RPCRequest, RPCResponse } from '../types/types';
 import axios from 'axios'
+import { RPCException } from '../util/sentryError'
 
 /**
  * A Transport-object responsible to transport the message to the handler.
@@ -96,7 +97,10 @@ export class AxiosTransport implements Transport {
       if (res.status > 200) throw new Error('Invalid status')
 
       // if this was not given as array, we need to convert it back to a single object
-      return (Array.isArray(data) || !Array.isArray(res.data)) ? res.data : res.data[0]
+      return Array.isArray(data) || !Array.isArray(res.data) ?
+        this.handleLegacyRpc(res.data, true) :
+        this.handleLegacyRpc(res.data[0], false)
+
     } catch (err) {
       throw new Error('Invalid response from ' + url + '(' + JSON.stringify(requests, null, 2) + ')' + ' : ' + err.message + (err.response ? (err.response.data || err.response.statusText) : ''))
     }
@@ -109,6 +113,26 @@ export class AxiosTransport implements Transport {
     return result
   }
 
+  private handleLegacyRpc(res: any, isList: boolean) {
+    return isList ? this.convertFromLegacyList(res) : this.convertFromLegacy(res)
+  }
+
+  private convertFromLegacyList(res: any) {
+    return res?.map(this.convertFromLegacy)
+  }
+
+  private convertFromLegacy(res: any) {
+    if (this.isLegacy(res)) {
+      return { ...res, error: { message: res.error, code: RPCException.INTERNAL_ERROR }}
+    }
+
+    return res
+  }
+
+  // Might be worth checking the version on response body
+  private isLegacy(res: any): boolean {
+    return typeof res?.error === 'string'
+  }
 }
 
 /**
@@ -122,8 +146,6 @@ export class NoneRejectingAxiosTransport extends AxiosTransport {
       this.axiosConfig.agent = new Agent({ rejectUnauthorized: false })
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
     }
-    catch (x) {
-
-    }
+    catch (x) { }
   }
 }

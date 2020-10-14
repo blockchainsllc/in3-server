@@ -33,7 +33,6 @@
  *******************************************************************************/
 import { Transport, AxiosTransport, NoneRejectingAxiosTransport} from '../util/transport'
 import * as serialize from'../modules/eth/serialize'
-import * as in3Util  from '../util/util'
 import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, AppContext } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
@@ -43,12 +42,14 @@ import { collectSignatures, handleSign, PK } from './signatures'
 import { RPCHandler } from '../server/rpc'
 import { SimpleCache } from '../util/cache'
 import * as logger from '../util/logger'
-import { toMinHex } from '../util/util'
+import { toMinHex, toHex, toNumber } from '../util/util'
 import { in3ProtocolVersion, maxWatchBlockTimeout } from '../types/constants'
 import WhiteListManager from './whiteListManager'
 import * as promClient from 'prom-client';
 import HealthCheck from '../util/healthCheck'
 import {writeFileSync} from 'fs'
+import { IncubedError, RPCException, SigningError } from '../util/sentryError'
+import { keccak256 } from 'ethereumjs-util'
 
 let firstTestRecord =true
 
@@ -110,15 +111,34 @@ export default abstract class BaseHandler implements RPCHandler {
       this.cache = new SimpleCache()
       this.watcher.on('newBlock', () => this.cache.clear())
     }
-
   }
 
-  handleWithCache(request: RPCRequest): Promise<RPCResponse> {
-    return this.cache
-      ? this.cache.getFromCache(request,
-        this.handle.bind(this),
-        (signers, blockNumbers, verifiedHashes) => collectSignatures(this, signers, blockNumbers.map(b => ({ blockNumber: b })), verifiedHashes, undefined, request))
-      : this.handle(request)
+  toError(request: RPCRequest, error: IncubedError) {
+    let toSign = [error.code || RPCException.INTERNAL_ERROR, Date.now()]
+
+    if (error?.data?.length) {
+        toSign = [...toSign, , ...error.data]
+    }
+
+    let concatenatedData = toSign.map(val => toHex(val).substr(2).padStart(64, '0'))
+    let { r, s, v } = (this.config as any)._pk.sign(keccak256(`0x${concatenatedData}`))
+
+    return {
+      id: request.id || 1,
+      jsonrpc: '2.0',
+      error: {
+        code: error.code || RPCException.INTERNAL_ERROR,
+        message: error.message,
+        data: {
+          signedError: {
+            r: toHex(r),
+            s: toHex(s),
+            v: toNumber(v),
+          }
+        }
+      },
+      in3: {}
+    }
   }
 
   handle(request: RPCRequest): Promise<RPCResponse> {
@@ -129,7 +149,6 @@ export default abstract class BaseHandler implements RPCHandler {
   checkRegistry(): Promise<any> {
     return checkRegistry(this)
   }
-
 
   /** returns the result directly from the server */
   getFromServer(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse> {
@@ -292,7 +311,10 @@ export default abstract class BaseHandler implements RPCHandler {
       let blockNumber = nl.lastBlockNumber
 
       if (nl.proof.block)
-        blockNumber = in3Util.toNumber(serialize.blockFromHex(nl.proof.block).number)
+        blockNumber = toNumber(serialize.blockFromHex(nl.proof.block).number)
+      const signatures: any = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes, this.config.registryRPC, sourceRequest)
+      if (signatures.find(signature => !!signature.error)) throw new SigningError("Error while collecting signatures!")
+
       nl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes, this.config.registryRPC, sourceRequest)
     }
     if (!includePerformance && nl.nodes) nl.nodes.forEach(_ => {
@@ -309,7 +331,7 @@ export default abstract class BaseHandler implements RPCHandler {
       let blockNumber = wl.lastBlockNumber
 
       if (wl.proof.block)
-        blockNumber = in3Util.toNumber(serialize.blockFromHex(wl.proof.block).number)
+        blockNumber = toNumber(serialize.blockFromHex(wl.proof.block).number)
       wl.proof.signatures = await collectSignatures(this, signers, [{ blockNumber }], verifiedHashes, this.config.registryRPC)
     }
     return wl
@@ -332,14 +354,6 @@ export default abstract class BaseHandler implements RPCHandler {
       method: request.method,
       params: request.params,
       jsonrpc: request.jsonrpc
-    }
-  }
-
-  toError(id: number | string, error: string): RPCResponse {
-    return {
-      id,
-      error,
-      jsonrpc: '2.0'
     }
   }
   toResult(id: number | string, result: any): RPCResponse {

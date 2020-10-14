@@ -47,6 +47,8 @@ import { registerNodes } from '../../src/util/registry'
 import { RPC, RPCHandler } from '../../src/server/rpc'
 import { createPK, PK } from '../../src/chains/signatures'
 import { toBN, toUtf8, toMinHex } from '../../src/util/util'
+import { isEqual } from 'lodash'
+
 logger.setLogger('memory')
 
 let testClient = (process && process.env && process.env.RPCURL) || 'http://localhost:8545'
@@ -150,40 +152,33 @@ export class TestTransport implements Transport {
   defineGetFromServer(url: string, chain: string) {
 
     (this.handlers[url].handlers[chain] as any).getFromServer = 
-    (request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse> => {
+      (request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse> => {
+        for (const ir of this.injectedResponses) {
+          if ( ir.request.method !== request.method || !isEqual(ir.request.params, request.params)) continue
 
-      //console.log(JSON.stringify(request))
-      for (const ir of this.injectedResponses) {
-        if ( ir.request.method !== request.method 
-          || JSON.stringify(ir.request.params) != JSON.stringify(request.params)) continue
-        
-        logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
-        return Promise.resolve( ir.response as RPCResponse )
-      }
-      throw new Error("The request "+request.method+'('+  request.params.map(JSON.stringify as any).join()+') can not be found in the mock data')
-  }; 
+          logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
+          return Promise.resolve( ir.response as RPCResponse )
+        }
+        throw new Error("The request "+request.method+'('+  request.params.map(JSON.stringify as any).join()+') can not be found in the mock data')
+      };
 
     (this.handlers[url].handlers[chain] as any).getAllFromServer = 
-    (requests: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]> => {
+      (requests: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]> => {
+        let res: RPCResponse[] = []
+        requests.forEach(request => {
+          if (!request) {
+            res.push( undefined )
+            return
+          }
+          for (const ir of this.injectedResponses) {
+            if (ir.request.method !== request.method || !isEqual(ir.request.params, request.params)) continue
 
-      //console.log(JSON.stringify(requests))
-      let res: RPCResponse[] = []
-      requests.forEach(request => {
-        if (!request) {
-          res.push( undefined )
-          return
-        }
-        for (const ir of this.injectedResponses) {
-          if ( ir.request.method !== request.method 
-            || JSON.stringify(ir.request.params) != JSON.stringify(request.params)) continue
-          
-          logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
-          res.push( ir.response as RPCResponse )
-        }
-      });
-    return Promise.resolve(res)
-  }; 
-    
+            logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
+            res.push( ir.response as RPCResponse )
+          }
+        });
+        return Promise.resolve(res)
+      }
   }
 
 
@@ -240,7 +235,7 @@ export class TestTransport implements Transport {
       for (const ir of this.injectedResponses) {
         if (ir.url && ir.url !== url) continue
         if (ir.request && ir.request.method !== r.method) continue
-        if (ir.request && ir.request.params && JSON.stringify(ir.request.params) != JSON.stringify(r.params)) continue
+        if (ir?.request?.params && !isEqual(ir.request.params, r.params)) continue
         if (typeof ir.response === 'function')
           responseModifiers.push(ir.response)
         else {
@@ -293,6 +288,7 @@ export class TestTransport implements Transport {
         } as any
       },
       ...(conf || {})
+      // @ts-ignore
     }, this)
     await client.updateNodeList(client.defConfig.chainId, { proof: 'none' })
     return client
@@ -393,9 +389,7 @@ export class TestTransport implements Transport {
   async increaseTime(secondsToIncrease) {
     await axios.post(this.url, { id: 1, jsonrpc: '2.0', method: 'evm_increaseTime', params: [secondsToIncrease] }, { headers: { 'Content-Type': 'application/json' } })
   }
-
 }
-
 
 export class LoggingAxiosTransport extends AxiosTransport {
   async handle(url: string, data: RPCRequest | RPCRequest[], timeout?: number): Promise<RPCResponse | RPCResponse[]> {
@@ -409,8 +403,5 @@ export class LoggingAxiosTransport extends AxiosTransport {
       logger.error('Error handling the request :', ex)
       throw ex
     }
-
-
   }
-
 }

@@ -111,6 +111,7 @@ describe('AbiCoder', () => {
 
 
     const returnValue = await clientRPC.callContractWithClient(client, adr, 'encodingTest(bytes[],bytes32):(bytes32,bytes[])', ['0xabcd', '0xcdef'], "0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20")
+    // @ts-ignore
     if (returnValue.error) throw new Error(returnValue.error)
 
     //  assert.deepEqual(returnValue.result, ["0x5b465c871cd5dbb1949ae0a8a34a5c5ab1e72edbc2c0d1bedfb9234c4339ac20", ['0xabcd', '0xcdef']])

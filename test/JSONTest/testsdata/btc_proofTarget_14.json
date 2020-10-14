@@ -15,7 +15,14 @@
       "jsonrpc": "2.0",
       "error": {
         "code": -32602,
-        "message": "verified and target dap can't be genesis dap"
+        "message": "verified and target dap can't be genesis dap",
+        "data": {
+          "signedError": {
+            "r": "0x96669f41cfb2052d022f57474972e37c849e5e5f62c2036758e5cc5427aeaa1f",
+            "s": "0x1745f7bc3fd29479fb4501578f79163ad54648d4a865207756566646010e0c18",
+            "v": 28
+          }
+        }
       },
       "in3": { "lastNodeList": 3401585 }
     }
