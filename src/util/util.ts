@@ -257,4 +257,4 @@ export function getSigner(data: Block): Buffer {
   return publicToAddress(recover(message, signature.slice(0, 64), signature[64]), true);
 }
 
-export const aliases = { kovan: '0x2a', tobalaba: '0x44d', main: '0x1', ipfs: '0x7d0', mainnet: '0x1', goerli: '0x5' }
+export const aliases = { ewc: '0xf6', tobalaba: '0x44d', main: '0x1', ipfs: '0x7d0', mainnet: '0x1', goerli: '0x5' }

@@ -40,7 +40,7 @@ import * as cargs from 'args'
 const safeMinBlockHeights = {
   '0x1': 10,  // mainnet
   '0x5': 5,   // goerli
-  '0x2a': 5   // kovan
+  '0xf6': 10, // ewc
 }
 
 export function getSafeMinBlockHeight(chainId: string) {
@@ -113,7 +113,7 @@ export function readCargs(): IN3RPCConfig {
     console.error('no config found (' + err + ')! using defaults')
   }
 
-  const handler: IN3RPCHandlerConfig = { ...config.chains['0x2a'] }
+  const handler: IN3RPCHandlerConfig = { ...config.chains['0x5'] }
   parseDef(typeDefs.IN3RPCConfig, [], config)
   parseDef(typeDefs.IN3RPCHandlerConfig, [], handler)
   options.push({
@@ -129,17 +129,7 @@ export function readCargs(): IN3RPCConfig {
   const vals = cargs.options(options)
 
   //load the command line arguments
- 
-   const fArgs = process.argv.filter( a => {
-     if(a.indexOf('--')==-1)
-      return true
-
-    for(let e of options)
-      if(a.indexOf(e.name)!=-1)
-        return true
-
-    return false
-   })
+  const fArgs = process.argv.filter(a => a.indexOf('--') === -1 || !!options.find(e => a.indexOf(e.name) !== -1))
 
   const processedArgs = vals.parse(fArgs, { mri: { string:  options.map(_ => _.name) }})
 
