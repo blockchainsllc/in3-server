@@ -48,7 +48,7 @@ const goerliRegistry = '0x5f51e413581dd76759e9eed51e63d14c8d1379c8'
 export async function deployAll() {
   // register goerli-servers
   const registers = await reg.registerNodes(createPK(ownerPK), goerliRegistry, [{
-    url: 'https://in3-goerli1.slock.it',
+    url: 'https://rpc.slock.it/goerli',
     pk: createPK(ownerPK),
     props: '0xFFFF',
     deposit: 0,
