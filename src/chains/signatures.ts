@@ -169,7 +169,7 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
         request?.context?.hub?.captureException(error)
       }
 
-      response.error = { code: RPCException.INTERNAL_ERROR, message: error.message }
+      response.error = { code: RPCException.INTERNAL_ERROR, message: error.message, data: { address: config.address } }
     }
 
     if (response.error) {
