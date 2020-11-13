@@ -39,23 +39,23 @@ import { createPK } from '../../src/chains/signatures';
 import { LoggingAxiosTransport } from '../utils/transport'
 
 const ownerPK = '0xb858a0f49ce12df65031ba0eb0b353abc74f93f8ccd43df9682fd2e2293a4db3'
-const kovanClient = 'https://rpc-kovan.slock.it'
-const kovanRegistry = '0xb9a2bB17675206F3233bF426eB4b64900F63cd28'
+const goerliClient = 'https://rpc.slock.it/goerli'
+const goerliRegistry = '0x5f51e413581dd76759e9eed51e63d14c8d1379c8'
 
 //deployAll().then(console.log, err => console.log('ERROR:' + err))
 
 
 export async function deployAll() {
-  // register kovan-servers
-  const registers = await reg.registerNodes(createPK(ownerPK), kovanRegistry, [{
-    url: 'https://in3-kovan1.slock.it',
+  // register goerli-servers
+  const registers = await reg.registerNodes(createPK(ownerPK), goerliRegistry, [{
+    url: 'https://rpc.slock.it/goerli',
     pk: createPK(ownerPK),
     props: '0xFFFF',
     deposit: 0,
     timeout: 3600,
-  }], '0x000000000000000000000000000000000000000000000000000000000000002a', kovanClient, new LoggingAxiosTransport())
+  }], '0x000000000000000000000000000000000000000000000000000000000000002a', goerliClient, new LoggingAxiosTransport())
 
-  console.log('kovan-registry ' + JSON.stringify(registers, null, 2))
+  console.log('goerli-registry ' + JSON.stringify(registers, null, 2))
 }
 
 
