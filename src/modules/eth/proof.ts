@@ -36,7 +36,7 @@ import { LogData, BlockData, ReceiptData, TransactionData } from './serialize'
 import * as serialize from './serialize'
 import * as  util from '../../util/util'
 import {  getSigner, toBuffer } from '../../util/util'
-import { LogProof, RPCRequest, RPCResponse, Signature, Proof } from '../../types/types'
+import { LogProof, RPCRequest, RPCResponse, Signature, Proof, SignatureError } from '../../types/types'
 import { rlp, toChecksumAddress, keccak } from 'ethereumjs-util'
 import * as Trie from 'merkle-patricia-tree'
 import In3Trie from 'in3-trie'
@@ -103,7 +103,7 @@ export async function addFinality(request: RPCRequest, response: RPCResponse, bl
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionProof(block: BlockData, txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler): Promise<Proof> {
+export async function createTransactionProof(block: BlockData, txHash: string, signatures: (Signature|SignatureError)[], verifiedHashes: string[], handler: EthHandler): Promise<Proof> {
   const startTime = Date.now();
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
@@ -130,7 +130,7 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionFromBlockProof(block: BlockData, txIndex: number, signatures: Signature[], verifiedHashes: string[]): Promise<Proof> {
+export async function createTransactionFromBlockProof(block: BlockData, txIndex: number, signatures: (Signature|SignatureError)[], verifiedHashes: string[]): Promise<Proof> {
   const startTime = Date.now();
 
   // create trie
@@ -159,7 +159,7 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: Signature[], verifiedHashes: string[], handler: EthHandler, useFull = false): Promise<Proof> {
+export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: (Signature|SignatureError)[], verifiedHashes: string[], handler: EthHandler, useFull = false): Promise<Proof> {
   const startTime = Date.now();
 
   let trie = (handler.cache && bytes32(block.receiptsRoot)) ? handler.cache.getTrie(toMinHex(bytes32(block.receiptsRoot))) : undefined

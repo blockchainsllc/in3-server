@@ -15,7 +15,14 @@
       "jsonrpc": "2.0",
       "error": {
         "code": -32602,
-        "message": "maximum amount of finality headers per request is 1000"
+        "message": "maximum amount of finality headers per request is 1000",
+        "data": {
+          "signedError": {
+            "r": "0x53d39adc928f81b20e462a49f7b041dc8f0d4e9cdeaca60ec5d538ecceb3c07e",
+            "s": "0x48b80d8dcdb388adff26ce65ead220fa2eb9035b99d7beab801eb791e99dd1fa",
+            "v": 28
+          }
+        }
       },
       "in3": { "lastNodeList": 3056682 }
     }

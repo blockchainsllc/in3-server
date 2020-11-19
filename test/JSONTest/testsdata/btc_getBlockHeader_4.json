@@ -30,7 +30,17 @@
     ],
     "expected_result": {
       "jsonrpc": "2.0",
-      "error": { "code": -32603, "message": "Error: Error: Block not found" }
+      "error": {
+        "code": -32603,
+        "message": "Block not found",
+        "data": {
+          "signedError": {
+            "r": "0xb6ec8359b765ed7527475c18aa5ac35b2b246d51c8c2335fd3b222e2562571dd",
+            "s": "0x785e7bd78339f392ed6fca009f74276075fa4a806506d50e6d9c9371ad2bac75",
+            "v": 27
+          }
+        }
+      }
     }
   }
 ]

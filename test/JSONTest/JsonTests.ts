@@ -46,12 +46,9 @@ describe('JSON-Tests', () => {
 
     it(f, async () => {
       const all = await runTests([testDir + '/' + f])
-      
+
       for (const r of all)
         assert.isTrue(r.success, r.c + ' : ' + r.descr + ' failed : ' + r.error)
     })
   }
-
-
 })
-

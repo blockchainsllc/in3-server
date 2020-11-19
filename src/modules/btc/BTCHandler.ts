@@ -27,7 +27,7 @@ import { max } from 'bn.js'
 import { hash } from '../eth/serialize'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { BTCCache, Coinbase } from './btc_cache'
-import { UserError } from '../../util/sentryError'
+import { UserError, RPCException } from '../../util/sentryError'
 
 interface DAP {
   dapnumber: number
@@ -326,19 +326,19 @@ export default class BTCHandler extends BaseHandler {
 
   async btc_proofTarget(targetDap: number, verifiedDap: number, maxDiff: number, maxDap: number, preBIP34: boolean = false, r: any, finality?: number, limit?: number) {
 
-    if (maxDap === 0) throw new UserError("number of daps between two daps has to be greater than 0", -32602 )
+    if (maxDap === 0) throw new UserError("number of daps between two daps has to be greater than 0", RPCException.INVALID_PARAMS)
 
     if (limit === 0 || limit > 40 || !limit) limit = 40 // prevent DoS (internal max_limit = 40)
 
-    if (finality * limit > 1000 ) throw new UserError("maximum amount of finality headers per request is 1000", -32602)
+    if (finality * limit > 1000 ) throw new UserError("maximum amount of finality headers per request is 1000", RPCException.INVALID_PARAMS)
 
-    if (targetDap === 0 || verifiedDap === 0) throw new UserError("verified and target dap can't be genesis dap", -32602)
+    if (targetDap === 0 || verifiedDap === 0) throw new UserError("verified and target dap can't be genesis dap", RPCException.INVALID_PARAMS)
 
     const bn: number = await this.getFromServer({ method: "getblockcount", params: [] }, r).then(asResult)
     const currentDap = Math.floor(bn / 2016)
 
-    if ((targetDap > currentDap) || (verifiedDap > currentDap)) throw new UserError("given dap isn't existing yet", -16001)
-    
+    if ((targetDap > currentDap) || (verifiedDap > currentDap)) throw new UserError("given dap isn't existing yet", RPCException.BLOCK_TOO_YOUNG)
+
     if ((targetDap === verifiedDap) || (Math.abs(verifiedDap - targetDap) === 1)) {
       return { result: [] } // return an empty array
     }
@@ -401,7 +401,7 @@ export default class BTCHandler extends BaseHandler {
         resultobj.cbtx = asHex(cb.cbtx)
         resultobj.cbtxMerkleProof = asHex(createMerkleProof(cb.txids, cb.txids[0]))
       }
-      
+
       return resultobj
     }))
 

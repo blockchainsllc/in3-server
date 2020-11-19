@@ -83,7 +83,8 @@ describe('Convict', () => {
 
     // this is a correct signature and should not fail.
     // we use the previous block in order to  not cache the signature.
-    const res = await client.sendRPC('eth_getBalance', [pk1.address, '0x' + (parseInt(block.number as any) - 1).toString(16)], undefined, {
+    let previousBlock = '0x' + (parseInt(block.number as any) - 1).toString(16)
+    const res = await client.sendRPC('eth_getBalance', [pk1.address, previousBlock], undefined, {
       keepIn3: true, proof: 'standard', signatureCount: 1, requestCount: 1
     })
 

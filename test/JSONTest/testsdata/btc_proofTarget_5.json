@@ -18,7 +18,17 @@
     "expected_result": {
       "id": 1,
       "jsonrpc": "2.0",
-      "error": { "code": -16001, "message": "given dap isn't existing yet" },
+      "error": {
+        "code": -16001,
+        "message": "given dap isn't existing yet",
+        "data": {
+          "signedError": {
+            "r": "0x8b292aab433d64a6c7bbbdf16370cf896dd9462995dd300f81727fbbdb3b9570",
+            "s": "0x6949a3366ed7307e84aa42cc426be4c160227d7f7fc4b6498e73c3afc688f421",
+            "v": 27
+          }
+        }
+      },
       "in3": { "lastNodeList": 2975384 }
     }
   }
