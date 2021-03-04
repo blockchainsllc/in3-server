@@ -14,14 +14,8 @@ build-server:
   tags:
     - short-jobs
   script:
-    - sh /prepare.sh
+#    - sh /prepare.sh
     - npm install
-    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@git.slock.it/in3/ts/in3.git
-    - cd in3
-    - npm install
-    - npm run build
-    - cp -r js/* ../node_modules/in3/js/
-    - cd ..
     - npm run build
   artifacts:
     paths:
@@ -43,7 +37,7 @@ test-parity:
     - name: slockit/parity-time-maschine:v0.0.1
       alias: parity
   script:
-    - sh /prepare.sh
+#    - sh /prepare.sh
     - npm install
     - npm run testReport
   artifacts:
@@ -70,7 +64,7 @@ test-nethermind:
     - name: docker.slock.it/build-images/nethermind
       alias: nethermind
   script:
-    - sh /prepare.sh
+#    - sh /prepare.sh
     - npm install
     - npm run testReport
   artifacts:
@@ -97,7 +91,7 @@ test-geth:
     - name: docker.slock.it/core-technology/geth-timemachine:master
       alias: geth
   script:
-    - sh /prepare.sh
+#    - sh /prepare.sh
     - npm install
     - npm run testReport
   artifacts:
