@@ -670,7 +670,7 @@ const tracer = '{_ac:{}, hex:function(_,s) { if (!(_ instanceof Uint8Array)) { v
   'case "SLOAD": return this.addAC(log.contract.getAddress(), log.stack.peek(0));' +
   'case "BALANCE":case "EXTCODESIZE":case "EXTCODEHASH":case "EXTCODECOPY": return this.addAC(log.stack.peek(0));' +
   'case "CALL":case "CALLCODE":case "DELEGATECALL":case "STATICCALL": return this.addAC(log.stack.peek(1));' +
-  '}}, result:function(ctx,db){ return { accounts:this._ac, output:this.hex(ctx.output)}}, fault:function() {}  }'
+  '}}, result:function(ctx,db){this.addAC(ctx.to); return { accounts:this._ac, output:this.hex(ctx.output)}}, fault:function() {}  }'
 
 
 
@@ -800,7 +800,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
       response.error = trace.error
     else
       response.result = trace.result.output
-    const neededProof = response.result && response.result.accounts ? response.result : evm.analyse((trace.result as any).vmTrace, request.params[0].to)
+    const neededProof = trace.result && trace.result.accounts ? trace.result : evm.analyse((trace.result as any).vmTrace, request.params[0].to)
     neededAccounts = Object.keys(neededProof.accounts)
     return await handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
       { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
@@ -808,7 +808,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   }
 
   const [accountProofs, signatures] = await Promise.all([
-    (useTrace || useGethTrace) ? getFromTrace(trace || gethTrace) : runEVM(),
+    (useTrace || useGethTrace) ? getFromTrace(useTrace ? trace : gethTrace) : runEVM(),
     collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes, undefined, request)
   ])
 
