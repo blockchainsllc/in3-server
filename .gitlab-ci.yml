@@ -152,7 +152,7 @@ pages:
   script:
     - mkdir -p public/
     - cp -r test/report public/coverage
-    - cp vulnerability_analysis.json public/
+    - cp vulnerability_analysis.json public/ || echo '{"error":"was_missing"}' > public/vulnerability_analysis.json
     - echo "<html><body><h1>Incubed report for last develop CI pipeline</h1><ul><li><a href='vulnerability_analysis.json'>Vulnerability Analysis</a></li><li><a href='coverage/index.html'>Code coverage</a></li></ul></body></html>" > public/index.html
   artifacts:
     paths:
