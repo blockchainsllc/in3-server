@@ -35,9 +35,7 @@
 
 
 const Sentry = require('@sentry/node')
-import { AppContext } from '../types/types'
-import * as logger from './logger'
-import { addBreadcrumb, captureException } from './sentryWrapper'
+import { AppContext, RPCResponse } from '../types/types'
 
 /**
  * creates a Error with the capability to report it to Sentry.
@@ -59,33 +57,50 @@ export class SentryError extends Error {
     }
 }
 
+export const RPCException = {
+    PARSE_ERROR: -32_700,
+    INVALID_REQUEST: -32_600,
+    INVALID_METHOD: -32_601,
+    INVALID_PARAMS: -32_602,
+    INTERNAL_ERROR: -32_603,
+    BLOCK_TOO_YOUNG: -16_001,
+    BLOCK_MISMATCH: -32_001 // hard fork?
+}
+
+export class IncubedError extends Error {
+    code: number
+    data: any[]
+
+    constructor(message: string, code: number = RPCException.INTERNAL_ERROR, data?: any[]) {
+        super(message)
+
+        this.code = code
+        this.data = data
+
+        // Set the prototype explicitly. This is because of this: https://github.com/Microsoft/TypeScript-wiki/blob/master/Breaking-Changes.md#extending-built-ins-like-error-array-and-map-may-no-longer-work
+        Object.setPrototypeOf(this, IncubedError.prototype);
+    }
+}
+
+export class SigningError extends IncubedError {
+    sourceError: RPCResponse
+
+    constructor(message: string, code?: number, data?: any[]) {
+        super(message, code, data)
+
+        // Set the prototype explicitly. This is because of this: https://github.com/Microsoft/TypeScript-wiki/blob/master/Breaking-Changes.md#extending-built-ins-like-error-array-and-map-may-no-longer-work
+        Object.setPrototypeOf(this, SigningError.prototype);
+    }
+}
+
 /**
  * creates a User-Error which will not be logged or send to sentry
  */
-export class UserError extends Error {
-
-    public static INVALID_REQUEST = -32600
-    public static INVALID_METHOD = -32601
-    public static INVALID_PARAMS = -32602
-    public static INTERNAL_ERROR = -32603
-    public static BLOCK_TOO_YOUNG = -16001
-
-    code: number
-
+export class UserError extends IncubedError {
     constructor(message: string, code: number) {
-        super(message);
-        this.code = code
-    }
+        super(message, code);
 
-    toResponse(rpcId): any {
-        return {
-            id: rpcId || 1,
-            jsonrpc: '2.0',
-            error: {
-                code: this.code,
-                message: this.message
-            },
-            in3: {}
-        }
+        // Set the prototype explicitly. This is because of this: https://github.com/Microsoft/TypeScript-wiki/blob/master/Breaking-Changes.md#extending-built-ins-like-error-array-and-map-may-no-longer-work
+        Object.setPrototypeOf(this, UserError.prototype);
     }
 }

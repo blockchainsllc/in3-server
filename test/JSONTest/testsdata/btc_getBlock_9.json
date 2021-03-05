@@ -2515,7 +2515,14 @@
       "jsonrpc": "2.0",
       "error": {
         "code": -32603,
-        "message": "Error: Error: Block height out of range"
+        "message": "Block height out of range",
+        "data": {
+          "signedError": {
+            "r": "0x097278e9e1f2cb3af744138587755f785510d30958d88edfb6c59bc2730d07d2",
+            "s": "0x6ee3ab1cbff05d3c2ee87aecfd5f67fe73501db966bc0365bba98e69458664c6",
+            "v": 28
+          }
+        }
       }
     }
   }

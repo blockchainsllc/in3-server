@@ -1,6 +1,6 @@
 import BaseHandler from "../../chains/BaseHandler"
-import { RPCResponse, header } from "in3"
-import { hash } from "../eth/serialize"
+import { RPCResponse } from "../../types/types"
+import { IncubedError } from '../../util/sentryError'
 import { BTCBlock, BTCBlockHeader, serialize_blockheader } from "./btc_serialize"
 
 export interface BTCCacheValue {
@@ -44,7 +44,7 @@ export class BTCCache {
                 if (!result.header) result.header = serialize_blockheader(blockheaders[i])
                 if (!result.hash) result.hash = Buffer.from(hashes[hashIndex], 'hex')
                 if (!result.height) result.height = blockheaders[i].height
-                
+
                 if (!(this.data.has((blockheaders[i].height).toString()))) {
                     this.data.set((blockheaders[i].height).toString(), result) // register new key (block number)
                 }
@@ -89,20 +89,20 @@ export class BTCCache {
     async getCoinbaseByHash(hashes: string[]): Promise<Coinbase[]> {
         const results: BTCCacheValue[] = hashes.map(this.getOrCreate.bind(this))
         const hashesIndexToFetch = hashes.map((_, index) => index).filter(index => !results[index].cbtx || !results[index].txids)
-    
+
         // we need to fetch at least 1 element
         if (hashesIndexToFetch.length > 0) {
-    
+
             // get the blocks based on hashes
             const blocks: BTCBlock[] = await this.handler.getAllFromServer(hashesIndexToFetch.map(index => ({
                 method: 'getblock', params: [hashes[index], true]
             }))).then(_ => _.map(asResult))
-    
+
             // get the coinbase transactions
             const cbtxs: string[] = await this.handler.getAllFromServer(blocks.map(b => ({
                 method: 'getrawtransaction', params: [b.tx[0], false, b.hash]
             }))).then(_ => _.map(asResult))
-    
+
             // fill the cache
             hashesIndexToFetch.forEach((hashIndex, i) => {
                 const result = results[hashIndex]
@@ -126,10 +126,10 @@ export class BTCCache {
 
         if (!blockinfo.height) blockinfo.height = block.height
         if (!blockinfo.header) blockinfo.header = serialize_blockheader(block)
-        if (!blockinfo.cbtx) {
+        if (!blockinfo.cbtx && block.height > 227835) { // fetch coinbase for version 2 block only
             const cbtx: string = await this.handler.getFromServer({method: 'getrawtransaction', params: [block.tx[0], false, block.hash] }).then(asResult)
             blockinfo.cbtx = Buffer.from(cbtx, 'hex')
-        } 
+        }
         if (!blockinfo.txids) blockinfo.txids = block.tx.map(_ => Buffer.from(_, 'hex'))
 
         if (!(this.data.has((block.height).toString()))) {
@@ -150,11 +150,11 @@ export class BTCCache {
         return value
       }
 }
-  
+
 function asResult(res: RPCResponse): any {
-    if (!res) throw new Error("No result")
+    if (!res) throw new IncubedError("No result")
     if (res.error)
-      throw new Error((res.error as any).message || res.error + '')
-    if (res.result === undefined || res.result === null) throw new Error("No result")
+      throw new IncubedError((res.error as any).message || res.error + '')
+    if (res.result === undefined || res.result === null) throw new IncubedError("No result")
     return res.result
 }

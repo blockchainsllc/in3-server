@@ -15,7 +15,14 @@
       "jsonrpc": "2.0",
       "error": {
         "code": -32602,
-        "message": "number of daps between two daps has to be greater than 0"
+        "message": "number of daps between two daps has to be greater than 0",
+        "data": {
+          "signedError": {
+            "r": "0x760d5c08b64ca6ff0b97e478a2402dcd7d974c09ab8466ea74bd31ce85faca2b",
+            "s": "0x6dc23389a0cd97b0861425e6934d3cd6819fc8e567ce03aa53b70c7735e79b2f",
+            "v": 27
+          }
+        }
       },
       "in3": { "lastNodeList": 3016195 }
     }

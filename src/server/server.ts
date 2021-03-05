@@ -54,7 +54,7 @@ import HealthCheck from '../util/healthCheck'
 
 
 import requestTime from '../util/koa/requestTime'
-import { sign, PK } from '../chains/signatures';
+import { PK } from '../chains/signatures';
 import { initSentry, hookSentryKoa, HubWrapper } from '../util/sentryWrapper'
 
 //Hook up Sentry
@@ -136,19 +136,16 @@ app.use(async (ctx, next) => {
 // handle json
 app.use(bodyParser())
 
-// route prom metric only when requested
-//if (process.env.STATS_ENABLE === 'true') {
 router.get(config.basePath + '/metrics', async ctx => {
-  ctx.set('Content-Type', promClient.register.contentType);
-  ctx.body = promClient.register.metrics();
+  ctx.set('Content-Type', promClient.register.contentType)
+  ctx.body = promClient.register.metrics()
 });
-//}
 
 router.post(/.*/, async (ctx: KoaContext) => {
   if (INIT_ERROR) return initError(ctx)
   const start = Date.now()
   const requests: RPCRequest[] = Array.isArray(ctx.request.body) ? ctx.request.body : [ctx.request.body]
-  const startTime = Date.now();
+  const startTime = Date.now()
 
   // find ip
   const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'

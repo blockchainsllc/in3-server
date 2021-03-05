@@ -37,6 +37,7 @@ import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, AppContext } 
 import axios from 'axios'
 import BaseHandler from '../../chains/BaseHandler'
 import * as FormData from 'form-data'
+import { RPCException, IncubedError } from '../../util/sentryError'
 
 
 /**
@@ -65,7 +66,7 @@ export default class IPFSHandler extends BaseHandler {
       case 'ipfs_get':
         return this.getHash(request.params[0]).then(
           r => this.toResult(request.id, r && encode(r, 'binary', request.params[1] || 'base64')),
-          err => this.toError(request.id, 'IPFS Hash not found : ' + err.message))
+          err => this.toError(request, new IncubedError('IPFS Hash not found : ' + err.message)))
 
       case 'ipfs_put':
         const formData = new FormData()
@@ -76,7 +77,7 @@ export default class IPFSHandler extends BaseHandler {
           maxContentLength: 3000000,
         }).then(
           r => this.toResult(request.id, r.data.Hash),
-          err => this.toError(request.id, err.message))
+          err => this.toError(request, new IncubedError(err.message)))
 
       default:
         return super.handle(request)

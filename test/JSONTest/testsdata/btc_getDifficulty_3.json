@@ -23,7 +23,17 @@
     "expected_result": {
       "id": 1,
       "jsonrpc": "2.0",
-      "error": { "code": -16001, "message": "block is not final" },
+      "error": {
+        "code": -16001,
+        "message": "block is not final",
+        "data": {
+          "signedError": {
+            "r": "0xbf484c898764b35095d9f352b80d730d55a5be9ac7a6b76609756161ed2d55ed",
+            "s": "0x446530191b76833b74557732a840971f68b9de7bfe645fc0beb9b0d63f739c1c",
+            "v": 27
+          }
+        }
+      },
       "in3": { "lastNodeList": 2929360 }
     }
   }

@@ -69,16 +69,6 @@ export function toUtf8(val: any): string {
   return val.toString('utf8')
 }
 
-
-/**
- * check a RPC-Response for errors and rejects the promise if found
- */
-export function checkForError<T extends RPCResponse | RPCResponse[]>(res: T): T {
-  if (Array.isArray(res))
-    return res.find(_ => !!_.error) ? Promise.reject(new Error(res.find(_ => !!_.error).error)) as any : res as T
-  return (res as RPCResponse).error ? Promise.reject(new Error((res as RPCResponse).error)) as any : res as T
-}
-
 /**
  * convert to BigNumber
  */
@@ -257,4 +247,4 @@ export function getSigner(data: Block): Buffer {
   return publicToAddress(recover(message, signature.slice(0, 64), signature[64]), true);
 }
 
-export const aliases = { kovan: '0x2a', tobalaba: '0x44d', main: '0x1', ipfs: '0x7d0', mainnet: '0x1', goerli: '0x5' }
+export const aliases = { ewc: '0xf6', tobalaba: '0x44d', main: '0x1', ipfs: '0x7d0', mainnet: '0x1', goerli: '0x5' }

@@ -42,7 +42,7 @@ import { handleSign } from '../../chains/signatures';
 import { getValidatorHistory } from '../../server/poa'
 import { TxRequest, LogFilter } from './api';
 import * as tx from '../../../src/util/tx'
-import * as logger from '../../util/logger'
+import { IncubedError, UserError, RPCException } from '../../util/sentryError'
 
 const clientConf = require('./defaultConfig.json')
 const toHex = in3Util.toHex
@@ -83,11 +83,7 @@ export default class EthHandler extends BaseHandler {
       return result
     }
     catch (error) {
-      return {
-        jsonrpc: '2.0',
-        id: request.id,
-        error: error.toString()
-      }
+      return this.toError(request, error)
     }
   }
 
@@ -178,11 +174,11 @@ export default class EthHandler extends BaseHandler {
 
       case 'eth_sign':
       case 'eth_sendTransaction':
-        return this.toError(request.id, 'a in3 - node can not sign Messages, because the no unlocked key is allowed!')
+        return this.toError(request, new IncubedError('An in3 - node can not sign Messages, because the no unlocked key is allowed!'))
 
       case 'eth_submitWork':
       case 'eth_submitHashrate':
-        return this.toError(request.id, 'Incubed cannot be used for mining since there is no coinbase')
+        return this.toError(request, new UserError('Incubed cannot be used for mining since there is no coinbase', RPCException.INVALID_METHOD))
 
       case 'in3_sign':
         return handleSign(this, request)

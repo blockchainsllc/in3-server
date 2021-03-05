@@ -42,7 +42,7 @@ import BTCHandler from '../modules/btc/BTCHandler'
 import IPFSHandler from '../modules/ipfs/IPFSHandler'
 import EthHandler from '../modules/eth/EthHandler'
 import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
-import { SentryError, UserError } from '../util/sentryError'
+import { SentryError, IncubedError, RPCException } from '../util/sentryError'
 import { in3ProtocolVersion } from '../types/constants'
 import { getSafeMinBlockHeight } from './config'
 import { verifyRequest } from '../types/verify'
@@ -50,7 +50,6 @@ import * as logger from '../util/logger'
 import WhiteListManager from '../chains/whiteListManager';
 import HealthCheck from '../util/healthCheck'
 export { submitRequestTime } from './stats'
-import { captureException } from '../util/sentryWrapper'
 
 const in3ProtocolVersionA = in3ProtocolVersion.split('.').map(_ => parseInt(_))
 
@@ -107,7 +106,7 @@ export class RPC {
         verifyRequest(r)
       }
       catch (ex) {
-        return { id: r.id, error: { code: ex.code || -32600, message: ex.message }, jsonrpc: '2.0' } as any
+        return { id: r.id, error: { code: ex.code || RPCException.INVALID_REQUEST, message: ex.message }, jsonrpc: '2.0' } as any
       }
 
       const in3Request: IN3RPCRequestConfig = r.in3 || {} as any
@@ -116,7 +115,7 @@ export class RPC {
       const start = Date.now()
 
       if (!handler)
-        return { id: r.id, error: { code: -32600, message: "Unable to connect Ethereum and/or invalid chainId given." }, jsonrpc: '2.0' } as any
+        return { id: r.id, error: { code: RPCException.INVALID_REQUEST, message: "Unable to connect Ethereum and/or invalid chainId given." }, jsonrpc: '2.0' } as any
 
       //check if requested in3 protocol version is same as server is serving
       if (in3Request.version) {
@@ -250,9 +249,9 @@ export class RPC {
             (in3 as any).lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList)
           return _
         }, err => {
-          if (err instanceof UserError)
-            return err.toResponse(r.id)
-          else throw err
+          if (err instanceof IncubedError){
+            return handler.toError(r, err)
+          } else { throw err }
         })
       ])
         .then(_ => ({ ..._[2], in3: { ...(_[2].in3 || {}), ...in3 } })), r)
@@ -335,7 +334,6 @@ export interface RPCHandler {
   chainId: string
   context: AppContext
   handle(request: RPCRequest): Promise<RPCResponse>
-  handleWithCache(request: RPCRequest): Promise<RPCResponse>
   getFromServer(request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse>
   getAllFromServer(request: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]>
   getNodeList(includeProof: boolean, limit?: number, seed?: string, addresses?: string[], signers?: string[], verifiedHashes?: string[], includePerformance?: boolean, sourceRequest?: RPCRequest): Promise<ServerList>
@@ -348,6 +346,7 @@ export interface RPCHandler {
   whiteListMgr?: WhiteListManager
   healthCheck?: HealthCheck
   health(): Promise<{ status: string, message?: string }>
+  toError(r: RPCRequest, err: Error): RPCResponse
 }
 
 /**

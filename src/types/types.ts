@@ -117,6 +117,11 @@ export interface IN3RPCRequestConfig {
      */
     verification?: 'never' | 'proof' | 'proofWithSignature'
     /**
+     * if true (and if the block number is < 227836) the server will deliver the blockheaders up to a checkpoint (hard-coded in the client, every 200th block hash) 
+     * else the server will deliver the amount of blockheaders defined in finality
+     */
+    preBIP34?: boolean
+    /**
      * the signature of the client
      */
     clientSignature?: any
@@ -236,6 +241,14 @@ export interface AccountProof {
         value: string // ^0x[0-9a-fA-F]+$
     }[]
 }
+
+/**
+ * Signature-error in case the signature request fails. Does not apply to verification errors.
+ */
+export interface SignatureError {
+    error; RpcError
+}
+
 /**
  * Verified ECDSA Signature. Signatures are a pair (r, s). Where r is computed as the X coordinate of a point R, modulo the curve order n.
  */
@@ -276,6 +289,7 @@ export interface Signature {
      */
     v: number // hex
 }
+
 /**
  * the Proof-data as part of the in3-section
  */
@@ -335,7 +349,7 @@ export interface Proof {
     /**
      * requested signatures
      */
-    signatures?: Signature[]
+    signatures?: (Signature | SignatureError)[]
 }
 /**
  * additional data returned from a IN3 Server
@@ -412,6 +426,16 @@ export interface IN3NodeConfig {
      */
     props?: number
 }
+
+/**
+ * a JSONRPC-Error
+ */
+export interface RPCError {
+    code: number,
+    message: string,
+    data?: any
+}
+
 /**
  * a JSONRPC-Responset with N3-Extension
  */
@@ -419,7 +443,7 @@ export interface RPCResponse {
     /**
      * the version
      */
-    jsonrpc: '2.0'
+    jsonrpc: string
     /**
      * the id matching the request
      * example: 2
@@ -428,7 +452,7 @@ export interface RPCResponse {
     /**
      * in case of an error this needs to be set
      */
-    error?: string
+    error?: RPCError
     /**
      * the params
      * example: 0xa35bc

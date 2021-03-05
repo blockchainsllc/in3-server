@@ -366,7 +366,7 @@ describe('eth_call', () => {
     }) as RPCResponse
 
     assert.isUndefined(res.result)
-    assert.isTrue(res.error.includes("eth_call with a gaslimit > 10000000 are not allowed"))
+    assert.isTrue(res.error.message.includes("eth_call with a gaslimit > 10000000 are not allowed"))
 
     let res2 = await test.handle("#1", {
       jsonrpc: "2.0",

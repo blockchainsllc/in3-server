@@ -36,6 +36,7 @@ import { readFileSync } from 'fs'
 import { TestTransport } from './transport'
 import { RPCResponse } from '../../src/types/types'
 import { resetSupport} from '../../src/modules/eth/proof'
+import { keys, isEqual, sortBy, omit } from 'lodash'
 
 import 'mocha'
 
@@ -48,8 +49,7 @@ export async function runTests(files: string[]): Promise<{ descr: string, c: num
       c++
       const result = await runTest(test, c)
       allResults.push(result)
-      console.log(addSpace('' + result.c, 3) + ' : ' + addSpace(result.descr, 110, '.', result.success ? '' : '31') + ' ' + addSpace(result.success ? 'OK' : result.error, 0, ' ', result.success ? '32' : '31'))
-
+      console.log(addSpace('' + result.c, 3) + ' : ' + addSpace(result.descr, 130, '.', result.success ? '' : '31') + ' ' + addSpace(result.success ? 'OK' : JSON.stringify(result.error), 0, ' ', result.success ? '32' : '31'))
     }
   }
   return allResults
@@ -76,19 +76,15 @@ async function runTest(testData: any, c: number) {
       delete response[element];
     });
 
-    const sortObject = o => Object.keys(o).sort().reduce((r, k) => (r[k] = o[k], r), {})
-
-    if (JSON.stringify(response.error) == JSON.stringify(testData.expected_result.error)) { // catch error case
-      result.success = true 
-    } 
-    else if (JSON.stringify(response.result) == JSON.stringify(testData.expected_result.result)
-     && (!testData.expected_result.in3.proof || JSON.stringify(sortObject(response.in3.proof)) == JSON.stringify(sortObject(testData.expected_result.in3.proof))) ) {
-       result.success = true
-     }
-    else {
-      result.error =  response.error || 'Failed'
+    if (!testData.expected_result.error) {
+      if (isEqual(response.result, testData.expected_result.result) && isProofEqual(response, testData.expected_result)) {
+        result.success = true
+      }
+    } else if (isEqual(omit(response.error, 'data'), omit(testData.expected_result.error, 'data')) && compareErrorData(response.error.data, testData.expected_result.error.data)) {
+      result.success = true
+    } else {
+      result.error = response.error || 'Failed'
     }
-
   }
   catch (err) {
     // catch error case
@@ -99,6 +95,17 @@ async function runTest(testData: any, c: number) {
   }
 
   return result
+}
+
+function compareErrorData(a: any, b: any): boolean {
+  // Since error data contains a signature derivated from a timestamp, just check the object interface
+  const aInterface = sortBy(keys(a))
+  const bInterface = sortBy(keys(b))
+  return isEqual(aInterface, bInterface)
+}
+
+function isProofEqual(response: RPCResponse, expected_result:any) {
+  return !expected_result.in3.proof || isEqual(response.in3.proof, expected_result.in3.proof)
 }
 
 function addSpace(s: string, l: number, filler = ' ', color = '') {

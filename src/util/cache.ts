@@ -36,6 +36,7 @@
 
 import { RPCRequest, RPCResponse } from "../types/types"
 import * as Trie from 'merkle-patricia-tree'
+import { Signature } from "../modules/eth/api"
 
 export class SimpleCache {
 
@@ -99,7 +100,8 @@ export class SimpleCache {
         else {
           // TODO use a signature cache
           const oldSignatures = r.in3.proof && r.in3.proof.signatures
-          const blockNumbers = oldSignatures && oldSignatures.map(_ => _.block).filter((_, i, a) => _ && a.indexOf(_) === i)
+          const validSignatures = oldSignatures && oldSignatures.filter(signatures => !(signatures as any).error)
+          const blockNumbers = (validSignatures as any[]).map(_ => _.block).filter((_, i, a) => _ && a.indexOf(_) === i)
           if (!blockNumbers || !blockNumbers.length)
             return this.put(key, await fallBackHandler(request))
 

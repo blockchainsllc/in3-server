@@ -14,14 +14,8 @@ build-server:
   tags:
     - short-jobs
   script:
-    - sh /prepare.sh
+#    - sh /prepare.sh
     - npm install
-    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@git.slock.it/in3/ts/in3.git
-    - cd in3
-    - npm install
-    - npm run build
-    - cp -r js/* ../node_modules/in3/js/
-    - cd ..
     - npm run build
   artifacts:
     paths:
@@ -43,7 +37,7 @@ test-parity:
     - name: slockit/parity-time-maschine:v0.0.1
       alias: parity
   script:
-    - sh /prepare.sh
+#    - sh /prepare.sh
     - npm install
     - npm run testReport
   artifacts:
@@ -70,7 +64,7 @@ test-nethermind:
     - name: docker.slock.it/build-images/nethermind
       alias: nethermind
   script:
-    - sh /prepare.sh
+#    - sh /prepare.sh
     - npm install
     - npm run testReport
   artifacts:
@@ -97,7 +91,7 @@ test-geth:
     - name: docker.slock.it/core-technology/geth-timemachine:master
       alias: geth
   script:
-    - sh /prepare.sh
+#    - sh /prepare.sh
     - npm install
     - npm run testReport
   artifacts:
@@ -126,6 +120,7 @@ vulnerability-analysis:
   stage: analysis
   tags:
     - short-jobs
+  allow_failure: true
   dependencies:
     - package-docker
   image: docker.slock.it/build-images/vulnerability-testing-tools
@@ -157,7 +152,7 @@ pages:
   script:
     - mkdir -p public/
     - cp -r test/report public/coverage
-    - cp vulnerability_analysis.json public/
+    - cp vulnerability_analysis.json public/ || echo '{"error":"was_missing"}' > public/vulnerability_analysis.json
     - echo "<html><body><h1>Incubed report for last develop CI pipeline</h1><ul><li><a href='vulnerability_analysis.json'>Vulnerability Analysis</a></li><li><a href='coverage/index.html'>Code coverage</a></li></ul></body></html>" > public/index.html
   artifacts:
     paths:
@@ -244,13 +239,7 @@ register-with-sentry-production:
     CHAIN: btc
     CHAIN_ID: "0x99"
     RPC_ENDPOINT: "http://slockit:slockit@lb.parity-rpc/bitcoin"
-    REGISTRY_RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
-
-.chain-tmpl-kovan:
-  variables:
-    CHAIN: kovan
-    CHAIN_ID: "0x2a"
-    RPC_ENDPOINT: http://lb.parity-rpc/kovan/archive
+    REGISTRY_RPC_ENDPOINT: http://slockit:slockit@lb.parity-rpc/goerli
 
 .chain-tmpl-mainnet:
   variables:
@@ -294,13 +283,6 @@ deploy-production-ewc:
   variables:
     BLOCKHEIGHT: "2"
     REGISTRY_CONTRACT_ADDR: "0x638428ebaa190c6c6331a3a02f3b8c5d8310986b"
-
-deploy-production-kovan:
-  extends:
-    - .deploy-tmpl-production
-    - .chain-tmpl-kovan
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0xf14d54e349ac971ab6280d6d99f7152c9a06b0b3"
 
 deploy-production-goerli:
   extends:
