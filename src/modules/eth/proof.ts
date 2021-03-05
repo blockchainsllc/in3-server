@@ -35,7 +35,7 @@
 import { LogData, BlockData, ReceiptData, TransactionData } from './serialize'
 import * as serialize from './serialize'
 import * as  util from '../../util/util'
-import {  getSigner, toBuffer } from '../../util/util'
+import { getSigner, toBuffer } from '../../util/util'
 import { LogProof, RPCRequest, RPCResponse, Signature, Proof, SignatureError } from '../../types/types'
 import { rlp, toChecksumAddress, keccak } from 'ethereumjs-util'
 import * as Trie from 'merkle-patricia-tree'
@@ -70,10 +70,10 @@ const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 
 function createBlock(block: BlockData, verifiedHashes: string[]) {
-//  if (verifiedHashes && verifiedHashes.indexOf(block.hash) >= 0)
-//    return '' + parseInt(block.number as any)
-//  else
-    return serialize.blockToHex(block)
+  //  if (verifiedHashes && verifiedHashes.indexOf(block.hash) >= 0)
+  //    return '' + parseInt(block.number as any)
+  //  else
+  return serialize.blockToHex(block)
 }
 
 export async function addFinality(request: RPCRequest, response: RPCResponse, block: BlockData, handler: EthHandler) {
@@ -103,7 +103,7 @@ export async function addFinality(request: RPCRequest, response: RPCResponse, bl
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionProof(block: BlockData, txHash: string, signatures: (Signature|SignatureError)[], verifiedHashes: string[], handler: EthHandler): Promise<Proof> {
+export async function createTransactionProof(block: BlockData, txHash: string, signatures: (Signature | SignatureError)[], verifiedHashes: string[], handler: EthHandler): Promise<Proof> {
   const startTime = Date.now();
   // we always need the txIndex, since this is used as path inside the merkle-tree
   const txIndex = block.transactions.findIndex(_ => _.hash === txHash)
@@ -130,7 +130,7 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionFromBlockProof(block: BlockData, txIndex: number, signatures: (Signature|SignatureError)[], verifiedHashes: string[]): Promise<Proof> {
+export async function createTransactionFromBlockProof(block: BlockData, txIndex: number, signatures: (Signature | SignatureError)[], verifiedHashes: string[]): Promise<Proof> {
   const startTime = Date.now();
 
   // create trie
@@ -159,7 +159,7 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
 }
 
 /** creates the merkle-proof for a transation */
-export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: (Signature|SignatureError)[], verifiedHashes: string[], handler: EthHandler, useFull = false): Promise<Proof> {
+export async function createTransactionReceiptProof(block: BlockData, receipts: ReceiptData[], txHash: string, signatures: (Signature | SignatureError)[], verifiedHashes: string[], handler: EthHandler, useFull = false): Promise<Proof> {
   const startTime = Date.now();
 
   let trie = (handler.cache && bytes32(block.receiptsRoot)) ? handler.cache.getTrie(toMinHex(bytes32(block.receiptsRoot))) : undefined
@@ -179,15 +179,15 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
       bytes32(block.transactionsRoot),
       handler
     ),
-    ( createMerkleProof(
+    (createMerkleProof(
       receipts && !trie ? receipts.map(r => ({
-            key: rlp.encode(toNumber(r.transactionIndex)),
-            value: serialize.serialize(serialize.toReceipt(r))
-          })) : undefined,
-          rlp.encode(txIndex),
-          bytes32(block.receiptsRoot),
-          handler
-        )),
+        key: rlp.encode(toNumber(r.transactionIndex)),
+        value: serialize.serialize(serialize.toReceipt(r))
+      })) : undefined,
+      rlp.encode(txIndex),
+      bytes32(block.receiptsRoot),
+      handler
+    )),
     // TOCDO performancewise this could be optimized, since we build the merkltree twice.
     useFull && txIndex > 0 && createMerkleProof(
       receipts.map(r => ({
@@ -486,8 +486,8 @@ export async function handeGetTransactionReceipt(handler: EthHandler, request: R
           collectSignatures(handler, request.in3.signers, [{ blockNumber: toNumber(tx.blockNumber), hash: block.hash }], request.in3.verifiedHashes, undefined, request),
 
           // get all receipts, because we need to build the MerkleTree if MerkleTree is not in cache
-          ( !trie ? handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })), request)
-            .then(a => a.map(_ => _.result as ReceiptData)) : undefined ),
+          (!trie ? handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })), request)
+            .then(a => a.map(_ => _.result as ReceiptData)) : undefined),
 
           // get all txs to also proof the tx (in case of full proof)
           // request.in3.useFullProof && handler.getAllFromServer(block.transactions.map(_ => ({ method: 'eth_getTransactionReceipt', params: [_.hash] })))
@@ -663,6 +663,16 @@ export function resetSupport() {
 }
 
 let useTrace: boolean = true
+let useGethTrace: boolean = true
+const tracer = '{_ac:{}, hex:function(_,s) { if (!(_ instanceof Uint8Array)) { var l=_.toString(16); while (s && s>l.length) l="0"+l; return "0x"+l} var s="0x";for (var i=0;i<_.length;i++) {s+= ("0"+_[i].toString(16)).slice(-2)} return s},' +
+  'addAC:function(a,s){ a=this.hex(a,40); var _a=this._ac[a] || {storage:{}}; if (s) _a.storage[this.hex(s,64)]=true; return this._ac[a]=_a},  step:function(log,db) {' +
+  'switch (log.op.toString()) { ' +
+  'case "SLOAD": return this.addAC(log.contract.getAddress(), log.stack.peek(0));' +
+  'case "BALANCE":case "EXTCODESIZE":case "EXTCODEHASH":case "EXTCODECOPY": return this.addAC(log.stack.peek(0));' +
+  'case "CALL":case "CALLCODE":case "DELEGATECALL":case "STATICCALL": return this.addAC(log.stack.peek(1));' +
+  '}}, result:function(ctx,db){this.addAC(ctx.to); return { accounts:this._ac, output:this.hex(ctx.output)}}, fault:function() {}  }'
+
+
 
 export async function handleCall(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
   const startTime = Date.now();
@@ -720,9 +730,10 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
 
   //    console.log('handle call', this.config)
   // read the response,blockheader and trace from server
-  const [blockResponse, trace] = await handler.getAllFromServer([
+  const [blockResponse, trace, gethTrace] = await handler.getAllFromServer([
     { method: 'eth_getBlockByNumber', params: [request.params[1] || 'latest', false] },
-    useTrace ? { method: 'trace_call', params: [request.params[0], ['vmTrace'], request.params[1] || 'latest'] } : undefined
+    useTrace ? { method: 'trace_call', params: [request.params[0], ['vmTrace'], request.params[1] || 'latest'] } : undefined,
+    useGethTrace ? { method: 'debug_traceCall', params: [request.params[0], request.params[1] || 'latest', { "disableMemory": true, "disableStorage": true, tracer }] } : undefined
   ], request)
 
   // error checking
@@ -731,13 +742,17 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     if ((trace.error as any).code === -32601) useTrace = false
     else throw new Error('Could not get the trace :' + JSON.stringify(trace.error))
   }
+  if (gethTrace && gethTrace.error) {
+    if ((gethTrace.error as any).code === -32601) useGethTrace = false
+    else throw new Error('Could not get the trace from geth:' + JSON.stringify(gethTrace.error))
+  }
 
-  let response : RPCResponse = {jsonrpc: "2.0", id: request.id}
+  let response: RPCResponse = { jsonrpc: "2.0", id: request.id }
   // anaylse the transaction in order to find all needed storage
   const block = blockResponse.result as any
   let neededAccounts = []
 
-  async function getFromGeth(): Promise<any> {
+  async function runEVM(): Promise<any> {
     for (let i = 0; i < 10; i++) {
       const neededProof = await analyseCall(request.params[0], request.params[1] || 'latest', handler.getFromServer.bind(handler))
       response.result = toHex(neededProof.result)
@@ -780,13 +795,12 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     throw new Error('max retries of getting all values for eth_call exceeded')
   }
 
-  async function getFromParity() {
-    if(trace.error)
+  async function getFromTrace(trace) {
+    if (trace.error)
       response.error = trace.error
-    else 
+    else
       response.result = trace.result.output
-    
-    const neededProof = evm.analyse((trace.result as any).vmTrace, request.params[0].to)
+    const neededProof = trace.result && trace.result.accounts ? trace.result : evm.analyse((trace.result as any).vmTrace, request.params[0].to)
     neededAccounts = Object.keys(neededProof.accounts)
     return await handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
       { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
@@ -794,7 +808,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   }
 
   const [accountProofs, signatures] = await Promise.all([
-    useTrace ? getFromParity() : getFromGeth(),
+    (useTrace || useGethTrace) ? getFromTrace(useTrace ? trace : gethTrace) : runEVM(),
     collectSignatures(handler, request.in3.signers, [{ blockNumber: block.number, hash: block.hash }], request.in3.verifiedHashes, undefined, request)
   ])
 

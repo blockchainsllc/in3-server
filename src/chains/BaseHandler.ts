@@ -31,8 +31,8 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-import { Transport, AxiosTransport, NoneRejectingAxiosTransport} from '../util/transport'
-import * as serialize from'../modules/eth/serialize'
+import { Transport, AxiosTransport, NoneRejectingAxiosTransport } from '../util/transport'
+import * as serialize from '../modules/eth/serialize'
 import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, AppContext } from '../types/types'
 import axios from 'axios'
 import { getNodeList, updateNodeList } from './nodeListUpdater'
@@ -47,11 +47,11 @@ import { in3ProtocolVersion, maxWatchBlockTimeout } from '../types/constants'
 import WhiteListManager from './whiteListManager'
 import * as promClient from 'prom-client';
 import HealthCheck from '../util/healthCheck'
-import {writeFileSync} from 'fs'
+import { writeFileSync } from 'fs'
 import { IncubedError, RPCException, SigningError } from '../util/sentryError'
 import { keccak256 } from 'ethereumjs-util'
 
-let firstTestRecord =true
+let firstTestRecord = true
 
 const histRequestTime = new promClient.Histogram({
   name: 'in3_upstream_request_time',
@@ -107,7 +107,7 @@ export default abstract class BaseHandler implements RPCHandler {
     this.whiteListMgr = new WhiteListManager(this, config.maxWhiteListWatch, config.cacheWhiteList)
     this.watcher.on('newBlock', () => this.whiteListMgr.updateWhiteList())
 
-    if((this.config as any).useCache != false){ // explicitly checking if it is not false then dnt use cache, so if undfined or true use cache
+    if ((this.config as any).useCache != false) { // explicitly checking if it is not false then dnt use cache, so if undfined or true use cache
       this.cache = new SimpleCache()
       this.watcher.on('newBlock', () => this.cache.clear())
     }
@@ -117,7 +117,7 @@ export default abstract class BaseHandler implements RPCHandler {
     let toSign = [error.code || RPCException.INTERNAL_ERROR, Date.now()]
 
     if (error?.data?.length) {
-        toSign = [...toSign, , ...error.data]
+      toSign = [...toSign, , ...error.data]
     }
 
     let concatenatedData = toSign.map(val => toHex(val).substr(2).padStart(64, '0'))
@@ -202,9 +202,9 @@ export default abstract class BaseHandler implements RPCHandler {
       })
       .then(res => {
         logger.trace('   ... send ' + request.method + '(' + (request.params || []).map(JSON.stringify as any).join() + ')  to ' + this.config.rpcUrl[this.activeRPC] + ' in ' + ((Date.now() - startTime)) + 'ms')
-        if (process.env.IN3TEST && (!rpc || rpc===this.config.rpcUrl[0])) {
-          writeFileSync(process.env.IN3TEST,(firstTestRecord ? '':',')+JSON.stringify([request,fixResponse(request, res)]),{encoding:'utf8',flag:'a'})
-          firstTestRecord=false
+        if (process.env.IN3TEST && (!rpc || rpc === this.config.rpcUrl[0])) {
+          writeFileSync(process.env.IN3TEST, (firstTestRecord ? '' : ',') + JSON.stringify([request, fixResponse(request, res)]), { encoding: 'utf8', flag: 'a' })
+          firstTestRecord = false
         }
 
         request?.context?.hub?.addBreadcrumb({
@@ -273,15 +273,21 @@ export default abstract class BaseHandler implements RPCHandler {
             r.rpcCount = (r.rpcCount || 0) + 1
           }
           histRequestTime.labels("bulk", "ok", "bulk").observe(Date.now() - startTime);
-          if (Array.isArray(res))
-            request.forEach((req, i) => fixResponse(req, res[i]))
-
-            if (process.env.IN3TEST && (!rpc || rpc===this.config.rpcUrl[0])) {
-              const json = JSON.stringify(request.map((r,i)=>[r,Array.isArray(res)?res[i]:res]))
-              writeFileSync(process.env.IN3TEST,(firstTestRecord ? '':',')
-              +json.substr(1,json.length-2),{encoding:'utf8',flag:'a'})
-              firstTestRecord=false
+          if (Array.isArray(res)) {
+            // fix missing requests
+            for (let i = 0; i < request.length; i++) {
+              if (!request[i]) res.splice(i, 0, null)
             }
+            // fix responses
+            request.forEach((req, i) => fixResponse(req, res[i]))
+          }
+
+          if (process.env.IN3TEST && (!rpc || rpc === this.config.rpcUrl[0])) {
+            const json = JSON.stringify(request.map((r, i) => [r, Array.isArray(res) ? res[i] : res]))
+            writeFileSync(process.env.IN3TEST, (firstTestRecord ? '' : ',')
+              + json.substr(1, json.length - 2), { encoding: 'utf8', flag: 'a' })
+            firstTestRecord = false
+          }
 
           return res
         })
