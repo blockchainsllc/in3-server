@@ -49,7 +49,7 @@ import { encodeObject } from '../util/binjson'
 import { checkBudget } from './clients'
 import { in3ProtocolVersion } from '../types/constants'
 import axios from 'axios'
-import {writeFileSync} from 'fs'
+import { writeFileSync } from 'fs'
 import HealthCheck from '../util/healthCheck'
 
 
@@ -123,7 +123,7 @@ app.use(async (ctx, next) => {
 
   //allow cross site scripting
   ctx.set('Access-Control-Allow-Origin', '*')
-  ctx.set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
+  ctx.set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, User-Agent')
 
   if (ctx.request.method === 'OPTIONS') {
     ctx.body = ''
@@ -170,11 +170,11 @@ router.post(/.*/, async (ctx: KoaContext) => {
 
     if (process.env.IN3TEST) {
       const json = JSON.stringify({
-        request:requests[0],
+        request: requests[0],
         descr: process.env.IN3TEST,
         handler: rpc.handlers[Object.keys(rpc.handlers)[0]].config.handler || 'eth',
       })
-      writeFileSync(process.env.IN3TEST,'['+json.substr(0,json.length-1)+',"mock_responses":[','utf8')
+      writeFileSync(process.env.IN3TEST, '[' + json.substr(0, json.length - 1) + ',"mock_responses":[', 'utf8')
     }
 
     // assign ip
@@ -202,8 +202,8 @@ router.post(/.*/, async (ctx: KoaContext) => {
     ctx.body = responseData = { jsonrpc: '2.0', error: { code: -32603, message: err.message } }
     ctx.hub?.captureError(err)
   }
-  if (process.env.IN3TEST) 
-    writeFileSync(process.env.IN3TEST,'],"expected_result":'+JSON.stringify(responseData)+'}]', {encoding: 'utf8',flag:'a'})
+  if (process.env.IN3TEST)
+    writeFileSync(process.env.IN3TEST, '],"expected_result":' + JSON.stringify(responseData) + '}]', { encoding: 'utf8', flag: 'a' })
 })
 
 router.get(/.*/, async ctx => {
@@ -326,7 +326,7 @@ const startTime = Date.now()
 async function checkHealth(ctx: KoaContext) {
 
   const version = process.env.VERSION || 'Unknown'
-  const running = Math.floor((Date.now() - startTime)/1000)
+  const running = Math.floor((Date.now() - startTime) / 1000)
   const name = (rpc.conf.profile && rpc.conf.profile.name) || 'Anonymous'
 
   //lies to the rancher that it is healthy to avoid restart loop
@@ -334,18 +334,18 @@ async function checkHealth(ctx: KoaContext) {
     ctx.body = { status: 'healthy', version, running, name }
     ctx.status = 200
   }
-  else if (HealthCheck.OP_ERROR > Date.now() -1000 * 60 * 5 ) {  // we only keep an OP-Error for 5 min
-    ctx.body = { status: 'unhealthy', message: "server error during operation" , version , running, name}
+  else if (HealthCheck.OP_ERROR > Date.now() - 1000 * 60 * 5) {  // we only keep an OP-Error for 5 min
+    ctx.body = { status: 'unhealthy', message: "server error during operation", version, running, name }
     ctx.status = 500
   }
   else if (INIT_ERROR) {
-    ctx.body = { status: 'unhealthy', message: "server initialization error" , version, running, name }
+    ctx.body = { status: 'unhealthy', message: "server initialization error", version, running, name }
     ctx.status = 500
     throw new SentryError("server initialization error", ctx, "server_status", "unhealthy")
   }
   else {
     const status = await Promise.all(Object.keys(rpc.handlers).map(_ => rpc.handlers[_].health())).then(_ => _.reduce((p, c) => c.status === 'healthy' ? p : c, { status: 'healthy' }))
-    ctx.body = { version, running, name, ...status}
+    ctx.body = { version, running, name, ...status }
     ctx.status = status.status === 'healthy' ? 200 : 500
   }
 
@@ -385,8 +385,8 @@ function checkNodeSync(_callback) {
 
   const checkSync = () => sendToNode(config, rpcReq).then(
     r => {
-      if (r.error == undefined && 
-        (JSON.stringify(r.result) === "false" || parseInt(r.result.highestBlock||1000)-parseInt(r.result.currentBlock||0)<10  ))
+      if (r.error == undefined &&
+        (JSON.stringify(r.result) === "false" || parseInt(r.result.highestBlock || 1000) - parseInt(r.result.currentBlock || 0) < 10))
         _callback()
       else {
         if (r.error) {
