@@ -232,7 +232,8 @@ register-with-sentry-production:
   variables:
     CHAIN: goerli
     CHAIN_ID: "0x5"
-    RPC_ENDPOINT: http://lb.parity-rpc/goerli/archive-one
+    RPC_ENDPOINT1: http://lb.parity-rpc/goerli/archive-one
+    RPC_ENDPOINT2: http://lb.parity-rpc/goerli/archive-one
 
 .chain-tmpl-btc:
   variables:
@@ -245,13 +246,15 @@ register-with-sentry-production:
   variables:
     CHAIN: mainnet
     CHAIN_ID: "0x1"
-    RPC_ENDPOINT: http://lb.parity-rpc/mainnet
+    RPC_ENDPOINT1: http://lb.parity-rpc/mainnet
+    RPC_ENDPOINT2: http://rpc.slock.it/mainnet/geth-pruned
 
 .chain-tmpl-ewc:
   variables:
     CHAIN: ewc
     CHAIN_ID: "0xf6"
-    RPC_ENDPOINT: https://rpc.slock.it/ewc
+    RPC_ENDPOINT1: https://rpc.slock.it/ewc
+    RPC_ENDPOINT2: https://rpc.slock.it/ewc
 
 .chain-tmpl-ipfs:
   variables:

@@ -24,8 +24,8 @@ services:
     command:
       - --privateKey=${SRV_PK1}
       - --registry=${REGISTRY_CONTRACT_ADDR}
-      - --registryRPC=${RPC_ENDPOINT}
-      - --rpcUrl=${RPC_ENDPOINT}
+      - --registryRPC=${RPC_ENDPOINT1}
+      - --rpcUrl=${RPC_ENDPOINT1}
       - --chain=${CHAIN_ID}
       - --minBlockHeight=${BLOCKHEIGHT}
       - --profile-name=Slockit1
@@ -52,8 +52,8 @@ services:
     command:
       - --privateKey=${SRV_PK2}
       - --registry=${REGISTRY_CONTRACT_ADDR}
-      - --registryRPC=${RPC_ENDPOINT}
-      - --rpcUrl=${RPC_ENDPOINT}
+      - --registryRPC=${RPC_ENDPOINT1}
+      - --rpcUrl=${RPC_ENDPOINT1}
       - --chain=${CHAIN_ID}
       - --minBlockHeight=${BLOCKHEIGHT}
       - --profile-name=Slockit2
@@ -80,8 +80,8 @@ services:
     command:
       - --privateKey=${SRV_PK3}
       - --registry=${REGISTRY_CONTRACT_ADDR}
-      - --registryRPC=${RPC_ENDPOINT}
-      - --rpcUrl=${RPC_ENDPOINT}
+      - --registryRPC=${RPC_ENDPOINT1}
+      - --rpcUrl=${RPC_ENDPOINT1}
       - --chain=${CHAIN_ID}
       - --minBlockHeight=${BLOCKHEIGHT}
       - --profile-name=Slockit3
@@ -108,8 +108,8 @@ services:
     command:
       - --privateKey=${SRV_PK4}
       - --registry=${REGISTRY_CONTRACT_ADDR}
-      - --registryRPC=${RPC_ENDPOINT}
-      - --rpcUrl=${RPC_ENDPOINT}
+      - --registryRPC=${RPC_ENDPOINT2}
+      - --rpcUrl=${RPC_ENDPOINT2}
       - --chain=${CHAIN_ID}
       - --minBlockHeight=${BLOCKHEIGHT}
       - --profile-name=Slockit4
@@ -137,8 +137,8 @@ services:
     command:
       - --privateKey=${SRV_PK5}
       - --registry=${REGISTRY_CONTRACT_ADDR}
-      - --registryRPC=${RPC_ENDPOINT}
-      - --rpcUrl=${RPC_ENDPOINT}
+      - --registryRPC=${RPC_ENDPOINT2}
+      - --rpcUrl=${RPC_ENDPOINT2}
       - --chain=${CHAIN_ID}
       - --minBlockHeight=${BLOCKHEIGHT}
       - --profile-name=Slockit5

@@ -678,6 +678,11 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   const startTime = Date.now();
 
   if (request.params && request.params[0] && !request.params[0].value) request.params[0].value = '0x0'
+  if (request.params && request.params[0] && request.params[0].from && !request.params[0].nonce) {
+    const nonce = await (await handler.getFromServer({ method: 'eth_getTransactionCount', params: [request.params[0].from, 'latest'] }))
+    if (nonce.error) throw new Error('Error getting the nonce for ' + request.params[0].from + ' : ' + (nonce.error.message || nonce.error))
+    request.params[0].nonce = nonce.result
+  }
   const tx: TransactionData = request.params[0]
 
   if (supportsProofRPC) {
@@ -756,6 +761,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     for (let i = 0; i < 10; i++) {
       const neededProof = await analyseCall(request.params[0], request.params[1] || 'latest', handler.getFromServer.bind(handler))
       response.result = toHex(neededProof.result)
+      if (request.params[0].from && !neededProof.accounts[request.params[0].from]) neededProof.accounts[request.params[0].from] = { storage: {} }
       neededAccounts = Object.keys(neededProof.accounts)
       const proof = await handler.getAllFromServer(neededAccounts.map(adr => (
         { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
@@ -801,6 +807,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     else
       response.result = trace.result.output
     const neededProof = trace.result && trace.result.accounts ? trace.result : evm.analyse((trace.result as any).vmTrace, request.params[0].to)
+    if (request.params[0].from && !neededProof.accounts[request.params[0].from]) neededProof.accounts[request.params[0].from] = { storage: {} }
     neededAccounts = Object.keys(neededProof.accounts)
     return await handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
       { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }

@@ -121,7 +121,8 @@ export default abstract class BaseHandler implements RPCHandler {
     }
 
     let concatenatedData = toSign.map(val => toHex(val).substr(2).padStart(64, '0'))
-    let { r, s, v } = (this.config as any)._pk.sign(keccak256(`0x${concatenatedData}`))
+    const signer = (this.config as any)._pk
+    let { r, s, v } = signer ? signer.sign(keccak256(`0x${concatenatedData}`)) : { r: 0, s: 0, v: 0 }
 
     return {
       id: request.id || 1,
