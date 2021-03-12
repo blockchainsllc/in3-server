@@ -678,6 +678,11 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   const startTime = Date.now();
 
   if (request.params && request.params[0] && !request.params[0].value) request.params[0].value = '0x0'
+  if (request.params && request.params[0] && request.params[0].from && !request.params[0].nonce) {
+    const nonce = await (await handler.getFromServer({ method: 'eth_getTransactionCount', params: [request.params[0].from, 'latest'] }))
+    if (nonce.error) throw new Error('Error getting the nonce for ' + request.params[0].from + ' : ' + (nonce.error.message || nonce.error))
+    request.params[0].nonce = nonce
+  }
   const tx: TransactionData = request.params[0]
 
   if (supportsProofRPC) {
