@@ -756,8 +756,8 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     for (let i = 0; i < 10; i++) {
       const neededProof = await analyseCall(request.params[0], request.params[1] || 'latest', handler.getFromServer.bind(handler))
       response.result = toHex(neededProof.result)
+      if (request.params[0].from && !neededProof.accounts[request.params[0].from]) neededProof.accounts[request.params[0].from] = { storage: {} }
       neededAccounts = Object.keys(neededProof.accounts)
-      if (request.params[0].from && neededAccounts.indexOf(request.params[0].from) < 0) neededAccounts.push(request.params[0].from);
       const proof = await handler.getAllFromServer(neededAccounts.map(adr => (
         { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
       )), request)
@@ -802,8 +802,8 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     else
       response.result = trace.result.output
     const neededProof = trace.result && trace.result.accounts ? trace.result : evm.analyse((trace.result as any).vmTrace, request.params[0].to)
+    if (request.params[0].from && !neededProof.accounts[request.params[0].from]) neededProof.accounts[request.params[0].from] = { storage: {} }
     neededAccounts = Object.keys(neededProof.accounts)
-    if (request.params[0].from && neededAccounts.indexOf(request.params[0].from) < 0) neededAccounts.push(request.params[0].from);
     return await handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
       { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
     )), request)
