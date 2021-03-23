@@ -35,12 +35,12 @@
 
 import { getSigner as utilSigner } from '../util/util'
 import * as  serialize from '../modules/eth/serialize'
-import { BlockData, LogData} from '../modules/eth/serialize'
+import { BlockData, LogData } from '../modules/eth/serialize'
 import * as util from '../util/util'
 import { RPCRequest, Proof } from '../types/types'
 import { RPCHandler } from './rpc'
 import EthHandler from '../modules/eth/EthHandler'
-import { recover } from 'secp256k1'
+import * as secp256k1 from 'secp256k1'
 import { publicToAddress, rlp } from 'ethereumjs-util'
 import { handleLogs } from '../modules/eth/proof'
 import * as logger from '../util/logger'
@@ -239,7 +239,7 @@ function getSigner(block: BlockData) {
     data[12] = data[12].slice(0, data[12].length - 65)
     const message = serialize.hash(data)
 
-    return publicToAddress(recover(message, sig.slice(0, 64), sig[64]), true);
+    return publicToAddress((secp256k1 as any).recover(message, sig.slice(0, 64), sig[64]), true);
 }
 
 function updateVotes(blocks: BlockData[], history: ValidatorHistory) {

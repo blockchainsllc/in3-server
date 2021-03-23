@@ -120,6 +120,8 @@
     "njstrace": "^1.1.0",
     "pg-promise": "^8.6.4",
     "prom-client": "^11.5.3",
-    "winston": "^3.2.1"
+    "scrypt.js": "^0.3.0",
+    "winston": "^3.2.1",
+    "secp256k1": "3.8.0"
   }
 }

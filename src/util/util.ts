@@ -39,7 +39,7 @@ import * as ethUtil from 'ethereumjs-util'
 import { RPCResponse } from '../types/types'
 import { Block, hash, rlp } from '../modules/eth/serialize'
 import { publicToAddress } from 'ethereumjs-util'
-import { recover } from 'secp256k1'
+import * as secp256k1 from 'secp256k1'
 
 const BN = ethUtil.BN
 
@@ -150,7 +150,7 @@ export function toBuffer(val, len = -1) {
   if (!val) val = Buffer.allocUnsafe(0)
 
   // remove leading zeros
-  while (len==0 && val[0]===0) val=val.slice(1)
+  while (len == 0 && val[0] === 0) val = val.slice(1)
 
   // since rlp encodes an empty array for a 0 -value we create one if the required len===0
   if (len == 0 && val.length == 1 && val[0] === 0)
@@ -244,7 +244,7 @@ export function createRandomIndexes(len: number, limit: number, seed: Buffer, re
 export function getSigner(data: Block): Buffer {
   const signature: Buffer = data.sealedFields[1];
   const message = data.sealedFields.length === 3 ? hash(Buffer.concat([data.bareHash(), rlp.encode(data.sealedFields[2])])) : data.bareHash();
-  return publicToAddress(recover(message, signature.slice(0, 64), signature[64]), true);
+  return publicToAddress((secp256k1 as any).recover(message, signature.slice(0, 64), signature[64]), true);
 }
 
 export const aliases = { ewc: '0xf6', tobalaba: '0x44d', main: '0x1', ipfs: '0x7d0', mainnet: '0x1', goerli: '0x5' }

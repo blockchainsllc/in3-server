@@ -76,11 +76,12 @@ export interface RPCRequest {
  * additional config for a IN3 RPC-Request
  */
 export interface IN3RPCRequestConfig {
+    noStats?: boolean
     /**
      * the requested chainId
      * example: 0x1
      */
-    chainId: string // hex
+    chainId?: string // hex
     /**
      * if true, the request should include the codes of all accounts. otherwise only the the codeHash is returned. In this case the client may ask by calling eth_getCode() afterwards
      * example: true
