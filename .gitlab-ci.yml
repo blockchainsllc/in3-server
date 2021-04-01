@@ -129,7 +129,7 @@ vulnerability-analysis:
     - export TRIVY_AUTH_URL=$CI_REGISTRY
     - export TRIVY_USERNAME=gitlab-ci-token
     - export TRIVY_PASSWORD=$CI_JOB_TOKEN
-    - trivy -f json -o vulnerability_analysis.json $COMMIT_IMAGE_TAG
+    - trivy --timeout 10m --no-progress -f json -o vulnerability_analysis.json $COMMIT_IMAGE_TAG
   artifacts:
     paths:
       - vulnerability_analysis.json
