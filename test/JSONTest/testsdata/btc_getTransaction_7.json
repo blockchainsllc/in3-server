@@ -1,15 +1,15 @@
 [
   {
     "request": {
-      "jsonrpc": "2.0",
       "id": 1,
+      "jsonrpc": "2.0",
       "method": "getrawtransaction",
       "params": [
         "95840f2fc6129dddee212cdff10ffb09a9877d7cfe716e9d9bdd7a7cb616987e",
-        true,
+        1,
         "00000000000000000302d31278d91e240178fe8d8f88fb01281defc34f6ec762"
       ],
-      "in3": { "finality": 8, "verification": "proof" }
+      "in3": { "verification": "proof", "finality": 8 }
     },
     "descr": "BTC-Tests - getTransaction: get a tx the end of a dap (block #403196, dap 200, txindex=1)",
     "handler": "btc",
@@ -22,7 +22,7 @@
             true,
             "00000000000000000302d31278d91e240178fe8d8f88fb01281defc34f6ec762"
           ],
-          "id": 13,
+          "id": 14,
           "jsonrpc": "2.0"
         },
         {
@@ -72,12 +72,12 @@
             ],
             "hex": "01000000012d2307eeaac0e7303e4d650aa782c27b7cc8d3f18af52a1178ceb1023ac97ef5000000008b483045022100fe67a3b056e4de4ba454b52aeea1d07631118a847c221abcb81374d891788ae902204702f9a0752f598606e2b45dbc16d58a54805b44e867d19a9a6c19db37ee1247014104996c02f5c5bc309e332bf813995e60cdac40020192bbb927faf87352c6fa8a7ebded05832de148e1f70ea2f873f70fb366c94645ffeba0b171adba7dc241421dffffffff0280054800000000001976a9146f5bf8d9b5e289d6394d2aef537510bcc1eb530f88ace5757102000000001976a914987a8c788b6678168086c53bd9599a92a43db69a88ac00000000",
             "blockhash": "00000000000000000302d31278d91e240178fe8d8f88fb01281defc34f6ec762",
-            "confirmations": 232914,
+            "confirmations": 265521,
             "time": 1458291219,
             "blocktime": 1458291219
           },
           "error": null,
-          "id": 13
+          "id": 14
         }
       ],
       [
@@ -91,7 +91,7 @@
         {
           "result": {
             "hash": "00000000000000000302d31278d91e240178fe8d8f88fb01281defc34f6ec762",
-            "confirmations": 232914,
+            "confirmations": 265521,
             "strippedsize": 407244,
             "size": 407244,
             "weight": 1628976,
@@ -1086,14 +1086,6 @@
         }
       ],
       [
-        { "method": "getblockhash", "params": [403208] },
-        {
-          "result": "000000000000000002d4d49f574de6398ca835d970e3897adfb59755e59d9fa6",
-          "error": null,
-          "id": 28
-        }
-      ],
-      [
         {
           "method": "getblockheader",
           "params": [
@@ -1104,7 +1096,7 @@
         {
           "result": {
             "hash": "000000000000000002e948218f0deaa4b9a52dc2f5d879794a56d39279b2f0d3",
-            "confirmations": 232913,
+            "confirmations": 265520,
             "height": 403197,
             "version": 4,
             "versionHex": "00000004",
@@ -1120,7 +1112,7 @@
             "nextblockhash": "0000000000000000049b52b9a8c1f3df1cec589a0d5907a40b72f3b8915fc779"
           },
           "error": null,
-          "id": 29
+          "id": 28
         }
       ],
       [
@@ -1134,7 +1126,7 @@
         {
           "result": {
             "hash": "0000000000000000049b52b9a8c1f3df1cec589a0d5907a40b72f3b8915fc779",
-            "confirmations": 232912,
+            "confirmations": 265519,
             "height": 403198,
             "version": 4,
             "versionHex": "00000004",
@@ -1150,7 +1142,7 @@
             "nextblockhash": "00000000000000000404b6939e6c35a5448386e5d58f318c82ce2fefb7d73e47"
           },
           "error": null,
-          "id": 30
+          "id": 29
         }
       ],
       [
@@ -1164,7 +1156,7 @@
         {
           "result": {
             "hash": "00000000000000000404b6939e6c35a5448386e5d58f318c82ce2fefb7d73e47",
-            "confirmations": 232911,
+            "confirmations": 265518,
             "height": 403199,
             "version": 4,
             "versionHex": "00000004",
@@ -1180,7 +1172,7 @@
             "nextblockhash": "000000000000000000c4272a5c68b4f55e5af734e88ceab09abf73e9ac3b6d01"
           },
           "error": null,
-          "id": 31
+          "id": 30
         }
       ],
       [
@@ -1194,7 +1186,7 @@
         {
           "result": {
             "hash": "000000000000000000c4272a5c68b4f55e5af734e88ceab09abf73e9ac3b6d01",
-            "confirmations": 232910,
+            "confirmations": 265517,
             "height": 403200,
             "version": 4,
             "versionHex": "00000004",
@@ -1210,7 +1202,7 @@
             "nextblockhash": "00000000000000000595f9c1161a9e66bb8bb43dc3ca30c61c9fb965fb39e3f4"
           },
           "error": null,
-          "id": 32
+          "id": 31
         }
       ],
       [
@@ -1224,7 +1216,7 @@
         {
           "result": {
             "hash": "00000000000000000595f9c1161a9e66bb8bb43dc3ca30c61c9fb965fb39e3f4",
-            "confirmations": 232909,
+            "confirmations": 265516,
             "height": 403201,
             "version": 4,
             "versionHex": "00000004",
@@ -1240,7 +1232,7 @@
             "nextblockhash": "00000000000000000373e921316638c883f8676aa72512fc667e46ca0c899f2d"
           },
           "error": null,
-          "id": 33
+          "id": 32
         }
       ],
       [
@@ -1254,7 +1246,7 @@
         {
           "result": {
             "hash": "00000000000000000373e921316638c883f8676aa72512fc667e46ca0c899f2d",
-            "confirmations": 232908,
+            "confirmations": 265515,
             "height": 403202,
             "version": 4,
             "versionHex": "00000004",
@@ -1270,7 +1262,7 @@
             "nextblockhash": "00000000000000000377d29d8676dad76c246f1cfceaed6a3fe9032b50ef7f0a"
           },
           "error": null,
-          "id": 34
+          "id": 33
         }
       ],
       [
@@ -1284,7 +1276,7 @@
         {
           "result": {
             "hash": "00000000000000000377d29d8676dad76c246f1cfceaed6a3fe9032b50ef7f0a",
-            "confirmations": 232907,
+            "confirmations": 265514,
             "height": 403203,
             "version": 4,
             "versionHex": "00000004",
@@ -1300,7 +1292,7 @@
             "nextblockhash": "000000000000000001fd760885d346cca2b830bf764000d5f69c376aec05d818"
           },
           "error": null,
-          "id": 35
+          "id": 34
         }
       ],
       [
@@ -1314,7 +1306,7 @@
         {
           "result": {
             "hash": "000000000000000001fd760885d346cca2b830bf764000d5f69c376aec05d818",
-            "confirmations": 232906,
+            "confirmations": 265513,
             "height": 403204,
             "version": 4,
             "versionHex": "00000004",
@@ -1330,7 +1322,7 @@
             "nextblockhash": "00000000000000000515cf441a3ee87cab7d69a6c8f44ea15e6b98104aa1c16e"
           },
           "error": null,
-          "id": 36
+          "id": 35
         }
       ],
       [
@@ -1344,7 +1336,7 @@
         {
           "result": {
             "hash": "00000000000000000515cf441a3ee87cab7d69a6c8f44ea15e6b98104aa1c16e",
-            "confirmations": 232905,
+            "confirmations": 265512,
             "height": 403205,
             "version": 4,
             "versionHex": "00000004",
@@ -1360,7 +1352,7 @@
             "nextblockhash": "0000000000000000042ab41103a11e32e5a40f49b970297908dbafd669b0da62"
           },
           "error": null,
-          "id": 37
+          "id": 36
         }
       ],
       [
@@ -1374,7 +1366,7 @@
         {
           "result": {
             "hash": "0000000000000000042ab41103a11e32e5a40f49b970297908dbafd669b0da62",
-            "confirmations": 232904,
+            "confirmations": 265511,
             "height": 403206,
             "version": 4,
             "versionHex": "00000004",
@@ -1390,7 +1382,7 @@
             "nextblockhash": "00000000000000000058946d82160563791fc245e9e4f12fdacea020e422568a"
           },
           "error": null,
-          "id": 38
+          "id": 37
         }
       ],
       [
@@ -1404,7 +1396,7 @@
         {
           "result": {
             "hash": "00000000000000000058946d82160563791fc245e9e4f12fdacea020e422568a",
-            "confirmations": 232903,
+            "confirmations": 265510,
             "height": 403207,
             "version": 4,
             "versionHex": "00000004",
@@ -1420,37 +1412,7 @@
             "nextblockhash": "000000000000000002d4d49f574de6398ca835d970e3897adfb59755e59d9fa6"
           },
           "error": null,
-          "id": 39
-        }
-      ],
-      [
-        {
-          "method": "getblockheader",
-          "params": [
-            "000000000000000002d4d49f574de6398ca835d970e3897adfb59755e59d9fa6",
-            true
-          ]
-        },
-        {
-          "result": {
-            "hash": "000000000000000002d4d49f574de6398ca835d970e3897adfb59755e59d9fa6",
-            "confirmations": 232902,
-            "height": 403208,
-            "version": 4,
-            "versionHex": "00000004",
-            "merkleroot": "a3ba313a2d053cc72674290952761e4f123dee48b53f3f4103a3ea633e196706",
-            "time": 1458301203,
-            "mediantime": 1458296169,
-            "nonce": 512867333,
-            "bits": "1806a4c3",
-            "difficulty": 165496835118.2263,
-            "chainwork": "00000000000000000000000000000000000000000013fde4dcc83ee1d1d36be1",
-            "nTx": 2648,
-            "previousblockhash": "00000000000000000058946d82160563791fc245e9e4f12fdacea020e422568a",
-            "nextblockhash": "000000000000000004c8d3283fc8d74316ea726ec88ed124701a6d2e6d97ad93"
-          },
-          "error": null,
-          "id": 40
+          "id": 38
         }
       ]
     ],
@@ -1503,24 +1465,24 @@
         ],
         "hex": "01000000012d2307eeaac0e7303e4d650aa782c27b7cc8d3f18af52a1178ceb1023ac97ef5000000008b483045022100fe67a3b056e4de4ba454b52aeea1d07631118a847c221abcb81374d891788ae902204702f9a0752f598606e2b45dbc16d58a54805b44e867d19a9a6c19db37ee1247014104996c02f5c5bc309e332bf813995e60cdac40020192bbb927faf87352c6fa8a7ebded05832de148e1f70ea2f873f70fb366c94645ffeba0b171adba7dc241421dffffffff0280054800000000001976a9146f5bf8d9b5e289d6394d2aef537510bcc1eb530f88ace5757102000000001976a914987a8c788b6678168086c53bd9599a92a43db69a88ac00000000",
         "blockhash": "00000000000000000302d31278d91e240178fe8d8f88fb01281defc34f6ec762",
-        "confirmations": 232914,
+        "confirmations": 265521,
         "time": 1458291219,
         "blocktime": 1458291219
       },
       "in3": {
         "proof": {
           "block": "0x040000008ae3de595d3ea7a87f50574591d20ec55331d0aa4937a50500000000000000005822e4c919e266a92a28bea08a0d15c47deab08264750a859bece08d6ec2600713c2eb56a8f0061816605f59",
-          "final": "0x0400000062c76e4fc3ef1d2801fb888f8dfe7801241ed97812d302030000000000000000c7570cbee9d7fa4de67d2906b8e022ecd9158d45b29b8c68c2735ca98e2fe0f0f5c2eb56a8f006187894fd4704000000d3f0b27992d3564a7979d8f5c22da5b9a4ea0d8f2148e9020000000000000000c4a17e16a341549dacc91a91837cb8afac66373838c1a833f56ac2617c1bd1dc1dc3eb56a8f00618130d5d100400000079c75f91b8f3720ba407590d9a58ec1cdff3c1a8b9529b040000000000000000459dc0723459f9c2af18e626a8c8e75857ac67446052e5dd539795d4c22257d4adc4eb56a8f0061841b9cb2a04000000473ed7b7ef2fce828c318fd5e5868344a5356c9e93b6040400000000000000004409cae5b7b2f8f18ea55f558c9bfa7c5f4778a1a53172a48fc57e172d0ed3d264c5eb56c3a40618af9bc1c704000000016d3bace973bf9ab0ea8ce834f75a5ef5b4685c2a27c4000000000000000000f8095b01bc7fc4ea4caf06eb65aadcd00cc5122e28e63bc48df4ef9d46d7a13366cfeb56c3a40618658761fb04000000f4e339fb65b99f1cc630cac33db48bbb669e1a16c1f995050000000000000000fc3e0da9571c5e9919c25f84d9c6aa60f91d098090811ebd5c923e07311e7499c5d0eb56c3a40618436d6888040000002d9f890cca467e66fc1225a76a67f883c838663121e9730300000000000000006c525fa72a92897eae3b3fb9ea5051ea95142f3e6c447055a2e5023d20d298b669d5eb56c3a40618bbd9afca040000000a7fef502b03e93f6aedeafc1c6f246cd7da76869dd27703000000000000000080e73eee1de12716b407465c669dfc043aef642f189dd20861321cbe34e98e1039ddeb56c3a406181b46f43c0400000018d805ec6a379cf6d5004076bf30b8a2cc46d3850876fd01000000000000000044f4475afbbd71dc9a518a90c5e6e88a3ed7dcb90c3d3a976028124c45ef6a0fe8deeb56c3a40618812052d3040000006ec1a14a10986b5ea14ef4c8a6697dab7ce83e1a44cf150500000000000000009a68e330abb882accaa7a147275418a4a2eac0acce4230fa27d0a88aa3d788e350e4eb56c3a40618edd929840400000062dab069d6afdb08792970b9490fa4e5321ea10311b42a040000000000000000faaae1adf6bf57b1277094b8e2a2ac9741c721d4c537f2a1cc7fc9c2dda01d9472e4eb56c3a4061896026d04040000008a5622e420a0ceda2ff1e4e945c21f79630516826d94580000000000000000000667193e63eaa303413f3fb548ee3d124f1e765209297426c73c052d3a31baa313e9eb56c3a4061805bc911e",
+          "final": "0x0400000062c76e4fc3ef1d2801fb888f8dfe7801241ed97812d302030000000000000000c7570cbee9d7fa4de67d2906b8e022ecd9158d45b29b8c68c2735ca98e2fe0f0f5c2eb56a8f006187894fd4704000000d3f0b27992d3564a7979d8f5c22da5b9a4ea0d8f2148e9020000000000000000c4a17e16a341549dacc91a91837cb8afac66373838c1a833f56ac2617c1bd1dc1dc3eb56a8f00618130d5d100400000079c75f91b8f3720ba407590d9a58ec1cdff3c1a8b9529b040000000000000000459dc0723459f9c2af18e626a8c8e75857ac67446052e5dd539795d4c22257d4adc4eb56a8f0061841b9cb2a04000000473ed7b7ef2fce828c318fd5e5868344a5356c9e93b6040400000000000000004409cae5b7b2f8f18ea55f558c9bfa7c5f4778a1a53172a48fc57e172d0ed3d264c5eb56c3a40618af9bc1c704000000016d3bace973bf9ab0ea8ce834f75a5ef5b4685c2a27c4000000000000000000f8095b01bc7fc4ea4caf06eb65aadcd00cc5122e28e63bc48df4ef9d46d7a13366cfeb56c3a40618658761fb04000000f4e339fb65b99f1cc630cac33db48bbb669e1a16c1f995050000000000000000fc3e0da9571c5e9919c25f84d9c6aa60f91d098090811ebd5c923e07311e7499c5d0eb56c3a40618436d6888040000002d9f890cca467e66fc1225a76a67f883c838663121e9730300000000000000006c525fa72a92897eae3b3fb9ea5051ea95142f3e6c447055a2e5023d20d298b669d5eb56c3a40618bbd9afca040000000a7fef502b03e93f6aedeafc1c6f246cd7da76869dd27703000000000000000080e73eee1de12716b407465c669dfc043aef642f189dd20861321cbe34e98e1039ddeb56c3a406181b46f43c0400000018d805ec6a379cf6d5004076bf30b8a2cc46d3850876fd01000000000000000044f4475afbbd71dc9a518a90c5e6e88a3ed7dcb90c3d3a976028124c45ef6a0fe8deeb56c3a40618812052d3040000006ec1a14a10986b5ea14ef4c8a6697dab7ce83e1a44cf150500000000000000009a68e330abb882accaa7a147275418a4a2eac0acce4230fa27d0a88aa3d788e350e4eb56c3a40618edd929840400000062dab069d6afdb08792970b9490fa4e5321ea10311b42a040000000000000000faaae1adf6bf57b1277094b8e2a2ac9741c721d4c537f2a1cc7fc9c2dda01d9472e4eb56c3a4061896026d04",
           "txIndex": 1,
           "merkleProof": "0x27ba9f370a9850f4d652257be1a0f1ed37c95209c7a1aa2d850214627a44c747a64b4be45c70e829def3c828f48785edd7f041a6bede93604745d5b827468beba4e167157e1b9695c8a502a9d98a5278a86220f397a6f6f7cfc15686d6e88c6ea8057a87866785f51e823767b0e6d5fb62f3adc4a5c32dc1e3db1bd53e0fb1f99e8d79c975c59b5dd539b6bfe91d42a2fc1628396bbdbdef85f9bcf80036c5488110183461f0a142f4147eb60cc68833d5f9bd151baf5fd98e2cea19e6ff334ee1dc54350aa71a5f8ffda29dfd0eece0c8d5c08482cdce47038a598c36a63fb002be1813fb170cb5c2a16eb6170077e037eac5241f7fc4d849f4bc0a5f6e0759b59008ca5b9f65914631805968a9e38909dfd5a9fa19474b1f5ddb5d907979094c55d32fa685dff12be0e8b4415c0cf25c2cf38080bd0afcdf1fac1692867ce9",
           "cbtx": "0x01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff6403fc260637e4b883e5bda9e7a59ee4bb99e9b1bc609a5c29b22e28d9d1329a75bb0742b971165858ce0528e90107ebc1583d277a02000000f09f909f0f4d696e6564206279206c696e677a690000000000000000000000000000000000000000000000007c640400014c93f095000000001976a914c825a1ecf2a6830c4401620c3a16f1995057c2ab88acc6e02436",
           "cbtxMerkleProof": "0x7e9816b67c7add9b9d6e71fe7c7d87a909fb0ff1df2c21eedd9d12c62f0f8495a64b4be45c70e829def3c828f48785edd7f041a6bede93604745d5b827468beba4e167157e1b9695c8a502a9d98a5278a86220f397a6f6f7cfc15686d6e88c6ea8057a87866785f51e823767b0e6d5fb62f3adc4a5c32dc1e3db1bd53e0fb1f99e8d79c975c59b5dd539b6bfe91d42a2fc1628396bbdbdef85f9bcf80036c5488110183461f0a142f4147eb60cc68833d5f9bd151baf5fd98e2cea19e6ff334ee1dc54350aa71a5f8ffda29dfd0eece0c8d5c08482cdce47038a598c36a63fb002be1813fb170cb5c2a16eb6170077e037eac5241f7fc4d849f4bc0a5f6e0759b59008ca5b9f65914631805968a9e38909dfd5a9fa19474b1f5ddb5d907979094c55d32fa685dff12be0e8b4415c0cf25c2cf38080bd0afcdf1fac1692867ce9"
         },
-        "lastNodeList": 2928521,
-        "execTime": 2162,
-        "rpcTime": 1058,
+        "lastNodeList": 4211850,
+        "execTime": 1237,
+        "rpcTime": 248,
         "rpcCount": 1,
-        "currentBlock": 2928521,
+        "currentBlock": 4211850,
         "version": "2.1.0"
       }
     }

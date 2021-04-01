@@ -105,7 +105,8 @@ export default class BTCHandler extends BaseHandler {
 
     // epoch changed
     if (startEpoch != endEpoch) {
-      finality += (2016 - (blockNumber % 2016)) // add amount of blocks to the next epoch to the finality
+      finality += (2016 - (blockNumber % 2016) - 1) // add the number of blocks of the old epoch to finality
+                                                    // -1 to exclude the first block of the next dap
     }
 
     const numbers: string[] = []

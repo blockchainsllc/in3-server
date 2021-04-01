@@ -140,7 +140,7 @@ router.get(config.basePath + '/metrics', async ctx => {
   ctx.set('Content-Type', promClient.register.contentType)
   ctx.body = promClient.register.metrics()
 });
-
+const asString = (s: string | string[]) => Array.isArray(s) ? s[0] : s
 router.post(/.*/, async (ctx: KoaContext) => {
   if (INIT_ERROR) return initError(ctx)
   const start = Date.now()
@@ -148,8 +148,8 @@ router.post(/.*/, async (ctx: KoaContext) => {
   const startTime = Date.now()
 
   // find ip
-  const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
-  const ua = ctx.headers['User-Agent'] || ctx.header['user-agent'] || 'no-ua'
+  const ip: string = asString(ctx.headers['x-origin-ip'] || ctx.ip || 'default')
+  const ua: string = asString(ctx.headers['User-Agent'] || ctx.header['user-agent'] || 'no-ua')
   let responseData = null
 
   try {
@@ -214,8 +214,8 @@ router.get(/.*/, async ctx => {
 
   //  '/:chain/:method/:args'
   const path = ctx.path.split('/')
-  const ip = ctx.headers['x-origin-ip'] || ctx.ip || 'default'
-  const ua = ctx.headers['User-Agent'] || ctx.header['user-agent'] || 'no-ua'
+  const ip = asString(ctx.headers['x-origin-ip'] || ctx.ip || 'default')
+  const ua = asString(ctx.headers['User-Agent'] || ctx.header['user-agent'] || 'no-ua')
 
 
   if (path[path.length - 1] === 'health') return checkHealth(ctx)
@@ -241,7 +241,7 @@ router.get(/.*/, async ctx => {
       }
     }
     if (ctx.request.headers && (ctx.request.headers.Referrer || ctx.request.headers.referrer || ctx.request.headers.Referer || ctx.request.headers.referer || '').indexOf('in3') >= 0)
-      (req.in3 || (req.in3 = {})).noStats = true
+      ((req.in3 || (req.in3 = {})) as any).noStats = true
 
     const [result] = await rpc.handle([req])
     ctx.status = result.error ? 500 : 200
