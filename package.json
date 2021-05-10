@@ -83,7 +83,7 @@
     "chai": "^4.1.2",
     "dtsgenerator": "^0.9.9",
     "in3": "^v2.0.8-RC1",
-    "lodash": "^4.17.20",
+    "lodash": "^4.17.21",
     "mocha": "^5.1.1",
     "mocha-junit-reporter": "^1.23.3",
     "nyc": "^15.0.0",
