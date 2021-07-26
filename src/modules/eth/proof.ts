@@ -112,7 +112,7 @@ export async function createTransactionProof(block: BlockData, txHash: string, s
   const txProof = (await createMerkleProof(
     block.transactions.map((t, i) => ({
       key: rlp.encode(i),
-      value: serialize.serialize(serialize.toTransaction(t))
+      value: serialize.serializeTransaction(t)
     })),
     rlp.encode(txIndex),
     bytes32(block.transactionsRoot),
@@ -137,7 +137,7 @@ export async function createTransactionFromBlockProof(block: BlockData, txIndex:
   const trie = new In3Trie()
   // fill in all transactions
   for (const tx of block.transactions)
-    await trie.setValue(rlp.encode(parseInt(tx.transactionIndex)), serialize.serialize(serialize.toTransaction(tx)))
+    await trie.setValue(rlp.encode(parseInt(tx.transactionIndex)), serialize.serializeTransaction(tx))
 
   // check roothash
   if (block.transactionsRoot !== '0x' + trie.root.toString('hex'))
@@ -173,7 +173,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
     createMerkleProof(
       block.transactions.map((t, i) => ({
         key: rlp.encode(i),
-        value: serialize.serialize(serialize.toTransaction(t))
+        value: serialize.serializeTransaction(t)
       })),
       rlp.encode(txIndex),
       bytes32(block.transactionsRoot),
@@ -182,7 +182,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
     (createMerkleProof(
       receipts && !trie ? receipts.map(r => ({
         key: rlp.encode(toNumber(r.transactionIndex)),
-        value: serialize.serialize(serialize.toReceipt(r))
+        value: serialize.serializeReceipt(r)
       })) : undefined,
       rlp.encode(txIndex),
       bytes32(block.receiptsRoot),
@@ -192,7 +192,7 @@ export async function createTransactionReceiptProof(block: BlockData, receipts: 
     useFull && txIndex > 0 && createMerkleProof(
       receipts.map(r => ({
         key: rlp.encode(toNumber(r.transactionIndex)),
-        value: serialize.serialize(serialize.toReceipt(r))
+        value: serialize.serializeReceipt(r)
       })),
       rlp.encode(txIndex - 1),
       bytes32(block.receiptsRoot),
@@ -302,7 +302,7 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
       const version = request.in3 && request.in3.version && request.in3.version.split('.').map(toNumber)
       // since we fetched the block with all transactions, but the request said, we only want hashes, we put the full ransactions in the proof and only the hashes in the result.
       response.in3.proof.transactions = (version && version[0] >= 2 && version[1] > 0)
-        ? response.in3.proof.transactions = transactions.map(_ => toHex(_.raw || serialize.rlp.encode(serialize.toTransaction(_))))
+        ? response.in3.proof.transactions = transactions.map(_ => toHex(_.raw || serialize.serializeTransaction(_)))
         : response.in3.proof.transactions = transactions
 
       blockData.transactions = transactions.map(_ => _.hash)

@@ -73,6 +73,7 @@ export interface BlockData {
   nonce?: string | number
   transactions?: any[]
   uncles?: string[]
+  baseFeePerGas?: string
 }
 
 /** Transaction as returned by eth_getTransactionByHash */
@@ -99,6 +100,10 @@ export interface TransactionData {
   s?: string
   v?: string
   value: number | string
+  type?: string
+  maxFeePerGas?: string
+  maxPriorityFeePerGas?: string
+  accessList?: { address: string, storageKeys: string[] }[]
 }
 
 /** Account-Object */
@@ -126,6 +131,7 @@ export interface LogData {
 
 /** TransactionReceipt as returned by eth_getTransactionReceipt */
 export interface ReceiptData {
+  type?: string
   transactionHash?: string
   transactionIndex?: number
   blockNumber?: string | number
@@ -140,7 +146,7 @@ export interface ReceiptData {
 
 
 /** serialize the data  */
-export const serialize = (val: Block | Transaction | Receipt | Account | any) => rlp.encode(val) as Buffer
+const serialize = (val: Block | Transaction | Receipt | Account | any) => rlp.encode(val) as Buffer
 
 /** returns the hash of the object */
 export const hash = (val: Block | Transaction | Receipt | Account | Buffer) => Array.isArray(val) ? ethUtil.rlphash(val) : ethUtil.keccak(val)
@@ -165,42 +171,88 @@ export const uint64 = val => toBuffer(val, 8)
 export const uint128 = val => toBuffer(val, 16)
 
 /** create a Buffer[] from RPC-Response */
-export const toBlockHeader = (block: BlockData) => [
-  bytes32(block.parentHash),
-  bytes32(block.sha3Uncles),
-  address(block.miner || block.coinbase),
-  bytes32(block.stateRoot),
-  bytes32(block.transactionsRoot),
-  bytes32(block.receiptsRoot || block.receiptRoot),
-  bytes256(block.logsBloom),
-  uint(block.difficulty),
-  uint(block.number),
-  uint(block.gasLimit),
-  uint(block.gasUsed),
-  uint(block.timestamp),
-  bytes(block.extraData),
+export function toBlockHeader(block: BlockData) {
+  const bh = [
+    bytes32(block.parentHash),
+    bytes32(block.sha3Uncles),
+    address(block.miner || block.coinbase),
+    bytes32(block.stateRoot),
+    bytes32(block.transactionsRoot),
+    bytes32(block.receiptsRoot || block.receiptRoot),
+    bytes256(block.logsBloom),
+    uint(block.difficulty),
+    uint(block.number),
+    uint(block.gasLimit),
+    uint(block.gasUsed),
+    uint(block.timestamp),
+    bytes(block.extraData),
 
-  ...block.sealFields
-    ? block.sealFields.map(s => rlp.decode(bytes(s)))
-    : [
-      bytes32(block.mixHash),
-      bytes8(block.nonce)
-    ]
-] as BlockHeader
-
+    ...block.sealFields
+      ? block.sealFields.map(s => rlp.decode(bytes(s)))
+      : [
+        bytes32(block.mixHash),
+        bytes8(block.nonce)
+      ]
+  ] as BlockHeader
+  if (block.baseFeePerGas) bh.push(uint(block.baseFeePerGas))
+  return bh;
+}
+export const serializeBlockHeader = (block: BlockData) => serialize(toBlockHeader)
 
 /** create a Buffer[] from RPC-Response */
-export const toTransaction = (tx: TransactionData) => [
-  uint(tx.nonce),
-  uint(tx.gasPrice),
-  uint(tx.gas || tx.gasLimit),
-  tx.to ? address(tx.to) : Buffer.alloc(0),
-  uint(tx.value),
-  bytes(tx.input || tx.data),
-  uint(tx.v),
-  uint(tx.r),
-  uint(tx.s)
-] as Transaction
+export function serializeTransaction(tx: TransactionData) {
+  const type = parseInt(tx.type || "0")
+  let data = []
+  switch (type) {
+    case 0:
+      data = [
+        uint(tx.nonce),
+        uint(tx.gasPrice),
+        uint(tx.gas || tx.gasLimit),
+        tx.to ? address(tx.to) : Buffer.alloc(0),
+        uint(tx.value),
+        bytes(tx.input || tx.data),
+        uint(tx.v),
+        uint(tx.r),
+        uint(tx.s)
+      ]
+      break;
+
+    case 1: // EIP 2930
+      data = [
+        uint(tx.chainId),
+        uint(tx.nonce),
+        uint(tx.gasPrice),
+        uint(tx.gas || tx.gasLimit),
+        tx.to ? address(tx.to) : Buffer.alloc(0),
+        uint(tx.value),
+        bytes(tx.input || tx.data),
+        (tx.accessList || []).map(a => [address(a.address), (a.storageKeys || []).map(bytes32)]),
+        uint(tx.v),
+        uint(tx.r),
+        uint(tx.s)
+      ]
+      break;
+    case 2: // EIP 1559
+      data = [
+        uint(tx.chainId),
+        uint(tx.nonce),
+        uint(tx.maxPriorityFeePerGas),
+        uint(tx.maxFeePerGas),
+        uint(tx.gas || tx.gasLimit),
+        tx.to ? address(tx.to) : Buffer.alloc(0),
+        uint(tx.value),
+        bytes(tx.input || tx.data),
+        (tx.accessList || []).map(a => [address(a.address), (a.storageKeys || []).map(bytes32)]),
+        uint(tx.v),
+        uint(tx.r),
+        uint(tx.s)
+      ]
+      break;
+  }
+
+  return type ? Buffer.concat([Buffer.from([type]), serialize(data)]) : serialize(data)
+}
 
 
 // encode the account
@@ -213,25 +265,20 @@ export const toAccount = (account: AccountData) => [
 
 
 /** create a Buffer[] from RPC-Response */
-export const toReceipt = (r: ReceiptData) => [
-  uint(r.status || r.root),
-  uint(r.cumulativeGasUsed),
-  bytes256(r.logsBloom),
-  r.logs.map(l => [
-    address(l.address),
-    l.topics.map(bytes32),
-    bytes(l.data)
-  ])
-].slice(r.status === null && r.root === null ? 1 : 0) as Receipt
-
-
-
-
-
-
-
-
-
+export function serializeReceipt(r: ReceiptData) {
+  const type = parseInt(r.type || "0")
+  const data = serialize([
+    uint(r.status || r.root),
+    uint(r.cumulativeGasUsed),
+    bytes256(r.logsBloom),
+    r.logs.map(l => [
+      address(l.address),
+      l.topics.map(bytes32),
+      bytes(l.data)
+    ])
+  ].slice(r.status === null && r.root === null ? 1 : 0))
+  return type ? Buffer.concat([Buffer.from([type]), data]) : data
+}
 
 
 /**
@@ -243,7 +290,7 @@ export class Block {
   raw: BlockHeader
 
   /** the transaction-Object (if given) */
-  transactions:  any[]
+  transactions: any[]
 
   get parentHash() { return this.raw[0] }
   get uncleHash() { return this.raw[1] }
@@ -312,8 +359,8 @@ export function createTx(transaction) {
   const tx = new Tx(txParams)
   tx._from = fromAddress
   tx.getSenderAddress = function () { return fromAddress }
-  if (txParams.hash && txParams.hash !== '0x' + ethUtil.keccak(tx.serialize()).toString('hex'))
-    throw new Error('wrong txhash! : ' + (txParams.hash + '!== 0x' + ethUtil.keccak(tx.serialize()).toString('hex')) + '  full tx=' + tx.serialize().toString('hex') + ' ' + JSON.stringify(transaction, null, 2))
+  //  if (txParams.hash && txParams.hash !== '0x' + ethUtil.keccak(tx.serialize()).toString('hex'))
+  //    throw new Error('wrong txhash! : ' + (txParams.hash + '!== 0x' + ethUtil.keccak(tx.serialize()).toString('hex')) + '  full tx=' + tx.serialize().toString('hex') + ' ' + JSON.stringify(transaction, null, 2))
 
   // override hash
   const txHash = ethUtil.toBuffer(txParams.hash)
