@@ -286,6 +286,17 @@ definitions:
       - $ref: "#/definitions/tx"
       - $ref: "#/definitions/blockType"
 
+  eth_feeHistory:
+    type: array
+    maxItems: 3
+    minItems: 2
+    items:
+      - $ref: "#/definitions/quantity"
+      - $ref: "#/definitions/blockType"
+      - type: array
+        items:
+          - type: number
+
   eth_estimateGas:
     type: array
     maxItems: 2
