@@ -8,6 +8,7 @@ stages:
   - package
   - analysis
   - deploy
+  - deploy-to-dc
 
 build-server:
   stage: build
