@@ -203,7 +203,7 @@ register-with-sentry-production:
 # Production deployments
 
 .deploy-tmpl:
-  stage: deploy
+  stage: deploy-to-dc
   when: manual
   only:
     - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
@@ -217,15 +217,15 @@ register-with-sentry-production:
   image: docker.slock.it/build-images/deployment
   script:
     - cd deployment
-    - helm install in3-server
+    - helm upgrade --atomic -i in3-server-${CHAIN}
       --generate-name
       --values in3-server/values-${CHAIN}.yaml
       --values ${PRIVATE_KEYS}
       --set stage=${CI_ENVIRONMENT_SLUG}
       --set version=${CI_COMMIT_TAG}
 
-deploy-production-lb:
-  stage: deploy
+deploy-lb:
+  stage: deploy-to-dc
   when: manual
   only:
     - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
@@ -239,34 +239,33 @@ deploy-production-lb:
   image: docker.slock.it/build-images/deployment
   script:
     - cd deployment
-    - helm install in3-lb
-      --generate-name
+    - helm upgrade --atomic -i in3-lb in3-lb
 
-deploy-production-btc:
+deploy-btc:
   extends:
     - .deploy-tmpl
   variables:
     CHAIN: btc
 
-deploy-production-ipfs:
+deploy-ipfs:
   extends:
     - .deploy-tmpl
   variables:
     CHAIN: ipfs
 
-deploy-production-mainnet:
+deploy-mainnet:
   extends:
     - .deploy-tmpl
   variables:
     CHAIN: mainnet
 
-deploy-production-goerli:
+deploy-goerli:
   extends:
     - .deploy-tmpl
   variables:
     CHAIN: goerli
 
-deploy-production-ewc:
+deploy-ewc:
   extends:
     - .deploy-tmpl
   variables:
