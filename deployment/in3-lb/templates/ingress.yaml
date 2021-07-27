@@ -1,0 +1,18 @@
+---
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: in3-v2
+  labels:
+    app: in3-lb
+    stage: {{ $.Values.stage }}
+spec:
+  virtualhost:
+    fqdn: "in3-v2.slock.it"
+  includes:
+  {{- range $idx, $chain := $.Values.chains }}
+    - name: in3-{{ $chain }}
+      namespace: {{ $.Release.Namespace }}
+      conditions:
+        - prefix: /{{ $chain }}
+  {{ end }}

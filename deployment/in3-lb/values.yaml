@@ -1,0 +1,9 @@
+---
+stage: production
+
+chains:
+  - ipfs
+  - btc
+  - mainnet
+  - ewc
+  - goerli

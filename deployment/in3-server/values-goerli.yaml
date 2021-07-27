@@ -1,0 +1,30 @@
+---
+serverImageBase: docker.slock.it/in3/c/in3-server
+version: master
+stage: develop
+
+sentryDsn: https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+
+contract: "0x635cccc1db6fc9e3b029814720595092affba12f"
+chainName: goerli
+chainId: "0x5"
+registryRpc: http://rpc.bc-labs.dev/goerli
+blockHeight: 2
+
+rpc: http://rpc.bc-labs.dev/goerli
+
+nodes:
+  - name: nd-1
+    pk: "0x0"
+
+  - name: nd-2
+    pk: "0x0"
+
+  - name: nd-3
+    pk: "0x0"
+
+  - name: nd-4
+    pk: "0x0"
+
+  - name: nd-5
+    pk: "0x0"

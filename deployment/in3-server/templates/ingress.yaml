@@ -1,0 +1,17 @@
+---
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: in3-{{ $.Values.chainName }}
+  labels:
+    app: in3-nodes
+    stage: {{ $.Values.stage }}
+spec:
+  routes:
+  {{ range $idx, $node := $.Values.nodes }}
+  - conditions:
+    - prefix: /{{ $.Values.chainName }}/{{ $node.name }}
+    services:
+    - name: in3-node-{{ $.Values.chainName }}-{{ $idx }}
+      port: 8500
+  {{ end }}

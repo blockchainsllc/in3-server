@@ -1,0 +1,33 @@
+---
+serverImageBase: docker.slock.it/in3/c/in3-server
+version: master
+stage: develop
+
+sentryDsn: https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+
+contract: "0xcB61736dE539aCFA0eE97bC6BbF9108EF906c88C"
+chainName: ipfs
+chainId: "0x7d0"
+registryRpc: http://rpc.bc-labs.dev/mainnet
+blockHeight: 2
+
+isIpfs: true
+ipfsEndpoint: http://ipfs.bc-labs.dev
+
+rpc: http://rpc.bc-labs.dev/mainnet
+
+nodes:
+  - name: nd-1
+    pk: "0x0"
+
+  - name: nd-2
+    pk: "0x0"
+
+  - name: nd-3
+    pk: "0x0"
+
+  - name: nd-4
+    pk: "0x0"
+
+  - name: nd-5
+    pk: "0x0"
