@@ -219,31 +219,31 @@ deploy-to-dc:
     - cd deployment
     - helm upgrade --atomic -i in3-lb in3-lb
 
-    - helm upgrade --atomic -i in3-server-ewc
+    - helm upgrade --atomic -i in3-server-ewc in3-server
       --values in3-server/values-ewc.yaml
       --values ${PRIVATE_KEYS}
       --set stage=${CI_ENVIRONMENT_SLUG}
       --set version=${CI_COMMIT_TAG}
 
-    - helm upgrade --atomic -i in3-server-mainnet
+    - helm upgrade --atomic -i in3-server-mainnet in3-server
       --values in3-server/values-mainnet.yaml
       --values ${PRIVATE_KEYS}
       --set stage=${CI_ENVIRONMENT_SLUG}
       --set version=${CI_COMMIT_TAG}
 
-    - helm upgrade --atomic -i in3-server-goerli
+    - helm upgrade --atomic -i in3-server-goerli in3-server
       --values in3-server/values-goerli.yaml
       --values ${PRIVATE_KEYS}
       --set stage=${CI_ENVIRONMENT_SLUG}
       --set version=${CI_COMMIT_TAG}
 
-    - helm upgrade --atomic -i in3-server-btc
+    - helm upgrade --atomic -i in3-server-btc in3-server
       --values in3-server/values-btc.yaml
       --values ${PRIVATE_KEYS}
       --set stage=${CI_ENVIRONMENT_SLUG}
       --set version=${CI_COMMIT_TAG}
 
-    - helm upgrade --atomic -i in3-server-ipfs
+    - helm upgrade --atomic -i in3-server-ipfs in3-server
       --values in3-server/values-ipfs.yaml
       --values ${PRIVATE_KEYS}
       --set stage=${CI_ENVIRONMENT_SLUG}
