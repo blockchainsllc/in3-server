@@ -1,0 +1,9 @@
+---
+sentryDsn: https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+contract: "0x638428ebaa190c6c6331a3a02f3b8c5d8310986b"
+chainName: ewc
+chainId: "0xf6"
+blockHeight: 2
+
+registryRpc: http://rpc.bc-labs.dev/ewc
+rpc: http://rpc.bc-labs.dev/ewc

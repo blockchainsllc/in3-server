@@ -1,0 +1,10 @@
+---
+contract: "0xcB61736dE539aCFA0eE97bC6BbF9108EF906c88C"
+chainName: ipfs
+chainId: "0x7d0"
+blockHeight: 2
+isIpfs: true
+
+ipfsEndpoint: http://ipfs.bc-labs.dev
+registryRpc: http://rpc.bc-labs.dev/mainnet
+rpc: http://rpc.bc-labs.dev/mainnet

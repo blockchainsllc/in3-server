@@ -1,0 +1,8 @@
+---
+contract: "0x635cccc1db6fc9e3b029814720595092affba12f"
+chainName: goerli
+chainId: "0x5"
+blockHeight: 2
+
+rpc: http://rpc.bc-labs.dev/goerli
+registryRpc: http://rpc.bc-labs.dev/goerli

@@ -1,0 +1,13 @@
+---
+contract: "0x6c095a05764a23156efd9d603eada144a9b1af33"
+chainName: mainnet
+chainId: "0x1"
+blockHeight: 6
+
+rpc: http://rpc.bc-labs.dev/mainnet
+registryRpc: http://rpc.bc-labs.dev/mainnet
+
+# Node overrides
+nodes:
+  nd1:
+    rpc: "http://rpc.bc-labs.dev/mainnet/geth"

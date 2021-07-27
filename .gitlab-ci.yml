@@ -200,107 +200,74 @@ register-with-sentry-production:
   variables:
     TARGET: production
 
+# Production deployments
+
 .deploy-tmpl:
   stage: deploy
-  tags:
-    - internal-deploy
-  image: docker.slock.it/build-images/deployment
-  services:
-    - docker:dind
-  script:
-    - cd deployment
-    - rancher -w up -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
-
-## Environments
-.deploy-tmpl-production:
-  extends: .deploy-tmpl
+  when: manual
   only:
     - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
   except:
     - branches
+  allow_failure: false
   environment:
     name: production-${CHAIN}
-  variables:
-    STACKNAME: server-v2
-    TARGET: production
-    BLOCKHEIGHT: "0"
+  tags:
+    - deployment
+  image: docker.slock.it/build-images/deployment
+  script:
+    - cd deployment
+    - helm install in3-server
+      --generate-name
+      --values in3-server/values-${CHAIN}.yaml
+      --values ${PRIVATE_KEYS}
+      --set stage=${CI_ENVIRONMENT_SLUG}
+      --set version=${CI_COMMIT_TAG}
+
+deploy-production-lb:
+  stage: deploy
   when: manual
+  only:
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
+  except:
+    - branches
   allow_failure: false
-
-## Chains
-.chain-tmpl-goerli:
-  variables:
-    CHAIN: goerli
-    CHAIN_ID: "0x5"
-    RPC_ENDPOINT1: http://lb.parity-rpc/goerli/archive-one
-    RPC_ENDPOINT2: http://lb.parity-rpc/goerli/archive-one
-
-.chain-tmpl-btc:
-  variables:
-    CHAIN: btc
-    CHAIN_ID: "0x99"
-    RPC_ENDPOINT: "http://slockit:slockit@lb.parity-rpc/bitcoin"
-    REGISTRY_RPC_ENDPOINT: http://slockit:slockit@lb.parity-rpc/goerli
-
-.chain-tmpl-mainnet:
-  variables:
-    CHAIN: mainnet
-    CHAIN_ID: "0x1"
-    RPC_ENDPOINT1: http://lb.parity-rpc/mainnet
-    RPC_ENDPOINT2: http://rpc.slock.it/mainnet/geth-pruned
-
-.chain-tmpl-ewc:
-  variables:
-    CHAIN: ewc
-    CHAIN_ID: "0xf6"
-    RPC_ENDPOINT1: https://rpc.slock.it/ewc
-    RPC_ENDPOINT2: https://rpc.slock.it/ewc
-
-.chain-tmpl-ipfs:
-  variables:
-    CHAIN: ipfs
-    CHAIN_ID: "0x7d0"
-    RPC_ENDPOINT: http://lb.parity-rpc/mainnet/archive
+  environment:
+    name: production-lb
+  tags:
+    - deployment
+  image: docker.slock.it/build-images/deployment
+  script:
+    - cd deployment
+    - helm install in3-lb
+      --generate-name
 
 deploy-production-btc:
   extends:
-    - .deploy-tmpl-production
-    - .chain-tmpl-btc
+    - .deploy-tmpl
   variables:
-    REGISTRY_CONTRACT_ADDR: "0xc3845e55756db9990ea06de9ea73dc99769f6c7f"
-
-# Production deployments
-deploy-production-mainnet:
-  extends:
-    - .deploy-tmpl-production
-    - .chain-tmpl-mainnet
-  variables:
-    BLOCKHEIGHT: "6"
-    REGISTRY_CONTRACT_ADDR: "0x6c095a05764a23156efd9d603eada144a9b1af33"
-
-# Production deployments
-deploy-production-ewc:
-  extends:
-    - .deploy-tmpl-production
-    - .chain-tmpl-ewc
-  variables:
-    BLOCKHEIGHT: "2"
-    REGISTRY_CONTRACT_ADDR: "0x638428ebaa190c6c6331a3a02f3b8c5d8310986b"
-
-deploy-production-goerli:
-  extends:
-    - .deploy-tmpl-production
-    - .chain-tmpl-goerli
-  variables:
-    REGISTRY_CONTRACT_ADDR: "0x635cccc1db6fc9e3b029814720595092affba12f"
-
+    CHAIN: btc
 
 deploy-production-ipfs:
   extends:
-    - .deploy-tmpl-production
-    - .chain-tmpl-ipfs
-  script:
-    - cd deployment
-    - rancher -w up -f docker-compose.ipfs.yml -d --prune -p -s in3-${STACKNAME}-${TARGET}-${CHAIN} -c --force-upgrade
+    - .deploy-tmpl
   variables:
-    REGISTRY_CONTRACT_ADDR: "0xcB61736dE539aCFA0eE97bC6BbF9108EF906c88C"
+    CHAIN: ipfs
+
+deploy-production-mainnet:
+  extends:
+    - .deploy-tmpl
+  variables:
+    CHAIN: mainnet
+
+deploy-production-goerli:
+  extends:
+    - .deploy-tmpl
+  variables:
+    CHAIN: goerli
+
+deploy-production-ewc:
+  extends:
+    - .deploy-tmpl
+  variables:
+    CHAIN: ewc

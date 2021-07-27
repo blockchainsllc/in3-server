@@ -1,0 +1,9 @@
+---
+contract: "0xc3845e55756db9990ea06de9ea73dc99769f6c7f"
+chainName: btc
+chainId: "0x99"
+blockHeight: 6
+isBtc: true
+
+rpc: "http://slockit:slockit@rpc.bc-labs.dev/bitcoin"
+registryRpc: https://rpc.bc-labs.dev/goerli
