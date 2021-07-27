@@ -211,7 +211,7 @@ deploy-to-dc:
     - branches
   allow_failure: false
   environment:
-    name: production
+    name: internal
   tags:
     - deployment
   image: docker.slock.it/build-images/deployment
