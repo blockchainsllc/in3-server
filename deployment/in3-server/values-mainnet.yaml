@@ -1,31 +1,13 @@
 ---
-serverImageBase: docker.slock.it/in3/c/in3-server
-version: master
-stage: develop
-
-sentryDsn: https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
-
 contract: "0x6c095a05764a23156efd9d603eada144a9b1af33"
 chainName: mainnet
 chainId: "0x1"
-registryRpc: http://rpc.bc-labs.dev/mainnet
 blockHeight: 6
 
 rpc: http://rpc.bc-labs.dev/mainnet
+registryRpc: http://rpc.bc-labs.dev/mainnet
 
+# Node overrides
 nodes:
-  - name: nd-1
-    pk: "0x0"
-    rpc: "http://rpc.bc-labs.dev/mainnet/geth" # override
-
-  - name: nd-2
-    pk: "0x0"
-
-  - name: nd-3
-    pk: "0x0"
-
-  - name: nd-4
-    pk: "0x0"
-
-  - name: nd-5
-    pk: "0x0"
+  nd1:
+    rpc: "http://rpc.bc-labs.dev/mainnet/geth"

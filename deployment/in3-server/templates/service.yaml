@@ -74,7 +74,7 @@ spec:
             value: "true"
 
           - name: SENTRY_DSN
-            value:
+            value: {{ $.Values.sentryDsn }}
           - name: SENTRY_ENVIRONMENT
             value: {{ $.Values.stage }}
 

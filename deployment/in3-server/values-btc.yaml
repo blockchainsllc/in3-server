@@ -1,32 +1,9 @@
 ---
-serverImageBase: docker.slock.it/in3/c/in3-server
-version: master
-stage: develop
-
-sentryDsn: https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
-
 contract: "0xc3845e55756db9990ea06de9ea73dc99769f6c7f"
 chainName: btc
 chainId: "0x99"
-registryRpc: https://rpc.bc-labs.dev/goerli
 blockHeight: 6
-
 isBtc: true
 
 rpc: "http://slockit:slockit@rpc.bc-labs.dev/bitcoin"
-
-nodes:
-  - name: nd-1
-    pk: "0x0"
-
-  - name: nd-2
-    pk: "0x0"
-
-  - name: nd-3
-    pk: "0x0"
-
-  - name: nd-4
-    pk: "0x0"
-
-  - name: nd-5
-    pk: "0x0"
+registryRpc: https://rpc.bc-labs.dev/goerli
