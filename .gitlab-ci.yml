@@ -8,7 +8,6 @@ stages:
   - package
   - analysis
   - deploy
-  - deploy-to-dc
 
 build-server:
   stage: build
@@ -203,8 +202,8 @@ register-with-sentry-production:
 
 # Production deployments
 
-.deploy-tmpl:
-  stage: deploy-to-dc
+deploy-to-dc:
+  stage: deploy
   when: manual
   only:
     - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
@@ -212,29 +211,7 @@ register-with-sentry-production:
     - branches
   allow_failure: false
   environment:
-    name: production-${CHAIN}
-  tags:
-    - deployment
-  image: docker.slock.it/build-images/deployment
-  script:
-    - cd deployment
-    - helm upgrade --atomic -i in3-server-${CHAIN}
-      --generate-name
-      --values in3-server/values-${CHAIN}.yaml
-      --values ${PRIVATE_KEYS}
-      --set stage=${CI_ENVIRONMENT_SLUG}
-      --set version=${CI_COMMIT_TAG}
-
-deploy-lb:
-  stage: deploy-to-dc
-  when: manual
-  only:
-    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
-  except:
-    - branches
-  allow_failure: false
-  environment:
-    name: production-lb
+    name: production
   tags:
     - deployment
   image: docker.slock.it/build-images/deployment
@@ -242,32 +219,37 @@ deploy-lb:
     - cd deployment
     - helm upgrade --atomic -i in3-lb in3-lb
 
-deploy-btc:
-  extends:
-    - .deploy-tmpl
-  variables:
-    CHAIN: btc
+    - helm upgrade --atomic -i in3-server-ewc
+      --generate-name
+      --values in3-server/values-ewc.yaml
+      --values ${PRIVATE_KEYS}
+      --set stage=${CI_ENVIRONMENT_SLUG}
+      --set version=${CI_COMMIT_TAG}
 
-deploy-ipfs:
-  extends:
-    - .deploy-tmpl
-  variables:
-    CHAIN: ipfs
+    - helm upgrade --atomic -i in3-server-mainnet
+      --generate-name
+      --values in3-server/values-mainnet.yaml
+      --values ${PRIVATE_KEYS}
+      --set stage=${CI_ENVIRONMENT_SLUG}
+      --set version=${CI_COMMIT_TAG}
 
-deploy-mainnet:
-  extends:
-    - .deploy-tmpl
-  variables:
-    CHAIN: mainnet
+    - helm upgrade --atomic -i in3-server-goerli
+      --generate-name
+      --values in3-server/values-goerli.yaml
+      --values ${PRIVATE_KEYS}
+      --set stage=${CI_ENVIRONMENT_SLUG}
+      --set version=${CI_COMMIT_TAG}
 
-deploy-goerli:
-  extends:
-    - .deploy-tmpl
-  variables:
-    CHAIN: goerli
+    - helm upgrade --atomic -i in3-server-btc
+      --generate-name
+      --values in3-server/values-btc.yaml
+      --values ${PRIVATE_KEYS}
+      --set stage=${CI_ENVIRONMENT_SLUG}
+      --set version=${CI_COMMIT_TAG}
 
-deploy-ewc:
-  extends:
-    - .deploy-tmpl
-  variables:
-    CHAIN: ewc
+    - helm upgrade --atomic -i in3-server-ipfs
+      --generate-name
+      --values in3-server/values-ipfs.yaml
+      --values ${PRIVATE_KEYS}
+      --set stage=${CI_ENVIRONMENT_SLUG}
+      --set version=${CI_COMMIT_TAG}
