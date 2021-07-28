@@ -4,6 +4,9 @@ version: master
 stage: develop
 sentryDsn: https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
 
+ciProject: "in3"
+ciEnvironment: "develop"
+
 nodes:
   nd1:
     name: nd-1

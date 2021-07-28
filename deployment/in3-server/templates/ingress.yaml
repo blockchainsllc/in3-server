@@ -10,7 +10,7 @@ spec:
   routes:
   {{ range $idx, $node := $.Values.nodes }}
   - conditions:
-    - prefix: /{{ $.Values.chainName }}/{{ $node.name }}
+    - prefix: /{{ $node.name }}
     services:
     - name: in3-node-{{ $.Values.chainName }}-{{ $idx }}
       port: 8500

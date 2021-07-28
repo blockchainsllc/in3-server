@@ -224,27 +224,37 @@ deploy-to-dc:
       --values ${PRIVATE_KEYS}
       --set stage=${CI_ENVIRONMENT_SLUG}
       --set version=${CI_COMMIT_TAG}
+      --set ciProject=${CI_PROJECT_PATH_SLUG}
+      --set ciEnvironment=${CI_ENVIRONMENT_SLUG}
 
     - helm upgrade --atomic -i in3-server-mainnet in3-server
       --values in3-server/values-mainnet.yaml
       --values ${PRIVATE_KEYS}
       --set stage=${CI_ENVIRONMENT_SLUG}
       --set version=${CI_COMMIT_TAG}
+      --set ciProject=${CI_PROJECT_PATH_SLUG}
+      --set ciEnvironment=${CI_ENVIRONMENT_SLUG}
 
     - helm upgrade --atomic -i in3-server-goerli in3-server
       --values in3-server/values-goerli.yaml
       --values ${PRIVATE_KEYS}
       --set stage=${CI_ENVIRONMENT_SLUG}
       --set version=${CI_COMMIT_TAG}
+      --set ciProject=${CI_PROJECT_PATH_SLUG}
+      --set ciEnvironment=${CI_ENVIRONMENT_SLUG}
 
     - helm upgrade --atomic -i in3-server-btc in3-server
       --values in3-server/values-btc.yaml
       --values ${PRIVATE_KEYS}
       --set stage=${CI_ENVIRONMENT_SLUG}
       --set version=${CI_COMMIT_TAG}
+      --set ciProject=${CI_PROJECT_PATH_SLUG}
+      --set ciEnvironment=${CI_ENVIRONMENT_SLUG}
 
     - helm upgrade --atomic -i in3-server-ipfs in3-server
       --values in3-server/values-ipfs.yaml
       --values ${PRIVATE_KEYS}
       --set stage=${CI_ENVIRONMENT_SLUG}
       --set version=${CI_COMMIT_TAG}
+      --set ciProject=${CI_PROJECT_PATH_SLUG}
+      --set ciEnvironment=${CI_ENVIRONMENT_SLUG}

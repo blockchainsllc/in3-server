@@ -22,6 +22,9 @@ metadata:
     app: in3-node
     chain: {{ $.Values.chainName }}
     node: {{ $node.name }}
+  annotations:
+    app.gitlab.com/app: {{ $.Values.ciProject }}
+    app.gitlab.com/env: {{ $.Values.ciEnvironment }}
 spec:
   replicas: 1
   strategy:
@@ -38,6 +41,9 @@ spec:
       annotations:
         prometheus.io/port: "8500"
         prometheus.io/scrape: "true"
+        prometheus.io/path: "/{{ $.Values.chainName }}/{{ $node.name }}/metrics"
+        app.gitlab.com/app: {{ $.Values.ciProject }}
+        app.gitlab.com/env: {{ $.Values.ciEnvironment }}
       labels:
         app: in3-node
         chain: {{ $.Values.chainName }}

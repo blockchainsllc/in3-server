@@ -16,3 +16,8 @@ spec:
       conditions:
         - prefix: /{{ $chain }}
   {{ end }}
+
+    - name: grafana-redirect-slock
+      namespace: incubed-statistics-732-internal
+      conditions:
+        - prefix: /
