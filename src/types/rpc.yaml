@@ -276,7 +276,7 @@ definitions:
     minItems: 1
     items:
       - type: string
-        pattern: "^0x(0|[a-fA-F1-9]+[a-fA-F0-9]*)$"
+        pattern: "^0x[a-fA-F0-9]+$"
 
   eth_call:
     type: array
