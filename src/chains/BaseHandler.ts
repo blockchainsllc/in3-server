@@ -157,13 +157,6 @@ export default abstract class BaseHandler implements RPCHandler {
     if (!request.id) request.id = this.counter++
     if (!request.jsonrpc) request.jsonrpc = '2.0'
 
-    for (let i = 0; i < request.params.length; i++) {
-      if (typeof request.params[i] === 'string' && request.params[i].startsWith("0x0")) {
-        if (request.params[i].substr(2).length % 32 != 0 && request.params[i].substr(2).length % 20 != 0) {
-          request.params[i] = toMinHex(request.params[i])
-        }
-      }
-    }
     const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
     let ip = "0.0.0.0"
     if (r && r.ip) {
@@ -174,7 +167,8 @@ export default abstract class BaseHandler implements RPCHandler {
     if (process.env.IN3VERBOSERPC)
       logger.debug("Verbose. RPC: " + (rpc || this.config.rpcUrl[this.activeRPC]) + " Request: " + JSON.stringify(request))
 
-    return axios.post(rpc || this.config.rpcUrl[this.activeRPC], this.toCleanRequest(request), { headers })
+    request = this.toCleanRequest(request)
+    return axios.post(rpc || this.config.rpcUrl[this.activeRPC], request, { headers })
       .then(rsp => this.handleFauxSuccess(rsp))
       .then(_ => _.data, err => {
 
@@ -350,8 +344,9 @@ export default abstract class BaseHandler implements RPCHandler {
 
   toCleanRequest(request: Partial<RPCRequest>): RPCRequest {
     for (let i = 0; i < request.params.length; i++) {
-      if (typeof request.params[i] === 'string' && request.params[i].startsWith("0x0")) {
-        if (request.params[i].substr(2).length % 32 != 0 && request.params[i].substr(2).length % 20 != 0) {
+      // This is an optimization for geth (to be confirmed) that was causing a bug on raw transaction. This blacklist it for that particular method
+      if (typeof request.params[i] === 'string' && request.params[i].startsWith("0x0") && request.method !== "eth_sendRawTransaction") {
+        if (request.params[i].substr(2).length % 32 != 0 && request.params[i].substr(2).length % 20 !== 0) {
           request.params[i] = toMinHex(request.params[i])
         }
       }
