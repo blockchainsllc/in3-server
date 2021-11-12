@@ -517,6 +517,16 @@ definitions:
     minItems: 0
     items:
       - $ref: "#/definitions/blockTypeBTC"
+
+
+  sendrawtransaction:
+    type: array
+    maxItems: 1
+    minItems: 1
+    items:
+      - type: string
+        pattern: "^[a-fA-F0-9]+$"
+
   btc_proofTarget:
     type: array
     maxItems: 5
