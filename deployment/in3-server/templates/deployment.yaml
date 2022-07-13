@@ -1,0 +1,82 @@
+{{ range $idx, $node := $.Values.nodes }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: in3-node-{{ $.Values.chainName }}-{{ $idx }}
+  labels:
+    app: in3-node
+    chain: {{ $.Values.chainName }}
+    node: {{ $node.name }}
+  annotations:
+    app.gitlab.com/app: {{ $.Values.ciProject }}
+    app.gitlab.com/env: {{ $.Values.ciEnvironment }}
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: in3-node
+      chain: {{ $.Values.chainName }}
+      node: {{ $node.name }}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: "8500"
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/{{ $.Values.chainName }}/{{ $node.name }}/metrics"
+        app.gitlab.com/app: {{ $.Values.ciProject }}
+        app.gitlab.com/env: {{ $.Values.ciEnvironment }}
+      labels:
+        app: in3-node
+        chain: {{ $.Values.chainName }}
+        node: {{ $node.name }}
+    spec:
+      containers:
+      - image: {{ $.Values.serverImageBase }}:{{ $.Values.version }}
+        name: in3-node-{{ $.Values.chainName }}-{{ $idx }}
+        ports:
+        - containerPort: 8500
+          protocol: TCP
+        args:
+        - --privateKey={{ $node.pk }}
+        - --registry={{ $.Values.contract }}
+        - --registryRPC={{ $.Values.registryRpc }}
+        - --rpcUrl={{ coalesce $node.rpc $.Values.rpc }}
+        - --chain={{ $.Values.chainId }}
+        - --minBlockHeight={{ $.Values.blockHeight }}
+        - --profile-name=Slockit1
+        - --profile-icon=https://slock.it/assets/slock_logo.png
+        - --profile-url=https://slock.it
+        - --profile-noStats=false
+        - --persistentFile=false
+        - --basePath=/{{ $.Values.chainName }}/{{ $node.name }}
+        {{- if $.Values.isIpfs }}
+        - --handler=ipfs
+        - --ipfsUrl={{ $.Values.ipfsEndpoint }}
+        {{- end }}
+        {{- if $.Values.isBtc }}
+        - --handler=btc
+        {{- end}}
+        env:
+          - name: SENTRY_ENABLE
+            value: "true"
+
+          - name: SENTRY_DSN
+            value: {{ $.Values.sentryDsn }}
+          - name: SENTRY_ENVIRONMENT
+            value: {{ $.Values.stage }}
+
+          - name: SENTRY_RELEASE
+            value: "in3-server@{{ $.Values.version }}"
+
+          - name: VERSION
+            value: "{{ $.Values.version }}"
+
+      imagePullSecrets:
+        - name: gitlab-image-secret
+      restartPolicy: Always
+{{- end }}

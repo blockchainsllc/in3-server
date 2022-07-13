@@ -1,0 +1,23 @@
+---
+contract: "0x41a07f9b9bd9c972fa56a20d0e7ed68ec1559f0b"
+chainName: mumbai
+chainId: "0x13881"
+blockHeight: 6
+
+rpc: http://rpc.bc-labs.dev/mumbai
+registryRpc: http://rpc.bc-labs.dev/mumbai
+
+# Node overrides
+nodes:
+  nd1:
+    rpc: "10.99.5.189:8545"
+    nodePort: 30001
+  nd2:
+    rpc: "10.99.5.13:8545"
+    nodePort: 30002
+  nd3:
+    rpc: "10.99.5.41:8545"
+    nodePort: 30003
+  nd4:
+    rpc: "10.99.5.174:8545"
+    nodePort: 30004

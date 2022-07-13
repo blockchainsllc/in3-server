@@ -1,0 +1,25 @@
+---
+serverImageBase: docker.slock.it/in3/c/in3-server
+version: master
+stage: develop
+sentryDsn: https://59ea79ac77004a62b60e283f03c97e0e@sentry.slock.it/2
+
+ciProject: "in3"
+ciEnvironment: "develop"
+
+nodes:
+  nd1:
+    name: nd-1
+    pk: "0x0"
+
+  nd2:
+    name: nd-2
+    pk: "0x0"
+
+  nd3:
+    name: nd-3
+    pk: "0x0"
+
+  nd4:
+    name: nd-4
+    pk: "0x0"

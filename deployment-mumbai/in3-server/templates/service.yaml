@@ -7,6 +7,7 @@ metadata:
   labels:
     chain: {{ $.Values.chainName }}
 spec:
+  type: NodePort
   selector:           # Will select any pod with the below labels and become their svc
     app: in3-node
     chain: {{ $.Values.chainName }}
@@ -14,4 +15,5 @@ spec:
   ports:
     - protocol: TCP
       port: 8500
+      nodePort: {{ $node.nodePort }}
 {{- end }}
