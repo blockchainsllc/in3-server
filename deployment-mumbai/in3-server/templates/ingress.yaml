@@ -14,11 +14,6 @@ spec:
       namespace: {{ $.Release.Namespace }}
       conditions:
         - prefix: /{{ .Values.chainName }}
-
-    - name: grafana-redirect-slock
-      namespace: incubed-statistics-732-internal
-      conditions:
-        - prefix: /
 ---
 apiVersion: projectcontour.io/v1
 kind: HTTPProxy
