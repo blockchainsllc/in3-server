@@ -1,0 +1,38 @@
+---
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: in3-v2
+  labels:
+    app: in3-lb
+    stage: {{ $.Values.stage }}
+spec:
+  virtualhost:
+    fqdn: "in3-v2.slock.it"
+  includes:
+    - name: in3-{{ .Values.chainName }}
+      namespace: {{ $.Release.Namespace }}
+      conditions:
+        - prefix: /{{ .Values.chainName }}
+
+    - name: grafana-redirect-slock
+      namespace: incubed-statistics-732-internal
+      conditions:
+        - prefix: /
+---
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: in3-{{ $.Values.chainName }}
+  labels:
+    app: in3-nodes
+    stage: {{ $.Values.stage }}
+spec:
+  routes:
+  {{ range $idx, $node := $.Values.nodes }}
+  - conditions:
+    - prefix: /{{ $node.name }}
+    services:
+    - name: in3-node-{{ $.Values.chainName }}-{{ $idx }}
+      port: 8500
+  {{ end }}
