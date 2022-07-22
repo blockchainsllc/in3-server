@@ -44,7 +44,7 @@ spec:
           args:
             - --privateKey={{ $node.pk }}
             - --registry={{ $.Values.contract }}
-            - --registryRPC={{ $.Values.registryRpc }}
+            - --registryRPC={{ $node.registryRpc }}
             - --rpcUrl={{ coalesce $node.rpc $.Values.rpc }}
             - --chain={{ $.Values.chainId }}
             - --minBlockHeight={{ $.Values.blockHeight }}
