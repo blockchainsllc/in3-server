@@ -204,6 +204,7 @@ register-mumbai-with-sentry:
   extends: .register-with-sentry
   variables:
     TARGET: preprod
+    CI_COMMIT_REF_NAME: v2.2.15
 
 # Production deployments
 
