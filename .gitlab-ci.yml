@@ -200,19 +200,6 @@ register-with-sentry-production:
   variables:
     TARGET: production
 
-register-mumbai-with-sentry:
-  stage: deploy
-  tags:
-    - short-jobs
-  image: docker.slock.it/build-images/deployment
-  script:
-    - sentry-cli releases new -p in3-server in3-server@v2.2.15
-    - sentry-cli releases deploys in3-server@v2.2.15 new -e ${TARGET}
-    - sentry-cli releases set-commits --auto in3-server@v2.2.15
-    - sentry-cli releases files in3-server@v2.2.15 upload-sourcemaps js/src/
-  variables:
-    TARGET: preprod
-
 # Production deployments
 
 deploy-to-dc:
@@ -276,9 +263,9 @@ deploy-mumbai:
   stage: deploy
   when: manual
   only:
-#    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
-#  except:
-#    - branches
+    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
+  except:
+    - branches
   allow_failure: false
   environment:
     name: preprod
