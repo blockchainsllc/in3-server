@@ -191,14 +191,14 @@ dockerhub-deploy:
     - sentry-cli releases set-commits --auto in3-server@${CI_COMMIT_REF_NAME}
     - sentry-cli releases files in3-server@${CI_COMMIT_REF_NAME} upload-sourcemaps js/src/
 
-register-with-sentry-production:
-  extends: .register-with-sentry
-  only:
-    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
-  except:
-    - branches
-  variables:
-    TARGET: production
+#register-with-sentry-production:
+#  extends: .register-with-sentry
+#  only:
+#    - /^v[0-9]+.[0-9]+.[0-9]+(\-RC[0-9]+)?$/
+#  except:
+#    - branches
+#  variables:
+#    TARGET: production
 
 # Production deployments
 
