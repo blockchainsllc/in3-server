@@ -72,6 +72,8 @@ spec:
               value: "in3-server@{{ $.Values.version }}"
             - name: VERSION
               value: "{{ $.Values.version }}"
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
       imagePullSecrets:
         - name: gitlab-image-secret
       restartPolicy: Always

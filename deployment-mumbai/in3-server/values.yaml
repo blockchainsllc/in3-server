@@ -23,3 +23,11 @@ nodes:
   nd4:
     name: nd-4
     pk: "0x0"
+
+resources:
+  limits:
+    cpu: 1500m
+    memory: 1024Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
