@@ -112,7 +112,7 @@
     "ethjs-util": "0.1.4",
     "form-data": "^2.3.2",
     "in3-contracts": "^2.1.4",
-    "in3-trie": "^0.1.2",
+    "in3-trie": "^0.2.0",
     "koa": "^2.7.0",
     "koa-bodyparser": "^4.2.0",
     "koa-router": "^7.4.0",
