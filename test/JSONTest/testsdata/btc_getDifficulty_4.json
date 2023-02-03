@@ -16,7 +16,7 @@
       "id": 1,
       "error": {
         "code": -32602,
-        "message": "getdifficulty : params[0] (the blocknumber) must be one of 'latest','earliest','pending' or should be number"
+        "message": "getdifficulty : params/0 (the blocknumber) must be one of latest, earliest, pending or must be number"
       },
       "jsonrpc": "2.0"
     }

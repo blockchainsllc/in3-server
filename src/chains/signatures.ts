@@ -31,19 +31,21 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-import BaseHandler from './BaseHandler'
-import { BlockData } from '../modules/eth/serialize'
+import { ECDSASignature, ecrecover, ecsign, privateToAddress, pubToAddress, toChecksumAddress } from '@ethereumjs/util'
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
+import { keccak } from 'ethereumjs-util'
 import * as serialize from '../modules/eth/serialize'
-import * as  util from '../util/util'
-import { RPCRequest, RPCResponse, Signature, RPCError, ServerList, IN3NodeConfig, SignatureError } from '../types/types'
-import { keccak, pubToAddress, ecrecover, ecsign, ECDSASignature, privateToAddress, toChecksumAddress, } from 'ethereumjs-util'
-import { callContract } from '../util/tx'
+import { BlockData } from '../modules/eth/serialize'
+import config, { getSafeMinBlockHeight } from '../server/config'
+import { RPCRequest, RPCResponse, Signature, SignatureError } from '../types/types'
 import { LRUCache } from '../util/cache'
 import * as logger from '../util/logger'
-import config, { getSafeMinBlockHeight } from '../server/config'
+import { RPCException, SigningError } from '../util/sentryError'
+import { callContract } from '../util/tx'
+import * as util from '../util/util'
 import { toBuffer } from '../util/util'
-import { SigningError, RPCException } from '../util/sentryError'
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
+import BaseHandler from './BaseHandler'
+import { Transaction } from '@ethereumjs/tx'
 
 const toHex = util.toHex
 const toMinHex = util.toMinHex
@@ -57,6 +59,7 @@ export const signatureCaches: LRUCache = new LRUCache();
 export interface PK {
   address: string
   sign(data: Buffer): ECDSASignature
+  signTx(data: Transaction): Transaction // This function should replace all sign cases (already eip-155)
 }
 
 export function createPK(pk: Buffer | string): PK {
@@ -70,6 +73,12 @@ export function createPK(pk: Buffer | string): PK {
     sign(hash: Buffer) {
       const key = createDecipheriv(cipherAlgorithm, decryptPW, iv).update(encryptedKey)
       const sig = ecsign(hash, key)
+      key.fill(0, 0, 32) // clean the private key in memory
+      return sig
+    },
+    signTx(tx: Transaction): Transaction {
+      const key = createDecipheriv(cipherAlgorithm, decryptPW, iv).update(encryptedKey)
+      const sig = tx.sign(key)
       key.fill(0, 0, 32) // clean the private key in memory
       return sig
     }
@@ -154,7 +163,6 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
 
     try {
       req = { id: handler.counter++ || 1, jsonrpc: '2.0', method: 'in3_sign', params: blocksToRequest };
-
       response = (blocksToRequest.length
         ? await handler.transport.handle(config.url, req)
         : { result: [] }) as RPCResponse
@@ -196,12 +204,13 @@ export async function collectSignatures(handler: BaseHandler, addresses: string[
       return Promise.all(signatures.map(async s => {
 
         // first check the signature
-        const signatureMessageHash: Buffer = keccak(Buffer.concat([bytes32(s.blockHash), bytes32(s.block), bytes32((nodes as any).registryId)]))
+        const hexHash = toHex(s.blockHash).substr(2).padStart(64, '0') + toHex(s.block).substr(2).padStart(64, '0') + toHex((nodes as any).registryId).substr(2).padStart(64, '0')
+        const signatureMessageHash: Buffer = keccak(toBuffer(`0x${hexHash}`))
         if (!bytes32(s.msgHash).equals(signatureMessageHash)) // the message hash is wrong and we don't know what he signed 
           return null // can not use it to convict
 
         // recover the signer from the signature
-        const signer: Buffer = pubToAddress(ecrecover(signatureMessageHash, toNumber(s.v), bytes(s.r), bytes(s.s)))
+        const signer: Buffer = pubToAddress(ecrecover(signatureMessageHash, BigInt(toNumber(s.v)), bytes(s.r), bytes(s.s)))
         const singingNode = signer.equals(address(adr))
           ? config
           : nodes.nodes.find(_ => address(_.address).equals(signer))
@@ -286,7 +295,8 @@ function sign(pk: PK, blocks: { blockNumber: number, hash: string, registryId: s
   if (!pk) throw new Error('Missing private key')
   if (!Array.isArray(blocks)) throw new Error('blocks are missing or no array')
   return blocks.map(b => {
-    const msgHash = keccak('0x' + toHex(b.hash).substr(2).padStart(64, '0') + toHex(b.blockNumber).substr(2).padStart(64, '0') + toHex(b.registryId).substr(2).padStart(64, '0'))
+    const toConvert = toHex(b.hash).substr(2).padStart(64, '0') + toHex(b.blockNumber).substr(2).padStart(64, '0') + toHex(b.registryId).substr(2).padStart(64, '0')
+    const msgHash = keccak(toBuffer(`0x${toConvert}`))
     const sig = pk.sign(msgHash)
 
     return {

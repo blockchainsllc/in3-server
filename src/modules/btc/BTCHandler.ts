@@ -17,17 +17,13 @@
 * For questions, please contact info@slock.it              *
 ***********************************************************/
 
-import { Transport } from '../../util/transport'
-import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, AppContext } from '../../types/types'
-import axios from 'axios'
 import BaseHandler from '../../chains/BaseHandler'
-import { BTCBlock, serialize_blockheader, BTCBlockHeader } from './btc_serialize'
-import { createMerkleProof } from './btc_merkle'
-import { max } from 'bn.js'
-import { hash } from '../eth/serialize'
-import { toChecksumAddress } from 'ethereumjs-util'
+import { AppContext, IN3RPCHandlerConfig, RPCRequest, RPCResponse, ServerList } from '../../types/types'
+import { RPCException, UserError } from '../../util/sentryError'
+import { Transport } from '../../util/transport'
 import { BTCCache, Coinbase } from './btc_cache'
-import { UserError, RPCException } from '../../util/sentryError'
+import { createMerkleProof } from './btc_merkle'
+import { BTCBlockHeader, serialize_blockheader } from './btc_serialize'
 
 interface DAP {
   dapnumber: number
@@ -162,7 +158,7 @@ export default class BTCHandler extends BaseHandler {
   }
 
 
-  async getBlockHeader(hash: string, json: number = 1, finality: number = 0, verification: string = "never", preBIP34: boolean = false, r: any) {
+  async getBlockHeader(hash: string, json: number = 1, finality: number = 0, verification: string = "never", preBIP34: boolean = false, _r: any) {
   
     let blockheader: any // can be json-object or hex-string
     json ? blockheader = (await this.blockCache.getBlockHeaderByHash([hash], !!json)).pop() : blockheader = ((await this.blockCache.getBlockHeaderByHash([hash], !!json)).pop()).toString('hex')

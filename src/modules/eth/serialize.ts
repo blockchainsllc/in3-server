@@ -32,12 +32,11 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import * as ethUtil from 'ethereumjs-util'
-import * as Tx from 'ethereumjs-tx'
+import * as ethUtil from '@ethereumjs/util'
+import { Transaction as Tx } from '@ethereumjs/tx'
+import { rlp, rlphash, keccak } from 'ethereumjs-util'
 import { toBuffer, toHex } from '../../util/util'
 
-/** RLP-functions */
-export const rlp = ethUtil.rlp
 /** Buffer[] of the header */
 export type BlockHeader = Buffer[]
 
@@ -149,7 +148,7 @@ export interface ReceiptData {
 const serialize = (val: Block | Transaction | Receipt | Account | any) => rlp.encode(val) as Buffer
 
 /** returns the hash of the object */
-export const hash = (val: Block | Transaction | Receipt | Account | Buffer) => Array.isArray(val) ? ethUtil.rlphash(val) : ethUtil.keccak(val)
+export const hash = (val: Block | Transaction | Receipt | Account | Buffer) => Array.isArray(val) ? rlphash(val) : keccak(Buffer.from(val))
 
 
 // types ...
@@ -197,7 +196,6 @@ export function toBlockHeader(block: BlockData) {
   if (block.baseFeePerGas) bh.push(uint(block.baseFeePerGas))
   return bh;
 }
-export const serializeBlockHeader = (block: BlockData) => serialize(toBlockHeader)
 
 /** create a Buffer[] from RPC-Response */
 export function serializeTransaction(tx: TransactionData) {
@@ -310,9 +308,9 @@ export class Block {
   /** creates a Block-Onject from either the block-data as returned from rpc, a buffer or a hex-string of the encoded blockheader */
   constructor(data: Buffer | string | BlockData) {
     if (Buffer.isBuffer(data))
-      this.raw = ethUtil.rlp.decode(data) as any as Buffer[]
+      this.raw = rlp.decode(data) as any as Buffer[]
     else if (typeof data === 'string')
-      this.raw = ethUtil.rlp.decode(Buffer.from(data.replace('0x', ''), 'hex')) as any as Buffer[]
+      this.raw = rlp.decode(Buffer.from(data.replace('0x', ''), 'hex')) as any as Buffer[]
     else if (typeof data === 'object') {
       this.raw = toBlockHeader(data)
 
@@ -342,8 +340,10 @@ export class Block {
 /** creates a Transaction-object from the rpc-transaction-data */
 export function createTx(transaction) {
   if (transaction && typeof (transaction) === 'string' && transaction.startsWith('0x'))
-    return new Tx(Buffer.from(transaction.substr(2), 'hex'))
-  const txParams = {
+    return Tx.fromValuesArray([Buffer.from(transaction.substr(2), 'hex')])
+
+  const fromAddress = toBuffer(transaction.from)
+  let txParams = {
     ...transaction,
     nonce: toHex(transaction.nonce) || '0x00',
     gasPrice: toHex(transaction.gasPrice) || '0x00',
@@ -352,21 +352,14 @@ export function createTx(transaction) {
     data: toHex(transaction.gasLimit === undefined ? (transaction.input || transaction.data) : transaction.data),
     input: toHex(transaction.gasLimit === undefined ? (transaction.input || transaction.data) : transaction.data),
     to: transaction.to ? ethUtil.setLengthLeft(ethUtil.toBuffer(transaction.to), 20) : null,
-    v: transaction.v < 27 ? transaction.v + 27 : transaction.v
+    v: transaction.v < 27 ? transaction.v + 27 : transaction.v,
+    from: fromAddress
   }
-  const fromAddress = ethUtil.toBuffer(txParams.from)
-  delete txParams.from
-  const tx = new Tx(txParams)
-  tx._from = fromAddress
-  tx.getSenderAddress = function () { return fromAddress }
-  //  if (txParams.hash && txParams.hash !== '0x' + ethUtil.keccak(tx.serialize()).toString('hex'))
-  //    throw new Error('wrong txhash! : ' + (txParams.hash + '!== 0x' + ethUtil.keccak(tx.serialize()).toString('hex')) + '  full tx=' + tx.serialize().toString('hex') + ' ' + JSON.stringify(transaction, null, 2))
 
-  // override hash
-  const txHash = ethUtil.toBuffer(txParams.hash)
-  if (txParams.hash)
-    tx.hash = function () { return txHash }
-  return tx
+  if (transaction.hash)
+    txParams.hash = ethUtil.toBuffer(transaction.hash)
+  
+  return new Tx(txParams)
 }
 
 

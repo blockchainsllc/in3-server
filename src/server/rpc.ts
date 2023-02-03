@@ -31,25 +31,25 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-import { Transport, AxiosTransport } from '../util/transport'
-import * as util from '../util/util'
-import { WhiteList, RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig, AppContext } from '../types/types'
-import axios from 'axios'
+import axios from 'axios';
 import Watcher from '../chains/watch';
-import { getStats, currentHour, schedulePrometheus } from './stats'
-
-import BTCHandler from '../modules/btc/BTCHandler'
-import IPFSHandler from '../modules/ipfs/IPFSHandler'
-import EthHandler from '../modules/eth/EthHandler'
-import { getValidatorHistory, HistoryEntry, updateValidatorHistory } from './poa'
-import { SentryError, IncubedError, RPCException } from '../util/sentryError'
-import { in3ProtocolVersion } from '../types/constants'
-import { getSafeMinBlockHeight } from './config'
-import { verifyRequest } from '../types/verify'
-import * as logger from '../util/logger'
 import WhiteListManager from '../chains/whiteListManager';
-import HealthCheck from '../util/healthCheck'
-export { submitRequestTime } from './stats'
+import BTCHandler from '../modules/btc/BTCHandler';
+import EthHandler from '../modules/eth/EthHandler';
+import IPFSHandler from '../modules/ipfs/IPFSHandler';
+import { in3ProtocolVersion } from '../types/constants';
+import { AppContext, IN3ResponseConfig, IN3RPCConfig, IN3RPCHandlerConfig, IN3RPCRequestConfig, RPCRequest, RPCResponse, ServerList, WhiteList } from '../types/types';
+import { verifyRequest } from '../types/verify';
+import HealthCheck from '../util/healthCheck';
+import * as logger from '../util/logger';
+import { IncubedError, RPCException, SentryError } from '../util/sentryError';
+import { AxiosTransport, Transport } from '../util/transport';
+import * as util from '../util/util';
+import { getSafeMinBlockHeight } from './config';
+import { getValidatorHistory, updateValidatorHistory } from './poa';
+import { currentHour, getStats, schedulePrometheus } from './stats';
+
+export { submitRequestTime } from './stats';
 
 const in3ProtocolVersionA = in3ProtocolVersion.split('.').map(_ => parseInt(_))
 
@@ -361,7 +361,7 @@ export class HandlerTransport extends AxiosTransport {
     this.handler = h
   }
 
-  async handle(url: string, data: RPCRequest | RPCRequest[], timeout?: number): Promise<RPCResponse | RPCResponse[]> {
+  async handle(url: string, data: RPCRequest | RPCRequest[], _timeout?: number): Promise<RPCResponse | RPCResponse[]> {
     // convertto array
     const requests = Array.isArray(data) ? data : [data]
     if (url === this.handler.config.rpcUrl[0]) return this.handler.getAllFromServer(requests).then(_ => Array.isArray(data) ? _ : _[0])

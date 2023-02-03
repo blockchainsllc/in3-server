@@ -35,7 +35,7 @@
 import * as fs from 'fs'
 import * as util from '../util/util'
 import { IN3RPCConfig, IN3RPCHandlerConfig, validationDef as typeDefs } from '../types/types'
-import * as cargs from 'args'
+import cargs from 'args'
 
 const safeMinBlockHeights = {
   '0x1': 10,  // mainnet
@@ -73,13 +73,11 @@ function parseDef(def: { properties: any, type: string }, targetPath = [], targe
   for (const p of Object.keys(def.properties).filter(_ => _ !== 'port')) {
     const val = def.properties[p]
     if (val.type === 'object') {
-      if (val.properties)
+      if (val.properties) {
         parseDef(val, [...targetPath, p], targetOb, prefix + p + '-')
-      else
-        continue
-
+      }
     }
-    else
+    else {
       options.push({
         name: prefix + p,
         description: val.description,
@@ -101,6 +99,7 @@ function parseDef(def: { properties: any, type: string }, targetPath = [], targe
         },
         defaultValue: val.default
       })
+    }
   }
 }
 

@@ -37,16 +37,18 @@ import * as serialize from './serialize'
 import * as  util from '../../util/util'
 import { getSigner, toBuffer } from '../../util/util'
 import { LogProof, RPCRequest, RPCResponse, Signature, Proof, SignatureError } from '../../types/types'
-import { rlp, toChecksumAddress, keccak } from 'ethereumjs-util'
-import * as Trie from 'merkle-patricia-tree'
+import { toChecksumAddress } from '@ethereumjs/util'
+import { rlp, keccak } from 'ethereumjs-util'
+import { BaseTrie as Trie } from 'merkle-patricia-tree'
 import In3Trie from 'in3-trie'
 import EthHandler from './EthHandler'
 import { collectSignatures } from '../../chains/signatures'
 import * as evm from './evm_trace'
 import { in3ProtocolVersion } from '../../types/constants'
-import { analyseCall, getFromCache, CacheAccount } from './evm_run'
+import { analyseCall, getFromCache } from './evm_run'
 import * as promClient from 'prom-client'
 import { SentryError } from '../../util/sentryError'
+import { ThreadPool } from './threadPool'
 
 
 const histMerkleTreeTime = new promClient.Histogram({
@@ -63,16 +65,13 @@ const histProofTime = new promClient.Histogram({
   buckets: promClient.exponentialBuckets(1, 2, 20)
 });
 
-const ThreadPool = require('./threadPool')
+
 const toHex = util.toHex
 const toMinHex = util.toMinHex
 const bytes32 = serialize.bytes32
 const toNumber = util.toNumber
 
-function createBlock(block: BlockData, verifiedHashes: string[]) {
-  //  if (verifiedHashes && verifiedHashes.indexOf(block.hash) >= 0)
-  //    return '' + parseInt(block.number as any)
-  //  else
+function createBlock(block: BlockData, _verifiedHashes: string[]) {
   return serialize.blockToHex(block)
 }
 
@@ -246,9 +245,7 @@ export async function createMerkleProof(values: { key: Buffer, value: Buffer }[]
     }
     else {
       trie = new Trie()
-      await Promise.all(values.map(val => new Promise((resolve, reject) =>
-        trie.put(Buffer.from(val.key), Buffer.from(val.value), error => error ? reject(error) : resolve(true))
-      )))
+      await Promise.all(values.map(val => trie.put(Buffer.from(val.key), Buffer.from(val.value))))
 
       if (expectedRoot && !expectedRoot.equals(trie.root))
         throw new Error('The rootHash is wrong! : ' + toHex(expectedRoot) + '!==' + toHex(trie.root))
@@ -262,13 +259,7 @@ export async function createMerkleProof(values: { key: Buffer, value: Buffer }[]
     histMerkleTreeTime.labels("true").observe(Date.now() - startTime);
   }
 
-  return new Promise<Buffer[]>((resolve, reject) =>
-    Trie.prove(trie, key, (err, prove) => {
-      if (err) return reject(err)
-      resolve(prove as Buffer[])
-    })
-  )
-
+  return Trie.createProof(trie, key)
 }
 
 export async function handleBlock(handler: EthHandler, request: RPCRequest): Promise<RPCResponse> {
@@ -293,9 +284,13 @@ export async function handleBlock(handler: EthHandler, request: RPCRequest): Pro
       version: in3ProtocolVersion
     }
 
-    if (request.in3.useFullProof && blockData.uncles && blockData.uncles.length)
-      // we need to include all uncles
-      response.in3.proof.uncles = await handler.getAllFromServer(blockData.uncles.map(b => ({ method: 'eth_getBlockByHash', params: [b, false] })), request).then(a => a.map(_ => serialize.blockToHex(_.result)))
+    if (request.in3.useFullProof) {
+      if (blockData.uncles && blockData.uncles.length)
+        // we need to include all uncles
+        response.in3.proof.uncles = await handler.getAllFromServer(blockData.uncles.map(b => ({ method: 'eth_getBlockByHash', params: [b, false] })), request).then(a => a.map(_ => serialize.blockToHex(_.result)))
+      else 
+        response.in3.proof.uncles = []
+    }
 
     const transactions: TransactionData[] = blockData.transactions
     if (!request.params[1]) {
@@ -695,7 +690,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
       })
     if (doesNotSupport(r))
       supportsProofRPC = 0
-    else if (r.error) throw new SentryError('Error fetich call from nethermind ' + JSON.stringify(request) + JSON.stringify(r.error), request.context)
+    else if (r.error) throw new SentryError('Error fetch call from nethermind ' + JSON.stringify(request) + JSON.stringify(r.error), request.context)
     else {
       supportsProofRPC = 2
 
@@ -742,7 +737,9 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
   ], request)
 
   // error checking
-  if (blockResponse.error) throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
+  if (blockResponse.error) {
+    throw new Error('Could not get the block for ' + request.params[1] + ':' + JSON.stringify(blockResponse?.error))
+  }
   if (trace && trace.error) {
     if ((trace.error as any).code === -32601) useTrace = false
     else throw new Error('Could not get the trace :' + JSON.stringify(trace.error))
@@ -782,7 +779,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
           delete cache.balance
           isValid = false
         }
-        Object.keys(a.storage || []).forEach((k, i) => {
+        Object.keys(a.storage || []).forEach((k, _i) => {
           const val = util.toMinHex(a.storage[k])
           const proofedKey = p.storageProof.find(_ => util.toMinHex(_.key) === util.toMinHex(k))
           if (!proofedKey) {
@@ -806,9 +803,14 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
       response.error = trace.error
     else
       response.result = trace.result.output
-    const neededProof = trace.result && trace.result.accounts ? trace.result : evm.analyse((trace.result as any).vmTrace, request.params[0].to)
-    if (request.params[0].from && !neededProof.accounts[request.params[0].from]) neededProof.accounts[request.params[0].from] = { storage: {} }
+
+    const neededProof = trace?.result.accounts ? trace.result : evm.analyse((trace.result as any).vmTrace, request.params[0].to)
+
+    if (request.params[0].from && !neededProof.accounts[request.params[0].from])
+      neededProof.accounts[request.params[0].from] = { storage: {} }
+
     neededAccounts = Object.keys(neededProof.accounts)
+
     return await handler.getAllFromServer(Object.keys(neededProof.accounts).map(adr => (
       { method: 'eth_getProof', params: [toHex(adr, 20), Object.keys(neededProof.accounts[adr].storage).map(_ => toHex(_, 32)), block.number] }
     )), request)
@@ -824,7 +826,7 @@ export async function handleCall(handler: EthHandler, request: RPCRequest): Prom
     const accounts = accountProofs
       .filter(a => (a.result as any).codeHash !== '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470')
     const codes = await handler.getAllFromServer(accounts.map(a => ({ method: 'eth_getCode', params: [toHex((a.result as any).address, 20), request.params[1] || 'latest'] })), request)
-    accounts.forEach((r, i) => (accounts[i].result as any).code = codes[i].result)
+    accounts.forEach((_r, i) => (accounts[i].result as any).code = codes[i].result)
   }
 
   for (const ap of accountProofs) {
@@ -872,9 +874,9 @@ export async function handleAccount(handler: EthHandler, request: RPCRequest): P
   ], request)
 
   // error checking
-  if (blockResponse.error)
-    throw new Error('Could not get the block for ' + request.params[1] + ':' + blockResponse.error)
-
+  if (blockResponse.error) {
+    throw new Error('Could not get the block for ' + request.params[1] + ':' + JSON.stringify(blockResponse.error))
+  }
   if (proof.error)
     throw new Error('Could not get the proof :' + JSON.stringify(proof.error, null, 2) + ' for request ' + JSON.stringify({ method: 'eth_getProof', params: [toHex(address, 20), storage.map(_ => toHex(_, 32)), blockNr] }, null, 2))
 

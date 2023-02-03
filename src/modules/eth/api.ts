@@ -33,11 +33,11 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import { toChecksumAddress, keccak } from 'ethereumjs-util'
+import { toChecksumAddress } from '@ethereumjs/util'
+import { keccak } from 'ethereumjs-util'
 import * as util from '../../util/util'
-import BN = require('bn.js')
+import BN from 'bn.js'
 import { AbiCoder } from '@ethersproject/abi'
-import { RPCResponse } from '../../types/types'
 
 export type BlockType = number | 'latest' | 'earliest' | 'pending'
 export type Hex = string
@@ -310,7 +310,8 @@ function decodeResult(types: string[], result: Buffer): any {
 }
 
 export function createSignatureHash(def: ABI) {
-    return keccak(def.name + createSignature(def.inputs))
+    const toConvert = def.name + createSignature(def.inputs)
+    return keccak(Buffer.from(toConvert, "utf-8"))
 }
 
 export function createSignature(fields: ABIField[]): string {
@@ -337,9 +338,8 @@ function encodeEtheresBN(val: any) {
 }
 
 export function soliditySha3(...args: any[]): string {
-
     const abiCoder = new AbiCoder()
-    return util.toHex(keccak(abiCoder.encode(args.map(_ => {
+    const toConvert = abiCoder.encode(args.map(_ => {
         switch (typeof (_)) {
             case 'number':
                 return _ < 0 ? 'int256' : 'uint256'
@@ -350,5 +350,6 @@ export function soliditySha3(...args: any[]): string {
             default:
                 return BN.isBN(_) ? 'uint256' : 'bytes'
         }
-    }), args.map(encodeEtheresBN))))
+    }), args.map(encodeEtheresBN))
+    return util.toHex(keccak(Buffer.from(toConvert)))
 }

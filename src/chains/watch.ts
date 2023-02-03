@@ -31,29 +31,27 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-import * as fs from 'fs'
+import { toChecksumAddress } from '@ethereumjs/util'
+import { keccak } from 'ethereumjs-util'
 import { EventEmitter } from 'events'
-import * as  util from '../util/util'
-import { LogData } from '../modules/eth/serialize'
+import * as fs from 'fs'
 import * as serialize from '../modules/eth/serialize'
-import { keccak, toChecksumAddress } from 'ethereumjs-util'
-
-import { RPCHandler } from '../server/rpc';
-import { getABI } from '../util/registry'
-import * as logger from '../util/logger'
-import * as tx from '../util/tx'
-import { useDB, exec } from '../util/db'
+import { LogData } from '../modules/eth/serialize'
 import config from '../server/config'
-import { updateValidatorHistory } from '../server/poa';
-import { SentryError } from '../util/sentryError'
+import { updateValidatorHistory } from '../server/poa'
+import { RPCHandler } from '../server/rpc'
 import { AppContext } from '../types/types'
+import { exec, useDB } from '../util/db'
+import * as logger from '../util/logger'
+import { getABI } from '../util/registry'
+import { SentryError } from '../util/sentryError'
+import * as tx from '../util/tx'
+import * as util from '../util/util'
 
 const toNumber = util.toNumber
 const toHex = util.toHex
 const toMinHex = util.toMinHex
 const toBuffer = util.toBuffer
-const address = serialize.address
-
 
 export default class Watcher extends EventEmitter {
 
@@ -243,11 +241,10 @@ export default class Watcher extends EventEmitter {
   }
 
   async handleConvict(currentBlock) {
-
     for (const ci of this.futureConvicts) {
-
       const costPerBlock = 86412400000000
 
+      // are we adding one?
       // adding 1 to prevent 0 costs
       const costs = ci.diffBlocks + 1 * costPerBlock * 1.25
 
@@ -290,17 +287,17 @@ export default class Watcher extends EventEmitter {
           }
 
           let currentRecreateBlock = latestSS
-
           // due to geth, we can only recreate 45 blocks at once
           while (currentRecreateBlock - 45 > ci.wrongBlockNumber) {
             currentRecreateBlock -= 45
             ci.blocksToRecreate.push({ number: currentRecreateBlock, firstSeen: null, currentBnr: null })
           }
-          ci.blocksToRecreate[0].firstSeen = this.block.number
-          ci.blocksToRecreate[0].currentBnr = this.block.number
 
           ci.blocksToRecreate.push({ number: ci.wrongBlockNumber, firstSeen: null, currentBnr: null })
 
+          // This is correct because this is actually supposed to wait for the update invocation of the watcher so those numbers will be filled in a tail-recursion-like way
+          ci.blocksToRecreate[0].firstSeen = this.block.number
+          ci.blocksToRecreate[0].currentBnr = this.block.number
         }
 
         for (const blocksToRecreate of ci.blocksToRecreate) {
@@ -434,7 +431,10 @@ const abi = [...getABI('NodeRegistryLogic'), ...getABI('NodeRegistryData'), ...g
   inputs: any[]
   hash: string
 }[]
-abi.forEach(_ => _.hash = toHex(keccak(_.name + '(' + _.inputs.map(i => i.type).join(',') + ')'), 32))
+abi.forEach(_ => {
+  const toConvert = _.name + '(' + _.inputs.map(i => i.type).join(',') + ')'
+  _.hash = toHex(keccak(Buffer.from(toConvert, "utf-8")), 32)
+})
 //console.log('abi=\n', abi.map(_ => _.name + '  =>  ' + _.hash + '\n').join(''))
 
 function handleUnregister(ev, handler: RPCHandler) {
@@ -472,3 +472,4 @@ function timeoutPromise<T>(promise: Promise<T>, message?: string, timeout = 4500
       timeoutId = setTimeout(() => { reject(new Error('Timeout ' + (message || 'of Promise'))) }, timeout)
     })]) as Promise<T>
 }
+ 

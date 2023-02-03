@@ -35,6 +35,7 @@
 import { RPCRequest, RPCResponse } from '../types/types';
 import axios from 'axios'
 import { RPCException } from '../util/sentryError'
+import { Agent } from 'https'
 
 /**
  * A Transport-object responsible to transport the message to the handler.
@@ -142,7 +143,6 @@ export class NoneRejectingAxiosTransport extends AxiosTransport {
   constructor(format: ('json' | 'cbor' | 'jsonRef') = 'json') {
     super(format)
     try {
-      const Agent = require('http' + 's').Agent
       this.axiosConfig.agent = new Agent({ rejectUnauthorized: false })
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
     }

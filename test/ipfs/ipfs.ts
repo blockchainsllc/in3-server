@@ -34,68 +34,50 @@
 
 
 
-import { assert } from 'chai'
-import 'mocha'
-import { TestTransport, getTestClient } from '../utils/transport'
+import { assert } from 'chai';
+import 'mocha';
 import { RPCResponse } from '../../src/types/types';
-
-// our test private key
-const pk = '0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238'
+import { TestTransport } from '../utils/transport';
 
 const testIPFSClient = process.env.IPFS_URL || 'http://localhost:5001'
 
 describe('ipfs', () => {
-
+  let test
+  beforeEach(() => {
+    test = new TestTransport(1, undefined, undefined, { handler: 'ipfs', ipfsUrl: testIPFSClient }, undefined, undefined, "0x7d0") // create a network of 1 node
+  })
 
   it('ipfs_put', async () => {
-    let test = new TestTransport(1, undefined, undefined, { handler: 'ipfs', ipfsUrl: testIPFSClient }) // create a network of 1 node
     let client = await test.createClient({ proof: 'standard', requestCount: 1 })
+    const toUpload = "MDEwMjAzMDRGRg=="
 
+    const hash = await client.ipfs.put(toUpload)
+    const fetched = await client.ipfs.get(hash)
 
-    const res = await client.sendRPC('ipfs_put', ['01020304FF', 'hex'])
-    const hash = res.result
-    const data = await client.sendRPC('ipfs_get', [hash, 'hex'])
-
-    assert.equal(data.result, '01020304ff')
+    assert.equal(fetched, toUpload)
   })
 
   it('ipfs_get_cache', async () => {
-    let test = new TestTransport(1, undefined, undefined, { handler: 'ipfs', ipfsUrl: testIPFSClient }) // create a network of 1 node
     let client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
-
-    const res = await client.sendRPC('ipfs_put', ['Hello World', 'utf8'])
-    const hash = res.result
+    const hash = await client.ipfs.put('Hello World', "utf8")
     for (let i = 0; i < 10; i++)
-      assert.equal((await client.sendRPC('ipfs_get', [hash, 'utf8'])).result, 'Hello World')
-
+      assert.equal(await client.ipfs.get(hash, "utf8"), 'Hello World')
   })
 
-
-
-
   it('ipfs_get_verify', async () => {
-    let test = new TestTransport(1, undefined, undefined, { handler: 'ipfs', ipfsUrl: testIPFSClient }) // create a network of 1 node
     let client = await test.createClient({ proof: 'standard', requestCount: 1 })
 
-
-    const res = await client.sendRPC('ipfs_put', ['Hello World', 'utf8'])
-    const hash = res.result
+    const hash = await client.ipfs.put('Hello World', "utf8")
 
     // now manipulate the result
-    test.injectResponse({ method: 'ipfs_get' }, (req, re: RPCResponse) => {
+    test.injectResponse({ method: 'ipfs_get' }, (_req, re: RPCResponse) => {
       re.result = re.result + 'FF'
       return re
     })
 
-
     // this request mus fail because verification fails and there is no other node.
-    await test.mustFail(client.sendRPC('ipfs_get', [hash, 'utf8']))
-
+    await test.mustFail(client.ipfs.get(hash, "utf8"))
   })
-
-
-
-
 })
 

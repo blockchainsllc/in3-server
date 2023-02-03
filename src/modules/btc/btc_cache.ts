@@ -27,14 +27,16 @@ export class BTCCache {
     }
 
     async getBlockHeaderByHash(hashes: string[], json: boolean): Promise<any> {
-        const results: BTCCacheValue[] = hashes.map(this.getOrCreate.bind(this))
+        const results: BTCCacheValue[] = hashes.map(hash => this.getOrCreate(hash))
         const hashesIndexToFetch = hashes.map((_, index) => index).filter(index => !results[index].header || json) // if json === true, then we have to fetch all hashes
 
         // we need to fetch at least 1 element
         if (hashesIndexToFetch.length > 0) {
-            const blockheaders: BTCBlockHeader[] = await this.handler.getAllFromServer(hashesIndexToFetch.map(index => ({
+            const toFetch = hashesIndexToFetch.map(index => ({
                 method: 'getblockheader', params: [hashes[index], true]
-             }))).then(_ => _.map(asResult))
+            }))
+            const serverResult = await this.handler.getAllFromServer(toFetch)
+            const blockheaders: BTCBlockHeader[] = serverResult.map(asResult)
 
              // fill the cache
             hashesIndexToFetch.forEach((hashIndex, i) => {
@@ -87,7 +89,7 @@ export class BTCCache {
     }
 
     async getCoinbaseByHash(hashes: string[]): Promise<Coinbase[]> {
-        const results: BTCCacheValue[] = hashes.map(this.getOrCreate.bind(this))
+        const results: BTCCacheValue[] = hashes.map(hash => this.getOrCreate(hash))
         const hashesIndexToFetch = hashes.map((_, index) => index).filter(index => !results[index].cbtx || !results[index].txids)
 
         // we need to fetch at least 1 element

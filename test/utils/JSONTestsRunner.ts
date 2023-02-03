@@ -33,24 +33,22 @@
  *******************************************************************************/
 
 import { readFileSync } from 'fs'
-import { TestTransport } from './transport'
-import { RPCResponse } from '../../src/types/types'
-import { resetSupport} from '../../src/modules/eth/proof'
-import { keys, isEqual, sortBy, omit } from 'lodash'
-
+import { isEqual, keys, omit, sortBy } from 'lodash'
 import 'mocha'
+import { resetSupport } from '../../src/modules/eth/proof'
+import { RPCResponse } from '../../src/types/types'
+import { TestTransport } from './transport'
 
-export async function runTests(files: string[]): Promise<{ descr: string, c: number, success: boolean, error: string }[]> {
+
+export async function runTests(file: string): Promise<{ descr: string, c: number, success: boolean, error: string }[]> {
   const allResults = []
   let c = 0
-  for (const file of files) {
 
-    for (const test of JSON.parse(readFileSync(file, 'utf8'))) {
-      c++
-      const result = await runTest(test, c)
-      allResults.push(result)
-      console.log(addSpace('' + result.c, 3) + ' : ' + addSpace(result.descr, 130, '.', result.success ? '' : '31') + ' ' + addSpace(result.success ? 'OK' : JSON.stringify(result.error), 0, ' ', result.success ? '32' : '31'))
-    }
+  for (const test of JSON.parse(readFileSync(file, 'utf8'))) {
+    c++
+    const result = await runTest(test, c)
+    allResults.push(result)
+    console.log(addSpace('' + result.c, 3) + ' : ' + addSpace(result.descr, 130, '.', result.success ? '' : '31') + ' ' + addSpace(result.success ? 'OK' : JSON.stringify(result.error || ''), 0, ' ', result.success ? '32' : '31'))
   }
   return allResults
 }
@@ -62,14 +60,11 @@ async function runTest(testData: any, c: number) {
 
   let testTrnsprt = new TestTransport(1,"0x6c095a05764a23156efd9d603eada144a9b1af33", undefined, undefined, testData.handler || 'eth', "0x23d5345c5c13180a8080bd5ddbe7cde64683755dcce6e734d95b7b573845facb")
   testTrnsprt.bypassTopInjectedResponseCheck = true
-  
-  for (const r of testData.mock_responses) 
-    testTrnsprt.injectResponse(r[0], r[1])
-  
-  testTrnsprt.defineGetFromServer("#1", "0x1")
+  testData.mock_responses.forEach(([req, rsp]) => testTrnsprt.injectResponse(req, rsp))
+  testTrnsprt.defineGetFromServer("http://avalid.url/#1", "0x1")
 
   try {
-    const response = await testTrnsprt.handle("#1", testData.request) as RPCResponse
+    const response = await testTrnsprt.handle("http://avalid.url/#1", testData.request) as RPCResponse
 
     const notRequired = ["version","currentBlock","lastValidatorChange","rpcCount","rpcTime","execTime","lastNodeList"]
     notRequired.forEach(element => {
@@ -91,7 +86,7 @@ async function runTest(testData: any, c: number) {
     if (err.message.indexOf(testData.expected_result.error.message) != -1) {
       result.success = true
     } else
-    result.error = err
+      result.error = err
   }
 
   return result
@@ -109,6 +104,6 @@ function isProofEqual(response: RPCResponse, expected_result:any) {
 }
 
 function addSpace(s: string, l: number, filler = ' ', color = '') {
-  while (s.length < l) s += filler
+  if (s.length < l) s += Array(l - s.length).fill(filler).join('')
   return color ? '\x1B[' + color + 'm' + s + '\x1B[0m' : s
 }

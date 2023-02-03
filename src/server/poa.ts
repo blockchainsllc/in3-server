@@ -33,19 +33,21 @@
  *******************************************************************************/
 
 
-import { getSigner as utilSigner } from '../util/util'
-import * as  serialize from '../modules/eth/serialize'
-import { BlockData, LogData } from '../modules/eth/serialize'
-import * as util from '../util/util'
-import { RPCRequest, Proof } from '../types/types'
-import { RPCHandler } from './rpc'
-import EthHandler from '../modules/eth/EthHandler'
+import { publicToAddress } from '@ethereumjs/util'
+import { rlp } from 'ethereumjs-util'
 import * as secp256k1 from 'secp256k1'
-import { publicToAddress, rlp } from 'ethereumjs-util'
+import * as clientConf from '../modules/eth/defaultConfig.json'
+import EthHandler from '../modules/eth/EthHandler'
 import { handleLogs } from '../modules/eth/proof'
+import * as serialize from '../modules/eth/serialize'
+import { BlockData } from '../modules/eth/serialize'
 import * as logger from '../util/logger'
-import { decodeFunction } from '../util/tx';
-const chains = require('../modules/eth/defaultConfig.json').servers
+import { decodeFunction } from '../util/tx'
+import * as util from '../util/util'
+import { getSigner as utilSigner } from '../util/util'
+import { RPCHandler } from './rpc'
+
+const chains = clientConf.servers
 /**
  * a Object holding proofs for validator logs. The key is the blockNumber as hex
  */
@@ -104,8 +106,6 @@ export interface ValidatorHistory {
 }
 export async function getValidatorHistory(handler: RPCHandler): Promise<ValidatorHistory> {
     const chain = chains[handler.chainId]
-    const spec = chain && chain.chainSpec
-    const engine = spec && spec.engine as string
     return !chain ? {} : (chain.history || (chain.history = { states: [], lastCheckedBlock: 0, lastValidatorChange: 0, queue: null }))
 
 }
@@ -113,7 +113,6 @@ export async function updateValidatorHistory(handler: RPCHandler): Promise<Valid
 
     const chain = chains[handler.chainId]
     const spec = chain && chain.chainSpec
-    //    const engine = spec && spec.engine as string
     const history: ValidatorHistory = !chain ? null : (chain.history || (chain.history = { states: [], lastCheckedBlock: 0, lastValidatorChange: 0 }))
     const currentBlock = handler.watcher ? handler.watcher.block.number : parseInt((await handler.getFromServer({ method: 'eth_blockNumber', params: [] })).result)
 

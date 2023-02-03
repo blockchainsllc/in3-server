@@ -34,7 +34,7 @@
 
 
 
-FROM node:12 AS build
+FROM node:18 AS build
 
 WORKDIR /app
 
@@ -46,11 +46,13 @@ ENV VERSION_SHA=$CI_COMMIT_SHA
 
 ADD . .
 # temporarily install dependencies for building packages
-RUN apt-get update && apt-get install -y build-essential python g++ cmake \
-    && npm install \
+RUN apt-get update && apt-get install -y build-essential python g++ cmake
+RUN npm config set @blockchainsllc:registry https://git.slock.it/api/v4/projects/1002/packages/npm/
+RUN npm config set '//git.slock.it/api/v4/projects/1002/packages/npm/:_authToken' $NPM_REGISTRY_TOKEN
+RUN npm install \
     && npm run build
 
-FROM node:12
+FROM node:18
 WORKDIR /app
 ARG CI_COMMIT_SHA
 ARG VERSION

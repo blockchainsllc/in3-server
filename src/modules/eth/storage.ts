@@ -32,10 +32,12 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import { toChecksumAddress, BN, keccak256 } from 'ethereumjs-util'
-import { toHex, toBuffer, toNumber } from '../../util/util';
+import { toChecksumAddress } from '@ethereumjs/util'
+import { keccak256 } from 'ethereum-cryptography/keccak'
+import { toHex, toNumber } from '../../util/util';
 import { bytes32 } from './serialize'
 import { AxiosTransport } from '../../util/transport'
+import BN from 'bn.js'
 
 /**
  * calc the storrage array key

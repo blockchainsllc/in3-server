@@ -32,13 +32,16 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import VM from 'ethereumjs-vm'
-import * as Account from 'ethereumjs-account'
-import * as Block from 'ethereumjs-block'
-import * as Trie from 'merkle-patricia-tree'
-import * as util from '../../util/util'
-import * as serialize  from './serialize'
+import { Block } from '@ethereumjs/block'
+import { Blockchain } from '@ethereumjs/blockchain'
+import { Chain, Common, Hardfork } from '@ethereumjs/common'
+import { EVM } from '@ethereumjs/evm'
+import { DefaultStateManager } from '@ethereumjs/statemanager'
+import { Account } from '@ethereumjs/util'
+import { EEI } from '@ethereumjs/vm'
 import { RPCRequest, RPCResponse } from '../../types/types'
+import * as util from '../../util/util'
+import * as serialize from './serialize'
 
 // cache structure holding the accounts and storage
 export interface CacheAccount {
@@ -107,7 +110,11 @@ export async function analyseCall(args: {
   } = { blocks: [], accounts: {} }
 
   // create new state for a vm
-  const vm = new VM({ state: new Trie(), chain: 'mainnet', hardfork: 'istanbul' })
+  const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Istanbul })
+  const blockchain = await Blockchain.create()
+  const stateManager = new DefaultStateManager()
+  const eei = new EEI(new DefaultStateManager(), common, blockchain)
+  const vm = await EVM.create({ common, eei })
 
   // create a transaction-object
   const tx = serialize.createTx({ gas: '0x5b8d80', gasLimit: '0x5b8d80', from: '0x0000000000000000000000000000000000000000', ...args })
@@ -149,14 +156,14 @@ export async function analyseCall(args: {
 
   function setCode(ad: string) {
     const a = getAccount(util.toHex(ad, 20))
-    return fetchCode(ad).then(_ => util.promisify(vm.stateManager, vm.stateManager.putContractCode, util.toBuffer(a.address, 20), util.toBuffer(a.code = _ as any)))
+    return fetchCode(ad).then(_ => util.promisify(stateManager, stateManager.putContractCode, util.toBuffer(a.address, 20), util.toBuffer(a.code = _ as any)))
   }
 
   // get the code of the contract
   await setCode(args.to)
 
   // keep track of each opcode in order to make sure, all storage-values are provided!
-  vm.on('step', (ev, next) => {
+  vm.events.on('step', (ev, next) => {
 
     //    console.log(ev.opcode.name + '   [ ' + ev.stack.map(_ => '0x' + _.toString('hex')).join(' | ') + ' ]')
 
@@ -171,8 +178,9 @@ export async function analyseCall(args: {
         if (ev.opcode.name === 'BALANCE' && acc.balance === undefined)
           return handle(fetchBalance(acc.address).then(_ => {
             // set the account data
-            acc.ac.balance = acc.balance = _
-            return util.promisify(vm.stateManager, vm.stateManager.putAccount, util.toBuffer(acc.address, 20), acc.ac)
+            acc.balance = _
+            acc.ac.balance = BigInt(_)
+            return util.promisify(stateManager, stateManager.putAccount, util.toBuffer(acc.address, 20), acc.ac)
           }), next)
         else if (ev.opcode.name !== 'BALANCE' && acc.code === undefined)
           return handle(setCode(acc.address), next)
@@ -194,7 +202,7 @@ export async function analyseCall(args: {
 
         if (ac.storage[mKey] === undefined)
           return handle(fetchStorage(ac.address, '0x' + key.toString('hex')).then(_ => {
-            return util.promisify(ev.stateManager, ev.stateManager.putContractStorage, util.toBuffer(ac.address, 20), key, util.toBuffer(ac.storage[mKey] = _, 32))
+            return util.promisify(stateManager, stateManager.putContractStorage, util.toBuffer(ac.address, 20), key, util.toBuffer(ac.storage[mKey] = _, 32))
           }), next)
         break
 
@@ -205,7 +213,7 @@ export async function analyseCall(args: {
   })
 
   // run the tx
-  const result = await vm.runTx({ tx, block: new Block([block, [], []]) })
+  const result = await vm.runCall({ ...tx, block: Block.fromRLPSerializedBlock(util.toBuffer(block)) })
 
   if (err) throw err
   res.result = result.execResult.returnValue

@@ -34,8 +34,7 @@
 
 
 
-const Sentry = require('@sentry/node')
-import { AppContext, RPCResponse } from '../types/types'
+import { AppContext, RPCResponse } from '../types/types';
 
 /**
  * creates a Error with the capability to report it to Sentry.

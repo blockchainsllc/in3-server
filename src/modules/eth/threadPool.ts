@@ -40,7 +40,7 @@ let workers = []
 let firstTime = true
 let openThreads = 0
 
-class ThreadPool {
+export class ThreadPool {
     constructor() {
         if (firstTime) {
             this.clearThread()
@@ -93,7 +93,7 @@ class ThreadPool {
     }
     private waitForThreads() {
         return new Promise(resolve => {
-            return this.hasWorkers() ? setTimeout(() => this.waitForThreads().then(() => resolve()), 200) : resolve()
+            return this.hasWorkers() ? setTimeout(() => this.waitForThreads().then(() => resolve(null)), 200) : resolve(null)
         })
     }
 
@@ -118,5 +118,3 @@ class ThreadPool {
         }, 30000)
     }
 }
-
-module.exports = ThreadPool;

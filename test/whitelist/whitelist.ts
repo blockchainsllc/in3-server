@@ -55,7 +55,7 @@ describe('WhiteList Tests', () => {
     // check deployed code
     const adr = await deployWhiteList(acct, getTestClient(), "0")
 
-    const receipt = await tx.callContract(getTestClient(), adr, 'whiteListNode(address)', [whitelistedNode], {
+    await tx.callContract(getTestClient(), adr, 'whiteListNode(address)', [whitelistedNode], {
       confirm: true,
       privateKey: acct,
       gas: 3000000,
@@ -133,7 +133,7 @@ describe('WhiteList Tests', () => {
     await rpc.init()
 
     //register contract in watch and get block num
-    const wl = await rpc.getHandler().getWhiteList(true, adr)
+    await rpc.getHandler().getWhiteList(true, adr)
     const whiteListBlockNum = await rpc.getHandler().whiteListMgr.getBlockNum()
 
     //register another contract and get block num

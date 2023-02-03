@@ -39,16 +39,15 @@ import { runTests } from '../utils/JSONTestsRunner'
 
 const testDir = 'test/JSONTest/testsdata'
 describe('JSON-Tests', () => {
-
   for (const f of readdirSync(testDir)) {
-    if(f.toLowerCase().indexOf(".json")==-1)
-      continue
-
-    it(f, async () => {
-      const all = await runTests([testDir + '/' + f])
-
-      for (const r of all)
-        assert.isTrue(r.success, r.c + ' : ' + r.descr + ' failed : ' + r.error)
-    })
+    if(f.toLowerCase().includes(".json")){
+      it(f, async () => {
+        const all = await runTests(`${testDir}/${f}`)
+  
+        for (const r of all) {
+          assert.isTrue(r.success, r.c + ' : ' + r.descr + ' failed : ' + r.error)
+        }
+      })
+    }
   }
 })

@@ -35,8 +35,7 @@
 
 
 import { RPCRequest, RPCResponse } from "../types/types"
-import * as Trie from 'merkle-patricia-tree'
-import { Signature } from "../modules/eth/api"
+import { BaseTrie as Trie } from 'merkle-patricia-tree'
 
 export class SimpleCache {
 

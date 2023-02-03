@@ -17,7 +17,7 @@
       "id": 1,
       "error": {
         "code": -32602,
-        "message": "rpc.in3.finality (if given the server will deliver the blockheaders of the following blocks until at least the number in percent of the validators is reached.) should be <= 100"
+        "message": "rpc/in3/finality (if given the server will deliver the blockheaders of the following blocks until at least the number in percent of the validators is reached.) must be <= 100"
       },
       "jsonrpc": "2.0"
     }

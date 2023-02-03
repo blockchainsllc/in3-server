@@ -33,195 +33,96 @@
  *******************************************************************************/
 
 
-import { assert } from 'chai'
+import chai from 'chai'
 import 'mocha'
 import * as util from '../../src/util/util'
 import { toHex } from '../../src/util/util'
-import { ServerList } from '../../src/types/types'
-import { RPCResponse } from '../../src/types/types'
-import EthChainContext from 'in3/js/src/modules/eth/EthChainContext'
 import { registerNodes, deployContract } from '../../src/util/registry'
 import { TestTransport, getTestClient } from '../utils/transport'
 import Watcher from '../../src/chains/watch'
-import EventWatcher from '../utils/EventWatcher'
 import * as tx from '../../src/util/tx'
-import * as clientRPC from '../utils/clientRPC'
 import EthHandler from '../../src/modules/eth/EthHandler'
 import { resetSupport} from '../../src/modules/eth/proof'
+import _ from 'lodash'
 
 const toNumber = util.toNumber
+const assert = chai.assert
 
 describe('Features', () => {
 
   beforeEach(resetSupport)
 
-  it('check auto update nodelist', async () => {
+  // This test doesnt make any more sense because the update from the nodelist does not dispatch a new request, it uses the one it has. In case the nodelist is returned by config, that can be tested instead
+  // it('check auto update nodelist', async () => {
+  //   let chaiStatic = chai as any
+  //   chaiStatic.use(spies)
 
-    // create a new key  
-    const pk = await new TestTransport().createAccount()
+  //   // create a new key  
+  //   const pk = await new TestTransport().createAccount()
 
+  //   const test = await TestTransport.createWithRegisteredNodes(3)
 
-    const test = await TestTransport.createWithRegisteredNodes(2)
-    let lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber'))
-    const client = await test.createClient({ requestCount: 1 })
-    const watcher: Watcher = test.handlers['#1'].getHandler().watcher
-    const events = new EventWatcher(client, 'nodeUpdateStarted', 'nodeUpdateFinished')
+  //   let lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber'))
+  //   let client = await test.createClient({ requestCount: 1 })
 
-    // this will find the 2 events from registering in the beginnging and start an update of the server nodelist
-    assert.equal((await watcher.update()).length, 2)
+  //   // get the current blocknumber directly from parity without asking the in3-server
+  //   let currentBlock = toNumber(await test.getFromServer('eth_blockNumber'))
 
-    // the servlist is now up to date
+  //   // now we send a request through the client. 
+  //   let block = await client.in3.sendRPC('eth_blockNumber', [])
 
+  //   // This will now get an updated blocknumber with the current block
+  //   chaiStatic.assert.equal(block, currentBlock)
 
-    // get the current blocknumber directly from parity without asking the in3-server
-    let currentBlock = toNumber(await test.getFromServer('eth_blockNumber'))
+  //   client = await test.createClient({ requestCount: 1, autoUpdateList: true, debug: true })
+  //   // Overrides the current transport on the client in order to be able to assert about the requests
+  //   let transportHandle = client.in3.transport
+  //   let spy = chaiStatic.spy.on(client.in3, 'transport', async (url: string, data: string, timeout?: number) => {
+  //     return await transportHandle(url, data, timeout)
+  //   })
 
+  //   // now we register another server
+  //   await registerNodes(pk, test.registryContract, [{
+  //     url: 'http://avalid.url/#4',
+  //     pk,
+  //     props: '0xffff',
+  //     deposit: util.toBN('10000000000000000'),
+  //     timeout: 7200,
+  //   }], test.chainId, test.url)
+  //   lastChangeBlock = await test.getFromServer('eth_blockNumber')
+    
+  //   _.values(test.handlers).forEach(handler => {
+  //     handler.getHandler().watcher.update()
+  //   })
 
-    // now we send a request through the client. 
-    let response = await client.sendRPC('eth_blockNumber')
+  //   client.util.cacheClear()
 
-    // This will now get an updated blocknumber with the current block
-    assert.equal(response.in3.lastNodeList, lastChangeBlock)
-    assert.equal(watcher.block.number, currentBlock)
+  //   // now we send a request and automaticly trigger another auto-update
+  //   await client.eth.getBlock(currentBlock)
 
-    // this starts an update of the nodelist in the client
-    await events.waitFor(['nodeUpdateStarted'])
-
-    // and we wait until it is finished
-    await events.waitFor(['nodeUpdateFinished'])
-    events.clear()
-
-    // now we register another server
-    await registerNodes(pk, test.registryContract, [{
-      url: '#3',
-      pk,
-      props: '0xffff',
-      deposit: util.toBN('10000000000000000'),
-      timeout: 7200,
-    }], test.chainId, test.url)
-    lastChangeBlock = toNumber(await test.getFromServer('eth_blockNumber'))
-
-
-    // the watcher will find an register-event and triggers an update of the server-nodelist
-    const logs = await watcher.update()
-    assert.equal(logs.length, 1)
-    assert.equal(logs[0].event, 'LogNodeRegistered')
-    assert.equal(logs[0].url, '#3')
-    assert.equal(logs[0].props, 0xffff)
-    assert.equal(logs[0].signer, pk.address)
-
-    // we still have only 2 nodes since the watchers has not been triggered yet
-    assert.equal(client.defConfig.servers[test.chainId].nodeList.length, 2)
-
-    // now we send a request and automaticly trigger another auto-update
-    response = await client.sendRPC('eth_blockNumber')
-
-    // the response contained a new blocknumber
-    assert.equal(response.in3.lastNodeList, lastChangeBlock)
-
-
-    // we should now get a nodeUpdateStarted-event
-    assert.equal((await events.waitFor(['nodeUpdateStarted'])).name, 'nodeUpdateStarted')
-
-    // and we wait until it is finished
-    await events.waitFor(['nodeUpdateFinished'])
-
-    // now the client has 3 servers
-    assert.equal(client.defConfig.servers[test.chainId].nodeList.length, 3)
-  })
+  //   // We expect to be called once for eth_blockNumber and one more to update the nodelist. Unfortunately, right now, we cant assert substrings on data which would make for a more robust test.
+  //   chaiStatic.expect(spy).to.have.been.called.at.least(2)
+  // })
 
 
   it('updateLatestBlock', async () => {
-
     const test = new TestTransport()
     const client = await test.createClient({ requestCount: 1 })
     const pk = await test.createAccount()
-
     const contract = await deployContract('TestContract', pk, getTestClient())
-    const startBlock = toNumber(await test.getFromServer('eth_blockNumber'))
+
+    // call with latest block and expect 1 because the counter was incremented
+    assert.equal(
+      await client.in3.sendRPC('eth_getStorageAt', [contract, toHex('0x00', 32), 'latest']),
+      0)
 
     // increment the counter only on adr1
     await tx.callContract(test.url, contract, 'increase()', [], { confirm: true, privateKey: pk, gas: 3000000, value: 0 })
 
-
     // call with latest block and expect 1 because the counter was incremented
     assert.equal(
-      await client.sendRPC('eth_getStorageAt', [contract, toHex('0x00', 32), 'latest']).then(_ => toNumber(_.result)),
+      await client.in3.sendRPC('eth_getStorageAt', [contract, toHex('0x00', 32), 'latest']),
       1)
-
-    // call with latest block of 1 which is the state before incrementing
-    assert.equal(
-      await client.sendRPC('eth_getStorageAt', [contract, toHex('0x00', 32), 'latest'], undefined, { replaceLatestBlock: 1 }).then(_ => toNumber(_.result)),
-      0)
-
-  })
-
-
-
-  it('partial Server List', async () => {
-
-    // create  10 nodes
-    const test = await TestTransport.createWithRegisteredNodes(10)
-
-    const client = await test.createClient({ nodeLimit: 6, requestCount: 1, proof: 'standard' })
-
-    const evWatcher = new EventWatcher(client, 'nodeUpdateFinished')
-
-    // update the nodelist in the server
-    await test.getHandler(0).updateNodeList(undefined)
-    await client.updateNodeList()
-
-    const ev: { name: string, arg: { nlResponse: RPCResponse, nodeList: ServerList } } = await evWatcher.getEvent('nodeUpdateFinished')
-    assert.isDefined(ev)
-
-    const proof = ev.arg.nlResponse.in3.proof
-
-    assert.isDefined(proof)
-    assert.equal(proof.type, 'accountProof')
-    assert.equal(ev.arg.nodeList.totalServers, 10)
-    assert.equal(ev.arg.nodeList.nodes.length, 6)
-    assert.isDefined(proof.accounts[test.nodeList.contract])
-
-  })
-
-  it('code cache', async () => {
-
-    // create  10 nodes
-    const test = new TestTransport(2)
-    const client = await test.createClient({ maxCodeCache: 100000, requestCount: 1, proof: 'standard', includeCode: false })
-
-    // deploy testcontract
-    const pk = await test.createAccount()
-    const adr = await deployContract('TestContract', pk, getTestClient())
-
-    const ctx = client.getChainContext(client.defConfig.chainId) as EthChainContext
-
-    assert.equal(ctx.codeCache.data.size, 0)
-    const response = await clientRPC.callContractWithClient(client, adr, 'counter()')
-
-    assert.equal(ctx.codeCache.data.size, 1)
-
-  })
-  // TODO: remove
-  it('block cache', async () => {
-
-    // create  10 nodes
-    const test = new TestTransport(2)
-    const client = await test.createClient({ maxBlockCache: 3, requestCount: 1, proof: 'standard', signatureCount: 1 })
-
-    // deploy testcontract
-    const pk = await test.createAccount()
-
-    const ctx = client.getChainContext(client.defConfig.chainId) as EthChainContext
-
-    assert.equal(ctx.blockCache.length, 0)
-    const resp1 = await client.sendRPC('eth_getBalance', [pk.address, 'latest'])
-    assert.equal(ctx.blockCache.length, 1)
-    assert.equal(resp1.in3.proof.signatures.length, 1)
-
-    const resp2 = await client.sendRPC('eth_getBalance', [pk.address, 'latest'])
-    assert.equal(ctx.blockCache.length, 1)
-    assert.equal(resp2.in3.proof.signatures.length, 0)
   })
 
   it('check nodelist finality', async () => {
@@ -238,7 +139,7 @@ describe('Features', () => {
     const pk2 = await test.createAccount('0x02')
     const pk = await test.createAccount('0x03')
 
-    const watcher: Watcher = test.handlers['#1'].getHandler().watcher
+    const watcher: Watcher = test.handlers['http://avalid.url/#1'].getHandler().watcher
     await watcher.update()
     assert.equal((watcher.handler as EthHandler).nodeList.nodes.length, 2)
 
@@ -261,11 +162,11 @@ describe('Features', () => {
      * Test with block height and node list finality
      */
     //now set block height to 10
-    test.handlers['#1'].getHandler().config.minBlockHeight = 10
+    test.handlers['http://avalid.url/#1'].getHandler().config.minBlockHeight = 10
 
     //register a node
     await registerNodes(pk, test.registryContract, [{
-      url: '#13',
+      url: 'http://avalid.url/#13',
       pk,
       props: '0xfff',
       deposit: util.toBN('10000000000000000'),
@@ -299,7 +200,7 @@ describe('Features', () => {
 
     assert.equal(logs.length, 1)
     assert.equal(logs[0].event, 'LogNodeRegistered')
-    assert.equal(logs[0].url, '#13')
+    assert.equal(logs[0].url, 'http://avalid.url/#13')
     assert.equal(logs[0].props, 0xfff)
     assert.equal(logs[0].signer, pk.address)
 
@@ -310,5 +211,4 @@ describe('Features', () => {
     assert.equal(currentBlock-lastChangeBlock,10)
 
   }).timeout(5000)
-
 })

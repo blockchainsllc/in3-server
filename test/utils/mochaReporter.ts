@@ -50,7 +50,6 @@ function color(colorName, content) {
  * @class USNReporter
  */
 class TestReporter extends mocha.reporters.Spec {
-  private run: mocha.IRunner
   private root = 'test/report/'
   private lastStart: number
   private results: {
@@ -66,9 +65,9 @@ class TestReporter extends mocha.reporters.Spec {
   constructor(runner) {
     super(runner)
 
-    runner.on('pass', (test: mocha.ITest) => this.reportTest(test, null, false))
-    runner.on('fail', (test: mocha.ITest, error) => this.reportTest(test, error, false))
-    runner.on('pending', (test: mocha.ITest) => this.reportTest(test, null, true))
+    runner.on('pass', (test: mocha.Test) => this.reportTest(test, null, false))
+    runner.on('fail', (test: mocha.Test, error) => this.reportTest(test, error, false))
+    runner.on('pending', (test: mocha.Test) => this.reportTest(test, null, true))
     runner.on('end', () => this.createIndex())
     runner.on('test', () => this.lastStart = Date.now())
 
@@ -125,7 +124,7 @@ class TestReporter extends mocha.reporters.Spec {
     return { message, stack: stackString, err: test.err }
   }
 
-  reportTest(test: mocha.ITest, error: any, pending: boolean) {
+  reportTest(test: mocha.Test, error: any, pending: boolean) {
     const err = this.createError(test)
     const logs = getLogsAndClear()
     const title = test.fullTitle()

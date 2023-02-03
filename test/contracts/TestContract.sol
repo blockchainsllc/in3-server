@@ -40,9 +40,10 @@ contract TestContract {
 
     uint256 public counter;
 
-    function increase() public {
+    function increase() public returns (uint256) {
         counter = counter + 1;
         LogInc(counter, msg.sender);
+        return counter;
     }
 
     function add(TestContract c) public view returns (uint256) {

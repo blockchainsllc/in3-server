@@ -71,6 +71,9 @@ dev
 #npmrc
 .npmrc
 
+#cache
+.in3
+
 #compiled contracts
 contracts/contracts.json
 
