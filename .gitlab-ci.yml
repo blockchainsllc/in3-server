@@ -17,6 +17,21 @@ include:
     ref: main
     file: "/templates/.gitlab-ci-sonarqube.yml"
 
+"black duck scan branches":
+  stage: analysis
+  needs: []
+
+"black duck scan tags":
+  stage: analysis
+  needs: []
+
+sonar qube scan tags:
+  stage: analysis
+  needs: []
+
+sonar qube scan branches:
+  stage: analysis
+  needs: []
 
 build-server:
   stage: build
