@@ -52,7 +52,7 @@ export function verifyRequest(req: any) {
 }
 function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any, data?: any) {
     const all = [...errs]
-    errs.filter(_ => _.keyword == 'oneOf').map(one => {
+    errs.filter(_ => _.keyword == 'oneOf').forEach(one => {
         one.message = 'must be ' + all.filter(_ => _ !== one && _.schemaPath.startsWith(one.schemaPath)).map(sub => {
             const i = all.indexOf(sub)
             all.splice(i, 1)

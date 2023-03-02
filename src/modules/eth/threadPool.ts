@@ -104,7 +104,7 @@ class ThreadPool {
     private clearThread() {
         setInterval(function () {
             if (workers.length > 0) {
-                workers.map(thread => {
+                workers.forEach(thread => {
                     if ((Date.now() - thread.lastInteraction) > 90000) {
                         if (workers.length > 1) {
                             workers.splice(workers.indexOf(thread), 1)

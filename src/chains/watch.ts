@@ -286,7 +286,7 @@ export default class Watcher extends EventEmitter {
               undefined,
               undefined,
               this.context
-            ).catch(_ => { new SentryError(_, this.context, "saveBlocknumber") })
+            ).catch(_ => { throw new SentryError(_, this.context, "saveBlocknumber") })
           }
 
           let currentRecreateBlock = latestSS
@@ -347,7 +347,7 @@ export default class Watcher extends EventEmitter {
                   undefined,
                   this.context
                 ).catch(_ => {
-                  new SentryError(_, this.context, "recreateBlockheaders")
+                  throw new SentryError(_, this.context, "recreateBlockheaders")
                 })
 
                 ci.latestBlock = toNumber((await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [blocksToRecreate.number - 10, 20], undefined, undefined, undefined, this.context))[0])
