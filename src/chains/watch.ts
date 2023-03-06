@@ -34,8 +34,8 @@
 import * as fs from 'fs'
 import { EventEmitter } from 'events'
 import * as  util from '../util/util'
-import { LogData }  from '../modules/eth/serialize'
-import * as serialize  from '../modules/eth/serialize'
+import { LogData } from '../modules/eth/serialize'
+import * as serialize from '../modules/eth/serialize'
 import { keccak, toChecksumAddress } from 'ethereumjs-util'
 
 import { RPCHandler } from '../server/rpc';
@@ -259,9 +259,9 @@ export default class Watcher extends EventEmitter {
           value: 0,
           confirm: true
         },
-        undefined,
-        undefined,
-        this.context)
+          undefined,
+          undefined,
+          this.context)
 
         ci.convictBlockNumber = this.block.number
 
@@ -272,17 +272,17 @@ export default class Watcher extends EventEmitter {
           ci.blocksToRecreate = []
           let latestSS = toNumber((await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'searchForAvailableBlock(uint,uint):(uint)', [ci.wrongBlockNumber, ci.diffBlocks], undefined, undefined, undefined, this.context))[0])
 
-          if (latestSS === 0) latestSS == this.block.number
+          if (latestSS === 0) latestSS = this.block.number
           ci.latestBlock = latestSS
 
           // we did not found an entry in the registry yet, so we would have to create one
           if (latestSS === this.block.number && worthIt) {
 
             await tx.callContract(this.handler.config.rpcUrl[0], this.blockhashRegistry, 'saveBlockNumber(uint):()', [this.block.number], {
-                privateKey: (this.handler.config as any)._pk,
-                value: 0,
-                confirm: false
-              },
+              privateKey: (this.handler.config as any)._pk,
+              value: 0,
+              confirm: false
+            },
               undefined,
               undefined,
               this.context

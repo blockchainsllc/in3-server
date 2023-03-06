@@ -32,7 +32,7 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 import { Transport, AxiosTransport } from '../util/transport'
-import * as util  from '../util/util'
+import * as util from '../util/util'
 import { WhiteList, RPCRequest, RPCResponse, IN3ResponseConfig, IN3RPCRequestConfig, ServerList, IN3RPCConfig, IN3RPCHandlerConfig, AppContext } from '../types/types'
 import axios from 'axios'
 import Watcher from '../chains/watch';
@@ -98,7 +98,7 @@ export class RPC {
     }
   }
 
-  async  handle(request: RPCRequest[]): Promise<RPCResponse[]> {
+  async handle(request: RPCRequest[]): Promise<RPCResponse[]> {
     return Promise.all(request.map(r => {
 
       // verify request
@@ -249,7 +249,7 @@ export class RPC {
             (in3 as any).lastWhiteList = handler.whiteListMgr.getWhiteListEventBlockNum(r.in3.whiteList)
           return _
         }, err => {
-          if (err instanceof IncubedError){
+          if (err instanceof IncubedError) {
             return handler.toError(r, err)
           } else { throw err }
         })
@@ -262,7 +262,7 @@ export class RPC {
 
   getRequestFromPath(path: string[], in3: { chainId: string }): RPCRequest {
     const handler = this.getHandler(in3.chainId)
-    if (!handler) null
+    if (!handler) return null
     return handler.getRequestFromPath(path, in3)
   }
 
