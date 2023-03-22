@@ -4,7 +4,9 @@ description: describes a rpc-request being handled by the in3-server
 type: object
 properties:
   id:
-    type: [number, string]
+    anyOf:
+    - type: number
+    - type: string
   jsonrpc:
     const: "2.0"
   method:
@@ -14,6 +16,7 @@ properties:
   in3:
     description: additional config for a IN3 RPC-Request
     additionalProperties: false
+    type: 'object'
     properties:
       chainId:
         description: the requested chainId

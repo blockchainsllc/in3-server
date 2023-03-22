@@ -32,12 +32,12 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import { Transport } from '../../util/transport'
-import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, AppContext } from '../../types/types'
 import axios from 'axios'
+import FormData from 'form-data'
 import BaseHandler from '../../chains/BaseHandler'
-import * as FormData from 'form-data'
-import { RPCException, IncubedError } from '../../util/sentryError'
+import { AppContext, IN3RPCHandlerConfig, RPCRequest, RPCResponse, ServerList } from '../../types/types'
+import { IncubedError } from '../../util/sentryError'
+import { Transport } from '../../util/transport'
 
 
 /**

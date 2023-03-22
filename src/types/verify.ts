@@ -32,13 +32,12 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import * as Ajv from 'ajv'
+import Ajv, { ErrorObject } from 'ajv'
 import { IncubedError, RPCException } from '../util/sentryError'
-
 // the schema
 const schema = require('./rpc.json')
 
-var ajv = new Ajv()
+var ajv = new Ajv({ strict: false })
 ajv.addMetaSchema(require('ajv/lib/refs/json-schema-draft-06.json'))
 ajv.addSchema(schema)
 
@@ -50,7 +49,8 @@ export function verifyRequest(req: any) {
     if (!ajv.validate('https://slock.it/rpc.json#/definitions/' + req.method, req.params))
         throw new IncubedError(req.method + ' : ' + getErrorMessage(ajv.errors, schema.definitions[req.method], null, req), RPCException.INVALID_PARAMS)
 }
-function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any, data?: any) {
+
+function getErrorMessage(errs: ErrorObject[], s?: any, opt?: any, _data?: any) {
     const all = [...errs]
     errs.filter(_ => _.keyword == 'oneOf').forEach(one => {
         one.message = 'must be ' + all.filter(_ => _ !== one && _.schemaPath.startsWith(one.schemaPath)).map(sub => {
@@ -58,9 +58,9 @@ function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any, data?: any
             all.splice(i, 1)
             switch (sub.keyword) {
                 case 'enum':
-                    return 'one of ' + (sub.params as Ajv.EnumParams).allowedValues.map(_ => "'" + _ + "'").join()
+                    return 'one of ' + sub.params.allowedValues.join(', ')
                 case 'pattern':
-                    return 'match ' + (sub.params as Ajv.PatternParams).pattern
+                    return 'match ' + sub.params.values.join(', ')
                 default:
                     return sub.message
             }
@@ -72,10 +72,10 @@ function getErrorMessage(errs: Ajv.ErrorObject[], s?: any, opt?: any, data?: any
                 e.message = e.message.replace('constant', "'" + (e.params as any).allowedValue + "'")
                 break
             case 'enum':
-                e.message = 'must be ' + (e.params as Ajv.EnumParams).allowedValues.map(_ => "'" + _ + "'").join(' or ')
+                e.message = 'must be ' + e.params.values.map(_ => "'" + _ + "'").join(' or ')
                 break
             case 'additionalProperties':
-                e.message = ' does not allow unsupported properties like \'' + (e.params as Ajv.AdditionalPropertiesParams).additionalProperty + "'"
+                e.message = ' does not allow unsupported properties like \'' + e.params.values.join(' ') + "'"
 
         }
     })

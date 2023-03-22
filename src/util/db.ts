@@ -34,12 +34,12 @@
 
 
 
-import * as pg from 'pg-promise'
+import pgPromise from 'pg-promise'
 import config, { getSafeMinBlockHeight } from '../server/config'
 import { IN3RPCHandlerConfig, validationDef as typeDefs } from '../types/types'
 
 
-const db = config.id && config.db && (pg({}))(config.db)
+const db = config.id && config.db && (pgPromise({}))(config.db)
 
 export const useDB = !!db
 export async function exec(sql, ...params: any[]) {
@@ -63,7 +63,7 @@ export async function initConfig() {
 
 
   for (const key of Object.keys(node)) {
-    const prop = key.replace(/_([a-z0-9])/gm, (m, l) => l.toUpperCase())
+    const prop = key.replace(/_([a-z0-9])/gm, (_m, l) => l.toUpperCase())
     if (!node[key]) continue
     if (typeDefs.IN3RPCConfig.properties[prop])
       config[prop] = node[key]

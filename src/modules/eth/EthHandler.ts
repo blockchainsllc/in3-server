@@ -32,7 +32,7 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import * as in3Util from '../../util/util'
+import { toHex, toNumber } from '../../util/util'
 import { Transport} from '../../util/transport'
 import * as  serialize  from './serialize'
 import { RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, ChainSpec, AppContext } from '../../types/types'
@@ -43,10 +43,7 @@ import { getValidatorHistory } from '../../server/poa'
 import { TxRequest, LogFilter } from './api';
 import * as tx from '../../../src/util/tx'
 import { IncubedError, UserError, RPCException } from '../../util/sentryError'
-
-const clientConf = require('./defaultConfig.json')
-const toHex = in3Util.toHex
-const toNumber = in3Util.toNumber
+import * as clientConf from './defaultConfig.json'
 
 /**
  * handles EVM-Calls
@@ -64,8 +61,9 @@ export default class EthHandler extends BaseHandler {
     // replace the latest BlockNumber
     if (request.in3 && request.in3.latestBlock && Array.isArray(request.params)) {
       const i = request.params.indexOf('latest')
-      if (i >= 0)
-        request.params[i] = toHex((this.watcher.block.number || await this.getFromServer({ method: 'eth_blockNumber', params: [] }, request).then(_ => toNumber(_.result))) - request.in3.latestBlock)
+      if (i >= 0){
+        request.params[i] = toHex((![0, -1].includes(this.watcher.block.number) ? this.watcher.block.number : await this.getFromServer({ method: 'eth_blockNumber', params: [] }, request).then(_ => toNumber(_.result))) - request.in3.latestBlock)
+      }
     }
 
     // make sure the in3 params are set

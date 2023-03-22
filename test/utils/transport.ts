@@ -34,26 +34,24 @@
 
 
 
-import { Transport, AxiosTransport } from '../../src/util/transport'
-import * as util  from '../../src/util/util'
-import Client from 'in3'
-import { RPCRequest, RPCResponse, IN3NodeConfig, IN3Config, ServerList, IN3RPCHandlerConfig } from '../../src/types/types'
-
-import * as logger from '../../src/util/logger'
-import * as crypto from 'crypto'
-import { sendTransaction, callContract } from '../../src/util/tx'
+import { SDK } from '@blockchainsllc/equs-sdk'
 import axios from 'axios'
-import { registerNodes } from '../../src/util/registry'
-import { RPC, RPCHandler } from '../../src/server/rpc'
-import { createPK, PK } from '../../src/chains/signatures'
-import { toBN, toUtf8, toMinHex } from '../../src/util/util'
+import * as crypto from 'crypto'
 import { isEqual } from 'lodash'
+import { createPK, PK } from '../../src/chains/signatures'
+import { RPC, RPCHandler } from '../../src/server/rpc'
+import { IN3Config, IN3NodeConfig, IN3RPCHandlerConfig, RPCRequest, RPCResponse, ServerList } from '../../src/types/types'
+import * as logger from '../../src/util/logger'
+import { registerNodes } from '../../src/util/registry'
+import { AxiosTransport, Transport } from '../../src/util/transport'
+import { callContract, sendTransaction } from '../../src/util/tx'
+import { getAddress, toBN, toMinHex, toNumber, toUtf8 } from '../../src/util/util'
 
 logger.setLogger('memory')
 
-let testClient = (process && process.env && process.env.RPCURL) || 'http://localhost:8545'
-if (process && process.argv) {
-  const urlIndex = process.argv.findIndex(_ => _.startsWith('--rpcUrl'))
+let testClient = process?.env?.RPCURL || 'http://localhost:8545'
+if (process?.argv) {
+  const urlIndex = process?.argv?.findIndex(_ => _.startsWith('--rpcUrl'))
   if (urlIndex >= 0)
     testClient = process.argv[urlIndex].startsWith('-rpcUrl=') ? process.argv[urlIndex].substr(9).trim() : process.argv[urlIndex + 1]
 }
@@ -61,10 +59,6 @@ if (process && process.argv) {
 export function getTestClient() {
   return testClient
 }
-
-
-
-const getAddress = util.getAddress
 
 export type ResponseModifier = (RPCRequest, RPCResponse, url?: string) => RPCResponse
 
@@ -90,8 +84,8 @@ export class TestTransport implements Transport {
 
   bypassTopInjectedResponseCheck: boolean
 
-  constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>, handlerType?: string, regId?: string) {
-    this.chainId = '0x1'
+  constructor(count = 5, registry?: string, pks?: PK[], handlerConfig?: Partial<IN3RPCHandlerConfig>, handlerType?: string, regId?: string, chainId?: string) {
+    this.chainId = chainId || '0x1'
     this.lastRandom = 0
     this.randomList = []
     this.handlers = {}
@@ -103,11 +97,11 @@ export class TestTransport implements Transport {
       nodes,
       contract: registry,
       lastBlockNumber: 0,
-      registryId: regId ? regId : '0x'
+      registryId: regId ? regId : '0x0000000000000000000000000000000000000000000000000000000000000000'
     } as any
     for (let i = 0; i < count; i++) {
       const privateKey = pks ? pks[i] : createPK('0x7c4aa055bcee97a7b3132a2bf5ef2ca1f219564388c1b622000000000000000' + i)
-      const url = '#' + (i + 1)
+      const url = `http://avalid.url/#${i + 1}`
       nodes.push({
         address: privateKey.address,
         url: url,
@@ -116,7 +110,7 @@ export class TestTransport implements Transport {
         props: 255,
         index: i
       })
-      this.handlers['#' + (i + 1)] = new RPC({
+      this.handlers[`http://avalid.url/#${i + 1}`] = new RPC({
         port: 0,
         chains: {
           [this.chainId]: {
@@ -146,16 +140,14 @@ export class TestTransport implements Transport {
     return Promise.resolve(true)
   }
   async mustFail(p: Promise<any>): Promise<any> {
-    return p.then(_ => Promise.reject(new Error('Must have failed')), err => true)
+    return p.then(_ => Promise.reject(new Error('Must have failed')), _err => true)
   }
 
   defineGetFromServer(url: string, chain: string) {
-
     (this.handlers[url].handlers[chain] as any).getFromServer = 
-      (request: Partial<RPCRequest>, r?: any, rpc?: string): Promise<RPCResponse> => {
+      (request: Partial<RPCRequest>, _r?: any, _rpc?: string): Promise<RPCResponse> => {
         for (const ir of this.injectedResponses) {
           if ( ir.request.method !== request.method || !isEqual(ir.request.params, request.params)) continue
-
           logger.debug('Response (injected in local getfromserver) : ', { id: request.id, ...ir.response })
           return Promise.resolve( ir.response as RPCResponse )
         }
@@ -163,7 +155,7 @@ export class TestTransport implements Transport {
       };
 
     (this.handlers[url].handlers[chain] as any).getAllFromServer = 
-      (requests: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]> => {
+      (requests: Partial<RPCRequest>[], _r?: any, _rpc?: string): Promise<RPCResponse[]> => {
         let res: RPCResponse[] = []
         requests.forEach(request => {
           if (!request) {
@@ -181,30 +173,26 @@ export class TestTransport implements Transport {
       }
   }
 
-
-  detectFraud(client: Client, method: string, params: any[], conf: Partial<IN3Config>, fn: (req: RPCRequest, res: RPCResponse) => any | RPCResponse, mustFail = true): Promise<any> {
-
-    this.clearInjectedResponsed()
+  detectFraud(client: any, method: string, params: any[], _conf: Partial<IN3Config>, fn: (req: RPCRequest, res: RPCResponse) => any | RPCResponse, mustFail = true): Promise<any> {
+    this.clearInjectedResponses()
     // now manipulate the result
     this.injectResponse({ method }, (req, res) => fn(req, res) || res)
-    return client.sendRPC(method, params)
+    return client.in3.sendRPC(method, params)
       .then(() => {
         if (mustFail)
-          throw new Error('This rpc-call ' + method + ' must fail because it was manipulated, but did not')
+          throw new Error(`This rpc-call ${method} must fail because it was manipulated, but did not`)
 
       }, () => {
         if (!mustFail)
-          throw new Error('This rpc-call ' + method + ' must not fail even though it was manipulated, but did')
+          throw new Error(`This rpc-call ${method} must not fail even though it was manipulated, but did`)
       })
   }
 
-
-  clearInjectedResponsed() {
+  clearInjectedResponses() {
     this.injectedResponses.length = 0
   }
 
   async getFromServer(method: string, ...params: any[]) {
-
     for (let i = 0; i < params.length; i++) {
       if (typeof params[i] === 'string' && params[i].startsWith("0x0")) {
         if (params[i].substr(2).length % 32 != 0 && params[i].substr(2).length % 20 != 0) {
@@ -220,9 +208,11 @@ export class TestTransport implements Transport {
     return res.data.result
   }
 
-  async handle(url: string, data: RPCRequest | RPCRequest[], timeout?: number): Promise<RPCResponse | RPCResponse[]> {
+  async handle(url: string, data: RPCRequest | RPCRequest[], _timeout?: number): Promise<RPCResponse | RPCResponse[]> {
     const requests = Array.isArray(data) ? data : [data]
-    const results = await Promise.all(requests.map(_ => this.handleRequest(_, this.handlers[url], url)))
+    const results = await Promise.all(requests.map(_ => {
+      return this.handleRequest(_, this.handlers[url], url)
+    }))
     return Array.isArray(data) ? results : results[0]
   }
 
@@ -231,6 +221,7 @@ export class TestTransport implements Transport {
 
     const responseModifiers: ResponseModifier[] = []
 
+    // Thank you junaid...
     if(!this.bypassTopInjectedResponseCheck)
       for (const ir of this.injectedResponses) {
         if (ir.url && ir.url !== url) continue
@@ -257,7 +248,6 @@ export class TestTransport implements Transport {
     return this.lastRandom
   }
 
-
   random(count: number): number[] {
     const result = this.randomList.pop() || []
     for (let i = result.length; i < count; i++)
@@ -265,32 +255,31 @@ export class TestTransport implements Transport {
     return result
   }
 
-  async createClient(conf?: Partial<IN3Config>): Promise<Client> {
-    const cache = {}
-    const client = new Client({
+  async createClient(conf?: any): Promise<SDK> {
+    const client = await SDK.create({
       keepIn3: true,
       chainId: this.chainId,
       timeout: 9999999,
-      loggerUrl: '',
-      cacheStorage: {
-        setItem(k: string, v: string) {
-          cache[k] = v
-        },
-        getItem(k: string) {
-          return cache[k]
-        }
-      },
-      servers: {
+      autoUpdateList: false,
+      nodes: {
         [this.chainId]: {
-          contract: this.nodeList.contract || 'dummy',
+          contract: this.nodeList.contract || '0x0000000000000000000000000000000000000000',
           nodeList: this.nodeList.nodes,
-          registryId: this.registryId || '0x'
-        } as any
+          registryId: this.registryId,
+          needsUpdate: false
+        }
       },
       ...(conf || {})
       // @ts-ignore
-    }, this)
-    await client.updateNodeList(client.defConfig.chainId, { proof: 'none' })
+    })
+
+    client.in3.transport = async (url: string, data: string, _timeout?: number): Promise<string> => {
+      const parsedData = JSON.parse(data)
+      const requests = Array.isArray(parsedData) ? parsedData : [parsedData]
+      const results = await Promise.all(requests.map(_ => this.handleRequest(_, this.handlers[url], url)))
+      return JSON.stringify(results)
+    }
+
     return client
   }
 
@@ -325,19 +314,19 @@ export class TestTransport implements Transport {
 
   async getNodeCountFromContract() {
     const [count] = await callContract(this.url, this.nodeList.contract, 'totalNodes():(uint)', [])
-    return util.toNumber(count)
+    return toNumber(count)
   }
 
   getHandlerPK(index: number): PK {
-    return (this.handlers['#' + (index + 1)].getHandler().config as any)._pk
+    return (this.getHandler(index).config as any)._pk
   }
 
   getHandlerConfig(index: number): IN3RPCHandlerConfig {
-    return this.handlers['#' + (index + 1)].getHandler().config
+    return this.getHandler(index).config
   }
 
   getHandler(index: number): RPCHandler {
-    return this.handlers['#' + (index + 1)].getHandler()
+    return this.handlers[`http://avalid.url/#${index+1}`].getHandler()
   }
 
   async getErrorReason(txHash?: string): Promise<string> {
@@ -369,7 +358,7 @@ export class TestTransport implements Transport {
 
       pks.push(await test.createAccount(null, toBN('5000000000000000000')))
       servers.push({
-        url: '#' + (i + 1),
+        url: `http://avalid.url/#${i+1}`,
         pk: pks[i],
         props: '0xffff',
         deposit: toBN('10000000000000000'),
@@ -379,7 +368,7 @@ export class TestTransport implements Transport {
 
     //  register 1 server
     const registers = await registerNodes(pks[0], null, servers, test.chainId, test.url, new LoggingAxiosTransport())
-    const res = new TestTransport(count, registers.registry, pks)
+    const res = new TestTransport(count, registers.registry, pks, undefined, undefined, registers.regId)
     res.registryId = registers.regId
     res.registryContract = registers.registry
     res.nodeList.contract = registers.regData

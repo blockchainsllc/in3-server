@@ -33,11 +33,11 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import Client from 'in3'
+import { SDK } from '@blockchainsllc/equs-sdk'
 import * as txUtils from '../../src/util/tx'
 
-export async function callContractWithClient(client: Client, contract: string, signature: string, ...args: any[]) {
+export async function callContractWithClient(client: SDK, contract: string, signature: string, ...args: any[]) {
   const data = '0x' + txUtils.encodeFunction(signature, args)
 
-  return client.sendRPC('eth_call', [{ to: contract, data }, 'latest'], client.defConfig.chainId)
+  return client.in3.sendRPC('eth_call', [{ to: contract, data }, 'latest'])
 }

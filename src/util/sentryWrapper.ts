@@ -38,7 +38,7 @@ class HubWrapper {
     this.hub.captureMessage(msg)
   }
 
-  configureScope(tags: any = {}, extras: any = {}) {
+  configureScope(tags: any = {}, _extras: any = {}) {
     if (!isSentryAvailable()) return
 
     this.hub.configureScope(scope => {
@@ -145,7 +145,7 @@ const captureError = err => {
   Sentry.withScope(scope => {
     scope.setExtra("body", err.body)
     scope.setExtra("stack", err.stack)
-    this.captureException(err)
+    captureException(err)
   })
 }
 

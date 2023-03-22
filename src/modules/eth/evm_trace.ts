@@ -198,10 +198,10 @@ export function analyse(trace, storageAccount: string, result?: any, level = '')
   if (!result) result = { blocks: [], accounts: { [storageAccount]: { storage: {}, code: trace.code } } }
   const getAccount = (a?: string) => result.accounts[a || storageAccount] || (result.accounts[a || storageAccount] = { storage: {} })
 
-  trace.ops.forEach((s, count) => {
+  trace.ops.forEach((s, _count) => {
     const c = codes[code.substr(s.pc * 2, 2)] as string
     if (!c) throw new Error('ERROR Could not find ' + code.substr(s.pc * 2, 2))
-    let [op, sdelete, sadd, desc] = c.split(' ')
+    let [op, sdelete, sadd, _desc] = c.split(' ')
     let sdel = parseInt(sdelete)
 
     if (s.sub) {

@@ -34,13 +34,12 @@
 
 
 
-import { assert } from 'chai'
-import 'mocha'
-import * as util  from '../../src/util/util'
-import Client from 'in3'
+import { assert } from 'chai';
+import 'mocha';
+import { resetSupport } from '../../src/modules/eth/proof';
 import { registerNodes } from '../../src/util/registry';
-import { LoggingAxiosTransport, getTestClient, TestTransport } from '../utils/transport'
-import { resetSupport} from '../../src/modules/eth/proof'
+import * as util from '../../src/util/util';
+import { getTestClient, LoggingAxiosTransport, TestTransport } from '../utils/transport';
 
 describe('Deploying Contracts', () => {
 
@@ -71,31 +70,8 @@ describe('Deploying Contracts', () => {
       timeout: 3600
     }], '0x99', getTestClient(), new LoggingAxiosTransport())
 
-
-    // create a client which reads the chainData from the contract
-    const client = new Client({
-      chainId: '0x99',
-      mainChain: '0x99',
-      servers: {
-        '0x99': {
-          contract: registers.registry,
-          contractChain: '0x99',
-          // we give him a bootnode which simply reads directly from parity
-          nodeList: [{
-            address: pk.address,
-            url: getTestClient(),
-            chainIds: ['0x99'],
-            deposit: util.toBN('10000000000000000') as any
-          }]
-        }
-      }
-    })
-
     assert.lengthOf(registers.registry, 42, 'No serverRegistry')
     assert.equal(registers.chainId, '0x99')
-
-
-
   })
 })
 

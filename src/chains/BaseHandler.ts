@@ -31,25 +31,25 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-import { Transport, AxiosTransport, NoneRejectingAxiosTransport } from '../util/transport'
-import * as serialize from '../modules/eth/serialize'
-import { WhiteList, RPCRequest, RPCResponse, ServerList, IN3RPCHandlerConfig, AppContext } from '../types/types'
 import axios from 'axios'
-import { getNodeList, updateNodeList } from './nodeListUpdater'
-import Watcher from './watch'
-import { checkPrivateKey, checkRegistry } from './initHandler'
-import { collectSignatures, handleSign, PK } from './signatures'
-import { RPCHandler } from '../server/rpc'
-import { SimpleCache } from '../util/cache'
-import * as logger from '../util/logger'
-import { toMinHex, toHex, toNumber } from '../util/util'
-import { in3ProtocolVersion, maxWatchBlockTimeout } from '../types/constants'
-import WhiteListManager from './whiteListManager'
-import * as promClient from 'prom-client';
-import HealthCheck from '../util/healthCheck'
+import { keccak256 } from 'ethereum-cryptography/keccak'
 import { writeFileSync } from 'fs'
+import * as promClient from 'prom-client'
+import * as serialize from '../modules/eth/serialize'
+import { RPCHandler } from '../server/rpc'
+import { in3ProtocolVersion, maxWatchBlockTimeout } from '../types/constants'
+import { AppContext, IN3RPCHandlerConfig, RPCRequest, RPCResponse, ServerList, WhiteList } from '../types/types'
+import { SimpleCache } from '../util/cache'
+import HealthCheck from '../util/healthCheck'
+import * as logger from '../util/logger'
 import { IncubedError, RPCException, SigningError } from '../util/sentryError'
-import { keccak256 } from 'ethereumjs-util'
+import { NoneRejectingAxiosTransport, Transport } from '../util/transport'
+import { toHex, toMinHex, toNumber } from '../util/util'
+import { checkPrivateKey, checkRegistry } from './initHandler'
+import { getNodeList, updateNodeList } from './nodeListUpdater'
+import { collectSignatures, handleSign } from './signatures'
+import Watcher from './watch'
+import WhiteListManager from './whiteListManager'
 
 let firstTestRecord = true
 
@@ -122,7 +122,7 @@ export default abstract class BaseHandler implements RPCHandler {
 
     let concatenatedData = toSign.map(val => toHex(val).substr(2).padStart(64, '0'))
     const signer = (this.config as any)._pk
-    let { r, s, v } = signer ? signer.sign(keccak256(`0x${concatenatedData}`)) : { r: 0, s: 0, v: 0 }
+    let { r, s, v } = signer ? signer.sign(keccak256(Buffer.from(concatenatedData.join(), "utf-8"))) : { r: 0, s: 0, v: 0 }
 
     return {
       id: request.id || 1,
@@ -158,10 +158,8 @@ export default abstract class BaseHandler implements RPCHandler {
     if (!request.jsonrpc) request.jsonrpc = '2.0'
 
     const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
-    let ip = "0.0.0.0"
     if (r && r.ip) {
       headers['X-Origin-IP'] = r.ip
-      ip = r.ip;
     }
 
     if (process.env.IN3VERBOSERPC)
@@ -223,13 +221,11 @@ export default abstract class BaseHandler implements RPCHandler {
 
   /** returns a array of requests from the server */
   getAllFromServer(request: Partial<RPCRequest>[], r?: any, rpc?: string): Promise<RPCResponse[]> {
-
     const headers = { 'Content-Type': 'application/json', 'User-Agent': 'in3-node/' + in3ProtocolVersion }
-    let ip = "0.0.0.0"
     if (r && r.ip) {
       headers['X-Origin-IP'] = r.ip
-      ip = r.ip;
     }
+
     const startTime = Date.now()
 
     if (process.env.IN3VERBOSERPC)
@@ -338,7 +334,7 @@ export default abstract class BaseHandler implements RPCHandler {
     return wl
   }
 
-  getRequestFromPath(path: string[], in3: { chainId: string; }): RPCRequest {
+  getRequestFromPath(_path: string[], _in3: { chainId: string; }): RPCRequest {
     return null
   }
 

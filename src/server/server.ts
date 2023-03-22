@@ -32,30 +32,30 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 // tslint:disable-next-line:missing-jsdoc
+import axios from 'axios';
+import { writeFileSync } from 'fs';
+import Koa from 'koa';
+import bodyParser from 'koa-bodyparser';
+import Router from 'koa-router';
 import * as promClient from 'prom-client';
-
-import * as logger from '../util/logger'
-import { SentryError } from '../util/sentryError'
-import * as Koa from 'koa'
-import * as bodyParser from 'koa-bodyparser'
-import * as Router from 'koa-router'
-import { readCargs } from './config'
-const config = readCargs()
-import { RPC, submitRequestTime } from './rpc'
-import { aliases as chainAliases } from '../util/util'
-import { RPCRequest, IN3RPCConfig, KoaContext } from '../types/types'
-import { initConfig } from '../util/db'
-import { encodeObject } from '../util/binjson'
-import { checkBudget } from './clients'
-import { in3ProtocolVersion } from '../types/constants'
-import axios from 'axios'
-import { writeFileSync } from 'fs'
-import HealthCheck from '../util/healthCheck'
-
-
-import requestTime from '../util/koa/requestTime'
 import { PK } from '../chains/signatures';
-import { initSentry, hookSentryKoa, HubWrapper } from '../util/sentryWrapper'
+import { in3ProtocolVersion } from '../types/constants';
+import { IN3RPCConfig, KoaContext, RPCRequest } from '../types/types';
+import { encodeObject } from '../util/binjson';
+import { initConfig } from '../util/db';
+import HealthCheck from '../util/healthCheck';
+import requestTime from '../util/koa/requestTime';
+import * as logger from '../util/logger';
+import { SentryError } from '../util/sentryError';
+import { hookSentryKoa, HubWrapper, initSentry } from '../util/sentryWrapper';
+import { aliases as chainAliases } from '../util/util';
+import { checkBudget } from './clients';
+import { readCargs } from './config';
+import { RPC, submitRequestTime } from './rpc';
+
+const config = readCargs()
+
+
 
 //Hook up Sentry
 initSentry()
@@ -84,7 +84,7 @@ const statsMetadata = new promClient.Gauge({
 });
 
 // Hook to nodeJs events
-function handleExit(signal) {
+function handleExit() {
   logger.info("Stopping in3-server gracefully...");
   process.exit(0);
 }
@@ -154,7 +154,7 @@ router.post(/.*/, async (ctx: KoaContext) => {
 
   try {
     // check for valid req
-    if ((!ctx.request.body || (typeof (ctx.request.body) === 'object' && !ctx.request.body.method)) && (!ctx.headers['content-type'] || ctx.headers['content-type'].indexOf('application/json') !== 0))
+    if ((!ctx.request.body || (typeof (ctx.request.body) === 'object' && !(ctx.request.body as any).method)) && (!ctx.headers['content-type'] || ctx.headers['content-type'].indexOf('application/json') !== 0))
       throw new Error('Request must contain header "Content-Type:application/json"')
 
     const stats = requests && requests.length && requests[0].in3 ? ((requests[0].in3 as any).stats === false ? false : ((requests[0].in3 as any).noStats ? false : true)) : true
@@ -214,7 +214,6 @@ router.get(/.*/, async ctx => {
 
   //  '/:chain/:method/:args'
   const path = ctx.path.split('/')
-  const ip = asString(ctx.headers['x-origin-ip'] || ctx.ip || 'default')
   const ua = asString(ctx.headers['User-Agent'] || ctx.header['user-agent'] || 'no-ua')
 
 
@@ -253,7 +252,7 @@ router.get(/.*/, async ctx => {
     ctx.status = err.status || 500
     ctx.body = err.message
     logger.error('Error handling ' + err.message + ' for ' + ctx.request.url, { reqBody: ctx.request.body, errStack: err.stack, reqHeaders: ctx.request.headers, peerIp: ctx.request.ip });
-    throw new SentryError(err, ctx, "request_status", ctx.request.body)
+    throw new SentryError(err, ctx, "request_status", (ctx.request as any).body)
   }
 })
 

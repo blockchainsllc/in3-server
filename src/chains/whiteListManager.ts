@@ -32,17 +32,16 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import { RPCHandler } from '../server/rpc'
-import { WhiteList, RPCRequest } from '../types/types'
-import { isValidChecksumAddress } from 'ethereumjs-util'
 import { AbiCoder } from '@ethersproject/abi'
-import { createNodeListProof } from './nodeListUpdater'
 import * as abi from 'ethereumjs-abi'
-import * as logger from '../util/logger'
-import * as  util from '../util/util'
 import * as ethabi from 'ethereumjs-abi'
-import { maxWhiteListContracts, maxWhiteListCacheCap } from '../types/constants'
+import { RPCHandler } from '../server/rpc'
+import { maxWhiteListCacheCap, maxWhiteListContracts } from '../types/constants'
+import { RPCRequest, WhiteList } from '../types/types'
+import * as logger from '../util/logger'
 import { isValidAddress } from '../util/tx'
+import * as util from '../util/util'
+import { createNodeListProof } from './nodeListUpdater'
 
 export default class WhiteListManager {
     private whiteListEventsBlockNum: Map<string, number> //mapping of whitelist contract address and last block event

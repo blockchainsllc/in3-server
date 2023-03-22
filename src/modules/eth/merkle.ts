@@ -32,7 +32,7 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import * as Trie from 'merkle-patricia-tree'
+import { BaseTrie as Trie } from 'merkle-patricia-tree'
 import { parentPort } from 'worker_threads'
 import * as util  from '../../util/util'
 
@@ -57,12 +57,8 @@ async function createMerkleProof(values, key, expectedRoot) {
         if (expectedRoot && !expectedRoot.equals(trie.root))
             throw new Error('The rootHash is wrong! : ' + toHex(expectedRoot) + '!==' + toHex(trie.root))
 
-        return new Promise<Buffer[]>((resolve, reject) =>
-            Trie.prove(trie, Buffer.from(key), (err, prove) => {
-                if (err) return reject(err)
-                resolve(prove as Buffer[])
-            })
-        )
+        return Trie.createProof(trie, Buffer.from(key))
+        
     } catch (error) {
         throw new Error(error)
     }

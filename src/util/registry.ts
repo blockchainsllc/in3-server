@@ -33,13 +33,13 @@
  *******************************************************************************/
 
 
-import * as tx from './tx'
-import { toChecksumAddress } from 'ethereumjs-util'
-import { Transport} from './transport'
+import { toChecksumAddress } from '@ethereumjs/util'
 import { readFileSync } from 'fs'
-import { padStart,toHex } from './util'
-import { PK } from '../chains/signatures';
+import { PK } from '../chains/signatures'
 import { AppContext } from '../types/types'
+import { Transport } from './transport'
+import * as tx from './tx'
+import { padStart, toHex } from './util'
 
 const bin = require('in3-contracts/contracts/contracts.json')
 
@@ -66,7 +66,6 @@ export function deployContract(name: string, pk: PK, url = 'http://localhost:854
 
 
 export async function deployNodeRegistry(pk: PK, url = 'http://localhost:8545', transport?: Transport, context?: AppContext) {
-
   const blockHashAddress = await deployBlockhashRegistry(pk, url, transport, context)
   const erc20 = await deployERC20(pk, url, transport, context)
   const regData = await deployRegistryData(pk, url, transport, context)
@@ -74,7 +73,7 @@ export async function deployNodeRegistry(pk: PK, url = 'http://localhost:8545', 
     '0x' + in3ContractBin.contracts[Object.keys(in3ContractBin.contracts).find(_ => _.indexOf('/contracts/NodeRegistryLogic.sol:NodeRegistryLogic') >= 0)].bin
     + toHex(blockHashAddress, 32).substr(2)
     + toHex(regData, 32).substr(2)
-    + toHex('2386f26fc10000', 32).substr(2)
+    + toHex('0x2386f26fc10000', 32).substr(2)
     , {
       privateKey: pk,
       gas: 8000000,
@@ -118,14 +117,12 @@ export async function registerNodes(pk: PK, registry: string, data: {
   deposit: any
   timeout: number
   weight?: number
-}[], chainId: string, url = 'http://localhost:8545', transport?: Transport, registerChain = true, context?: AppContext) {
+}[], chainId: string, url = 'http://localhost:8545', transport?: Transport, _registerChain = true, context?: AppContext) {
   if (!registry)
     registry = await deployNodeRegistry(pk, url, transport, context)
 
   const regData = await tx.callContract(url, registry, "nodeRegistryData():(address)", []).then(_ => _[0])
   const erc20 = await tx.callContract(url, regData, "supportedToken():(address)", []).then(_ => _[0])
-
-  let ci = 1
 
   for (const c of data) {
     // first create tokens

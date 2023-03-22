@@ -10,7 +10,9 @@
     "experimentalDecorators": false,
     "diagnostics": false,
     "inlineSources": true,
-    "sourceRoot": "/"
+    "sourceRoot": "/",
+    "esModuleInterop": true,
+    "resolveJsonModule": true
   },
   "include": [
     "src/**/*.ts",

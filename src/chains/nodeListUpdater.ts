@@ -31,16 +31,16 @@
  * You should have received a copy of the GNU Affero General Public License along 
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
-import { RPCHandler } from '../server/rpc'
-import * as tx from '../util/tx' 
-import  * as util from '../util/util'
-import * as serialize from '../modules/eth/serialize'
-import {BlockData} from '../modules/eth/serialize'
-import * as storage from '../modules/eth/storage'
-import { Proof, ServerList, AccountProof, RPCRequest, IN3NodeConfig, WhiteList, AppContext } from '../types/types'
-import * as logger from '../util/logger'
-import * as abi from 'ethereumjs-abi'
 import axios from 'axios'
+import * as abi from 'ethereumjs-abi'
+import * as serialize from '../modules/eth/serialize'
+import { BlockData } from '../modules/eth/serialize'
+import * as storage from '../modules/eth/storage'
+import { RPCHandler } from '../server/rpc'
+import { AccountProof, AppContext, IN3NodeConfig, Proof, RPCRequest, ServerList, WhiteList } from '../types/types'
+import * as logger from '../util/logger'
+import * as tx from '../util/tx'
+import * as util from '../util/util'
 
 
 const toHex = util.toHex
@@ -324,14 +324,14 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
     if (n.error) return null
 
     try {
-      let url: string = '', deposit: any, timeout = 40 * 24 * 3600, registerTime: any, props: any, weight: any, signer: string, proofHash: any
+      let url: string = '', deposit: any, timeout = 40 * 24 * 3600, registerTime: any, props: any, weight: any, signer: string, _proofHash: any
 
       if (contractVersion2)
-        [url, deposit, registerTime, props, weight, signer, proofHash] = abi.simpleDecode(
+        [url, deposit, registerTime, props, weight, signer, _proofHash] = abi.simpleDecode(
           'nodes(uint):(string,uint,uint64,uint192,uint64,address,bytes32)'
           , toBuffer(n.result))
       else
-        [url, deposit, timeout, registerTime, props, weight, signer, proofHash] = abi.simpleDecode(
+        [url, deposit, timeout, registerTime, props, weight, signer, _proofHash] = abi.simpleDecode(
           'nodes(uint):(string,uint,uint64,uint64,uint128,uint64,address,bytes32)'
           , toBuffer(n.result))
 
@@ -366,20 +366,11 @@ export async function updateNodeList(handler: RPCHandler, list: ServerList, last
   if (!proof) {
     handler.healthCheck.setOpError(new Error("Unable to prepare proof for nodelist."))
   }
+
   list.proof = proof
 
   logger.info('... finish updating nodelist execTime: ' + (Date.now() - start) + 'ms')
-  //    delete (handler as any).isUpdating
-  //    isUpdating.forEach(_ => _.res())
-
-  //}
-  //  catch (x) {
-  //    delete (handler as any).isUpdating
-  //    isUpdating.forEach(_ => _.rej(x))
-  //  throw x
-  //}
   updatePerformance(handler, list);
-
 }
 
 const healthInterval = 900 * 1000 // every 15 min
@@ -402,7 +393,7 @@ function updatePerformance(handler: RPCHandler, list: ServerList) {
     isChecking = true
     Promise.all(list.nodes.filter(_=>_.url).map(async n => {
       const start = Date.now()
-      let healthy = await axios.get(n.url + '/health').then(_ => _.data && _.data.status === 'healthy', err => false)
+      let healthy = await axios.get(n.url + '/health').then(_ => _.data && _.data.status === 'healthy', _err => false)
       const p = n.performance || (n.performance = { count: 0, total: 0, last_failed: 0 })
       p.count++
       p.total += Date.now() - start

@@ -32,9 +32,7 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import * as Ajv from 'ajv'
-import * as util from './util'
-
+import Ajv, { FuncKeywordDefinition, ValidateFunction } from 'ajv'
 
 /**
  * the ajv instance with custom formatters and keywords
@@ -47,12 +45,20 @@ ajv.addFormat('hex', /^0x[0-9a-fA-F]{2,}$/)
 ajv.addFormat('hexWithout', /^[0-9a-fA-F]{2,}$/)
 ajv.addFormat('path', /^[\/a-zA-Z_\-0-9]+$/)
 
-ajv.addKeyword('timestamp', {
+const secondsNow = () => Date.now() / 1000
+const ONE_MINUTE = 60
+
+const keywordDefinition: FuncKeywordDefinition = {
+  keyword: 'timestamp',
   type: 'number',
-  validate: (sch, data) => sch === 'current'
-    ? !!(data > Date.now() / 1000 - 60 || data < Date.now() / 1000 + 60)
-    : !!(data === 0 || Date.now() / 1000 - 3600 * 24 * 365 || data < Date.now() / 1000 + 3600 * 24 * 365)
-})
+  validate(sch, data) {
+    return sch === 'current'
+    ? !!(data > secondsNow() - ONE_MINUTE || data < secondsNow() + ONE_MINUTE)
+    : !!(data === 0 || secondsNow() - 3600 * 24 * 365 || data < Date.now() / 1000 + 3600 * 24 * 365)
+  }
+}
+
+ajv.addKeyword('timestamp', keywordDefinition)
 
 /**
  * validates the data and throws an error in case they are not valid.
@@ -61,10 +67,10 @@ ajv.addKeyword('timestamp', {
  * @param {Ajv.ValidateFunction} fn 
  * @param {any} ob 
  */
-export function validateAndThrow(fn: Ajv.ValidateFunction, ob) {
+export function validateAndThrow(fn: ValidateFunction, ob) {
   if (!fn(ob))
     throw new Error('ERRKEY: invalid_data : ' + (fn).errors.map(_ =>
-      _.dataPath + '(' + JSON.stringify(_.data || _.params) + '):' + _.message).join(', ') + ':' + JSON.stringify(ob, null, 2))
+      _.schemaPath + '(' + JSON.stringify(_.data || _.params) + '):' + _.message).join(', ') + ':' + JSON.stringify(ob, null, 2))
 }
 
 export function validate(ob: any, def: any) {

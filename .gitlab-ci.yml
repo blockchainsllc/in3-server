@@ -1,7 +1,8 @@
-image: docker.slock.it/build-images/node:11-alpine
 variables:
   COMMIT_IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
   RELEASE_IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
+
+image: docker.slock.it/build-images/cmake:clang16
 stages:
   - build
   - test
@@ -38,7 +39,8 @@ build-server:
   tags:
     - short-jobs
   script:
-#    - sh /prepare.sh
+    - npm config set "@blockchainsllc:registry" 'https://git.slock.it/api/v4/projects/1002/packages/npm/'
+    - npm config set "//git.slock.it/api/v4/projects/1002/packages/npm/:_authToken" "${CI_JOB_TOKEN}"
     - npm install
     - npm run build
   artifacts:
@@ -61,7 +63,8 @@ test-parity:
     - name: slockit/parity-time-maschine:v0.0.1
       alias: parity
   script:
-#    - sh /prepare.sh
+    - npm config set "@blockchainsllc:registry" 'https://git.slock.it/api/v4/projects/1002/packages/npm/'
+    - npm config set "//git.slock.it/api/v4/projects/1002/packages/npm/:_authToken" "${CI_JOB_TOKEN}"
     - npm install
     - npm run testReport
   artifacts:
@@ -88,7 +91,8 @@ test-nethermind:
     - name: docker.slock.it/build-images/nethermind
       alias: nethermind
   script:
-#    - sh /prepare.sh
+    - npm config set "@blockchainsllc:registry" 'https://git.slock.it/api/v4/projects/1002/packages/npm/'
+    - npm config set "//git.slock.it/api/v4/projects/1002/packages/npm/:_authToken" "${CI_JOB_TOKEN}"
     - npm install
     - npm run testReport
   artifacts:
@@ -112,10 +116,11 @@ test-geth:
         - daemon
         - --offline
       alias: ipfs
-    - name: docker.slock.it/core-technology/geth-timemachine:master
+    - name: docker.slock.it/core-technology/geth-timemachine:latest
       alias: geth
   script:
-#    - sh /prepare.sh
+    - npm config set "@blockchainsllc:registry" 'https://git.slock.it/api/v4/projects/1002/packages/npm/'
+    - npm config set "//git.slock.it/api/v4/projects/1002/packages/npm/:_authToken" "${CI_JOB_TOKEN}"
     - npm install
     - npm run testReport
   artifacts:
@@ -134,7 +139,7 @@ package-docker:
   image: docker.slock.it/build-images/deployment
   script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
-    - docker build --build-arg NPM_REGISTRY_TOKEN=${NPM_REGISTRY_TOKEN} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} --build-arg VERSION=${COMMIT_IMAGE_TAG} -t $COMMIT_IMAGE_TAG .
+    - docker build --build-arg NPM_REGISTRY_TOKEN=${CI_JOB_TOKEN} --build-arg CI_COMMIT_SHA=${CI_COMMIT_SHA} --build-arg VERSION=${COMMIT_IMAGE_TAG} -t $COMMIT_IMAGE_TAG .
     - docker tag $COMMIT_IMAGE_TAG $RELEASE_IMAGE_TAG
     - docker push $RELEASE_IMAGE_TAG
     - docker push $COMMIT_IMAGE_TAG

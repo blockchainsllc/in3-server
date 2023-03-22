@@ -16,7 +16,7 @@
       "id": 1,
       "error": {
         "code": -32602,
-        "message": "getbestblockhash : params should NOT have more than 0 items"
+        "message": "getbestblockhash : params must NOT have more than 0 items"
       },
       "jsonrpc": "2.0"
     }

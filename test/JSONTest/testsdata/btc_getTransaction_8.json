@@ -14,7 +14,7 @@
       "id": 1,
       "error": {
         "code": -32602,
-        "message": "getrawtransaction : params should NOT have fewer than 1 items"
+        "message": "getrawtransaction : params must NOT have fewer than 1 items"
       },
       "jsonrpc": "2.0"
     }

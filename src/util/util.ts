@@ -35,15 +35,12 @@
 // this is eded in order to run in browsers
 const Buffer: any = require('buffer').Buffer
 
-import * as ethUtil from 'ethereumjs-util'
-import { RPCResponse } from '../types/types'
-import { Block, hash, rlp } from '../modules/eth/serialize'
-import { publicToAddress } from 'ethereumjs-util'
+import BN from 'bn.js'
+import { Block, hash } from '../modules/eth/serialize'
+import { rlp, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
+import { publicToAddress, bufferToHex } from '@ethereumjs/util'
+import { keccak256 } from 'ethereum-cryptography/keccak'
 import * as secp256k1 from 'secp256k1'
-
-const BN = ethUtil.BN
-
-
 
 const fixLength = (hex: string) => hex.length % 2 ? '0' + hex : hex
 
@@ -77,7 +74,8 @@ export function toBN(val: any) {
   if (val && val._isBigNumber) val = val.toHexString();
   if (typeof val === 'number') return new BN(Math.round(val).toString())
   if (Buffer.isBuffer(val)) return new BN(val)
-  return new BN(toHex(val).substr(2), 16)
+  const hexVal = toHex(val).substr(2)
+  return new BN(hexVal, 16)
 }
 
 /** 
@@ -86,8 +84,9 @@ export function toBN(val: any) {
 export function toHex(val: any, bytes?: number): string {
   if (val === undefined) return undefined
   let hex: string
-  if (typeof val === 'string')
+  if (typeof val === 'string'){
     hex = val.startsWith('0x') ? val.substr(2) : (parseInt(val[0]) ? new BN(val).toString(16) : Buffer.from(val, 'utf8').toString('hex'))
+  }
   else if (typeof val === 'number')
     hex = val.toString(16)
   else if (BN.isBN(val))
@@ -95,7 +94,7 @@ export function toHex(val: any, bytes?: number): string {
   else if (val && val._isBigNumber)
     hex = val.toHexString();
   else
-    hex = ethUtil.bufferToHex(val).substr(2)
+    hex = bufferToHex(val).substr(2)
   if (bytes)
     hex = padStart(hex, bytes * 2, '0') as string  // workarounf for ts-error in older js
   if (hex.length % 2)
@@ -110,6 +109,8 @@ export function toNumber(val: any): number {
   switch (typeof val) {
     case 'number':
       return val
+    case 'bigint':
+      return Number(val as bigint) // a bit dangerous but should be handled by the callee
     case 'string':
       return parseInt(val)
     default:
@@ -184,7 +185,7 @@ export function toSimpleHex(val: string) {
  */
 export function getAddress(pk: string) {
   const key = toBuffer(pk)
-  return ethUtil.toChecksumAddress(ethUtil.privateToAddress(key).toString('hex'))
+  return toChecksumAddress(toHex(privateToAddress(key)))
 }
 
 /** removes all leading 0 in the hexstring */
@@ -232,9 +233,10 @@ export function createRandomIndexes(len: number, limit: number, seed: Buffer, re
   let step = seed.readUIntBE(0, 6) // first 6 bytes
   let pos = seed.readUIntBE(6, 6) % len// next 6 bytes
   while (result.length < limit) {
-    if (result.indexOf(pos) >= 0)
-      step = (seed = ethUtil.keccak256(seed)).readUIntBE(0, 6)
-    else
+    if (result.indexOf(pos) >= 0) {
+      seed = keccak256(seed).buffer as Buffer
+      step = seed.readUIntBE(0, 6)
+    } else
       result.push(pos)
     pos = (pos + step) % len
   }

@@ -32,17 +32,16 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  *******************************************************************************/
 
-import { methodID } from 'ethereumjs-abi'
-import { toBuffer } from 'ethereumjs-util'
-import { Transport, AxiosTransport } from './transport'
-import * as  util  from './util'
-import { RPCResponse, AppContext } from '../types/types'
-import { SentryError } from '../util/sentryError'
+import { Transaction } from '@ethereumjs/tx'
 import { AbiCoder } from '@ethersproject/abi'
+import { methodID } from 'ethereumjs-abi'
+import { Common } from '@ethereumjs/common'
 import { PK } from '../chains/signatures'
-import { toMinHex,toHex } from './util';
+import { AppContext, RPCResponse } from '../types/types'
+import { SentryError } from '../util/sentryError'
+import { AxiosTransport, Transport } from './transport'
+import { toBuffer, toHex, toMinHex, toUtf8 } from './util'
 const BN = require('bn.js')
-const ETx = require('ethereumjs-tx') as any
 
 
 let idCount = 1
@@ -110,7 +109,6 @@ export async function callContract(url: string, contract: string, signature: str
     : _.result + ''
   )), context)
 }
-
 
 export async function sendTransaction(url: string, txargs: {
   privateKey: PK
@@ -188,35 +186,47 @@ export async function sendTransaction(url: string, txargs: {
       return Math.floor(parseInt(_.result as any) * 1.1)
     })
 
+  let common = Common.custom({ chainId: 0x1, hardforks: [{ name: 'byzantium', block: null }] })
+
+  let chain = await transport.handle(url, {
+    jsonrpc: '2.0',
+    id: idCount++,
+    method: 'eth_chainId',
+    params: [],
+    context: context
+  }).then((_: RPCResponse) => {
+    if (_.error) {
+      throw new Error('Error obtaining chainId')
+    }
+    return _.result
+  })
+
+  if (chain && Common.isSupportedChainId(BigInt(chain))) {
+    common = Common.custom({ chainId: 0x1 })
+  }
+
   // create Transaction
-  const tx = new ETx({
+  let tx = new Transaction({
     nonce: toHex(txargs.nonce),
     gasPrice: toHex(txargs.gasPrice),
     gasLimit: toHex(txargs.gas),
-    gas: toHex(txargs.gas),
     to: txargs.to ? toHex(txargs.to, 20) : undefined,
     value: toHex(txargs.value || 0),
-    data: toHex(txargs.data)
-  })
+    data: toHex(txargs.data || 0)
+  }, { common })
 
   context?.hub?.addBreadcrumb({
     category: "sending tx",
     data: txargs
   })
 
-  // We clear any previous signature before signing it. Otherwise, _implementsEIP155's can give
-  // different results if this tx was already signed.
-  const sig = key.sign(tx.hash(false))
-  if (tx._chainId)
-    sig.v += tx._chainId * 2 + 8
-
-  Object.assign(tx, sig)
+  const signed = key.signTx(tx)
 
   const txHash = await transport.handle(url, {
     jsonrpc: '2.0',
     id: idCount++,
     method: 'eth_sendRawTransaction',
-    params: [toHex(tx.serialize())],
+    params: [toHex(signed.serialize())],
     context: context
   }).then((_: RPCResponse) => _.error ? Promise.reject(new Error('Error sending the tx ' + JSON.stringify(txargs) + ':' + JSON.stringify(_.error))) as any : _.result + '')
 
@@ -254,7 +264,7 @@ export async function getErrorReason(url: string, txHash: string, transport?: Tr
   }
   if (!returnValue || returnValue.length < 128) return ''
   const len = parseInt('0x' + returnValue.substr(69 * 2 - 8, 8))
-  return util.toUtf8('0x' + returnValue.substr(69 * 2, len * 2)) + ' in tx ' + txHash
+  return toUtf8('0x' + returnValue.substr(69 * 2, len * 2)) + ' in tx ' + txHash
 }
 
 
